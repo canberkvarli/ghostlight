@@ -3,12 +3,14 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated from 'react-native-reanimated';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
+import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
 import {
   getCurrentOffering,
   isPurchasesConfigured,
@@ -49,6 +51,7 @@ export default function Paywall() {
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const glow = useBreathingGlow();
 
   useEffect(() => {
     getCurrentOffering().then(setOffering).catch(() => setOffering(null));
@@ -157,6 +160,7 @@ export default function Paywall() {
         </View>
 
         <View style={{ paddingHorizontal: 32, paddingBottom: 24 }}>
+          <Animated.View style={glow}>
           <Pressable
             onPress={buy}
             disabled={busy}
@@ -174,6 +178,7 @@ export default function Paywall() {
               </Text>
             )}
           </Pressable>
+          </Animated.View>
 
           {note ? (
             <Text

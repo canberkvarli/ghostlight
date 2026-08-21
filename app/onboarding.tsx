@@ -13,9 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
+import { CountUp } from '../src/components/CountUp';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
+import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
 import { markOnboardingComplete } from '../src/lib/onboarding';
 import { colors } from '../src/theme/tokens';
 
@@ -38,12 +40,15 @@ interface Panel {
   headline: string;
   line: string;
   chips?: string[];
+  /** When set, the headline's first line is this number, counting up. */
+  count?: number;
 }
 
 const PANELS: Panel[] = [
   {
     eyebrow: '(lights up.)',
-    headline: '10,863\nmonologues.',
+    headline: 'monologues.',
+    count: 10863,
     line: 'Every speech worth knowing, on one stage.',
   },
   {
@@ -171,8 +176,23 @@ function PanelView({
 
         <StageDirection className="mt-8">{panel.eyebrow}</StageDirection>
 
+        {panel.count != null ? (
+          <CountUp
+            to={panel.count}
+            style={{
+              marginTop: 12,
+              fontFamily: 'PlayfairDisplay_600SemiBold',
+              fontSize: 44,
+              lineHeight: 50,
+              color: colors.stageGlow,
+              textAlign: 'center',
+              padding: 0,
+            }}
+          />
+        ) : null}
+
         <Text
-          className="mt-3 text-center text-[40px] leading-[46px] text-foreground"
+          className={`${panel.count != null ? 'mt-1' : 'mt-3'} text-center text-[40px] leading-[46px] text-foreground`}
           style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
         >
           {panel.headline}
@@ -224,6 +244,7 @@ function Footer({
   scrollX: SharedValue<number>;
   onAdvance: (current: number) => void;
 }) {
+  const glow = useBreathingGlow();
   const press = () => {
     const current = Math.round(scrollX.value / width);
     onAdvance(current);
@@ -237,19 +258,21 @@ function Footer({
         ))}
       </View>
 
-      <Pressable
-        onPress={press}
-        accessibilityRole="button"
-        style={{
-          height: 54,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 16,
-          backgroundColor: colors.primary,
-        }}
-      >
-        <ButtonLabel count={count} width={width} scrollX={scrollX} />
-      </Pressable>
+      <Animated.View style={glow}>
+        <Pressable
+          onPress={press}
+          accessibilityRole="button"
+          style={{
+            height: 54,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 16,
+            backgroundColor: colors.primary,
+          }}
+        >
+          <ButtonLabel count={count} width={width} scrollX={scrollX} />
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }

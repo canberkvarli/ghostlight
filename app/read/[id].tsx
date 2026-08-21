@@ -13,6 +13,7 @@ import { getMonologue, getReadState } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
 import { useSession } from '../../src/lib/useSession';
+import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
 import * as Haptics from 'expo-haptics';
 import { colors } from '../../src/theme/tokens';
@@ -31,6 +32,7 @@ import { colors } from '../../src/theme/tokens';
 export default function Read() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const goBack = useGoBack('/search');
   const { height, width } = useWindowDimensions();
 
   // Fixtures first (offline, instant); fall to the live fetch for real search
@@ -100,7 +102,7 @@ export default function Read() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* On the dark shell: the eyebrow and the way back. */}
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-          <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
+          <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
             <Text className="text-[26px] leading-[26px]" style={{ color: colors.dark.mutedForeground }}>
               ‹
             </Text>

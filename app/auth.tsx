@@ -10,6 +10,7 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../src/lib/auth';
+import { useGoBack } from '../src/lib/nav';
 import { colors } from '../src/theme/tokens';
 
 /**
@@ -20,6 +21,7 @@ import { colors } from '../src/theme/tokens';
  */
 export default function Auth() {
   const router = useRouter();
+  const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
   const [appleReady, setAppleReady] = useState(false);
   const [busy, setBusy] = useState<null | 'apple' | 'google'>(null);
@@ -60,7 +62,7 @@ export default function Auth() {
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
             <Text
               className="text-[13px] uppercase tracking-[1.5px] text-muted-foreground"
               style={{ fontFamily: 'Montserrat_500Medium' }}

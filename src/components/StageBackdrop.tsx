@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import {
   Canvas,
@@ -10,7 +10,15 @@ import {
   Rect,
   vec,
 } from '@shopify/react-native-skia';
-import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
+import {
+  Easing,
+  useDerivedValue,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 
 import { colors, spotlight, wash } from '../theme/tokens';
 
@@ -43,17 +51,38 @@ const DESATURATE = [
   0, 0, 0, 1, 0,
 ];
 
+const TWO_PI = Math.PI * 2;
+
 function StageBackdropImpl({ tiltX, tiltY }: Props) {
   const { width, height } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
 
-  const centre = useDerivedValue(() =>
-    vec(
-      width / 2 + tiltX.value * width * TRAVEL_X,
-      height * 0.4 + tiltY.value * height * TRAVEL_Y,
-    ),
+  // A slow clock, 0→1 every 18s, on the UI thread. It gives the stage its own
+  // breath — a lazy Lissajous drift and a faint pulse of the light — so even
+  // with the phone dead still (or in a simulator with no gyro) the ghost light
+  // never feels frozen. Reduced motion holds it at rest, dead centre.
+  const clock = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) {
+      clock.value = 0;
+      return;
+    }
+    clock.value = withRepeat(withTiming(1, { duration: 18000, easing: Easing.linear }), -1, false);
+  }, [reduceMotion, clock]);
+
+  const centre = useDerivedValue(() => {
+    const driftX = Math.sin(clock.value * TWO_PI) * width * 0.06;
+    const driftY = Math.cos(clock.value * TWO_PI * 0.75) * height * 0.035;
+    return vec(
+      width / 2 + driftX + tiltX.value * width * TRAVEL_X,
+      height * 0.4 + driftY + tiltY.value * height * TRAVEL_Y,
+    );
+  });
+
+  const radiusBase = Math.min(spotlight.radius, Math.max(width, height) * 0.95);
+  const radius = useDerivedValue(
+    () => radiusBase * (1 + 0.06 * Math.sin(clock.value * TWO_PI * 1.3)),
   );
-
-  const radius = Math.min(spotlight.radius, Math.max(width, height) * 0.95);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

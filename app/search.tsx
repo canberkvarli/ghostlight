@@ -3,11 +3,18 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
+import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
 import {
   FILTER_CHIPS,
   chipKey,
@@ -41,6 +48,18 @@ export default function Search() {
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY);
+
+  // The search field catches the light when you touch it — the border warms to
+  // orange and a soft glow rises, like stepping into the spot.
+  const focus = useSharedValue(0);
+  const searchGlow = useBreathingGlow();
+  const fieldStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(focus.value, [0, 1], [colors.dark.border, colors.stageGlow]),
+    shadowColor: colors.stageGlow,
+    shadowOpacity: focus.value * 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+  }));
 
   const toggle = useCallback((chip: FilterChip) => {
     Haptics.selectionAsync().catch(() => {});
@@ -99,23 +118,27 @@ export default function Search() {
               What are you{'\n'}looking for?
             </Text>
 
-            <View
-              style={{
-                marginTop: 32,
-                width: '100%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderRadius: 16,
-                borderWidth: 1,
-                paddingHorizontal: 16,
-                borderColor: colors.dark.border,
-                backgroundColor: 'rgba(29, 20, 15, 0.7)',
-              }}
+            <Animated.View
+              style={[
+                fieldStyle,
+                {
+                  marginTop: 32,
+                  width: '100%',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  paddingHorizontal: 16,
+                  backgroundColor: 'rgba(29, 20, 15, 0.7)',
+                },
+              ]}
             >
               <TextInput
                 value={query}
                 onChangeText={setQuery}
                 onSubmitEditing={submit}
+                onFocus={() => (focus.value = withTiming(1, { duration: 260 }))}
+                onBlur={() => (focus.value = withTiming(0, { duration: 320 }))}
                 returnKeyType="search"
                 placeholder="a grieving mother, something funny…"
                 placeholderTextColor={colors.dark.mutedForeground}
@@ -123,7 +146,7 @@ export default function Search() {
                 className="text-[16px] text-foreground"
                 style={{ flex: 1, paddingVertical: 16, fontFamily: 'Montserrat_400Regular' }}
               />
-            </View>
+            </Animated.View>
 
             {/* Filters: a row of stage-direction chips. Lit orange = active. */}
             <View
@@ -170,6 +193,7 @@ export default function Search() {
           </View>
 
           <View style={{ paddingBottom: 16 }}>
+            <Animated.View style={searchGlow}>
             <Pressable
               onPress={submit}
               accessibilityRole="button"
@@ -188,6 +212,7 @@ export default function Search() {
                 Search
               </Text>
             </Pressable>
+            </Animated.View>
 
             <View className="mt-3 items-center">
               <StageDirection>

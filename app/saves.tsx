@@ -11,6 +11,7 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites } from '../src/hooks/useFavorites';
+import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
 import { CARD_GAP } from '../src/theme/layout';
 import type { Monologue } from '../src/data/monologues';
@@ -23,6 +24,7 @@ import type { Monologue } from '../src/data/monologues';
  */
 export default function Saves() {
   const router = useRouter();
+  const goBack = useGoBack('/search');
   const { width } = useWindowDimensions();
   const { tiltX, tiltY } = useStageMotion();
   const { isAuthenticated } = useSession();
@@ -56,7 +58,7 @@ export default function Saves() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
             <Text className="text-[26px] leading-[26px]" style={{ color: '#a59d95' }}>
               ‹
             </Text>
