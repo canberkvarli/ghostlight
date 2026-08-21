@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import { Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -44,6 +45,7 @@ const AnimatedFlashList = Animated.createAnimatedComponent(
 
 export default function ResultsSpike() {
   const { height } = useWindowDimensions();
+  const router = useRouter();
   const { tiltX, tiltY, reduceMotion } = useStageMotion();
 
   const scrollY = useSharedValue(0);
@@ -70,7 +72,11 @@ export default function ResultsSpike() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: Monologue; index: number }) => (
-      <View style={{ marginBottom: CARD_GAP }}>
+      <Pressable
+        style={{ marginBottom: CARD_GAP }}
+        onPress={() => router.push(`/read/${item.id}`)}
+        accessibilityRole="button"
+      >
         <MonologueCard
           item={item}
           index={index}
@@ -78,9 +84,9 @@ export default function ResultsSpike() {
           viewportHeight={height}
           reduceMotion={reduceMotion}
         />
-      </View>
+      </Pressable>
     ),
-    [scrollY, height, reduceMotion],
+    [scrollY, height, reduceMotion, router],
   );
 
   const header = useMemo(() => <StageHeader count={MONOLOGUES.length} />, []);
