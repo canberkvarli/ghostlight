@@ -40,11 +40,16 @@ Not a line-reader or scene-partner app — that is explicitly v2.
   will not work. Ignore older tutorials.
 - **Uniwind, not NativeWind.** Tailwind v4 via `withUniwindConfig` in `metro.config.js`.
   Theme tokens are declared in `src/global.css` under `@theme` / `@layer theme`.
-- **Uniwind `className` only reaches core RN components.** Colour, type, spacing and flex work on
-  `View`/`Text`/`Pressable`/`TextInput`/`ScrollView`. On **wrapped** components — `SafeAreaView`,
-  `Animated.*`, `FlashList` — `className` is silently dropped, so `className="flex-1"` there does
-  nothing and the view collapses to its content. Use `style={{ flex: 1 }}` for structure on those,
-  or wrap the child in a core `<View style={{ flex: 1 }}>`. Cost us every screen once.
+- **Uniwind `className` here does colour and type, NOT layout. Use `style` for all structure.**
+  Working via `className`: `text-*`, `bg-*` colours, `font-*`, `leading-*`, `tracking-*`,
+  `text-center`, `uppercase`, `mt-*`/`mb-*`, `flex-row`, `items-*`, `justify-*`. **Silently dropped:**
+  `flex-1` (Tailwind v4 emits `flex: 1 1 0%`, a string RN ignores) and the logical spacing
+  utilities `px-*`/`py-*` (Tailwind v4 `padding-inline`/`padding-block`, which don't map to RN's
+  `paddingHorizontal`/`Vertical`) — also `w-full`, `h-px`, `gap-*`, `rounded-*`, `border`. Anything
+  that decides size, padding, radius or flex-grow must be a real `style={{}}`. `SafeAreaView`,
+  `Animated.*` and `FlashList` drop `className` entirely; give them `style` or wrap in a core
+  `<View style={{ flex: 1 }}>`. This cost us every screen once — verify layout on the simulator,
+  not just in the bundle.
 - **`EXPO_NO_DOTENV=1` is set in this shell**, which stops Expo loading `.env` — the Supabase env
   reads empty and the client falls back to a placeholder host. Run Metro/builds with it unset:
   `env -u EXPO_NO_DOTENV npx expo start --dev-client`. `src/lib/supabase.ts` warns and degrades

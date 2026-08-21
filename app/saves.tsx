@@ -52,10 +52,10 @@ export default function Saves() {
   );
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="h-12 flex-row items-center px-5">
+        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
             <Text className="text-[26px] leading-[26px]" style={{ color: '#a59d95' }}>
               ‹
@@ -102,5 +102,5 @@ export default function Saves() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <View className="flex-1 items-center justify-center pb-24">{children}</View>;
+  return <View style={{ flex: 1 }} className="items-center justify-center pb-24">{children}</View>;
 }

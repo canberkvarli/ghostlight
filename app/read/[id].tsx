@@ -63,7 +63,7 @@ export default function Read() {
 
   if (isLoading && !monologue) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.dark.background }}>
+      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: colors.dark.background }}>
         <GhostLight size={16} />
         <StageDirection className="mt-6">(finding the page…)</StageDirection>
       </View>
@@ -72,7 +72,7 @@ export default function Read() {
 
   if (!monologue) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.dark.background }}>
+      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: colors.dark.background }}>
         <StageDirection>{isError ? '(sign in to read this one.)' : '(that page is dark.)'}</StageDirection>
       </View>
     );
@@ -81,10 +81,10 @@ export default function Read() {
   const body = monologue.fullText ?? monologue.excerpt;
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.dark.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.dark.background }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* On the dark shell: the eyebrow and the way back. */}
-        <View className="h-12 flex-row items-center justify-between px-5">
+        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
           <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
             <Text className="text-[26px] leading-[26px]" style={{ color: colors.dark.mutedForeground }}>
               ‹
@@ -137,8 +137,7 @@ export default function Read() {
             </Text>
 
             <View
-              className="my-6 h-px w-full"
-              style={{ backgroundColor: colors.light.border }}
+              style={{ marginVertical: 24, height: 1, width: '100%', backgroundColor: colors.light.border }}
             />
 
             {/* The words of the play, in the typewriter, dark ink on warm paper. */}

@@ -22,7 +22,9 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 // the app degrades to session-less, exactly as it does when anonymous sign-ins
 // are disabled. Copy .env.example to .env to make it real.
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
+  // log(), not warn() — a LogBox on every launch is noise; the missing data is
+  // self-evident. Run Metro with EXPO_NO_DOTENV unset so `.env` loads.
+  console.log(
     '[supabase] Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY — ' +
       'running session-less. Copy .env.example to .env and rebuild.',
   );

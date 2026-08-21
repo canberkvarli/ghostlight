@@ -71,12 +71,12 @@ export default function Search() {
   );
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-1 px-7">
-          <View className="h-10 flex-row items-center justify-end">
+        <View style={{ flex: 1, paddingHorizontal: 28 }}>
+          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
             <Pressable
               onPress={() => router.push('/saves')}
               hitSlop={12}
@@ -89,7 +89,7 @@ export default function Search() {
             </Pressable>
           </View>
 
-          <View className="flex-1 items-center justify-center">
+          <View style={{ flex: 1 }} className="items-center justify-center">
             <GhostLight size={18} />
 
             <Text
@@ -100,8 +100,17 @@ export default function Search() {
             </Text>
 
             <View
-              className="mt-8 w-full flex-row items-center rounded-2xl border px-4"
-              style={{ borderColor: colors.dark.border, backgroundColor: 'rgba(29, 20, 15, 0.7)' }}
+              style={{
+                marginTop: 32,
+                width: '100%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderRadius: 16,
+                borderWidth: 1,
+                paddingHorizontal: 16,
+                borderColor: colors.dark.border,
+                backgroundColor: 'rgba(29, 20, 15, 0.7)',
+              }}
             >
               <TextInput
                 value={query}
@@ -111,13 +120,22 @@ export default function Search() {
                 placeholder="a grieving mother, something funny…"
                 placeholderTextColor={colors.dark.mutedForeground}
                 selectionColor={colors.stageGlow}
-                className="flex-1 py-4 text-[16px] text-foreground"
-                style={{ fontFamily: 'Montserrat_400Regular' }}
+                className="text-[16px] text-foreground"
+                style={{ flex: 1, paddingVertical: 16, fontFamily: 'Montserrat_400Regular' }}
               />
             </View>
 
             {/* Filters: a row of stage-direction chips. Lit orange = active. */}
-            <View className="mt-6 w-full flex-row flex-wrap justify-center gap-2">
+            <View
+              style={{
+                marginTop: 24,
+                width: '100%',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
               {FILTER_CHIPS.map((chip) => {
                 const active = selected[chip.group] === chip.value;
                 return (
@@ -126,8 +144,11 @@ export default function Search() {
                     onPress={() => toggle(chip)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    className="rounded-full border px-3.5 py-2"
                     style={{
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
                       borderColor: active ? colors.stageGlow : colors.dark.border,
                       backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
                     }}
@@ -148,12 +169,17 @@ export default function Search() {
             </View>
           </View>
 
-          <View className="pb-4">
+          <View style={{ paddingBottom: 16 }}>
             <Pressable
               onPress={submit}
               accessibilityRole="button"
-              className="items-center justify-center rounded-2xl py-4 active:opacity-90"
-              style={{ backgroundColor: colors.primary }}
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 16,
+                paddingVertical: 16,
+                backgroundColor: colors.primary,
+              }}
             >
               <Text
                 className="text-[15px] uppercase tracking-[2px] text-white"

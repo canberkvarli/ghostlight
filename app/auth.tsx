@@ -55,11 +55,11 @@ export default function Auth() {
   };
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="h-12 flex-row items-center justify-end px-5">
+        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
             <Text
               className="text-[13px] uppercase tracking-[1.5px] text-muted-foreground"
@@ -70,7 +70,7 @@ export default function Auth() {
           </Pressable>
         </View>
 
-        <View className="flex-1 items-center justify-center px-9">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
           <GhostLight size={18} stem stemHeight={48} />
           <Text
             className="mt-8 text-center text-[30px] leading-[38px] text-foreground"
@@ -81,7 +81,7 @@ export default function Auth() {
           <StageDirection className="mt-3">(sign in to save. nothing you did is lost.)</StageDirection>
         </View>
 
-        <View className="px-9 pb-8">
+        <View style={{ paddingHorizontal: 36, paddingBottom: 32 }}>
           {Platform.OS === 'ios' && appleReady ? (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -96,8 +96,7 @@ export default function Auth() {
             onPress={withGoogle}
             disabled={busy !== null}
             accessibilityRole="button"
-            className="mt-3 h-[52px] items-center justify-center rounded-2xl border active:opacity-90"
-            style={{ borderColor: colors.dark.border, backgroundColor: colors.dark.card }}
+            style={{ marginTop: 12, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 16, borderWidth: 1, borderColor: colors.dark.border, backgroundColor: colors.dark.card }}
           >
             {busy === 'google' ? (
               <ActivityIndicator color={colors.dark.foreground} />

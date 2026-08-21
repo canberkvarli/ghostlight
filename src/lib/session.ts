@@ -56,7 +56,9 @@ export async function bootstrapSession(): Promise<SessionState> {
   const { data, error } = await supabase.auth.signInAnonymously();
   if (error) {
     if (error.code === 'anonymous_provider_disabled') {
-      console.warn(
+      // Expected, handled operational state — not a developer error, so log()
+      // (visible in Metro) rather than warn() (which pops a LogBox every launch).
+      console.log(
         '[session] Anonymous sign-ins are disabled on the Supabase project. ' +
           'Enable them (Auth → Providers → Anonymous) so launch can mint a session.',
       );

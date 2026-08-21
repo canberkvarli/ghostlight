@@ -128,7 +128,7 @@ export default function Results() {
   );
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
@@ -189,7 +189,7 @@ function StageHeader({
 
 function SearchingStage() {
   return (
-    <View className="flex-1 items-center justify-center">
+    <View style={{ flex: 1 }} className="items-center justify-center">
       <GhostLight size={18} />
       <StageDirection className="mt-6">(searching the wings…)</StageDirection>
     </View>

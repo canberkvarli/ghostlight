@@ -97,11 +97,11 @@ export default function Paywall() {
   };
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="h-12 flex-row items-center justify-end px-5">
+        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
           <Pressable onPress={close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
             <Text className="text-[22px]" style={{ color: colors.dark.mutedForeground }}>
               ✕
@@ -109,7 +109,7 @@ export default function Paywall() {
           </Pressable>
         </View>
 
-        <View className="flex-1 justify-center px-8">
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}>
           <View className="items-center">
             <GhostLight size={20} />
             <Text
@@ -137,7 +137,7 @@ export default function Paywall() {
             ))}
           </View>
 
-          <View className="mt-8 gap-3">
+          <View style={{ marginTop: 32, gap: 12 }}>
             <PlanRow
               selected={plan === 'annual'}
               onPress={() => setPlan('annual')}
@@ -156,13 +156,12 @@ export default function Paywall() {
           </View>
         </View>
 
-        <View className="px-8 pb-6">
+        <View style={{ paddingHorizontal: 32, paddingBottom: 24 }}>
           <Pressable
             onPress={buy}
             disabled={busy}
             accessibilityRole="button"
-            className="h-[54px] items-center justify-center rounded-2xl active:opacity-90"
-            style={{ backgroundColor: colors.primary }}
+            style={{ height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: colors.primary }}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
@@ -219,13 +218,18 @@ function PlanRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      className="flex-row items-center rounded-2xl border px-4 py-3.5"
       style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 16,
+        borderWidth: 1,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         borderColor: selected ? colors.stageGlow : colors.dark.border,
         backgroundColor: selected ? 'rgba(243, 130, 29, 0.10)' : colors.dark.card,
       }}
     >
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         <View className="flex-row items-center">
           <Text
             className="text-[16px] text-foreground"
@@ -234,7 +238,7 @@ function PlanRow({
             {title}
           </Text>
           {badge ? (
-            <View className="ml-2 rounded-full px-2 py-0.5" style={{ backgroundColor: colors.primary }}>
+            <View style={{ marginLeft: 8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.primary }}>
               <Text
                 className="text-[10px] uppercase tracking-[1px] text-white"
                 style={{ fontFamily: 'Montserrat_600SemiBold' }}
