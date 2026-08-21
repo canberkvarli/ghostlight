@@ -82,7 +82,7 @@ export default function Read() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.dark.background }}>
-      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* On the dark shell: the eyebrow and the way back. */}
         <View className="h-12 flex-row items-center justify-between px-5">
           <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
@@ -104,8 +104,14 @@ export default function Read() {
         {/* The paper rises into the light. */}
         <Animated.View
           entering={FadeInDown.duration(520).springify().damping(18)}
-          className="mx-4 mb-4 flex-1 overflow-hidden"
-          style={{ backgroundColor: colors.light.background, borderRadius: 20 }}
+          style={{
+            flex: 1,
+            marginHorizontal: 16,
+            marginBottom: 16,
+            overflow: 'hidden',
+            backgroundColor: colors.light.background,
+            borderRadius: 20,
+          }}
         >
           <ScrollView
             contentContainerStyle={{ padding: 28, paddingBottom: 56 }}

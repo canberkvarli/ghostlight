@@ -54,7 +54,7 @@ export default function Saves() {
   return (
     <View className="flex-1">
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
-      <SafeAreaView className="flex-1" edges={['top']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View className="h-12 flex-row items-center px-5">
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
             <Text className="text-[26px] leading-[26px]" style={{ color: '#a59d95' }}>
@@ -80,19 +80,21 @@ export default function Saves() {
             <StageDirection className="mt-6">(gathering your saves…)</StageDirection>
           </Center>
         ) : (
-          <FlashList
-            data={data ?? []}
-            renderItem={renderItem}
-            keyExtractor={(m) => m.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 96 }}
-            ListEmptyComponent={
-              <Center>
-                <GhostLight size={18} stem />
-                <StageDirection className="mt-6">(nothing saved yet.)</StageDirection>
-              </Center>
-            }
-          />
+          <View style={{ flex: 1 }}>
+            <FlashList
+              data={data ?? []}
+              renderItem={renderItem}
+              keyExtractor={(m) => m.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 96 }}
+              ListEmptyComponent={
+                <Center>
+                  <GhostLight size={18} stem />
+                  <StageDirection className="mt-6">(nothing saved yet.)</StageDirection>
+                </Center>
+              }
+            />
+          </View>
         )}
       </SafeAreaView>
     </View>

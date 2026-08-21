@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -26,8 +26,11 @@ import { colors } from '../src/theme/tokens';
  * filtered by who you actually are — and does not explain the interface. Kept
  * ruthlessly short on purpose: every onboarding screen costs installs.
  *
- * The anonymous Supabase session is created silently at the app root
- * (`_layout`), not here, so "continue" never waits on the network.
+ * Layout note: structure is explicit React Native style, not Tailwind classes.
+ * Uniwind's `className` reliably carries colour and type here but not flex/size
+ * on wrapped components (SafeAreaView, Animated.ScrollView), so anything that
+ * decides height or position is a real style. The pager pages are full-screen;
+ * the skip link and the footer float over them so nothing fights the scroll.
  */
 
 interface Panel {
@@ -57,7 +60,7 @@ const PANELS: Panel[] = [
 ];
 
 export default function Onboarding() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
   const scrollRef = useRef<Animated.ScrollView>(null);
@@ -86,11 +89,27 @@ export default function Onboarding() {
   );
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
-      <SafeAreaView className="flex-1">
-        <View className="h-12 flex-row items-center justify-end px-5">
+      <Animated.ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        style={StyleSheet.absoluteFill}
+      >
+        {PANELS.map((panel, i) => (
+          <PanelView key={i} panel={panel} index={i} width={width} height={height} scrollX={scrollX} />
+        ))}
+      </Animated.ScrollView>
+
+      {/* Floating chrome: skip up top, dots + button at the foot. box-none lets
+          swipes fall through to the pager while taps still land on the controls. */}
+      <SafeAreaView style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
           <Pressable onPress={finish} hitSlop={12} accessibilityRole="button">
             <Text
               className="text-[13px] uppercase tracking-[1.5px] text-muted-foreground"
@@ -101,19 +120,7 @@ export default function Onboarding() {
           </Pressable>
         </View>
 
-        <Animated.ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          className="flex-1"
-        >
-          {PANELS.map((panel, i) => (
-            <PanelView key={i} panel={panel} index={i} width={width} scrollX={scrollX} />
-          ))}
-        </Animated.ScrollView>
+        <View style={{ flex: 1 }} pointerEvents="box-none" />
 
         <Footer count={PANELS.length} width={width} scrollX={scrollX} onAdvance={advance} />
       </SafeAreaView>
@@ -125,11 +132,13 @@ function PanelView({
   panel,
   index,
   width,
+  height,
   scrollX,
 }: {
   panel: Panel;
   index: number;
   width: number;
+  height: number;
   scrollX: SharedValue<number>;
 }) {
   // A gentle fade/rise as each panel reaches centre — the words arrive, they
@@ -145,8 +154,19 @@ function PanelView({
   });
 
   return (
-    <View style={{ width }} className="flex-1 items-center justify-center px-9">
-      <Animated.View style={contentStyle} className="items-center">
+    <View
+      style={{
+        width,
+        height,
+        alignItems: 'center',
+        justifyContent: 'center',
+        // Clear the floating skip link and footer.
+        paddingTop: 96,
+        paddingBottom: 168,
+        paddingHorizontal: 36,
+      }}
+    >
+      <Animated.View style={[contentStyle, { alignItems: 'center' }]}>
         {index === 0 ? <GhostLight size={20} /> : <GhostLight size={14} stem stemHeight={54} />}
 
         <StageDirection className="mt-8">{panel.eyebrow}</StageDirection>
@@ -166,12 +186,17 @@ function PanelView({
         </Text>
 
         {panel.chips ? (
-          <View className="mt-7 flex-row flex-wrap justify-center gap-2">
+          <View style={{ marginTop: 28, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
             {panel.chips.map((chip) => (
               <View
                 key={chip}
-                className="rounded-full border px-3.5 py-2"
-                style={{ borderColor: 'rgba(243, 130, 29, 0.35)' }}
+                style={{
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: 'rgba(243, 130, 29, 0.35)',
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
               >
                 <Text
                   className="text-[13px] lowercase"
@@ -205,8 +230,8 @@ function Footer({
   };
 
   return (
-    <View className="px-9 pb-6 pt-2">
-      <View className="mb-7 flex-row justify-center gap-2">
+    <View style={{ paddingHorizontal: 36, paddingBottom: 24, paddingTop: 8 }}>
+      <View style={{ marginBottom: 28, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
         {Array.from({ length: count }).map((_, i) => (
           <Dot key={i} index={i} width={width} scrollX={scrollX} />
         ))}
@@ -215,8 +240,13 @@ function Footer({
       <Pressable
         onPress={press}
         accessibilityRole="button"
-        className="items-center justify-center rounded-2xl py-4 active:opacity-90"
-        style={{ backgroundColor: colors.primary }}
+        style={{
+          height: 54,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 16,
+          backgroundColor: colors.primary,
+        }}
       >
         <ButtonLabel count={count} width={width} scrollX={scrollX} />
       </Pressable>
@@ -254,23 +284,22 @@ function ButtonLabel({
 
   return (
     <View>
-      <Animated.Text
-        style={[nextStyle, LABEL_STYLE]}
-        className="text-[15px] uppercase tracking-[2px] text-white"
-      >
-        Next
-      </Animated.Text>
-      <Animated.Text
-        style={[beginStyle, LABEL_STYLE, { position: 'absolute', left: 0, right: 0 }]}
-        className="text-[15px] uppercase tracking-[2px] text-white"
-      >
+      <Animated.Text style={[nextStyle, LABEL_STYLE]}>Next</Animated.Text>
+      <Animated.Text style={[beginStyle, LABEL_STYLE, { position: 'absolute', left: 0, right: 0 }]}>
         Begin
       </Animated.Text>
     </View>
   );
 }
 
-const LABEL_STYLE = { fontFamily: 'Montserrat_600SemiBold', textAlign: 'center' as const };
+const LABEL_STYLE = {
+  fontFamily: 'Montserrat_600SemiBold',
+  fontSize: 15,
+  letterSpacing: 2,
+  color: '#ffffff',
+  textAlign: 'center' as const,
+  textTransform: 'uppercase' as const,
+};
 
 function Dot({
   index,

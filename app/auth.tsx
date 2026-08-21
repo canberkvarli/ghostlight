@@ -58,7 +58,7 @@ export default function Auth() {
     <View className="flex-1">
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
-      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View className="h-12 flex-row items-center justify-end px-5">
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
             <Text

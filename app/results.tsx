@@ -131,7 +131,8 @@ export default function Results() {
     <View className="flex-1">
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
-      <SafeAreaView className="flex-1" edges={['top']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={{ flex: 1 }}>
         {searching ? (
           <SearchingStage />
         ) : (
@@ -151,6 +152,7 @@ export default function Results() {
             ListEmptyComponent={EmptyStage}
           />
         )}
+        </View>
       </SafeAreaView>
     </View>
   );

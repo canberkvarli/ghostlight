@@ -100,7 +100,7 @@ export default function Paywall() {
     <View className="flex-1">
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
-      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View className="h-12 flex-row items-center justify-end px-5">
           <Pressable onPress={close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
             <Text className="text-[22px]" style={{ color: colors.dark.mutedForeground }}>

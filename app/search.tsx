@@ -74,7 +74,7 @@ export default function Search() {
     <View className="flex-1">
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
-      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View className="flex-1 px-7">
           <View className="h-10 flex-row items-center justify-end">
             <Pressable
