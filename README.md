@@ -2,14 +2,32 @@
 
 An iOS app that helps an actor find a monologue. See `docs/BUILD-SPEC.md`.
 
-## Status: Step 0 — the spike
+## Status
 
-Twenty hardcoded monologues on a dark stage. No search, no auth, no navigation, no payments.
+| step | what | state |
+|---|---|---|
+| 0 | Results spike — dark stage, tilt + scroll spotlights, 20 fixtures | built |
+| 1 | Onboarding — 3 swipeable screens, silent anon session | built |
+| 2 | Search home — hero field, stage-direction filter chips | built |
+| 3 | Live results wired to `/api/monologues/search` | **blocked** — search needs auth (see below) |
+| 4 | Read — light paper canvas, "lights up" | built |
+| 5 | Auth on first save (Apple / Google) | not started |
+| 6 | Saves & prep (offline sqlite) | not started |
+| 7 | Paywall (RevenueCat) | not started — build last |
 
-The spike exists to answer one question, and it is the only genuinely unproven assumption in the
-whole project: **does Ghost Light feel right in the hand?** Everything else here is known-solvable.
-If the tilt reads as a gimmick or the lit-card scroll feels sluggish, better to know now than in
-week six.
+Everything built typechecks (`npm run typecheck`) and bundles (`npx expo export --platform ios`).
+Nothing yet validated on a device — see below.
+
+### Two things need you
+
+1. **The in-hand feel test (Step 0).** The tilt spotlight has no accelerometer in the simulator and
+   60fps in a sim means nothing. Run on your phone and judge whether the tilt reads as a stage light
+   and the lit-card scroll feels like looking, not scanning. This is the one unproven assumption the
+   whole product rests on. `npx expo run:ios --device`.
+2. **Enable anonymous sign-ins on Supabase.** Dashboard → project `actorrise` → Authentication →
+   Sign In / Providers → Anonymous → on. Verified disabled today (`anonymous_provider_disabled`).
+   Until it's on, the silent session doesn't mint and live search stays 401 — so Step 3 waits on it.
+   The app degrades gracefully in the meantime (runs session-less, results screen shows fixtures).
 
 ### Run it
 
