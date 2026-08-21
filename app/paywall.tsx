@@ -124,7 +124,7 @@ export default function Paywall() {
           <View className="mt-8">
             {BULLETS.map((b) => (
               <View key={b} className="mb-2.5 flex-row items-center">
-                <Text style={{ color: colors.stageGlow }} className="mr-3 text-[15px]">
+                <Text style={{ marginRight: 12, color: colors.stageGlow }} className="text-[15px]">
                   ●
                 </Text>
                 <Text

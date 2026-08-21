@@ -99,7 +99,7 @@ function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion 
         {item.excerpt}
       </Text>
 
-      <View className="flex-row items-center gap-x-2">
+      <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}>
         <Meta>{item.ageRange}</Meta>
         <Dot />
         <Meta>{item.gender === 'any' ? 'any' : item.gender}</Meta>
@@ -107,8 +107,13 @@ function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion 
         <Meta>{formatDuration(item.duration)}</Meta>
         {overdone ? (
           <View
-            className="ml-auto rounded-full px-2.5 py-1"
-            style={{ backgroundColor: 'rgba(203, 75, 0, 0.18)' }}
+            style={{
+              marginLeft: 'auto',
+              borderRadius: 999,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              backgroundColor: 'rgba(203, 75, 0, 0.18)',
+            }}
           >
             <Text
               className="text-[10px] uppercase tracking-[1.2px]"

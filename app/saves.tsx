@@ -62,8 +62,8 @@ export default function Saves() {
             </Text>
           </Pressable>
           <Text
-            className="ml-3 text-[20px] text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+            className="text-[20px] text-foreground"
+            style={{ marginLeft: 12, fontFamily: 'PlayfairDisplay_600SemiBold' }}
           >
             Saved
           </Text>
