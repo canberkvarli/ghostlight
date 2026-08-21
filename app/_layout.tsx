@@ -17,6 +17,7 @@ import Montserrat_600SemiBold from '@expo-google-fonts/montserrat/600SemiBold/Mo
 
 import '../src/global.css';
 import { colors } from '../src/theme/tokens';
+import { bootstrapSession } from '../src/lib/session';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -37,6 +38,14 @@ export default function RootLayout() {
     // to first result under three seconds is a hard requirement.
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    // The anonymous-first session (spec §4): mint a real user_id silently on
+    // first launch, restore it on every launch after. Fire-and-forget — nothing
+    // on screen waits for it, and if anonymous sign-ins are disabled server-side
+    // the app still runs (see src/lib/session.ts).
+    void bootstrapSession();
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 

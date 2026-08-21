@@ -10,9 +10,13 @@ Not a line-reader or scene-partner app — that is explicitly v2.
 
 | path | what |
 |---|---|
-| `app/` | expo-router routes. `app/index.tsx` is currently the Step 0 spike. |
+| `app/index.tsx` | The stage door — reads the onboarding flag and redirects. Renders nothing but dark. |
+| `app/onboarding.tsx` | Step 1. Three swipeable, skippable screens. Silent anon session is minted in `_layout`. |
+| `app/results.tsx` | Step 0 spike — the results list with tilt + scroll spotlights. |
 | `src/components/` | Stage primitives — backdrop, ghost light, cards, stage directions |
 | `src/hooks/useStageMotion.ts` | Tilt spotlight. Sensor → shared values, UI thread only. |
+| `src/lib/supabase.ts` | The one Supabase client (ActorRise project, AsyncStorage session). |
+| `src/lib/session.ts` | Anonymous-first session bootstrap (spec §4). Degrades if anon sign-ins are off. |
 | `src/theme/tokens.ts` | Colours for Skia and native props. Mirrors `src/global.css`. |
 | `src/theme/layout.ts` | Fixed row geometry the scroll spotlight depends on. |
 | `src/data/monologues.ts` | Step 0 fixtures. Replaced by the API in Step 3. |
