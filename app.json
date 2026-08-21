@@ -38,7 +38,13 @@
           "motionPermission": "Ghost Light uses device motion to move the stage light as you tilt your phone."
         }
       ],
-      "expo-splash-screen"
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#130b08",
+          "dark": { "backgroundColor": "#130b08" }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
