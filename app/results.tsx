@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
@@ -8,7 +8,10 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedScrollHandler,
+  useAnimatedStyle,
   useSharedValue,
+  withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
@@ -19,6 +22,7 @@ import { MONOLOGUES, type Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
 import type { SearchParams } from '../src/api/client';
+import { colors } from '../src/theme/tokens';
 import {
   CARD_GAP,
   CARD_HEIGHT,
@@ -73,11 +77,31 @@ export default function Results() {
   }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.max_duration]);
 
   const hasIntent = Object.keys(params).length > 0;
-  const { data: live, isLoading, isError } = useMonologueSearch(params, hasIntent);
+  const { data: live, isLoading, isError, refetch } = useMonologueSearch(params, hasIntent);
 
-  // Live results when the search returned them; fixtures for the discover case
-  // and as the fallback when a search cannot run yet.
-  const data = hasIntent && live ? live.monologues : MONOLOGUES;
+  // Pull-to-refresh recasts the stage: a live search refetches, discover deals a
+  // fresh lineup from the fixtures (a new seed reshuffles them).
+  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const discover = useMemo(
+    () => (shuffleSeed === 0 ? MONOLOGUES : seededShuffle(MONOLOGUES, shuffleSeed)),
+    [shuffleSeed],
+  );
+
+  const onRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+    setRefreshing(true);
+    try {
+      if (hasIntent) await refetch();
+      else setShuffleSeed((s) => s + 1);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [hasIntent, refetch]);
+
+  // Live results when the search returned them; the (reshuffleable) fixtures for
+  // discover and as the fallback when a search cannot run yet.
+  const data = hasIntent && live ? live.monologues : discover;
   const count = data.length;
   const searching = hasIntent && isLoading;
 
@@ -105,19 +129,14 @@ export default function Results() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: Monologue; index: number }) => (
-      <Pressable
-        style={{ marginBottom: CARD_GAP }}
+      <CardButton
+        item={item}
+        index={index}
+        scrollY={scrollY}
+        viewportHeight={height}
+        reduceMotion={reduceMotion}
         onPress={() => router.push(`/read/${item.id}`)}
-        accessibilityRole="button"
-      >
-        <MonologueCard
-          item={item}
-          index={index}
-          scrollY={scrollY}
-          viewportHeight={height}
-          reduceMotion={reduceMotion}
-        />
-      </Pressable>
+      />
     ),
     [scrollY, height, reduceMotion, router],
   );
@@ -150,6 +169,15 @@ export default function Results() {
             }}
             ListHeaderComponent={header}
             ListEmptyComponent={EmptyStage}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.stageGlow}
+                colors={[colors.primary]}
+                progressBackgroundColor={colors.dark.card}
+              />
+            }
           />
         )}
         </View>
@@ -205,8 +233,81 @@ function EmptyStage() {
   );
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/**
+ * A result card that snaps into the spotlight when you press it: a quick lift
+ * and a flash of the orange glow, like the light finding you a beat before the
+ * page turns. Reduced motion keeps the tap but drops the flourish.
+ */
+function CardButton({
+  item,
+  index,
+  scrollY,
+  viewportHeight,
+  reduceMotion,
+  onPress,
+}: {
+  item: Monologue;
+  index: number;
+  scrollY: SharedValue<number>;
+  viewportHeight: number;
+  reduceMotion: boolean;
+  onPress: () => void;
+}) {
+  const pressed = useSharedValue(0);
+  const style = useAnimatedStyle(() => ({
+    marginBottom: CARD_GAP,
+    transform: [{ scale: 1 + pressed.value * 0.03 }],
+    shadowColor: colors.stageGlow,
+    shadowOpacity: pressed.value * 0.6,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 0 },
+  }));
+
+  return (
+    <AnimatedPressable
+      style={style}
+      accessibilityRole="button"
+      onPress={onPress}
+      onPressIn={() => {
+        if (reduceMotion) return;
+        Haptics.selectionAsync().catch(() => {});
+        pressed.value = withTiming(1, { duration: 110 });
+      }}
+      onPressOut={() => (pressed.value = withTiming(0, { duration: 280 }))}
+    >
+      <MonologueCard
+        item={item}
+        index={index}
+        scrollY={scrollY}
+        viewportHeight={viewportHeight}
+        reduceMotion={reduceMotion}
+      />
+    </AnimatedPressable>
+  );
+}
+
 function keyExtractor(item: Monologue) {
   return item.id;
+}
+
+/** Deterministic shuffle (mulberry32 + Fisher–Yates) so a given pull is stable. */
+function seededShuffle(items: Monologue[], seed: number): Monologue[] {
+  const out = items.slice();
+  let s = seed >>> 0;
+  const rand = () => {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 function tick() {

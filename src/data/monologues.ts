@@ -33,6 +33,12 @@ export interface Monologue {
    * in Step 3. Populated here only for the fixtures worth reading offline.
    */
   fullText?: string;
+  /**
+   * True when the server withheld the full text because the free reads are
+   * spent (spec §7). `fullText` then holds only the teaser; the read screen
+   * shows the wall. Server-authoritative — the client can't un-set it.
+   */
+  paywalled?: boolean;
 }
 
 export const MONOLOGUES: Monologue[] = [

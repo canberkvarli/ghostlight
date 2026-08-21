@@ -3,7 +3,13 @@ import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  useReducedMotion,
+  withSpring,
+  withTiming,
+  type EntryAnimationsValues,
+} from 'react-native-reanimated';
 
 import { GhostLight } from '../../src/components/GhostLight';
 import { StageDirection } from '../../src/components/StageDirection';
@@ -29,10 +35,30 @@ import { colors } from '../../src/theme/tokens';
  * This screen is where a read is spent. The counter is server-side (spec §4);
  * see src/lib/reads.ts for why it is not faked device-local.
  */
+/**
+ * The curtain rises: the paper is below the stage, dim and a touch small, then
+ * springs up into the light as the words fade in behind it. A real theatre cue,
+ * not a slide.
+ */
+function curtainRise(_values: EntryAnimationsValues) {
+  'worklet';
+  return {
+    initialValues: { opacity: 0, transform: [{ translateY: 64 }, { scale: 0.96 }] },
+    animations: {
+      opacity: withTiming(1, { duration: 420 }),
+      transform: [
+        { translateY: withSpring(0, { damping: 17, stiffness: 90 }) },
+        { scale: withSpring(1, { damping: 17, stiffness: 90 }) },
+      ],
+    },
+  };
+}
+
 export default function Read() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const goBack = useGoBack('/search');
+  const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();
 
   // Fixtures first (offline, instant); fall to the live fetch for real search
@@ -60,7 +86,10 @@ export default function Read() {
     retry: false,
     staleTime: 15_000,
   });
-  const gated = wall?.atWall === true;
+  // Server-authoritative first: if the API withheld the text (paywalled), we're
+  // walled no matter what the client thinks. Fall back to the usage counter for
+  // fixtures and offline, which carry no server flag.
+  const gated = monologue?.paywalled === true || wall?.atWall === true;
 
   const onSave = () => {
     if (!monologue) return;
@@ -120,7 +149,7 @@ export default function Read() {
 
         {/* The paper rises into the light. */}
         <Animated.View
-          entering={FadeInDown.duration(520).springify().damping(18)}
+          entering={reduceMotion ? undefined : curtainRise}
           style={{
             flex: 1,
             marginHorizontal: 16,

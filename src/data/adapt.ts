@@ -56,5 +56,7 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     overdoneScore: Math.round((m.overdone_score ?? 0) * 100),
     excerpt: firstTwoLines(m.text),
     fullText: m.text,
+    // `paywalled` is newer than the committed OpenAPI snapshot; read defensively.
+    paywalled: (m as { paywalled?: boolean }).paywalled ?? false,
   };
 }
