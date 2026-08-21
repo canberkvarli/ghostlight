@@ -2,10 +2,14 @@ import { useEffect } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
+import { GhostLight } from '../../src/components/GhostLight';
 import { StageDirection } from '../../src/components/StageDirection';
-import { getMonologueById, formatDuration } from '../../src/data/monologues';
+import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
+import { getMonologue } from '../../src/api/client';
+import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
 import { colors } from '../../src/theme/tokens';
 
@@ -23,16 +27,35 @@ import { colors } from '../../src/theme/tokens';
 export default function Read() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const monologue = id ? getMonologueById(id) : undefined;
+
+  // Fixtures first (offline, instant); fall to the live fetch for real search
+  // results whose id the device has never seen.
+  const fixture = id ? getMonologueById(id) : undefined;
+  const { data: fetched, isLoading, isError } = useQuery<Monologue>({
+    queryKey: ['monologue', id],
+    enabled: Boolean(id) && !fixture,
+    retry: false,
+    queryFn: async ({ signal }) => apiToMonologue(await getMonologue(id!, signal)),
+  });
+  const monologue = fixture ?? fetched;
 
   useEffect(() => {
     if (monologue) void recordRead(monologue.id);
   }, [monologue]);
 
+  if (isLoading && !monologue) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.dark.background }}>
+        <GhostLight size={16} />
+        <StageDirection className="mt-6">(finding the page…)</StageDirection>
+      </View>
+    );
+  }
+
   if (!monologue) {
     return (
       <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.dark.background }}>
-        <StageDirection>(that page is dark.)</StageDirection>
+        <StageDirection>{isError ? '(sign in to read this one.)' : '(that page is dark.)'}</StageDirection>
       </View>
     );
   }

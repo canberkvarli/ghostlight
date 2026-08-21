@@ -65,3 +65,15 @@ export async function searchMonologues(
   }
   return (await res.json()) as SearchResponse;
 }
+
+/** Full monologue by id (spec §4, `GET /api/monologues/{id}`) — the Read screen. */
+export async function getMonologue(id: string | number, signal?: AbortSignal): Promise<Monologue> {
+  const res = await fetch(`${API_URL}/api/monologues/${id}`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `monologue ${id} failed (${res.status})`);
+  }
+  return (await res.json()) as Monologue;
+}
