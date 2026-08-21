@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -7,8 +7,9 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 import { GhostLight } from '../../src/components/GhostLight';
 import { StageDirection } from '../../src/components/StageDirection';
+import { PaywallShroud } from '../../src/components/PaywallShroud';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
-import { getMonologue } from '../../src/api/client';
+import { getMonologue, getReadState } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
 import { useSession } from '../../src/lib/useSession';
@@ -30,6 +31,7 @@ import { colors } from '../../src/theme/tokens';
 export default function Read() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { height, width } = useWindowDimensions();
 
   // Fixtures first (offline, instant); fall to the live fetch for real search
   // results whose id the device has never seen.
@@ -46,6 +48,18 @@ export default function Read() {
   const favorited = useIsFavorited(id ?? '', isAuthenticated);
   const toggleFavorite = useToggleFavorite();
 
+  // The wall (spec §5, Step 7). Free users get three reads, lifetime; the server
+  // owns the count (src/lib/reads.ts). If we can't reach it — no session yet,
+  // anon sign-ins still off — we don't gate: reading never breaks on a missing
+  // counter, the wall just doesn't fire until the backend is live.
+  const { data: wall } = useQuery({
+    queryKey: ['read-wall'],
+    queryFn: ({ signal }) => getReadState(signal),
+    retry: false,
+    staleTime: 15_000,
+  });
+  const gated = wall?.atWall === true;
+
   const onSave = () => {
     if (!monologue) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -58,8 +72,9 @@ export default function Read() {
   };
 
   useEffect(() => {
-    if (monologue) void recordRead(monologue.id);
-  }, [monologue]);
+    // Spend a read only when one is actually being read — never behind the wall.
+    if (monologue && !gated) void recordRead(monologue.id);
+  }, [monologue, gated]);
 
   if (isLoading && !monologue) {
     return (
@@ -114,8 +129,9 @@ export default function Read() {
           }}
         >
           <ScrollView
-            contentContainerStyle={{ padding: 28, paddingBottom: 56 }}
+            contentContainerStyle={{ padding: 28, paddingBottom: gated ? 220 : 56 }}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={!gated}
           >
             <Text
               className="text-[13px] uppercase tracking-[1.6px]"
@@ -150,10 +166,10 @@ export default function Read() {
                 lineHeight: 27,
               }}
             >
-              {body}
+              {gated ? monologue.excerpt : body}
             </Animated.Text>
 
-            {!monologue.fullText ? (
+            {gated ? null : !monologue.fullText ? (
               <Text
                 className="mt-8 text-[13px] italic"
                 style={{ fontFamily: 'CourierPrime_400Regular_Italic', color: colors.light.mutedForeground }}
@@ -162,6 +178,55 @@ export default function Read() {
               </Text>
             ) : null}
           </ScrollView>
+
+          {/* The wall: they've seen it is genuinely their part; now the light
+              dims on the rest and the bulb comes back carrying the offer. */}
+          {gated ? (
+            <Animated.View
+              entering={FadeIn.delay(400).duration(700)}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height * 0.52 }}
+              pointerEvents="box-none"
+            >
+              <PaywallShroud width={width - 32} height={height * 0.52} />
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  alignItems: 'center',
+                  paddingHorizontal: 28,
+                  paddingBottom: 28,
+                }}
+              >
+                <GhostLight size={16} />
+                <StageDirection className="mt-4">(three reads were the trial.)</StageDirection>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                    router.push('/paywall');
+                  }}
+                  accessibilityRole="button"
+                  style={{
+                    marginTop: 16,
+                    alignSelf: 'stretch',
+                    height: 52,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 16,
+                    backgroundColor: colors.primary,
+                  }}
+                >
+                  <Text
+                    className="text-[15px] uppercase tracking-[2px] text-white"
+                    style={{ fontFamily: 'Montserrat_600SemiBold' }}
+                  >
+                    Unlock every monologue
+                  </Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          ) : null}
         </Animated.View>
       </SafeAreaView>
     </View>

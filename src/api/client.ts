@@ -66,6 +66,34 @@ export async function searchMonologues(
   return (await res.json()) as SearchResponse;
 }
 
+/**
+ * Read state (spec §4 #2). Typed by hand because these fields are newer than the
+ * committed OpenAPI snapshot; regenerate `schema.d.ts` once the backend ships.
+ */
+export interface ReadState {
+  reads_used: number;
+  reads_limit: number; // -1 = unlimited (paid)
+  is_paid: boolean;
+  atWall: boolean; // free user who has spent their lifetime reads
+}
+
+/** Lifetime read count + wall state, from GET /api/subscriptions/usage. */
+export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
+  const res = await fetch(`${API_URL}/api/subscriptions/usage`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `usage failed (${res.status})`);
+  const j = (await res.json()) as {
+    monologue_reads_used?: number;
+    monologue_reads_limit?: number;
+  };
+  const used = j.monologue_reads_used ?? 0;
+  const limit = j.monologue_reads_limit ?? 3;
+  const isPaid = limit === -1;
+  return { reads_used: used, reads_limit: limit, is_paid: isPaid, atWall: !isPaid && used >= limit };
+}
+
 /** Save / unsave (spec §4, `POST`/`DELETE /api/monologues/{id}/favorite`). */
 export async function setFavorite(id: string | number, on: boolean): Promise<void> {
   const res = await fetch(`${API_URL}/api/monologues/${id}/favorite`, {
