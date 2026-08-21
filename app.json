@@ -1,17 +1,24 @@
 {
   "expo": {
-    "name": "ghostlight-scaffold",
-    "slug": "ghostlight-scaffold",
-    "version": "1.0.0",
+    "name": "Ghost Light",
+    "slug": "ghostlight",
+    "scheme": "ghostlight",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.actorrise.ghostlight",
+      "infoPlist": {
+        "NSMotionUsageDescription": "Ghost Light uses device motion to move the stage light as you tilt your phone."
+      }
     },
     "android": {
+      "package": "com.actorrise.ghostlight",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1A1512",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -19,7 +26,22 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Ghost Light uses device motion to move the stage light as you tilt your phone."
+        }
+      ],
+      "expo-splash-screen"
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+@import 'uniwind';
+
+/*
+ * Ghost Light design tokens.
+ * Ported from actorrise/app/globals.css. The canonical values are oklch (kept in
+ * comments); React Native gets the sRGB hex equivalents. If you change one, change
+ * both — and mirror the change in src/theme/tokens.ts, which Skia reads directly.
+ */
+
+@theme {
+  /* The words of the play get the typewriter. The app itself speaks in sans. */
+  --font-brand: 'PlayfairDisplay_600SemiBold';
+  --font-brand-italic: 'PlayfairDisplay_500Medium_Italic';
+  --font-typewriter: 'CourierPrime_400Regular';
+  --font-typewriter-italic: 'CourierPrime_400Regular_Italic';
+  --font-typewriter-bold: 'CourierPrime_700Bold';
+  --font-sans: 'Montserrat_400Regular';
+  --font-sans-medium: 'Montserrat_500Medium';
+  --font-sans-semibold: 'Montserrat_600SemiBold';
+
+  --radius-stage: 16px;
+
+  /* Fixed across themes — the bulb is the bulb. */
+  --color-stage-glow: #f3821d; /* oklch(0.72 0.17 55) */
+  --color-stage-line: #362b24; /* oklch(0.30 0.02 55) */
+  --color-primary: #cb4b00; /* oklch(0.58 0.18 45) */
+  --color-primary-hover: #b03000;
+
+  /* Declared here so the utilities (bg-background, text-foreground/90, …) exist
+     at all; the per-theme values below override them. Defaults are the dark
+     stage, because that is what the app is unless it is deliberately the
+     reading page. */
+  --color-background: #130b08;
+  --color-card: #1d140f;
+  --color-foreground: #f3eee6;
+  --color-muted-foreground: #a59d95;
+  --color-border: #302721;
+}
+
+@layer theme {
+  :root {
+    @variant dark {
+      --color-background: #130b08; /* oklch(0.16 0.015 50) — warm near-black, never flat black */
+      --color-card: #1d140f; /* oklch(0.20 0.018 52) */
+      --color-foreground: #f3eee6; /* oklch(0.95 0.012 78) */
+      --color-muted-foreground: #a59d95;
+      --color-border: #302721;
+    }
+
+    @variant light {
+      /* The reading page: warm paper inside a dark shell. */
+      --color-background: #f8f4f0; /* oklch(0.97 0.007 70) */
+      --color-card: #fefbf8;
+      --color-foreground: #15110f; /* oklch(0.18 0.008 45) */
+      --color-muted-foreground: #5a5450;
+      --color-border: #dbd6d2;
+    }
+  }
+}

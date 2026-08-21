@@ -1,0 +1,141 @@
+import { memo } from 'react';
+import { Text, View } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useDerivedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
+
+import { CARD_HEIGHT, FALLOFF, FOCUS_POINT, cardTop } from '../theme/layout';
+import { colors } from '../theme/tokens';
+import { OVERDONE_THRESHOLD, formatDuration, type Monologue } from '../data/monologues';
+
+/**
+ * One monologue under the scroll spotlight.
+ *
+ * `lit` is derived from scroll offset alone — no measurement, no state, no JS
+ * per frame. The card knows where it sits because every row is the same height
+ * (see theme/layout.ts), so its distance from the light is arithmetic.
+ *
+ * The card is never fully dark. Actors judge a monologue by reading it, so even
+ * an unlit card keeps its text legible; the light is emphasis, not a gate.
+ */
+
+interface Props {
+  item: Monologue;
+  index: number;
+  scrollY: SharedValue<number>;
+  viewportHeight: number;
+  reduceMotion: boolean;
+}
+
+const DARK = 0.42;
+const LIT_BORDER = 'rgba(243, 130, 29, 0.55)';
+
+function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion }: Props) {
+  const lit = useDerivedValue(() => {
+    if (reduceMotion) return 1;
+    const centre = cardTop(index) + CARD_HEIGHT / 2 - scrollY.value;
+    const distance = Math.abs(centre - viewportHeight * FOCUS_POINT);
+    return interpolate(
+      distance,
+      [0, viewportHeight * FALLOFF],
+      [1, 0],
+      Extrapolation.CLAMP,
+    );
+  });
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: DARK + lit.value * (1 - DARK),
+    transform: [{ scale: 0.968 + lit.value * 0.032 }],
+    borderColor: interpolateColor(lit.value, [0, 1], [colors.dark.border, LIT_BORDER]),
+    shadowOpacity: lit.value * 0.5,
+  }));
+
+  const overdone = item.overdoneScore >= OVERDONE_THRESHOLD;
+
+  return (
+    <Animated.View
+      style={[
+        containerStyle,
+        {
+          height: CARD_HEIGHT,
+          borderRadius: 16,
+          borderWidth: 1,
+          backgroundColor: colors.dark.card,
+          shadowColor: colors.stageGlow,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 0 },
+        },
+      ]}
+      className="justify-between overflow-hidden px-5 py-4"
+    >
+      <View>
+        <Text
+          numberOfLines={1}
+          className="text-[19px] leading-[24px] text-foreground"
+          style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+        >
+          {item.title}
+        </Text>
+        <Text
+          numberOfLines={1}
+          className="mt-1 text-[12px] uppercase tracking-[1.4px] text-muted-foreground"
+          style={{ fontFamily: 'Montserrat_500Medium' }}
+        >
+          {item.character} · {item.source}
+        </Text>
+      </View>
+
+      {/* The first two lines. This is what an actor actually reads. */}
+      <Text
+        numberOfLines={2}
+        className="text-[13px] leading-[19px] text-foreground/90"
+        style={{ fontFamily: 'CourierPrime_400Regular' }}
+      >
+        {item.excerpt}
+      </Text>
+
+      <View className="flex-row items-center gap-x-2">
+        <Meta>{item.ageRange}</Meta>
+        <Dot />
+        <Meta>{item.gender === 'any' ? 'any' : item.gender}</Meta>
+        <Dot />
+        <Meta>{formatDuration(item.duration)}</Meta>
+        {overdone ? (
+          <View
+            className="ml-auto rounded-full px-2.5 py-1"
+            style={{ backgroundColor: 'rgba(203, 75, 0, 0.18)' }}
+          >
+            <Text
+              className="text-[10px] uppercase tracking-[1.2px]"
+              style={{ fontFamily: 'Montserrat_600SemiBold', color: colors.stageGlow }}
+            >
+              overdone
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </Animated.View>
+  );
+}
+
+function Meta({ children }: { children: React.ReactNode }) {
+  return (
+    <Text
+      className="text-[11px] text-muted-foreground"
+      style={{ fontFamily: 'Montserrat_400Regular' }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function Dot() {
+  return <Text className="text-[11px] text-muted-foreground/50">·</Text>;
+}
+
+export const MonologueCard = memo(MonologueCardImpl);
