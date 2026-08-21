@@ -17,5 +17,5 @@ export default function StageDoor() {
     return <View style={{ flex: 1, backgroundColor: colors.dark.background }} />;
   }
 
-  return <Redirect href={complete ? '/results' : '/onboarding'} />;
+  return <Redirect href={complete ? '/search' : '/onboarding'} />;
 }

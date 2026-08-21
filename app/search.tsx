@@ -1,0 +1,165 @@
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+
+import { GhostLight } from '../src/components/GhostLight';
+import { StageBackdrop } from '../src/components/StageBackdrop';
+import { StageDirection } from '../src/components/StageDirection';
+import { useStageMotion } from '../src/hooks/useStageMotion';
+import {
+  FILTER_CHIPS,
+  chipKey,
+  selectionToParams,
+  type FilterChip,
+  type FilterGroup,
+} from '../src/data/filters';
+import { colors } from '../src/theme/tokens';
+
+/**
+ * Step 2 — Search is home.
+ *
+ * No dashboard, no tab bar landing elsewhere. The dark stage, the flickering
+ * bulb, one line of Playfair, and the search field as the hero. Filters are a
+ * row of lit/unlit stage-direction chips, not dropdowns. Submitting carries the
+ * query and the chosen filters to the results list.
+ */
+
+type Selection = Record<FilterGroup, string | undefined>;
+
+const EMPTY: Selection = {
+  gender: undefined,
+  age_range: undefined,
+  tone: undefined,
+  max_duration: undefined,
+};
+
+export default function Search() {
+  const router = useRouter();
+  const { tiltX, tiltY } = useStageMotion();
+
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<Selection>(EMPTY);
+
+  const toggle = useCallback((chip: FilterChip) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSelected((prev) => ({
+      ...prev,
+      // Tap a lit chip to clear its group; tap an unlit one to replace the group.
+      [chip.group]: prev[chip.group] === chip.value ? undefined : chip.value,
+    }));
+  }, []);
+
+  const submit = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+    const params = selectionToParams(selected);
+    router.push({
+      pathname: '/results',
+      params: {
+        q: query.trim(),
+        ...Object.fromEntries(
+          Object.entries(params).map(([k, v]) => [k, String(v)]),
+        ),
+      },
+    });
+  }, [query, selected, router]);
+
+  const activeCount = useMemo(
+    () => Object.values(selected).filter(Boolean).length,
+    [selected],
+  );
+
+  return (
+    <View className="flex-1">
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+
+      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+        <View className="flex-1 px-7">
+          <View className="flex-1 items-center justify-center">
+            <GhostLight size={18} />
+
+            <Text
+              className="mt-6 text-center text-[30px] leading-[38px] text-foreground"
+              style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+            >
+              What are you{'\n'}looking for?
+            </Text>
+
+            <View
+              className="mt-8 w-full flex-row items-center rounded-2xl border px-4"
+              style={{ borderColor: colors.dark.border, backgroundColor: 'rgba(29, 20, 15, 0.7)' }}
+            >
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={submit}
+                returnKeyType="search"
+                placeholder="a grieving mother, something funny…"
+                placeholderTextColor={colors.dark.mutedForeground}
+                selectionColor={colors.stageGlow}
+                className="flex-1 py-4 text-[16px] text-foreground"
+                style={{ fontFamily: 'Montserrat_400Regular' }}
+              />
+            </View>
+
+            {/* Filters: a row of stage-direction chips. Lit orange = active. */}
+            <View className="mt-6 w-full flex-row flex-wrap justify-center gap-2">
+              {FILTER_CHIPS.map((chip) => {
+                const active = selected[chip.group] === chip.value;
+                return (
+                  <Pressable
+                    key={chipKey(chip)}
+                    onPress={() => toggle(chip)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    className="rounded-full border px-3.5 py-2"
+                    style={{
+                      borderColor: active ? colors.stageGlow : colors.dark.border,
+                      backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
+                    }}
+                  >
+                    <Text
+                      className="text-[13px] lowercase"
+                      style={{
+                        fontFamily: 'CourierPrime_400Regular_Italic',
+                        letterSpacing: 0.5,
+                        color: active ? colors.stageGlow : colors.dark.mutedForeground,
+                      }}
+                    >
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View className="pb-4">
+            <Pressable
+              onPress={submit}
+              accessibilityRole="button"
+              className="items-center justify-center rounded-2xl py-4 active:opacity-90"
+              style={{ backgroundColor: colors.primary }}
+            >
+              <Text
+                className="text-[15px] uppercase tracking-[2px] text-white"
+                style={{ fontFamily: 'Montserrat_600SemiBold' }}
+              >
+                Search
+              </Text>
+            </Pressable>
+
+            <View className="mt-3 items-center">
+              <StageDirection>
+                {activeCount > 0
+                  ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
+                  : '(the whole stage.)'}
+              </StageDirection>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}

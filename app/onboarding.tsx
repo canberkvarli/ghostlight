@@ -70,7 +70,7 @@ export default function Onboarding() {
   const finish = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
     await markOnboardingComplete();
-    router.replace('/results');
+    router.replace('/search');
   }, [router]);
 
   const advance = useCallback(

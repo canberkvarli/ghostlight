@@ -9,6 +9,7 @@
     "android": "expo run:android",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "api:types": "openapi-typescript https://api.actorrise.com/openapi.json -o src/api/schema.d.ts",
     "prebuild": "expo prebuild --clean"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "openapi-typescript": "^7.13.0",
     "typescript": "~6.0.3"
   }
 }
