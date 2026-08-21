@@ -19,6 +19,7 @@ import Montserrat_600SemiBold from '@expo-google-fonts/montserrat/600SemiBold/Mo
 import '../src/global.css';
 import { colors } from '../src/theme/tokens';
 import { bootstrapSession } from '../src/lib/session';
+import { configurePurchases } from '../src/lib/purchases';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -47,7 +48,11 @@ export default function RootLayout() {
     // first launch, restore it on every launch after. Fire-and-forget — nothing
     // on screen waits for it, and if anonymous sign-ins are disabled server-side
     // the app still runs (see src/lib/session.ts).
-    void bootstrapSession();
+    void bootstrapSession().then(() => {
+      // Keyed to the Supabase user so the webhook can match app_user_id back to
+      // the ActorRise account. Inert until a RevenueCat key is set.
+      void configurePurchases();
+    });
   }, []);
 
   if (!fontsLoaded && !fontError) return null;
@@ -61,7 +66,11 @@ export default function RootLayout() {
             headerShown: false,
             contentStyle: { backgroundColor: colors.dark.background },
           }}
-        />
+        >
+          {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
+          <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
+        </Stack>
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

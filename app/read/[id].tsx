@@ -11,6 +11,9 @@ import { getMonologueById, formatDuration, type Monologue } from '../../src/data
 import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
+import { useSession } from '../../src/lib/useSession';
+import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
+import * as Haptics from 'expo-haptics';
 import { colors } from '../../src/theme/tokens';
 
 /**
@@ -38,6 +41,21 @@ export default function Read() {
     queryFn: async ({ signal }) => apiToMonologue(await getMonologue(id!, signal)),
   });
   const monologue = fixture ?? fetched;
+
+  const { isAuthenticated } = useSession();
+  const favorited = useIsFavorited(id ?? '', isAuthenticated);
+  const toggleFavorite = useToggleFavorite();
+
+  const onSave = () => {
+    if (!monologue) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // The first save is what asks for an account — never launch (spec §5).
+    if (!isAuthenticated) {
+      router.push('/auth');
+      return;
+    }
+    toggleFavorite.mutate({ id: monologue.id, on: !favorited });
+  };
 
   useEffect(() => {
     if (monologue) void recordRead(monologue.id);
@@ -73,7 +91,14 @@ export default function Read() {
             </Text>
           </Pressable>
           <StageDirection>(lights up.)</StageDirection>
-          <View style={{ width: 26 }} />
+          <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
+            <Text
+              className="text-[22px] leading-[26px]"
+              style={{ color: favorited ? colors.stageGlow : colors.dark.mutedForeground }}
+            >
+              {favorited ? '★' : '☆'}
+            </Text>
+          </Pressable>
         </View>
 
         {/* The paper rises into the light. */}

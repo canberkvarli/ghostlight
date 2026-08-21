@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.actorrise.ghostlight",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSMotionUsageDescription": "Ghost Light uses device motion to move the stage light as you tilt your phone."
       }
@@ -42,9 +43,14 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#130b08",
-          "dark": { "backgroundColor": "#130b08" }
+          "dark": {
+            "backgroundColor": "#130b08"
+          }
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-sqlite",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

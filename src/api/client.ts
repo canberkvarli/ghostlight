@@ -66,6 +66,46 @@ export async function searchMonologues(
   return (await res.json()) as SearchResponse;
 }
 
+/** Save / unsave (spec §4, `POST`/`DELETE /api/monologues/{id}/favorite`). */
+export async function setFavorite(id: string | number, on: boolean): Promise<void> {
+  const res = await fetch(`${API_URL}/api/monologues/${id}/favorite`, {
+    method: on ? 'POST' : 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new ApiError(res.status, `favorite ${id} failed (${res.status})`);
+}
+
+/** The saved list (spec §4, `GET /api/monologues/favorites/my`). */
+export async function getFavorites(signal?: AbortSignal): Promise<Monologue[]> {
+  const res = await fetch(`${API_URL}/api/monologues/favorites/my`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `favorites failed (${res.status})`);
+  return (await res.json()) as Monologue[];
+}
+
+export type PrepState = 'memorized' | 'studied' | 'cut';
+
+/** Prep state (spec §4, `POST /api/monologues/{id}/memorized·studied·cut`). */
+export async function setPrepState(id: string | number, kind: PrepState): Promise<void> {
+  const res = await fetch(`${API_URL}/api/monologues/${id}/${kind}`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new ApiError(res.status, `${kind} ${id} failed (${res.status})`);
+}
+
+/** Notes on a save (spec §4, `PATCH /api/monologues/{id}/favorite/notes`). */
+export async function setFavoriteNotes(id: string | number, notes: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/monologues/${id}/favorite/notes`, {
+    method: 'PATCH',
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `notes ${id} failed (${res.status})`);
+}
+
 /** Full monologue by id (spec §4, `GET /api/monologues/{id}`) — the Read screen. */
 export async function getMonologue(id: string | number, signal?: AbortSignal): Promise<Monologue> {
   const res = await fetch(`${API_URL}/api/monologues/${id}`, {

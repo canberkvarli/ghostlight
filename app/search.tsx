@@ -76,6 +76,19 @@ export default function Search() {
 
       <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
         <View className="flex-1 px-7">
+          <View className="h-10 flex-row items-center justify-end">
+            <Pressable
+              onPress={() => router.push('/saves')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Saved monologues"
+            >
+              <Text className="text-[20px]" style={{ color: colors.dark.mutedForeground }}>
+                ☆
+              </Text>
+            </Pressable>
+          </View>
+
           <View className="flex-1 items-center justify-center">
             <GhostLight size={18} />
 
