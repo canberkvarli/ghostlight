@@ -82,7 +82,12 @@ export async function searchScreen(
          film_tv_references!inner ( title, year, type, imdb_rating, poster_url ) )`,
     )
     .in('plays.source_type', ['film', 'tv'])
-    .not('plays.film_tv_references.poster_url', 'is', null);
+    .not('plays.film_tv_references.poster_url', 'is', null)
+    // Guard against a known film/TV ingest defect: a few dozen rows have a
+    // doubled-letter, paren-suffixed character_name ("Aallii )"). Hide them
+    // rather than show garbage — a clean row for the same piece usually exists.
+    // (Real fix is re-ingesting/cleaning those rows in the DB.)
+    .not('character_name', 'ilike', '%)%');
 
   if (filters.gender && filters.gender !== 'any') {
     q = q.ilike('character_gender', `%${filters.gender}%`);

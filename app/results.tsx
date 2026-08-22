@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
@@ -64,6 +64,7 @@ export default function Results() {
   const { height } = useWindowDimensions();
   const router = useRouter();
   const goBack = useGoBack('/search');
+  const insets = useSafeAreaInsets();
   const { tiltX, tiltY, reduceMotion } = useStageMotion();
   const { colors: c } = useTheme();
 
@@ -185,18 +186,20 @@ export default function Results() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* The way back to search — over the list, top-left. */}
-        <Pressable
-          onPress={goBack}
-          hitSlop={16}
-          accessibilityRole="button"
-          accessibilityLabel="Back to search"
-          style={{ position: 'absolute', top: 6, left: 14, zIndex: 10, padding: 6 }}
-        >
-          <Ionicons name="chevron-back" size={26} color={pal.glow} />
-        </Pressable>
+      {/* The way back to search — anchored just below the notch, over the list.
+          Absolute so it doesn't shift the list (the scroll spotlight is measured
+          against the full window). */}
+      <Pressable
+        onPress={goBack}
+        hitSlop={16}
+        accessibilityRole="button"
+        accessibilityLabel="Back to search"
+        style={{ position: 'absolute', top: insets.top + 8, left: 12, zIndex: 10, padding: 6 }}
+      >
+        <Ionicons name="chevron-back" size={26} color={pal.glow} />
+      </Pressable>
 
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ flex: 1 }}>
         {searching ? (
           <SearchingStage />
@@ -244,7 +247,7 @@ function StageHeader({
     <View style={{ height: HEADER_HEIGHT }} className="items-center justify-end pb-7">
       <GhostLight size={18} glow={pal.glow} line={pal.line} />
       <Text
-        className="mt-3 text-[40px] leading-[46px] text-foreground"
+        className="mt-3 text-[50px] leading-[58px] text-foreground"
         style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
       >
         {query ? 'Results' : coldTitle}

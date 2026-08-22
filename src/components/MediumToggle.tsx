@@ -10,7 +10,7 @@ import { mediumPalette, type Medium } from '../theme/medium';
  */
 
 const SEGMENTS: { medium: Medium; label: string }[] = [
-  { medium: 'theatre', label: 'Theatre' },
+  { medium: 'theatre', label: 'Plays' },
   { medium: 'screen', label: 'Film & TV' },
 ];
 
