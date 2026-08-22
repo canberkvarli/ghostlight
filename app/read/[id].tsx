@@ -22,6 +22,7 @@ import { PaywallShroud } from '../../src/components/PaywallShroud';
 import { MemorizeText } from '../../src/components/MemorizeText';
 import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
+import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
 import { getMonologue, getReadState } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
@@ -434,6 +435,9 @@ export default function Read() {
           ) : null}
         </Animated.View>
       </SafeAreaView>
+
+      {/* Blur over the words when the app backgrounds or a screenshot is taken. */}
+      <PrivacyShield />
     </View>
   );
 }

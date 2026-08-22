@@ -192,8 +192,8 @@ function PanelView({
         ) : null}
 
         <Text
-          className="text-center text-[48px] leading-[56px] text-foreground"
-          style={{ fontFamily: 'PlayfairDisplay_600SemiBold', marginTop: panel.count != null ? 10 : 18 }}
+          className="text-center text-foreground"
+          style={{ fontFamily: 'PlayfairDisplay_600SemiBold', marginTop: panel.count != null ? 10 : 18, fontSize: 44, lineHeight: 52 }}
         >
           {panel.headline}
         </Text>

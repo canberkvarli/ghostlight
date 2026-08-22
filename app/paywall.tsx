@@ -276,7 +276,7 @@ function PlanCard({
         </Text>
       </View>
 
-      <Text className="text-[26px] text-foreground" style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}>
+      <Text className="text-foreground" style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30 }}>
         {price}
       </Text>
     </Pressable>
