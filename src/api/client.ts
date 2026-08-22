@@ -94,6 +94,18 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
   return { reads_used: used, reads_limit: limit, is_paid: isPaid, atWall: !isPaid && used >= limit };
 }
 
+/**
+ * Permanently delete the account and all its data (Apple requires this in-app
+ * once sign-in is offered). The caller signs out afterwards.
+ */
+export async function deleteAccount(): Promise<void> {
+  const res = await fetch(`${API_URL}/api/account/delete`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new ApiError(res.status, `delete failed (${res.status})`);
+}
+
 /** Save / unsave (spec §4, `POST`/`DELETE /api/monologues/{id}/favorite`). */
 export async function setFavorite(id: string | number, on: boolean): Promise<void> {
   const res = await fetch(`${API_URL}/api/monologues/${id}/favorite`, {

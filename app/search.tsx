@@ -95,7 +95,7 @@ export default function Search() {
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ flex: 1, paddingHorizontal: 28 }}>
-          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 22 }}>
             <Pressable
               onPress={() => router.push('/saves')}
               hitSlop={12}
@@ -105,6 +105,14 @@ export default function Search() {
               <Text className="text-[20px]" style={{ color: colors.dark.mutedForeground }}>
                 ☆
               </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/account')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Account"
+            >
+              <Text style={{ fontSize: 19, color: colors.dark.mutedForeground }}>⚙</Text>
             </Pressable>
           </View>
 
