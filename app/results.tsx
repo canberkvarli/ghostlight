@@ -73,7 +73,9 @@ export default function Results() {
     gender?: string;
     age_range?: string;
     tone?: string;
+    emotion?: string;
     max_duration?: string;
+    max_overdone_score?: string;
     medium?: string;
   }>();
 
@@ -87,9 +89,11 @@ export default function Results() {
     if (raw.gender) p.gender = raw.gender;
     if (raw.age_range) p.age_range = raw.age_range;
     if (raw.tone) p.tone = raw.tone;
+    if (raw.emotion) p.emotion = raw.emotion;
     if (raw.max_duration) p.max_duration = Number(raw.max_duration);
+    if (raw.max_overdone_score) p.max_overdone_score = Number(raw.max_overdone_score);
     return p;
-  }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.max_duration]);
+  }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.emotion, raw.max_duration, raw.max_overdone_score]);
 
   const hasIntent = Object.keys(params).length > 0;
   const { data: live, isLoading, isError } = useMonologueSearch(params, hasIntent && !screenMode);

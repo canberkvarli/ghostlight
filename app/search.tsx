@@ -18,12 +18,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { StageButton } from '../src/components/StageButton';
 import { MediumToggle } from '../src/components/MediumToggle';
+import { FilterSheet } from '../src/components/FilterSheet';
+import { useQuery } from '@tanstack/react-query';
+import { getReadState } from '../src/api/client';
 import {
   FILTER_CHIPS,
+  EMPTY_SELECTION,
+  advancedCount,
   chipKey,
   selectionToParams,
   type FilterChip,
-  type FilterGroup,
+  type Selection,
 } from '../src/data/filters';
 import { mediumPalette, type Medium } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -41,24 +46,38 @@ import { useTheme } from '../src/theme/ThemeContext';
  * and the whole screen — bulb, spotlight, chips, floor — answers.
  */
 
-type Selection = Record<FilterGroup, string | undefined>;
-
-const EMPTY: Selection = {
-  gender: undefined,
-  age_range: undefined,
-  tone: undefined,
-  max_duration: undefined,
-};
-
 export default function Search() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
 
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Selection>(EMPTY);
+  const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
   const [medium, setMediumState] = useState<Medium>('theatre');
+  const [sheetOpen, setSheetOpen] = useState(false);
   const pal = mediumPalette(medium);
+
+  // The advanced filter sheet is a subscriber privilege; the read counter tells
+  // us who's paid. If the counter can't be reached, treat as not paid — free
+  // actors still get the quick chips.
+  const { data: wall } = useQuery({
+    queryKey: ['read-wall'],
+    queryFn: ({ signal }) => getReadState(signal),
+    retry: false,
+    staleTime: 15_000,
+  });
+  const isPaid = wall?.is_paid === true;
+  const advanced = advancedCount(selected);
+
+  const openMoreFilters = useCallback(() => {
+    if (!isPaid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      router.push('/paywall');
+      return;
+    }
+    Haptics.selectionAsync().catch(() => {});
+    setSheetOpen(true);
+  }, [isPaid, router]);
 
   // The house-lights flash: a wash of the new colour that blooms and fades as
   // the medium changes, so the switch feels like a lighting cue, not a repaint.
@@ -246,6 +265,22 @@ export default function Search() {
                 );
               })}
             </View>
+
+            {/* The premium refinement sheet — locked for free actors. */}
+            <Pressable
+              onPress={openMoreFilters}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="More filters"
+              style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 }}
+            >
+              {!isPaid ? <Ionicons name="lock-closed" size={12} color={pal.glow} /> : null}
+              <Text
+                style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, letterSpacing: 0.5, color: pal.glow }}
+              >
+                {advanced > 0 ? `(${advanced} more lit.)` : '(more filters.)'}
+              </Text>
+            </Pressable>
           </View>
 
           <View style={{ paddingBottom: 20 }}>
@@ -266,6 +301,19 @@ export default function Search() {
       <Animated.View
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, flashStyle, { backgroundColor: pal.glow }]}
+      />
+
+      <FilterSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onApply={() => {
+          setSheetOpen(false);
+          submit();
+        }}
+        selected={selected}
+        onToggle={toggle}
+        glow={pal.glow}
+        chipFill={pal.chipFill}
       />
     </View>
   );

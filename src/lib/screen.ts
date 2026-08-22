@@ -20,7 +20,10 @@ export interface ScreenFilters {
   gender?: string | null;
   age_range?: string | null;
   tone?: string | null;
+  emotion?: string | null;
   max_duration?: number | null;
+  /** Max overdone score 0–1 — freshness. Lower hides the well-worn pieces. */
+  max_overdone_score?: number | null;
 }
 
 function normGender(value: string | null): Gender {
@@ -94,7 +97,9 @@ export async function searchScreen(
   }
   if (filters.age_range) q = q.ilike('character_age_range', `%${filters.age_range}%`);
   if (filters.tone) q = q.ilike('tone', `%${filters.tone}%`);
+  if (filters.emotion) q = q.ilike('primary_emotion', `%${filters.emotion}%`);
   if (filters.max_duration) q = q.lte('estimated_duration_seconds', filters.max_duration);
+  if (filters.max_overdone_score != null) q = q.lte('overdone_score', filters.max_overdone_score);
   if (filters.q?.trim()) {
     const term = filters.q.trim().replace(/[%,]/g, ' ');
     q = q.or(`title.ilike.%${term}%,character_name.ilike.%${term}%,text.ilike.%${term}%`);
