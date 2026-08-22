@@ -30,6 +30,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 LogBox.ignoreLogs([
   'Using a Test Store API key',
   'Sending `onAnimatedValueUpdate`',
+  // Expected until the App Store products go live / Paid Apps Agreement is active;
+  // the paywall falls back to static prices. Not an app bug.
+  /Error fetching offering/,
 ]);
 
 const queryClient = new QueryClient();
