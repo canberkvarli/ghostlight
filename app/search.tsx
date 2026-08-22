@@ -181,8 +181,8 @@ export default function Search() {
             <GhostLight size={22} boost={bulbBoost} stem stemHeight={44} glow={pal.glow} line={pal.line} />
 
             <Text
-              className="mt-8 text-center text-[44px] leading-[52px] text-foreground"
-              style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+              className="mt-8 text-center text-foreground"
+              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 50, lineHeight: 56 }}
             >
               What are you{'\n'}looking for?
             </Text>

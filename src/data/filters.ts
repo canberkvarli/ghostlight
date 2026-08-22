@@ -43,7 +43,11 @@ export interface FilterChip {
 
 const chip = (group: FilterGroup, label: string, value: string): FilterChip => ({ group, label, value });
 
-/** Free, inline on the search home. */
+/**
+ * Free, inline on the search home — kept deliberately lean: who you are
+ * (gender, age). Everything about *how it plays* — tone, length, emotion,
+ * freshness — lives in the premium sheet.
+ */
 export const FILTER_CHIPS: FilterChip[] = [
   chip('gender', '(female.)', 'female'),
   chip('gender', '(male.)', 'male'),
@@ -51,10 +55,6 @@ export const FILTER_CHIPS: FilterChip[] = [
   chip('age_range', '(20s.)', '20s'),
   chip('age_range', '(30s.)', '30s'),
   chip('age_range', '(40s+.)', '40s'),
-  chip('tone', '(comedic.)', 'comedic'),
-  chip('tone', '(dramatic.)', 'dramatic'),
-  chip('max_duration', '(under 1 min.)', '60'),
-  chip('max_duration', '(under 2 min.)', '120'),
 ];
 
 export interface FilterGroupDef {
@@ -93,6 +93,15 @@ export const ADVANCED_GROUPS: FilterGroupDef[] = [
     ],
   },
   {
+    group: 'max_duration',
+    title: 'Length',
+    chips: [
+      chip('max_duration', '(under 1 min.)', '60'),
+      chip('max_duration', '(under 2 min.)', '120'),
+      chip('max_duration', '(under 3 min.)', '180'),
+    ],
+  },
+  {
     group: 'freshness',
     title: 'Freshness',
     chips: [
@@ -107,14 +116,13 @@ export function chipKey(c: FilterChip): string {
   return `${c.group}:${c.value}`;
 }
 
-const FREE_TONES = new Set(['comedic', 'dramatic']);
-
 /** How many selections live only in the premium sheet — the badge on "(more filters.)". */
 export function advancedCount(sel: Selection): number {
   let n = 0;
+  if (sel.tone) n += 1;
   if (sel.emotion) n += 1;
+  if (sel.max_duration) n += 1;
   if (sel.freshness) n += 1;
-  if (sel.tone && !FREE_TONES.has(sel.tone)) n += 1;
   return n;
 }
 

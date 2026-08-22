@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   runOnJS,
@@ -82,6 +83,10 @@ export default function Results() {
   const medium: Medium = raw.medium === 'screen' ? 'screen' : 'theatre';
   const pal = mediumPalette(medium);
   const screenMode = medium === 'screen';
+
+  // The excerpts are the words of the play too — same protection as the read
+  // screen (full block on Android; recording/app-switcher cover on iOS).
+  usePreventScreenCapture('results');
 
   const params: SearchParams = useMemo(() => {
     const p: SearchParams = {};
@@ -251,8 +256,8 @@ function StageHeader({
     <View style={{ height: HEADER_HEIGHT }} className="items-center justify-end pb-7">
       <GhostLight size={18} glow={pal.glow} line={pal.line} />
       <Text
-        className="mt-3 text-[50px] leading-[58px] text-foreground"
-        style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+        className="mt-3 text-foreground"
+        style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 52, lineHeight: 58 }}
       >
         {query ? 'Results' : coldTitle}
       </Text>

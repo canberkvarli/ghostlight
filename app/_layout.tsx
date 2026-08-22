@@ -86,6 +86,11 @@ function Shell() {
           contentStyle: { backgroundColor: c.background },
         }}
       >
+        {/* Results rise and fade up like the lights changing for a new scene,
+            rather than sliding in from the side. Read cross-fades, then the
+            paper does its curtain rise. */}
+        <Stack.Screen name="results" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
+        <Stack.Screen name="read/[id]" options={{ animation: 'fade', animationDuration: 260 }} />
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />

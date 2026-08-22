@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import { GhostLight } from '../src/components/GhostLight';
@@ -20,26 +21,20 @@ import {
 import { colors } from '../src/theme/tokens';
 
 /**
- * Step 7 — the paywall. The product decision the whole app is built around, so
- * it is built last and slowly. The bulb comes back up carrying the offer:
- * annual pushed, monthly secondary, and the promise of every monologue.
+ * The paywall — the product decision the whole app is built around, so it is
+ * built last and slowly. Modern and quiet: the bulb returns carrying the offer,
+ * a short list of what unlocks, two clean plan cards (annual pushed), one CTA.
+ * Restore is present because Apple requires it.
  *
- * This is the offer surface. The full spec §5 sequence — on the 4th read the
- * lit lines dim under a Skia gradient mask before the bulb returns — is the
- * transition *into* this screen and is wired once the server-side read counter
- * exists (spec §4 #2); the counter, not the client, decides when to fire.
- *
- * Live prices come from RevenueCat when it is configured; otherwise the static
- * $29.99 / $4.99 copy stands so the screen is never empty. "Restore Purchases"
- * is present because Apple requires it — omitting it is a guaranteed rejection.
+ * Live prices come from RevenueCat when configured; the static $29.99 / $4.99
+ * copy stands otherwise so the screen is never empty.
  */
 
-const BULLETS = [
-  'Every monologue, all 10,863',
-  'Unlimited saves',
-  'Memorize mode',
-  'Record yourself',
-  'Works offline',
+const FEATURES = [
+  'Every monologue — all 10,863',
+  'Memorize mode & copy any speech',
+  'Hide the overdone ones',
+  'Unlimited saves, works offline',
 ];
 
 type Plan = 'annual' | 'monthly';
@@ -50,6 +45,7 @@ export default function Paywall() {
   const [plan, setPlan] = useState<Plan>('annual');
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const { colors: c } = useTheme();
 
@@ -88,14 +84,20 @@ export default function Paywall() {
   };
 
   const onRestore = async () => {
-    setBusy(true);
+    if (restoring) return;
+    setRestoring(true);
     setNote(null);
     try {
       const entitled = await restore();
-      setNote(entitled ? 'Restored. Welcome back.' : 'Nothing to restore on this account.');
-      if (entitled) close();
+      if (entitled) {
+        close();
+      } else {
+        setNote('Nothing to restore on this account.');
+      }
+    } catch {
+      setNote('Couldn’t reach the store. Try again.');
     } finally {
-      setBusy(false);
+      setRestoring(false);
     }
   };
 
@@ -104,52 +106,49 @@ export default function Paywall() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
-          <Pressable onPress={close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-            <Text className="text-[22px]" style={{ color: c.mutedForeground }}>
-              ✕
-            </Text>
+        <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
+          <Pressable onPress={close} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close" style={{ padding: 4 }}>
+            <Ionicons name="close" size={26} color={c.mutedForeground} />
           </Pressable>
         </View>
 
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}>
-          <View className="items-center">
-            <GhostLight size={20} />
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ alignItems: 'center' }}>
+            <GhostLight size={22} />
             <Text
-              className="mt-6 text-center text-[32px] leading-[38px] text-foreground"
-              style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+              className="mt-6 text-center text-foreground"
+              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 44, lineHeight: 50 }}
             >
               The whole stage.
             </Text>
             <StageDirection className="mt-3">(three reads were the trial.)</StageDirection>
           </View>
 
-          <View className="mt-8">
-            {BULLETS.map((b) => (
-              <View key={b} className="mb-2.5 flex-row items-center">
-                <Text style={{ marginRight: 12, color: colors.stageGlow }} className="text-[15px]">
-                  ●
-                </Text>
-                <Text
-                  className="text-[15px] text-foreground"
-                  style={{ fontFamily: 'Montserrat_400Regular' }}
-                >
-                  {b}
+          {/* What unlocks — quiet amber ticks, no loud bullets. */}
+          <View style={{ marginTop: 30, alignSelf: 'center' }}>
+            {FEATURES.map((f) => (
+              <View key={f} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <Ionicons name="checkmark-sharp" size={18} color={colors.stageGlow} style={{ marginRight: 12 }} />
+                <Text className="text-[15px] text-foreground" style={{ fontFamily: 'Montserrat_400Regular' }}>
+                  {f}
                 </Text>
               </View>
             ))}
           </View>
 
-          <View style={{ marginTop: 32, gap: 12 }}>
-            <PlanRow
+          <View style={{ marginTop: 26, gap: 12 }}>
+            <PlanCard
               selected={plan === 'annual'}
               onPress={() => setPlan('annual')}
               title="Annual"
               price={annualPrice}
-              caption="best value · billed yearly"
+              caption="billed yearly"
               badge="save 50%"
             />
-            <PlanRow
+            <PlanCard
               selected={plan === 'monthly'}
               onPress={() => setPlan('monthly')}
               title="Monthly"
@@ -157,9 +156,9 @@ export default function Paywall() {
               caption="billed monthly"
             />
           </View>
-        </View>
+        </ScrollView>
 
-        <View style={{ paddingHorizontal: 32, paddingBottom: 24 }}>
+        <View style={{ paddingHorizontal: 28, paddingBottom: 20, paddingTop: 8 }}>
           <StageButton onPress={buy} disabled={busy}>
             {busy ? (
               <ActivityIndicator color={colors.stageGlow} />
@@ -178,22 +177,26 @@ export default function Paywall() {
             )}
           </StageButton>
 
-          {note ? (
-            <Text
-              className="mt-3 text-center text-[12px]"
-              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
-            >
-              {note}
-            </Text>
-          ) : null}
+          {/* Fixed-height note slot so nothing jumps as it appears. */}
+          <View style={{ minHeight: 20, marginTop: 10, justifyContent: 'center' }}>
+            {note ? (
+              <Text
+                className="text-center text-[13px]"
+                style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
+              >
+                {note}
+              </Text>
+            ) : null}
+          </View>
 
-          <Pressable onPress={onRestore} hitSlop={10} className="mt-3 items-center" accessibilityRole="button">
-            <Text
-              className="text-[13px] text-muted-foreground"
-              style={{ fontFamily: 'Montserrat_500Medium' }}
-            >
-              Restore Purchases
-            </Text>
+          <Pressable onPress={onRestore} hitSlop={10} style={{ alignItems: 'center', paddingVertical: 6 }} accessibilityRole="button">
+            {restoring ? (
+              <ActivityIndicator color={c.mutedForeground} />
+            ) : (
+              <Text className="text-[13px] text-muted-foreground" style={{ fontFamily: 'Montserrat_500Medium' }}>
+                Restore Purchases
+              </Text>
+            )}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -201,7 +204,7 @@ export default function Paywall() {
   );
 }
 
-function PlanRow({
+function PlanCard({
   selected,
   onPress,
   title,
@@ -219,30 +222,46 @@ function PlanRow({
   const { colors: c } = useTheme();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 16,
-        borderWidth: 1,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        borderRadius: 18,
+        borderWidth: selected ? 1.5 : 1,
+        paddingHorizontal: 18,
+        paddingVertical: 18,
         borderColor: selected ? colors.stageGlow : c.border,
         backgroundColor: selected ? 'rgba(243, 130, 29, 0.10)' : c.card,
       }}
     >
+      {/* Radio dot. */}
+      <View
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          borderWidth: 2,
+          borderColor: selected ? colors.stageGlow : c.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 14,
+        }}
+      >
+        {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.stageGlow }} /> : null}
+      </View>
+
       <View style={{ flex: 1 }}>
-        <View className="flex-row items-center">
-          <Text
-            className="text-[16px] text-foreground"
-            style={{ fontFamily: 'Montserrat_600SemiBold' }}
-          >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text className="text-[17px] text-foreground" style={{ fontFamily: 'Montserrat_600SemiBold' }}>
             {title}
           </Text>
           {badge ? (
-            <View style={{ marginLeft: 8, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.primary }}>
+            <View style={{ borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.primary }}>
               <Text
                 className="text-[10px] uppercase tracking-[1px] text-white"
                 style={{ fontFamily: 'Montserrat_600SemiBold' }}
@@ -252,17 +271,12 @@ function PlanRow({
             </View>
           ) : null}
         </View>
-        <Text
-          className="mt-0.5 text-[12px] text-muted-foreground"
-          style={{ fontFamily: 'Montserrat_400Regular' }}
-        >
+        <Text className="mt-0.5 text-[12px] text-muted-foreground" style={{ fontFamily: 'Montserrat_400Regular' }}>
           {caption}
         </Text>
       </View>
-      <Text
-        className="text-[18px] text-foreground"
-        style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
-      >
+
+      <Text className="text-[26px] text-foreground" style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}>
         {price}
       </Text>
     </Pressable>

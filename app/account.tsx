@@ -9,7 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
+import { StageButton } from '../src/components/StageButton';
 import { useStageMotion } from '../src/hooks/useStageMotion';
+import type { ReadState } from '../src/api/client';
 import { useSession } from '../src/lib/useSession';
 import { useGoBack } from '../src/lib/nav';
 import { supabase } from '../src/lib/supabase';
@@ -43,12 +45,6 @@ export default function Account() {
     retry: false,
     staleTime: 15_000,
   });
-
-  const planLine = readState?.is_paid
-    ? 'Monologues — every monologue, unlimited'
-    : readState
-      ? `Free — ${Math.min(readState.reads_used, readState.reads_limit)} of ${readState.reads_limit} reads used`
-      : 'Free';
 
   const onRestore = async () => {
     setBusy('restore');
@@ -106,27 +102,30 @@ export default function Account() {
             <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
           </Pressable>
           <Text
-            className="text-[20px] text-foreground"
-            style={{ marginLeft: 8, fontFamily: 'PlayfairDisplay_600SemiBold' }}
+            className="text-foreground"
+            style={{ marginLeft: 8, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 32 }}
           >
             Account
           </Text>
         </View>
 
-        <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 12 }}>
+        <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 14 }}>
           {/* Who you are, and what you're on. */}
-          <View style={{ marginBottom: 8 }}>
-            <StageDirection>
-              {isAuthenticated ? `(signed in as ${session?.user.email ?? 'you'}.)` : '(a guest on the stage.)'}
-            </StageDirection>
-            <Text
-              className="mt-3 text-[15px] text-foreground"
-              style={{ fontFamily: 'Montserrat_500Medium' }}
-            >
-              {planLine}
-            </Text>
+          <StageDirection>
+            {isAuthenticated ? `(signed in as ${session?.user.email ?? 'you'}.)` : '(a guest on the stage.)'}
+          </StageDirection>
+
+          <View style={{ marginTop: 14 }}>
+            <SubscriptionCard readState={readState} onUpgrade={() => router.push('/paywall')} />
           </View>
 
+          {!isAuthenticated ? (
+            <View style={{ marginTop: 12 }}>
+              <StageButton label="Sign in / Create account" onPress={() => router.push('/auth')} />
+            </View>
+          ) : null}
+
+          <View style={{ height: 20 }} />
           <Divider />
 
           <AppearanceRow />
@@ -158,6 +157,50 @@ export default function Account() {
           </View>
         </View>
       </SafeAreaView>
+    </View>
+  );
+}
+
+/** The plan at a glance — a lit card for subscribers, a reads-left meter + upgrade for free. */
+function SubscriptionCard({ readState, onUpgrade }: { readState?: ReadState; onUpgrade: () => void }) {
+  const { colors: c } = useTheme();
+
+  if (readState?.is_paid) {
+    return (
+      <View style={{ borderRadius: 20, borderWidth: 1, borderColor: 'rgba(243, 130, 29, 0.4)', backgroundColor: 'rgba(243, 130, 29, 0.08)', padding: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <Ionicons name="sparkles" size={15} color={colors.stageGlow} />
+          <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: colors.stageGlow }}>
+            Monologues
+          </Text>
+        </View>
+        <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 24, lineHeight: 30, color: c.foreground }}>
+          Every monologue, unlimited.
+        </Text>
+        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 14, color: c.mutedForeground, marginTop: 6 }}>
+          Memorize, copy, offline — all yours.
+        </Text>
+      </View>
+    );
+  }
+
+  const limit = readState && readState.reads_limit > 0 ? readState.reads_limit : 3;
+  const used = Math.min(readState?.reads_used ?? 0, limit);
+  const pct = Math.max(0, Math.min(1, used / limit));
+  return (
+    <View style={{ borderRadius: 20, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, padding: 20 }}>
+      <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: c.mutedForeground, marginBottom: 8 }}>
+        Free
+      </Text>
+      <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 24, lineHeight: 30, color: c.foreground }}>
+        {used} of {limit} reads used
+      </Text>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: c.border, marginTop: 14, overflow: 'hidden' }}>
+        <View style={{ width: `${pct * 100}%`, height: '100%', backgroundColor: colors.stageGlow }} />
+      </View>
+      <View style={{ marginTop: 18 }}>
+        <StageButton label="Unlock everything" onPress={onUpgrade} />
+      </View>
     </View>
   );
 }

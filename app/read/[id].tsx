@@ -32,6 +32,7 @@ import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -76,6 +77,11 @@ export default function Read() {
   const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();
   const { colors: c } = useTheme();
+
+  // Protect the words of the play. Android blocks screenshots + recording
+  // outright (FLAG_SECURE); iOS can't block a still screenshot at the OS level,
+  // but this obscures the app in screen recordings and the app switcher.
+  usePreventScreenCapture('read');
 
   // Fixtures first (offline, instant); fall to the live fetch for real search
   // results whose id the device has never seen.

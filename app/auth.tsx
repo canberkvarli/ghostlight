@@ -94,10 +94,10 @@ export default function Auth() {
         </View>
 
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
-          <GhostLight size={18} stem stemHeight={48} />
+          <GhostLight size={20} stem stemHeight={48} />
           <Text
-            className="mt-8 text-center text-[30px] leading-[38px] text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+            className="mt-8 text-center text-foreground"
+            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 44, lineHeight: 50 }}
           >
             Keep this one.
           </Text>
@@ -173,8 +173,14 @@ export default function Auth() {
               </View>
             </View>
           ) : (
-            <Pressable onPress={() => setEmailOpen(true)} hitSlop={10} style={{ marginTop: 18, alignItems: 'center' }} accessibilityRole="button">
-              <StageDirection>(connect your actorrise account.)</StageDirection>
+            <Pressable
+              onPress={() => setEmailOpen(true)}
+              accessibilityRole="button"
+              style={{ marginTop: 12, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}
+            >
+              <Text className="text-[15px] text-foreground" style={{ fontFamily: 'Montserrat_600SemiBold' }}>
+                Connect your ActorRise account
+              </Text>
             </Pressable>
           )}
 

@@ -13,7 +13,7 @@ export const CARD_GAP = 14;
 export const ROW_HEIGHT = CARD_HEIGHT + CARD_GAP;
 
 export const LIST_PADDING_TOP = 8;
-export const HEADER_HEIGHT = 196;
+export const HEADER_HEIGHT = 224;
 
 /** Top of a card in content coordinates. */
 export function cardTop(index: number): number {
