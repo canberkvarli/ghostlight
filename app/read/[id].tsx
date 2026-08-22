@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Animated, {
   FadeIn,
+  useAnimatedStyle,
   useReducedMotion,
+  useSharedValue,
   withSpring,
   withTiming,
   type EntryAnimationsValues,
@@ -14,6 +16,8 @@ import Animated, {
 import { GhostLight } from '../../src/components/GhostLight';
 import { StageDirection } from '../../src/components/StageDirection';
 import { PaywallShroud } from '../../src/components/PaywallShroud';
+import { MemorizeText } from '../../src/components/MemorizeText';
+import { PageCurl } from '../../src/components/PageCurl';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
 import { getMonologue, getReadState } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
@@ -75,6 +79,26 @@ export default function Read() {
   const { isAuthenticated } = useSession();
   const favorited = useIsFavorited(id ?? '', isAuthenticated);
   const toggleFavorite = useToggleFavorite();
+
+  // Memorize mode: tap lines to drop them into shadow and rehearse recall.
+  // revealKey bumps to light every line back up at once.
+  const [memorizing, setMemorizing] = useState(false);
+  const [revealKey, setRevealKey] = useState(0);
+
+  // The title grows into place from the size it was on the card (~19px → 30px),
+  // rising a touch — a matched hand-off from the tapped card, without the
+  // fragile shared-element API. Origin is the left edge so it grows from where
+  // the card title sat, not from its centre.
+  const titleScale = useSharedValue(reduceMotion ? 1 : 0.66);
+  const titleRise = useSharedValue(reduceMotion ? 0 : 12);
+  useEffect(() => {
+    if (reduceMotion) return;
+    titleScale.value = withSpring(1, { damping: 15, stiffness: 130 });
+    titleRise.value = withSpring(0, { damping: 15, stiffness: 130 });
+  }, [reduceMotion, titleScale, titleRise]);
+  const titleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: titleRise.value }, { scale: titleScale.value }],
+  }));
 
   // The wall (spec §5, Step 7). Free users get three reads, lifetime; the server
   // owns the count (src/lib/reads.ts). If we can't reach it — no session yet,
@@ -170,12 +194,19 @@ export default function Read() {
             >
               {monologue.character}
             </Text>
-            <Text
+            <Animated.Text
               className="mt-2 text-[30px] leading-[36px]"
-              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', color: colors.light.foreground }}
+              style={[
+                titleStyle,
+                {
+                  fontFamily: 'PlayfairDisplay_600SemiBold',
+                  color: colors.light.foreground,
+                  transformOrigin: 'left',
+                },
+              ]}
             >
               {monologue.title}
-            </Text>
+            </Animated.Text>
             <Text
               className="mt-2 text-[13px]"
               style={{ fontFamily: 'Montserrat_400Regular', color: colors.light.mutedForeground }}
@@ -187,18 +218,71 @@ export default function Read() {
               style={{ marginVertical: 24, height: 1, width: '100%', backgroundColor: colors.light.border }}
             />
 
+            {/* Memorize toggle — a rehearsal aid, only offered on the full text. */}
+            {!gated && monologue.fullText ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginBottom: 18 }}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setMemorizing((m) => !m);
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'CourierPrime_400Regular_Italic',
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                      color: memorizing ? colors.primary : colors.light.mutedForeground,
+                    }}
+                  >
+                    {memorizing ? '(memorizing.)' : '(memorize.)'}
+                  </Text>
+                </Pressable>
+                {memorizing ? (
+                  <Pressable onPress={() => setRevealKey((k) => k + 1)} hitSlop={8} accessibilityRole="button">
+                    <Text
+                      style={{
+                        fontFamily: 'CourierPrime_400Regular_Italic',
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                        color: colors.light.mutedForeground,
+                      }}
+                    >
+                      (reveal all.)
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+
             {/* The words of the play, in the typewriter, dark ink on warm paper. */}
-            <Animated.Text
-              entering={FadeIn.delay(220).duration(600)}
-              className="text-[16px]"
-              style={{
-                fontFamily: 'CourierPrime_400Regular',
-                color: colors.light.foreground,
-                lineHeight: 27,
-              }}
-            >
-              {gated ? monologue.excerpt : body}
-            </Animated.Text>
+            {memorizing && !gated ? (
+              <MemorizeText
+                text={body}
+                active
+                revealKey={revealKey}
+                textStyle={{
+                  fontFamily: 'CourierPrime_400Regular',
+                  fontSize: 16,
+                  color: colors.light.foreground,
+                  lineHeight: 27,
+                }}
+              />
+            ) : (
+              <Animated.Text
+                entering={FadeIn.delay(220).duration(600)}
+                className="text-[16px]"
+                style={{
+                  fontFamily: 'CourierPrime_400Regular',
+                  color: colors.light.foreground,
+                  lineHeight: 27,
+                }}
+              >
+                {gated ? monologue.excerpt : body}
+              </Animated.Text>
+            )}
 
             {gated ? null : !monologue.fullText ? (
               <Text
@@ -209,6 +293,9 @@ export default function Read() {
               </Text>
             ) : null}
           </ScrollView>
+
+          {/* A folded corner, so the page reads as paper. Hidden behind the wall. */}
+          {gated ? null : <PageCurl />}
 
           {/* The wall: they've seen it is genuinely their part; now the light
               dims on the rest and the bulb comes back carrying the offer. */}
