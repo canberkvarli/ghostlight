@@ -22,6 +22,7 @@ import { getMonologueById, formatDuration, type Monologue } from '../../src/data
 import { getMonologue, getReadState } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
+import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
@@ -72,7 +73,16 @@ export default function Read() {
     queryKey: ['monologue', id],
     enabled: Boolean(id) && !fixture,
     retry: false,
-    queryFn: async ({ signal }) => apiToMonologue(await getMonologue(id!, signal)),
+    queryFn: async ({ signal }) => {
+      try {
+        return apiToMonologue(await getMonologue(id!, signal));
+      } catch (err) {
+        // No signal? Read the offline copy if this one is on the shelf.
+        const local = await getOffline(id!);
+        if (local) return local;
+        throw err;
+      }
+    },
   });
   const monologue = fixture ?? fetched;
 
@@ -123,7 +133,11 @@ export default function Read() {
       router.push('/auth');
       return;
     }
-    toggleFavorite.mutate({ id: monologue.id, on: !favorited });
+    const willSave = !favorited;
+    toggleFavorite.mutate({ id: monologue.id, on: willSave });
+    // Mirror to the offline shelf so a saved piece reads without signal.
+    if (willSave) void saveOffline(monologue);
+    else void removeOffline(monologue.id);
   };
 
   useEffect(() => {
