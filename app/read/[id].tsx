@@ -28,6 +28,7 @@ import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -101,6 +102,7 @@ export default function Read() {
   // revealKey bumps to light every line back up at once.
   const [memorizing, setMemorizing] = useState(false);
   const [revealKey, setRevealKey] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   // The title settles up into place from the card's size — a soft matched
   // hand-off, eased not sprung, so nothing bounces. Origin is the left edge so
@@ -146,6 +148,22 @@ export default function Read() {
     else void removeOffline(monologue.id);
   };
 
+  // Copying the words is a subscriber privilege — the free tier reads on the
+  // stage, it doesn't walk off with the script. Non-subscribers meet the wall.
+  const isPaid = wall?.is_paid === true;
+  const onCopy = async () => {
+    if (!monologue) return;
+    if (!isPaid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      router.push('/paywall');
+      return;
+    }
+    await Clipboard.setStringAsync(monologue.fullText ?? monologue.excerpt);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+
   useEffect(() => {
     // Spend a read only when one is actually being read — never behind the wall.
     if (monologue && !gated) void recordRead(monologue.id);
@@ -173,19 +191,37 @@ export default function Read() {
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        {/* On the dark shell: the eyebrow and the way back. */}
-        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-          <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
-            <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
-          </Pressable>
-          <StageDirection>(lights up.)</StageDirection>
-          <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
-            <Ionicons
-              name={favorited ? 'bookmark' : 'bookmark-outline'}
-              size={22}
-              color={favorited ? colors.stageGlow : c.mutedForeground}
-            />
-          </Pressable>
+        {/* On the dark shell: the eyebrow (centred), the way back, and the tools. */}
+        <View style={{ height: 48, justifyContent: 'center', paddingHorizontal: 20 }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }} pointerEvents="none">
+            <StageDirection>(lights up.)</StageDirection>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
+              <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
+            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+              <Pressable
+                onPress={onCopy}
+                hitSlop={14}
+                accessibilityRole="button"
+                accessibilityLabel={isPaid ? 'Copy the monologue' : 'Copying is a subscriber feature'}
+              >
+                <Ionicons
+                  name={copied ? 'checkmark' : 'copy-outline'}
+                  size={21}
+                  color={copied ? colors.stageGlow : c.mutedForeground}
+                />
+              </Pressable>
+              <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
+                <Ionicons
+                  name={favorited ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={favorited ? colors.stageGlow : c.mutedForeground}
+                />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         {/* The paper rises into the light. */}
@@ -322,10 +358,10 @@ export default function Read() {
           {gated ? (
             <Animated.View
               entering={FadeIn.delay(400).duration(700)}
-              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height * 0.52 }}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height * 0.56 }}
               pointerEvents="box-none"
             >
-              <PaywallShroud width={width - 32} height={height * 0.52} />
+              <PaywallShroud width={width - 32} height={height * 0.56} />
               <View
                 style={{
                   position: 'absolute',

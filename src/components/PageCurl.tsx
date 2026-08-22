@@ -5,7 +5,7 @@ import { Canvas, LinearGradient, Path, Shadow, vec } from '@shopify/react-native
  * the light, so the warm paper reads as a physical sheet, not a flat card. Pure
  * decoration, tucked into the bottom-right where the text padding leaves room.
  */
-export function PageCurl({ size = 40 }: { size?: number }) {
+export function PageCurl({ size = 46 }: { size?: number }) {
   // Triangle: fold line from (0,size) up to (size,0), closed at the corner.
   const tri = `M0 ${size} L ${size} 0 L ${size} ${size} Z`;
   return (

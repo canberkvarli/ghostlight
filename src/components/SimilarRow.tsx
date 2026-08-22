@@ -35,7 +35,7 @@ export function SimilarRow({ id, enabled }: { id: string; enabled: boolean }) {
           marginBottom: 14,
         }}
       >
-        (more like this.)
+        (in the same key.)
       </Text>
       <ScrollView
         horizontal
@@ -48,10 +48,11 @@ export function SimilarRow({ id, enabled }: { id: string; enabled: boolean }) {
             onPress={() => router.push(`/read/${m.id}`)}
             accessibilityRole="button"
             style={{
-              width: 168,
+              width: 190,
               borderRadius: 14,
               borderWidth: 1,
               borderColor: colors.light.border,
+              backgroundColor: colors.light.card,
               padding: 14,
             }}
           >

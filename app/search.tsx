@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +17,7 @@ import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { StageButton } from '../src/components/StageButton';
+import { MediumToggle } from '../src/components/MediumToggle';
 import {
   FILTER_CHIPS,
   chipKey,
@@ -24,7 +25,7 @@ import {
   type FilterChip,
   type FilterGroup,
 } from '../src/data/filters';
-import { colors } from '../src/theme/tokens';
+import { mediumPalette, type Medium } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
 
 /**
@@ -34,6 +35,10 @@ import { useTheme } from '../src/theme/ThemeContext';
  * bulb, one line of Playfair, and the search field as the hero. Filters are a
  * row of lit/unlit stage-direction chips, not dropdowns. Submitting carries the
  * query and the chosen filters to the results list.
+ *
+ * Two houses: Theatre (the amber stage, plays) and Film & TV (a violet cinema
+ * house, posters). The toggle flashes the house lights over to the new colour
+ * and the whole screen — bulb, spotlight, chips, floor — answers.
  */
 
 type Selection = Record<FilterGroup, string | undefined>;
@@ -52,6 +57,26 @@ export default function Search() {
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY);
+  const [medium, setMediumState] = useState<Medium>('theatre');
+  const pal = mediumPalette(medium);
+
+  // The house-lights flash: a wash of the new colour that blooms and fades as
+  // the medium changes, so the switch feels like a lighting cue, not a repaint.
+  const flash = useSharedValue(0);
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value * 0.28 }));
+
+  const setMedium = useCallback(
+    (next: Medium) => {
+      if (next === medium) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
+      setMediumState(next);
+      flash.value = withSequence(
+        withTiming(1, { duration: 140 }),
+        withTiming(0, { duration: 520 }),
+      );
+    },
+    [medium, flash],
+  );
 
   // The bulb answers the search: it flares as the actor types and flares harder
   // on submit, then settles to a gentle idle while there's a query.
@@ -65,11 +90,11 @@ export default function Search() {
   }, [bulbBoost]);
 
   // The search field catches the light when you touch it — the border warms to
-  // orange and a soft glow rises, like stepping into the spot.
+  // the house colour and a soft glow rises, like stepping into the spot.
   const focus = useSharedValue(0);
   const fieldStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(focus.value, [0, 1], [c.border, colors.stageGlow]),
-    shadowColor: colors.stageGlow,
+    borderColor: interpolateColor(focus.value, [0, 1], [c.border, pal.glow]),
+    shadowColor: pal.glow,
     shadowOpacity: focus.value * 0.5,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 0 },
@@ -95,12 +120,13 @@ export default function Search() {
       pathname: '/results',
       params: {
         q: query.trim(),
+        medium,
         ...Object.fromEntries(
           Object.entries(params).map(([k, v]) => [k, String(v)]),
         ),
       },
     });
-  }, [query, selected, router, bulbBoost]);
+  }, [query, selected, medium, router, bulbBoost]);
 
   const activeCount = useMemo(
     () => Object.values(selected).filter(Boolean).length,
@@ -109,7 +135,7 @@ export default function Search() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ flex: 1, paddingHorizontal: 28 }}>
@@ -132,25 +158,30 @@ export default function Search() {
             </Pressable>
           </View>
 
-          <View style={{ flex: 1 }} className="items-center justify-center">
-            <GhostLight size={18} boost={bulbBoost} stem stemHeight={40} />
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
+            <GhostLight size={22} boost={bulbBoost} stem stemHeight={44} glow={pal.glow} line={pal.line} />
 
             <Text
-              className="mt-7 text-center text-[38px] leading-[46px] text-foreground"
+              className="mt-8 text-center text-[44px] leading-[52px] text-foreground"
               style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
             >
               What are you{'\n'}looking for?
             </Text>
 
+            <View style={{ marginTop: 26 }}>
+              <MediumToggle medium={medium} onChange={setMedium} />
+            </View>
+
             <Animated.View
               style={[
                 fieldStyle,
                 {
-                  marginTop: 36,
+                  marginTop: 24,
                   width: '100%',
                   height: 58,
                   flexDirection: 'row',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   borderRadius: 16,
                   borderWidth: 1,
                   paddingHorizontal: 18,
@@ -167,13 +198,13 @@ export default function Search() {
                 returnKeyType="search"
                 placeholder="a grieving mother, something funny…"
                 placeholderTextColor={c.mutedForeground}
-                selectionColor={colors.stageGlow}
+                selectionColor={pal.glow}
                 className="text-[16px] text-foreground"
-                style={{ flex: 1, height: '100%', paddingVertical: 0, fontFamily: 'Montserrat_400Regular' }}
+                style={{ flex: 1, paddingVertical: 0, textAlignVertical: 'center', fontFamily: 'Montserrat_400Regular' }}
               />
             </Animated.View>
 
-            {/* Filters: a row of stage-direction chips. Lit orange = active. */}
+            {/* Filters: a row of stage-direction chips. Lit = active, in the house colour. */}
             <View
               style={{
                 marginTop: 24,
@@ -197,8 +228,8 @@ export default function Search() {
                       borderWidth: 1,
                       paddingHorizontal: 14,
                       paddingVertical: 8,
-                      borderColor: active ? colors.stageGlow : c.border,
-                      backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
+                      borderColor: active ? pal.glow : c.border,
+                      backgroundColor: active ? pal.chipFill : 'transparent',
                     }}
                   >
                     <Text
@@ -206,7 +237,7 @@ export default function Search() {
                       style={{
                         fontFamily: 'CourierPrime_400Regular_Italic',
                         letterSpacing: 0.5,
-                        color: active ? colors.stageGlow : c.mutedForeground,
+                        color: active ? pal.glow : c.mutedForeground,
                       }}
                     >
                       {chip.label}
@@ -218,7 +249,7 @@ export default function Search() {
           </View>
 
           <View style={{ paddingBottom: 20 }}>
-            <StageButton label="Search" onPress={submit} />
+            <StageButton label="Search" onPress={submit} glow={pal.glow} />
 
             <View style={{ marginTop: 18, alignItems: 'center' }}>
               <StageDirection>
@@ -230,6 +261,12 @@ export default function Search() {
           </View>
         </View>
       </SafeAreaView>
+
+      {/* The house-lights flash, over everything, on a medium change. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, flashStyle, { backgroundColor: pal.glow }]}
+      />
     </View>
   );
 }

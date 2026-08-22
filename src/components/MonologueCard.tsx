@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -31,13 +31,25 @@ interface Props {
   scrollY: SharedValue<number>;
   viewportHeight: number;
   reduceMotion: boolean;
+  /** The glow colour, as hex — amber on the stage, violet in Film & TV. */
+  accent?: string;
+  /** rgba() lit-card border for the current medium. */
+  litBorder?: string;
 }
 
 const DARK = 0.42;
-const LIT_BORDER = 'rgba(243, 130, 29, 0.55)';
 
-function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion }: Props) {
+function MonologueCardImpl({
+  item,
+  index,
+  scrollY,
+  viewportHeight,
+  reduceMotion,
+  accent = colors.stageGlow,
+  litBorder = 'rgba(243, 130, 29, 0.55)',
+}: Props) {
   const { colors: c } = useTheme();
+  const hasPoster = Boolean(item.posterUrl);
   const lit = useDerivedValue(() => {
     if (reduceMotion) return 1;
     const centre = cardTop(index) + CARD_HEIGHT / 2 - scrollY.value;
@@ -53,7 +65,7 @@ function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: DARK + lit.value * (1 - DARK),
     transform: [{ scale: 0.968 + lit.value * 0.032 }],
-    borderColor: interpolateColor(lit.value, [0, 1], [c.border, LIT_BORDER]),
+    borderColor: interpolateColor(lit.value, [0, 1], [c.border, litBorder]),
     shadowOpacity: lit.value * 0.5,
   }));
 
@@ -68,63 +80,79 @@ function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion 
           borderRadius: 16,
           borderWidth: 1,
           backgroundColor: c.card,
-          shadowColor: colors.stageGlow,
+          shadowColor: accent,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: 0 },
+          flexDirection: 'row',
+          overflow: 'hidden',
         },
       ]}
-      className="justify-between overflow-hidden px-5 py-4"
     >
-      <View>
-        <Text
-          numberOfLines={1}
-          className="text-[19px] leading-[24px] text-foreground"
-          style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
-        >
-          {item.title}
-        </Text>
-        <Text
-          numberOfLines={1}
-          className="mt-1 text-[12px] uppercase tracking-[1.4px] text-muted-foreground"
-          style={{ fontFamily: 'Montserrat_500Medium' }}
-        >
-          {item.character} · {item.source}
-        </Text>
-      </View>
+      {/* Film & TV: the poster stands the piece up in the aisle. */}
+      {hasPoster ? (
+        <View style={{ width: 108, height: '100%', backgroundColor: '#000' }}>
+          <Image
+            source={{ uri: item.posterUrl }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        </View>
+      ) : null}
 
-      {/* The first two lines. This is what an actor actually reads. */}
-      <Text
-        numberOfLines={2}
-        className="text-[13px] leading-[19px] text-foreground/90"
-        style={{ fontFamily: 'CourierPrime_400Regular' }}
-      >
-        {item.excerpt}
-      </Text>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}>
-        <Meta>{item.ageRange}</Meta>
-        <Dot />
-        <Meta>{item.gender === 'any' ? 'any' : item.gender}</Meta>
-        <Dot />
-        <Meta>{formatDuration(item.duration)}</Meta>
-        {overdone ? (
-          <View
-            style={{
-              marginLeft: 'auto',
-              borderRadius: 999,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              backgroundColor: 'rgba(203, 75, 0, 0.18)',
-            }}
+      <View style={{ flex: 1, justifyContent: 'space-between', paddingHorizontal: hasPoster ? 16 : 20, paddingVertical: 16 }}>
+        <View>
+          <Text
+            numberOfLines={1}
+            className="text-[19px] leading-[24px] text-foreground"
+            style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
           >
-            <Text
-              className="text-[10px] uppercase tracking-[1.2px]"
-              style={{ fontFamily: 'Montserrat_600SemiBold', color: colors.stageGlow }}
+            {hasPoster ? item.character : item.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            className="mt-1 text-[12px] uppercase tracking-[1.4px] text-muted-foreground"
+            style={{ fontFamily: 'Montserrat_500Medium' }}
+          >
+            {hasPoster
+              ? `${item.source}${item.year ? ` · ${item.year}` : ''}`
+              : `${item.character} · ${item.source}`}
+          </Text>
+        </View>
+
+        {/* The first two lines. This is what an actor actually reads. */}
+        <Text
+          numberOfLines={2}
+          className="text-[13px] leading-[19px] text-foreground/90"
+          style={{ fontFamily: 'CourierPrime_400Regular' }}
+        >
+          {item.excerpt}
+        </Text>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}>
+          <Meta>{item.ageRange}</Meta>
+          <Dot />
+          <Meta>{item.gender === 'any' ? 'any' : item.gender}</Meta>
+          <Dot />
+          <Meta>{formatDuration(item.duration)}</Meta>
+          {overdone ? (
+            <View
+              style={{
+                marginLeft: 'auto',
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                backgroundColor: 'rgba(203, 75, 0, 0.18)',
+              }}
             >
-              overdone
-            </Text>
-          </View>
-        ) : null}
+              <Text
+                className="text-[10px] uppercase tracking-[1.2px]"
+                style={{ fontFamily: 'Montserrat_600SemiBold', color: accent }}
+              >
+                overdone
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
     </Animated.View>
   );

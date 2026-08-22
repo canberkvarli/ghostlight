@@ -147,7 +147,7 @@ export default function Paywall() {
               title="Annual"
               price={annualPrice}
               caption="best value · billed yearly"
-              badge="save"
+              badge="save 50%"
             />
             <PlanRow
               selected={plan === 'monthly'}

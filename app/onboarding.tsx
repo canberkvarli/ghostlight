@@ -180,10 +180,10 @@ function PanelView({
           <CountUp
             to={panel.count}
             style={{
-              marginTop: 12,
+              marginTop: 14,
               fontFamily: 'PlayfairDisplay_600SemiBold',
-              fontSize: 44,
-              lineHeight: 50,
+              fontSize: 60,
+              lineHeight: 66,
               color: colors.stageGlow,
               textAlign: 'center',
               padding: 0,
@@ -192,15 +192,15 @@ function PanelView({
         ) : null}
 
         <Text
-          className={`${panel.count != null ? 'mt-1' : 'mt-3'} text-center text-[40px] leading-[46px] text-foreground`}
-          style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
+          className="text-center text-[48px] leading-[56px] text-foreground"
+          style={{ fontFamily: 'PlayfairDisplay_600SemiBold', marginTop: panel.count != null ? 10 : 18 }}
         >
           {panel.headline}
         </Text>
 
         <Text
-          className="mt-5 text-center text-[15px] leading-[23px] text-muted-foreground"
-          style={{ fontFamily: 'Montserrat_400Regular' }}
+          className="text-center text-[15px] leading-[23px] text-muted-foreground"
+          style={{ fontFamily: 'Montserrat_400Regular', marginTop: 34 }}
         >
           {panel.line}
         </Text>
@@ -214,6 +214,7 @@ function PanelView({
                   borderRadius: 999,
                   borderWidth: 1,
                   borderColor: 'rgba(243, 130, 29, 0.35)',
+                  backgroundColor: 'rgba(243, 130, 29, 0.05)',
                   paddingHorizontal: 14,
                   paddingVertical: 8,
                 }}
@@ -299,11 +300,18 @@ function ButtonLabel({
     ),
   }));
 
+  // "Begin" is the wider word, so it sits in-flow and sets the box width; "Next"
+  // floats over it. That way neither ever wraps onto the last letter.
   return (
     <View>
-      <Animated.Text style={[nextStyle, LABEL_STYLE]}>Next</Animated.Text>
-      <Animated.Text style={[beginStyle, LABEL_STYLE, { position: 'absolute', left: 0, right: 0 }]}>
+      <Animated.Text numberOfLines={1} style={[beginStyle, LABEL_STYLE]}>
         Begin
+      </Animated.Text>
+      <Animated.Text
+        numberOfLines={1}
+        style={[nextStyle, LABEL_STYLE, { position: 'absolute', left: 0, right: 0 }]}
+      >
+        Next
       </Animated.Text>
     </View>
   );

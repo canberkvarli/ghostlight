@@ -3,6 +3,7 @@ import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   runOnJS,
@@ -24,7 +25,10 @@ import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
 import { useQuery } from '@tanstack/react-query';
 import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
 import { apiToMonologue } from '../src/data/adapt';
+import { searchScreen } from '../src/lib/screen';
+import { useGoBack } from '../src/lib/nav';
 import { colors } from '../src/theme/tokens';
+import { mediumPalette, type Medium } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
 import {
   CARD_GAP,
@@ -59,6 +63,7 @@ const AnimatedFlashList = Animated.createAnimatedComponent(
 export default function Results() {
   const { height } = useWindowDimensions();
   const router = useRouter();
+  const goBack = useGoBack('/search');
   const { tiltX, tiltY, reduceMotion } = useStageMotion();
   const { colors: c } = useTheme();
 
@@ -68,7 +73,12 @@ export default function Results() {
     age_range?: string;
     tone?: string;
     max_duration?: string;
+    medium?: string;
   }>();
+
+  const medium: Medium = raw.medium === 'screen' ? 'screen' : 'theatre';
+  const pal = mediumPalette(medium);
+  const screenMode = medium === 'screen';
 
   const params: SearchParams = useMemo(() => {
     const p: SearchParams = {};
@@ -81,27 +91,45 @@ export default function Results() {
   }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.max_duration]);
 
   const hasIntent = Object.keys(params).length > 0;
-  const { data: live, isLoading, isError, refetch } = useMonologueSearch(params, hasIntent);
+  const { data: live, isLoading, isError } = useMonologueSearch(params, hasIntent && !screenMode);
 
   // Cold start (no query) shows a live discover lineup; fixtures stand in until
-  // there's a session, and as the offline fallback.
+  // there's a session, and as the offline fallback. Theatre only.
   const { data: discoverLive } = useQuery({
     queryKey: ['discover'],
-    enabled: !hasIntent,
+    enabled: !hasIntent && !screenMode,
     retry: false,
     staleTime: 60_000,
     queryFn: async ({ signal }) => (await getDiscover(30, signal)).map(apiToMonologue),
   });
 
+  // Film & TV: the browse-by-poster lineup, read straight from Supabase. Always
+  // fetches (query or not) — no query is just the top of the marquee.
+  const {
+    data: screenData,
+    isLoading: screenLoading,
+    isError: screenError,
+  } = useQuery({
+    queryKey: ['screen', params],
+    enabled: screenMode,
+    retry: false,
+    staleTime: 60_000,
+    queryFn: () => searchScreen(params, 60),
+  });
+
   // Live search results when present; live discover on cold start; the fixtures
-  // as the standing fallback for both.
-  const data = hasIntent
-    ? (live?.monologues ?? MONOLOGUES)
-    : (discoverLive && discoverLive.length ? discoverLive : MONOLOGUES);
+  // as the standing fallback for both. Screen has its own Supabase source.
+  const data = screenMode
+    ? (screenData ?? [])
+    : hasIntent
+      ? (live?.monologues ?? MONOLOGUES)
+      : (discoverLive && discoverLive.length ? discoverLive : MONOLOGUES);
   const count = data.length;
-  const searching = hasIntent && isLoading;
-  // A live search that genuinely found nothing — offer to request it.
-  const noResults = hasIntent && !isLoading && !isError && live?.monologues.length === 0;
+  const searching = screenMode ? screenLoading : hasIntent && isLoading;
+  // A search that genuinely found nothing — offer to request it.
+  const noResults = screenMode
+    ? !screenLoading && !screenError && (screenData?.length ?? 0) === 0
+    : hasIntent && !isLoading && !isError && live?.monologues.length === 0;
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -133,22 +161,42 @@ export default function Results() {
         scrollY={scrollY}
         viewportHeight={height}
         reduceMotion={reduceMotion}
+        accent={pal.glow}
+        litBorder={pal.litBorder}
         onPress={() => router.push(`/read/${item.id}`)}
       />
     ),
-    [scrollY, height, reduceMotion, router],
+    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder],
   );
 
   const header = useMemo(
-    () => <StageHeader count={count} query={params.q ?? null} fellBack={hasIntent && isError} />,
-    [count, params.q, hasIntent, isError],
+    () => (
+      <StageHeader
+        count={count}
+        query={params.q ?? null}
+        fellBack={hasIntent && isError && !screenMode}
+        medium={medium}
+      />
+    ),
+    [count, params.q, hasIntent, isError, screenMode, medium],
   );
 
   return (
     <View style={{ flex: 1 }}>
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* The way back to search — over the list, top-left. */}
+        <Pressable
+          onPress={goBack}
+          hitSlop={16}
+          accessibilityRole="button"
+          accessibilityLabel="Back to search"
+          style={{ position: 'absolute', top: 6, left: 14, zIndex: 10, padding: 6 }}
+        >
+          <Ionicons name="chevron-back" size={26} color={pal.glow} />
+        </Pressable>
+
         <View style={{ flex: 1 }}>
         {searching ? (
           <SearchingStage />
@@ -181,26 +229,32 @@ function StageHeader({
   count,
   query,
   fellBack,
+  medium,
 }: {
   count: number;
   query: string | null;
   fellBack: boolean;
+  medium: Medium;
 }) {
+  const pal = mediumPalette(medium);
+  const screen = medium === 'screen';
+  const coldTitle = screen ? 'Film & TV' : 'Ghost Light';
+  const noun = screen ? 'on screen' : 'monologues';
   return (
     <View style={{ height: HEADER_HEIGHT }} className="items-center justify-end pb-7">
-      <GhostLight size={16} />
+      <GhostLight size={18} glow={pal.glow} line={pal.line} />
       <Text
-        className="mt-3 text-[34px] leading-[40px] text-foreground"
+        className="mt-3 text-[40px] leading-[46px] text-foreground"
         style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
       >
-        {query ? 'Results' : 'Ghost Light'}
+        {query ? 'Results' : coldTitle}
       </Text>
       <StageDirection className="mt-2">
         {fellBack
           ? '(sign in to search. the stage stands.)'
           : query
             ? `(${count} for “${query}”.)`
-            : `(${count} monologues. lights up.)`}
+            : `(${count} ${noun}. lights up.)`}
       </StageDirection>
     </View>
   );
@@ -291,6 +345,8 @@ function CardButton({
   scrollY,
   viewportHeight,
   reduceMotion,
+  accent,
+  litBorder,
   onPress,
 }: {
   item: Monologue;
@@ -298,13 +354,15 @@ function CardButton({
   scrollY: SharedValue<number>;
   viewportHeight: number;
   reduceMotion: boolean;
+  accent: string;
+  litBorder: string;
   onPress: () => void;
 }) {
   const pressed = useSharedValue(0);
   const style = useAnimatedStyle(() => ({
     marginBottom: CARD_GAP,
     transform: [{ scale: 1 + pressed.value * 0.03 }],
-    shadowColor: colors.stageGlow,
+    shadowColor: accent,
     shadowOpacity: pressed.value * 0.6,
     shadowRadius: 26,
     shadowOffset: { width: 0, height: 0 },
@@ -328,6 +386,8 @@ function CardButton({
         scrollY={scrollY}
         viewportHeight={viewportHeight}
         reduceMotion={reduceMotion}
+        accent={accent}
+        litBorder={litBorder}
       />
     </AnimatedPressable>
   );

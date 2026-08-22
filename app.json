@@ -43,12 +43,12 @@
         {
           "backgroundColor": "#130b08",
           "image": "./assets/splash-icon.png",
-          "imageWidth": 150,
+          "imageWidth": 180,
           "resizeMode": "contain",
           "dark": {
             "backgroundColor": "#130b08",
             "image": "./assets/splash-icon.png",
-            "imageWidth": 150,
+            "imageWidth": 180,
             "resizeMode": "contain"
           }
         }

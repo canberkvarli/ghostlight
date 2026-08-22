@@ -39,6 +39,16 @@ export interface Monologue {
    * shows the wall. Server-authoritative — the client can't un-set it.
    */
   paywalled?: boolean;
+  /**
+   * Film & TV only (spec: the Screen house). The poster and screen metadata
+   * come straight from Supabase's `film_tv_references` — see src/lib/screen.ts.
+   * Absent for stage pieces, which have no poster.
+   */
+  posterUrl?: string;
+  /** Release year of the film/series. */
+  year?: number;
+  /** IMDb rating, 0–10. */
+  imdbRating?: number;
 }
 
 export const MONOLOGUES: Monologue[] = [

@@ -37,13 +37,21 @@ import { useTheme } from '../theme/ThemeContext';
 interface Props {
   tiltX: SharedValue<number>;
   tiltY: SharedValue<number>;
+  /** The glow colour, as hex. Defaults to the amber stage; Film & TV passes violet. */
+  glowColor?: string;
+  /** Stage-floor override. Screen forces its violet near-black; theatre follows the theme. */
+  background?: string;
 }
 
 /** How far the light travels across the wall at full tilt, as a fraction of the screen. */
 const TRAVEL_X = 0.42;
 const TRAVEL_Y = 0.26;
 
-const glow = (alpha: number) => `rgba(243, 130, 29, ${alpha})`;
+function rgbTriplet(hex: string): string {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
 
 const DESATURATE = [
   0.33, 0.33, 0.33, 0, 0, //
@@ -54,10 +62,13 @@ const DESATURATE = [
 
 const TWO_PI = Math.PI * 2;
 
-function StageBackdropImpl({ tiltX, tiltY }: Props) {
+function StageBackdropImpl({ tiltX, tiltY, glowColor, background }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const { colors: c } = useTheme();
+  const rgb = glowColor ? rgbTriplet(glowColor) : '243, 130, 29';
+  const glow = (alpha: number) => `rgba(${rgb}, ${alpha})`;
+  const bg = background ?? c.background;
   // On a light stage the glow reads as a wash, not a hole — dim it, and let the
   // grain barely whisper so cream doesn't turn muddy.
   const gm = c.isLight ? 0.45 : 1;
@@ -91,7 +102,7 @@ function StageBackdropImpl({ tiltX, tiltY }: Props) {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: c.background }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
 
       {/* Static: the wash hanging above the proscenium. */}
       <Canvas style={StyleSheet.absoluteFill}>

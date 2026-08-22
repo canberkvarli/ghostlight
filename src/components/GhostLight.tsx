@@ -32,11 +32,31 @@ interface Props {
    * as the actor types. Optional; the bulb glows fine on its own.
    */
   boost?: SharedValue<number>;
+  /** The bulb colour, as hex. Defaults to the amber stage glow; Film & TV passes violet. */
+  glow?: string;
+  /** The stand colour, as hex. */
+  line?: string;
 }
 
 const FLICKER_PERIOD = 7000;
 
-export function GhostLight({ size = 18, stem = false, stemHeight = 84, boost }: Props) {
+/** #rrggbb → "r, g, b" so we can build rgba() halo stops from any bulb colour. */
+function rgbTriplet(hex: string): string {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
+export function GhostLight({
+  size = 18,
+  stem = false,
+  stemHeight = 84,
+  boost,
+  glow = colors.stageGlow,
+  line = colors.stageLine,
+}: Props) {
+  const rgb = rgbTriplet(glow);
+  const lineRgb = rgbTriplet(line);
   const flicker = useSharedValue(1);
   const ignite = useSharedValue(1);
   const reduceMotion = useReducedMotion();
@@ -100,7 +120,7 @@ export function GhostLight({ size = 18, stem = false, stemHeight = 84, boost }: 
               <RadialGradient
                 c={vec(halo / 2, halo / 2)}
                 r={halo / 2}
-                colors={['rgba(243, 130, 29, 1)', 'rgba(243, 130, 29, 0.34)', 'rgba(243, 130, 29, 0)']}
+                colors={[`rgba(${rgb}, 1)`, `rgba(${rgb}, 0.34)`, `rgba(${rgb}, 0)`]}
                 positions={[0, 0.38, 1]}
               />
             </Rect>
@@ -113,8 +133,8 @@ export function GhostLight({ size = 18, stem = false, stemHeight = 84, boost }: 
               width: size,
               height: size,
               borderRadius: size / 2,
-              backgroundColor: colors.stageGlow,
-              shadowColor: colors.stageGlow,
+              backgroundColor: glow,
+              shadowColor: glow,
               shadowOpacity: 0.9,
               shadowRadius: size * 1.4,
               shadowOffset: { width: 0, height: 0 },
@@ -129,7 +149,7 @@ export function GhostLight({ size = 18, stem = false, stemHeight = 84, boost }: 
             <LinearGradient
               start={vec(0, 0)}
               end={vec(0, stemHeight)}
-              colors={[colors.stageLine, 'rgba(54, 43, 36, 0)']}
+              colors={[line, `rgba(${lineRgb}, 0)`]}
             />
           </Rect>
         </Canvas>
