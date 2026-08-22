@@ -146,6 +146,48 @@ export async function setFavoriteNotes(id: string | number, notes: string): Prom
   if (!res.ok) throw new ApiError(res.status, `notes ${id} failed (${res.status})`);
 }
 
+/** Discover / random lineup for the cold start (spec §4, `GET /api/monologues/discover`). */
+export async function getDiscover(limit = 30, signal?: AbortSignal): Promise<Monologue[]> {
+  const res = await fetch(`${API_URL}/api/monologues/discover?limit=${limit}`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `discover failed (${res.status})`);
+  return (await res.json()) as Monologue[];
+}
+
+/** "More like this" (spec §4, `GET /api/monologues/{id}/similar`) — the Read screen. */
+export async function getSimilar(
+  id: string | number,
+  limit = 6,
+  signal?: AbortSignal,
+): Promise<Monologue[]> {
+  const res = await fetch(`${API_URL}/api/monologues/${id}/similar?limit=${limit}`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `similar ${id} failed (${res.status})`);
+  return (await res.json()) as Monologue[];
+}
+
+/**
+ * Ask for a monologue we don't have yet (spec §4, `POST /api/monologues/content-request`)
+ * — the graceful answer to an empty search: a play, an author, or the raw query.
+ */
+export async function requestContent(body: {
+  query?: string;
+  play_title?: string;
+  author?: string;
+  character_name?: string;
+}): Promise<void> {
+  const res = await fetch(`${API_URL}/api/monologues/content-request`, {
+    method: 'POST',
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, `content request failed (${res.status})`);
+}
+
 /** Full monologue by id (spec §4, `GET /api/monologues/{id}`) — the Read screen. */
 export async function getMonologue(id: string | number, signal?: AbortSignal): Promise<Monologue> {
   const res = await fetch(`${API_URL}/api/monologues/${id}`, {

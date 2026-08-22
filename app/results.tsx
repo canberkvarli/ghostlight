@@ -21,7 +21,9 @@ import { StageDirection } from '../src/components/StageDirection';
 import { MONOLOGUES, type Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
-import type { SearchParams } from '../src/api/client';
+import { useQuery } from '@tanstack/react-query';
+import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
+import { apiToMonologue } from '../src/data/adapt';
 import { colors } from '../src/theme/tokens';
 import {
   CARD_GAP,
@@ -79,8 +81,18 @@ export default function Results() {
   const hasIntent = Object.keys(params).length > 0;
   const { data: live, isLoading, isError, refetch } = useMonologueSearch(params, hasIntent);
 
-  // Pull-to-refresh recasts the stage: a live search refetches, discover deals a
-  // fresh lineup from the fixtures (a new seed reshuffles them).
+  // Cold start (no query) pulls a live discover lineup; fixtures stand in until
+  // there's a session, and as the offline fallback.
+  const { data: discoverLive, refetch: refetchDiscover } = useQuery({
+    queryKey: ['discover'],
+    enabled: !hasIntent,
+    retry: false,
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => (await getDiscover(30, signal)).map(apiToMonologue),
+  });
+
+  // Pull-to-refresh recasts the stage: a live search refetches, discover pulls a
+  // fresh lineup (and reshuffles the fixtures behind it).
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const discover = useMemo(
@@ -93,17 +105,24 @@ export default function Results() {
     setRefreshing(true);
     try {
       if (hasIntent) await refetch();
-      else setShuffleSeed((s) => s + 1);
+      else {
+        setShuffleSeed((s) => s + 1);
+        await refetchDiscover();
+      }
     } finally {
       setRefreshing(false);
     }
-  }, [hasIntent, refetch]);
+  }, [hasIntent, refetch, refetchDiscover]);
 
-  // Live results when the search returned them; the (reshuffleable) fixtures for
-  // discover and as the fallback when a search cannot run yet.
-  const data = hasIntent && live ? live.monologues : discover;
+  // Live search results when present; live discover on cold start; the
+  // (reshuffleable) fixtures as the standing fallback for both.
+  const data = hasIntent
+    ? (live?.monologues ?? discover)
+    : (discoverLive && discoverLive.length ? discoverLive : discover);
   const count = data.length;
   const searching = hasIntent && isLoading;
+  // A live search that genuinely found nothing — offer to request it.
+  const noResults = hasIntent && !isLoading && !isError && live?.monologues.length === 0;
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -154,6 +173,8 @@ export default function Results() {
         <View style={{ flex: 1 }}>
         {searching ? (
           <SearchingStage />
+        ) : noResults ? (
+          <RequestStage query={params.q ?? ''} />
         ) : (
           <AnimatedFlashList
             data={data}
@@ -220,6 +241,60 @@ function SearchingStage() {
     <View style={{ flex: 1 }} className="items-center justify-center">
       <GhostLight size={18} />
       <StageDirection className="mt-6">(searching the wings…)</StageDirection>
+    </View>
+  );
+}
+
+/**
+ * A search that found nothing isn't a dead end — it's a request. The actor can
+ * ask us to add the piece they're after (spec §4, content-request).
+ */
+function RequestStage({ query }: { query: string }) {
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const ask = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+    setSending(true);
+    try {
+      await requestContent({ query });
+      setSent(true);
+    } catch {
+      // Even if the request can't reach the server, don't dead-end the actor.
+      setSent(true);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
+      <GhostLight size={18} stem />
+      <StageDirection className="mt-6">(nothing here yet.)</StageDirection>
+      {sent ? (
+        <StageDirection className="mt-3">(noted. we’ll go looking.)</StageDirection>
+      ) : (
+        <Pressable
+          onPress={ask}
+          disabled={sending}
+          accessibilityRole="button"
+          style={{
+            marginTop: 22,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.stageGlow,
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, color: colors.stageGlow }}
+          >
+            {query ? `(request “${query}”.)` : '(request a piece.)'}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

@@ -18,6 +18,7 @@ import { StageDirection } from '../../src/components/StageDirection';
 import { PaywallShroud } from '../../src/components/PaywallShroud';
 import { MemorizeText } from '../../src/components/MemorizeText';
 import { PageCurl } from '../../src/components/PageCurl';
+import { SimilarRow } from '../../src/components/SimilarRow';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
 import { getMonologue, getReadState } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
@@ -306,6 +307,9 @@ export default function Read() {
                 (the rest arrives with the live text.)
               </Text>
             ) : null}
+
+            {/* Kin at the foot of the page. Never behind the wall. */}
+            {gated || !id ? null : <SimilarRow id={id} enabled={!memorizing} />}
           </ScrollView>
 
           {/* A folded corner, so the page reads as paper. Hidden behind the wall. */}
