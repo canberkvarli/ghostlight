@@ -19,9 +19,8 @@
     "android": {
       "package": "com.actorrise.ghostlight",
       "adaptiveIcon": {
-        "backgroundColor": "#1A1512",
+        "backgroundColor": "#130b08",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -43,8 +42,14 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#130b08",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 150,
+          "resizeMode": "contain",
           "dark": {
-            "backgroundColor": "#130b08"
+            "backgroundColor": "#130b08",
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 150,
+            "resizeMode": "contain"
           }
         }
       ],
