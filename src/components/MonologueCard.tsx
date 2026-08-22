@@ -11,6 +11,7 @@ import Animated, {
 
 import { CARD_HEIGHT, FALLOFF, FOCUS_POINT, cardTop } from '../theme/layout';
 import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import { OVERDONE_THRESHOLD, formatDuration, type Monologue } from '../data/monologues';
 
 /**
@@ -36,6 +37,7 @@ const DARK = 0.42;
 const LIT_BORDER = 'rgba(243, 130, 29, 0.55)';
 
 function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion }: Props) {
+  const { colors: c } = useTheme();
   const lit = useDerivedValue(() => {
     if (reduceMotion) return 1;
     const centre = cardTop(index) + CARD_HEIGHT / 2 - scrollY.value;
@@ -51,7 +53,7 @@ function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: DARK + lit.value * (1 - DARK),
     transform: [{ scale: 0.968 + lit.value * 0.032 }],
-    borderColor: interpolateColor(lit.value, [0, 1], [colors.dark.border, LIT_BORDER]),
+    borderColor: interpolateColor(lit.value, [0, 1], [c.border, LIT_BORDER]),
     shadowOpacity: lit.value * 0.5,
   }));
 
@@ -65,7 +67,7 @@ function MonologueCardImpl({ item, index, scrollY, viewportHeight, reduceMotion 
           height: CARD_HEIGHT,
           borderRadius: 16,
           borderWidth: 1,
-          backgroundColor: colors.dark.card,
+          backgroundColor: c.card,
           shadowColor: colors.stageGlow,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: 0 },

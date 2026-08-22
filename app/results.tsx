@@ -25,6 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
 import { apiToMonologue } from '../src/data/adapt';
 import { colors } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeContext';
 import {
   CARD_GAP,
   CARD_HEIGHT,
@@ -59,6 +60,7 @@ export default function Results() {
   const { height } = useWindowDimensions();
   const router = useRouter();
   const { tiltX, tiltY, reduceMotion } = useStageMotion();
+  const { colors: c } = useTheme();
 
   const raw = useLocalSearchParams<{
     q?: string;
@@ -196,7 +198,7 @@ export default function Results() {
                 onRefresh={onRefresh}
                 tintColor={colors.stageGlow}
                 colors={[colors.primary]}
-                progressBackgroundColor={colors.dark.card}
+                progressBackgroundColor={c.card}
               />
             }
           />

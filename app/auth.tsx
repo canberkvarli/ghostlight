@@ -12,6 +12,7 @@ import { useStageMotion } from '../src/hooks/useStageMotion';
 import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../src/lib/auth';
 import { useGoBack } from '../src/lib/nav';
 import { colors } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeContext';
 
 /**
  * Step 5 — Auth. Presented as a sheet when the actor makes their first save,
@@ -23,6 +24,7 @@ export default function Auth() {
   const router = useRouter();
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
+  const { colors: c } = useTheme();
   const [appleReady, setAppleReady] = useState(false);
   const [busy, setBusy] = useState<null | 'apple' | 'google'>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,10 +100,10 @@ export default function Auth() {
             onPress={withGoogle}
             disabled={busy !== null}
             accessibilityRole="button"
-            style={{ marginTop: 12, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 16, borderWidth: 1, borderColor: colors.dark.border, backgroundColor: colors.dark.card }}
+            style={{ marginTop: 12, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}
           >
             {busy === 'google' ? (
-              <ActivityIndicator color={colors.dark.foreground} />
+              <ActivityIndicator color={c.foreground} />
             ) : (
               <Text
                 className="text-[15px] text-foreground"

@@ -17,7 +17,7 @@ import Montserrat_500Medium from '@expo-google-fonts/montserrat/500Medium/Montse
 import Montserrat_600SemiBold from '@expo-google-fonts/montserrat/600SemiBold/Montserrat_600SemiBold.ttf';
 
 import '../src/global.css';
-import { colors } from '../src/theme/tokens';
+import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { bootstrapSession } from '../src/lib/session';
 import { configurePurchases } from '../src/lib/purchases';
 
@@ -59,19 +59,28 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.dark.background }}>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.dark.background },
-          }}
-        >
-          {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
-          <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
-        </Stack>
-      </GestureHandlerRootView>
+      <ThemeProvider>
+        <Shell />
+      </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+function Shell() {
+  const { colors: c, scheme } = useTheme();
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.background }}>
+      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: c.background },
+        }}
+      >
+        {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
+        <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }

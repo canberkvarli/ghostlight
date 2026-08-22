@@ -11,6 +11,7 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
+import { useTheme } from '../src/theme/ThemeContext';
 import {
   getCurrentOffering,
   isPurchasesConfigured,
@@ -52,6 +53,7 @@ export default function Paywall() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const glow = useBreathingGlow();
+  const { colors: c } = useTheme();
 
   useEffect(() => {
     getCurrentOffering().then(setOffering).catch(() => setOffering(null));
@@ -106,7 +108,7 @@ export default function Paywall() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
           <Pressable onPress={close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-            <Text className="text-[22px]" style={{ color: colors.dark.mutedForeground }}>
+            <Text className="text-[22px]" style={{ color: c.mutedForeground }}>
               ✕
             </Text>
           </Pressable>
@@ -183,7 +185,7 @@ export default function Paywall() {
           {note ? (
             <Text
               className="mt-3 text-center text-[12px]"
-              style={{ fontFamily: 'Montserrat_400Regular', color: colors.dark.mutedForeground }}
+              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
             >
               {note}
             </Text>
@@ -218,6 +220,7 @@ function PlanRow({
   caption: string;
   badge?: string;
 }) {
+  const { colors: c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -230,8 +233,8 @@ function PlanRow({
         borderWidth: 1,
         paddingHorizontal: 16,
         paddingVertical: 14,
-        borderColor: selected ? colors.stageGlow : colors.dark.border,
-        backgroundColor: selected ? 'rgba(243, 130, 29, 0.10)' : colors.dark.card,
+        borderColor: selected ? colors.stageGlow : c.border,
+        backgroundColor: selected ? 'rgba(243, 130, 29, 0.10)' : c.card,
       }}
     >
       <View style={{ flex: 1 }}>

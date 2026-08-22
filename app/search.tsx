@@ -23,6 +23,7 @@ import {
   type FilterGroup,
 } from '../src/data/filters';
 import { colors } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeContext';
 
 /**
  * Step 2 — Search is home.
@@ -45,6 +46,7 @@ const EMPTY: Selection = {
 export default function Search() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
+  const { colors: c } = useTheme();
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY);
@@ -54,7 +56,7 @@ export default function Search() {
   const focus = useSharedValue(0);
   const searchGlow = useBreathingGlow();
   const fieldStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(focus.value, [0, 1], [colors.dark.border, colors.stageGlow]),
+    borderColor: interpolateColor(focus.value, [0, 1], [c.border, colors.stageGlow]),
     shadowColor: colors.stageGlow,
     shadowOpacity: focus.value * 0.5,
     shadowRadius: 16,
@@ -102,7 +104,7 @@ export default function Search() {
               accessibilityRole="button"
               accessibilityLabel="Saved monologues"
             >
-              <Text className="text-[20px]" style={{ color: colors.dark.mutedForeground }}>
+              <Text className="text-[20px]" style={{ color: c.mutedForeground }}>
                 ☆
               </Text>
             </Pressable>
@@ -112,7 +114,7 @@ export default function Search() {
               accessibilityRole="button"
               accessibilityLabel="Account"
             >
-              <Text style={{ fontSize: 19, color: colors.dark.mutedForeground }}>⚙</Text>
+              <Text style={{ fontSize: 19, color: c.mutedForeground }}>⚙</Text>
             </Pressable>
           </View>
 
@@ -137,7 +139,7 @@ export default function Search() {
                   borderRadius: 16,
                   borderWidth: 1,
                   paddingHorizontal: 16,
-                  backgroundColor: 'rgba(29, 20, 15, 0.7)',
+                  backgroundColor: c.card,
                 },
               ]}
             >
@@ -149,7 +151,7 @@ export default function Search() {
                 onBlur={() => (focus.value = withTiming(0, { duration: 320 }))}
                 returnKeyType="search"
                 placeholder="a grieving mother, something funny…"
-                placeholderTextColor={colors.dark.mutedForeground}
+                placeholderTextColor={c.mutedForeground}
                 selectionColor={colors.stageGlow}
                 className="text-[16px] text-foreground"
                 style={{ flex: 1, paddingVertical: 16, fontFamily: 'Montserrat_400Regular' }}
@@ -180,7 +182,7 @@ export default function Search() {
                       borderWidth: 1,
                       paddingHorizontal: 14,
                       paddingVertical: 8,
-                      borderColor: active ? colors.stageGlow : colors.dark.border,
+                      borderColor: active ? colors.stageGlow : c.border,
                       backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
                     }}
                   >
@@ -189,7 +191,7 @@ export default function Search() {
                       style={{
                         fontFamily: 'CourierPrime_400Regular_Italic',
                         letterSpacing: 0.5,
-                        color: active ? colors.stageGlow : colors.dark.mutedForeground,
+                        color: active ? colors.stageGlow : c.mutedForeground,
                       }}
                     >
                       {chip.label}

@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 
 import { useOnboardingComplete } from '../src/lib/onboarding';
-import { colors } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeContext';
 
 /**
  * The stage door. Decides where a launch lands: first-timers into onboarding,
@@ -12,9 +12,10 @@ import { colors } from '../src/theme/tokens';
  */
 export default function StageDoor() {
   const complete = useOnboardingComplete();
+  const { colors: c } = useTheme();
 
   if (complete === null) {
-    return <View style={{ flex: 1, backgroundColor: colors.dark.background }} />;
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
   }
 
   return <Redirect href={complete ? "/search" : "/onboarding"} />;

@@ -29,6 +29,7 @@ import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
 import * as Haptics from 'expo-haptics';
 import { colors } from '../../src/theme/tokens';
+import { useTheme } from '../../src/theme/ThemeContext';
 
 /**
  * Step 4 — Read.
@@ -66,6 +67,7 @@ export default function Read() {
   const goBack = useGoBack('/search');
   const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();
+  const { colors: c } = useTheme();
 
   // Fixtures first (offline, instant); fall to the live fetch for real search
   // results whose id the device has never seen.
@@ -148,7 +150,7 @@ export default function Read() {
 
   if (isLoading && !monologue) {
     return (
-      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: colors.dark.background }}>
+      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: c.background }}>
         <GhostLight size={16} />
         <StageDirection className="mt-6">(finding the page…)</StageDirection>
       </View>
@@ -157,7 +159,7 @@ export default function Read() {
 
   if (!monologue) {
     return (
-      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: colors.dark.background }}>
+      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: c.background }}>
         <StageDirection>{isError ? '(sign in to read this one.)' : '(that page is dark.)'}</StageDirection>
       </View>
     );
@@ -166,12 +168,12 @@ export default function Read() {
   const body = monologue.fullText ?? monologue.excerpt;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.dark.background }}>
+    <View style={{ flex: 1, backgroundColor: c.background }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* On the dark shell: the eyebrow and the way back. */}
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
           <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
-            <Text className="text-[26px] leading-[26px]" style={{ color: colors.dark.mutedForeground }}>
+            <Text className="text-[26px] leading-[26px]" style={{ color: c.mutedForeground }}>
               ‹
             </Text>
           </Pressable>
@@ -179,7 +181,7 @@ export default function Read() {
           <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
             <Text
               className="text-[22px] leading-[26px]"
-              style={{ color: favorited ? colors.stageGlow : colors.dark.mutedForeground }}
+              style={{ color: favorited ? colors.stageGlow : c.mutedForeground }}
             >
               {favorited ? '★' : '☆'}
             </Text>

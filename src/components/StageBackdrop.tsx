@@ -20,7 +20,8 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { colors, spotlight, wash } from '../theme/tokens';
+import { spotlight, wash } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * The stage the whole app stands on: warm near-black, a wash of glow spilling
@@ -56,6 +57,10 @@ const TWO_PI = Math.PI * 2;
 function StageBackdropImpl({ tiltX, tiltY }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
+  const { colors: c } = useTheme();
+  // On a light stage the glow reads as a wash, not a hole — dim it, and let the
+  // grain barely whisper so cream doesn't turn muddy.
+  const gm = c.isLight ? 0.45 : 1;
 
   // A slow clock, 0→1 every 18s, on the UI thread. It gives the stage its own
   // breath — a lazy Lissajous drift and a faint pulse of the light — so even
@@ -86,7 +91,7 @@ function StageBackdropImpl({ tiltX, tiltY }: Props) {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.dark.background }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: c.background }]} />
 
       {/* Static: the wash hanging above the proscenium. */}
       <Canvas style={StyleSheet.absoluteFill}>
@@ -94,7 +99,7 @@ function StageBackdropImpl({ tiltX, tiltY }: Props) {
           <RadialGradient
             c={vec(width / 2, -height * 0.2)}
             r={width * 0.95}
-            colors={[glow(wash.alpha), glow(0)]}
+            colors={[glow(wash.alpha * gm), glow(0)]}
             positions={[0, 1]}
           />
         </Rect>
@@ -107,8 +112,8 @@ function StageBackdropImpl({ tiltX, tiltY }: Props) {
             c={centre}
             r={radius}
             colors={[
-              glow(spotlight.innerAlpha),
-              glow(spotlight.midAlpha),
+              glow(spotlight.innerAlpha * gm),
+              glow(spotlight.midAlpha * gm),
               glow(0),
             ]}
             positions={[0, spotlight.midStop, spotlight.outerStop]}
@@ -119,7 +124,7 @@ function StageBackdropImpl({ tiltX, tiltY }: Props) {
       {/* Static: grain. Dark warm surfaces band badly without it. */}
       <Canvas style={StyleSheet.absoluteFill}>
         <Group
-          opacity={0.045}
+          opacity={c.isLight ? 0.02 : 0.045}
           layer={
             <Paint>
               <ColorMatrix matrix={DESATURATE} />

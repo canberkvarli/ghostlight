@@ -15,6 +15,7 @@ import { supabase } from '../src/lib/supabase';
 import { deleteAccount, getReadState } from '../src/api/client';
 import { restore } from '../src/lib/purchases';
 import { colors } from '../src/theme/tokens';
+import { useTheme, type ThemeMode } from '../src/theme/ThemeContext';
 
 /**
  * Account — the quiet back-of-house. Not a social profile (the app has one job);
@@ -31,6 +32,7 @@ export default function Account() {
   const router = useRouter();
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
+  const { colors: c } = useTheme();
   const { session, isAuthenticated } = useSession();
   const [busy, setBusy] = useState<null | 'restore' | 'signout' | 'delete'>(null);
 
@@ -100,7 +102,7 @@ export default function Account() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-            <Text className="text-[26px] leading-[26px]" style={{ color: colors.dark.mutedForeground }}>
+            <Text className="text-[26px] leading-[26px]" style={{ color: c.mutedForeground }}>
               ‹
             </Text>
           </Pressable>
@@ -125,6 +127,10 @@ export default function Account() {
               {planLine}
             </Text>
           </View>
+
+          <Divider />
+
+          <AppearanceRow />
 
           <Divider />
 
@@ -168,6 +174,7 @@ function Row({
   busy?: boolean;
   destructive?: boolean;
 }) {
+  const { colors: c } = useTheme();
   return (
     <Pressable
       onPress={() => {
@@ -182,20 +189,76 @@ function Row({
         className="text-[16px]"
         style={{
           fontFamily: 'Montserrat_400Regular',
-          color: destructive ? colors.primary : colors.dark.foreground,
+          color: destructive ? colors.primary : c.foreground,
         }}
       >
         {label}
       </Text>
       {busy ? (
-        <ActivityIndicator color={colors.dark.mutedForeground} />
+        <ActivityIndicator color={c.mutedForeground} />
       ) : (
-        <Text style={{ color: colors.dark.mutedForeground, fontSize: 20 }}>›</Text>
+        <Text style={{ color: c.mutedForeground, fontSize: 20 }}>›</Text>
       )}
     </Pressable>
   );
 }
 
 function Divider() {
-  return <View style={{ height: 1, backgroundColor: colors.dark.border, marginVertical: 4 }} />;
+  const { colors: c } = useTheme();
+  return <View style={{ height: 1, backgroundColor: c.border, marginVertical: 4 }} />;
+}
+
+/** System / Dark / Light — Ghost Light is a dark stage, but the actor chooses. */
+function AppearanceRow() {
+  const { mode, setMode, colors: c } = useTheme();
+  const opts: { k: ThemeMode; label: string }[] = [
+    { k: 'system', label: 'System' },
+    { k: 'dark', label: 'Dark' },
+    { k: 'light', label: 'Light' },
+  ];
+  return (
+    <View style={{ paddingVertical: 14 }}>
+      <Text
+        className="text-[16px]"
+        style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground, marginBottom: 12 }}
+      >
+        Appearance
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {opts.map((o) => {
+          const active = mode === o.k;
+          return (
+            <Pressable
+              key={o.k}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setMode(o.k);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 11,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: active ? colors.stageGlow : c.border,
+                backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: 'Montserrat_500Medium',
+                  fontSize: 13,
+                  color: active ? colors.stageGlow : c.mutedForeground,
+                }}
+              >
+                {o.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
 }
