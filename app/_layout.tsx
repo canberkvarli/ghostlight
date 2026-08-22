@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { LogBox } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -22,6 +23,14 @@ import { bootstrapSession } from '../src/lib/session';
 import { configurePurchases } from '../src/lib/purchases';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Known-benign dev noise — keep the stage clean. The RevenueCat notice is
+// expected on the Test Store key and vanishes with the production key; the
+// animated-value chatter is harmless RN internals.
+LogBox.ignoreLogs([
+  'Using a Test Store API key',
+  'Sending `onAnimatedValueUpdate`',
+]);
 
 const queryClient = new QueryClient();
 

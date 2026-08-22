@@ -7,14 +7,16 @@ import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
+import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
+import { StageButton } from '../src/components/StageButton';
 import {
   FILTER_CHIPS,
   chipKey,
@@ -51,10 +53,20 @@ export default function Search() {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY);
 
+  // The bulb answers the search: it flares as the actor types and flares harder
+  // on submit, then settles to a gentle idle while there's a query.
+  const bulbBoost = useSharedValue(0);
+  const onChangeQuery = useCallback((text: string) => {
+    setQuery(text);
+    bulbBoost.value = withSequence(
+      withTiming(0.5, { duration: 70 }),
+      withTiming(text.trim() ? 0.18 : 0, { duration: 420 }),
+    );
+  }, [bulbBoost]);
+
   // The search field catches the light when you touch it — the border warms to
   // orange and a soft glow rises, like stepping into the spot.
   const focus = useSharedValue(0);
-  const searchGlow = useBreathingGlow();
   const fieldStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(focus.value, [0, 1], [c.border, colors.stageGlow]),
     shadowColor: colors.stageGlow,
@@ -74,6 +86,10 @@ export default function Search() {
 
   const submit = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+    bulbBoost.value = withSequence(
+      withTiming(0.95, { duration: 90 }),
+      withTiming(0, { duration: 520 }),
+    );
     const params = selectionToParams(selected);
     router.push({
       pathname: '/results',
@@ -84,7 +100,7 @@ export default function Search() {
         ),
       },
     });
-  }, [query, selected, router]);
+  }, [query, selected, router, bulbBoost]);
 
   const activeCount = useMemo(
     () => Object.values(selected).filter(Boolean).length,
@@ -104,9 +120,7 @@ export default function Search() {
               accessibilityRole="button"
               accessibilityLabel="Saved monologues"
             >
-              <Text className="text-[20px]" style={{ color: c.mutedForeground }}>
-                ☆
-              </Text>
+              <Ionicons name="bookmark-outline" size={22} color={c.mutedForeground} />
             </Pressable>
             <Pressable
               onPress={() => router.push('/account')}
@@ -114,12 +128,12 @@ export default function Search() {
               accessibilityRole="button"
               accessibilityLabel="Account"
             >
-              <Text style={{ fontSize: 19, color: c.mutedForeground }}>⚙</Text>
+              <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
             </Pressable>
           </View>
 
           <View style={{ flex: 1 }} className="items-center justify-center">
-            <GhostLight size={18} />
+            <GhostLight size={18} boost={bulbBoost} />
 
             <Text
               className="mt-6 text-center text-[30px] leading-[38px] text-foreground"
@@ -145,7 +159,7 @@ export default function Search() {
             >
               <TextInput
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={onChangeQuery}
                 onSubmitEditing={submit}
                 onFocus={() => (focus.value = withTiming(1, { duration: 260 }))}
                 onBlur={() => (focus.value = withTiming(0, { duration: 320 }))}
@@ -203,26 +217,7 @@ export default function Search() {
           </View>
 
           <View style={{ paddingBottom: 16 }}>
-            <Animated.View style={searchGlow}>
-            <Pressable
-              onPress={submit}
-              accessibilityRole="button"
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 16,
-                paddingVertical: 16,
-                backgroundColor: colors.primary,
-              }}
-            >
-              <Text
-                className="text-[15px] uppercase tracking-[2px] text-white"
-                style={{ fontFamily: 'Montserrat_600SemiBold' }}
-              >
-                Search
-              </Text>
-            </Pressable>
-            </Animated.View>
+            <StageButton label="Search" onPress={submit} />
 
             <View className="mt-3 items-center">
               <StageDirection>

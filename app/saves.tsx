@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { useSharedValue } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { MonologueCard } from '../src/components/MonologueCard';
@@ -59,9 +60,7 @@ export default function Saves() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-            <Text className="text-[26px] leading-[26px]" style={{ color: '#a59d95' }}>
-              ‹
-            </Text>
+            <Ionicons name="chevron-back" size={26} color="#a59d95" />
           </Pressable>
           <Text
             className="text-[20px] text-foreground"

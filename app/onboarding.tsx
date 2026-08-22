@@ -17,7 +17,7 @@ import { CountUp } from '../src/components/CountUp';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
+import { StageButton } from '../src/components/StageButton';
 import { markOnboardingComplete } from '../src/lib/onboarding';
 import { colors } from '../src/theme/tokens';
 
@@ -244,7 +244,6 @@ function Footer({
   scrollX: SharedValue<number>;
   onAdvance: (current: number) => void;
 }) {
-  const glow = useBreathingGlow();
   const press = () => {
     const current = Math.round(scrollX.value / width);
     onAdvance(current);
@@ -258,21 +257,9 @@ function Footer({
         ))}
       </View>
 
-      <Animated.View style={glow}>
-        <Pressable
-          onPress={press}
-          accessibilityRole="button"
-          style={{
-            height: 54,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 16,
-            backgroundColor: colors.primary,
-          }}
-        >
-          <ButtonLabel count={count} width={width} scrollX={scrollX} />
-        </Pressable>
-      </Animated.View>
+      <StageButton onPress={press}>
+        <ButtonLabel count={count} width={width} scrollX={scrollX} />
+      </StageButton>
     </View>
   );
 }
@@ -317,9 +304,9 @@ function ButtonLabel({
 
 const LABEL_STYLE = {
   fontFamily: 'Montserrat_600SemiBold',
-  fontSize: 15,
-  letterSpacing: 2,
-  color: '#ffffff',
+  fontSize: 14,
+  letterSpacing: 2.5,
+  color: colors.stageGlow,
   textAlign: 'center' as const,
   textTransform: 'uppercase' as const,
 };

@@ -9,6 +9,7 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import { colors } from '../theme/tokens';
@@ -26,19 +27,38 @@ interface Props {
   /** The stand below the bulb. */
   stem?: boolean;
   stemHeight?: number;
+  /**
+   * 0–1 flare, driven from outside — e.g. the search screen brightens the bulb
+   * as the actor types. Optional; the bulb glows fine on its own.
+   */
+  boost?: SharedValue<number>;
 }
 
 const FLICKER_PERIOD = 7000;
 
-export function GhostLight({ size = 18, stem = false, stemHeight = 84 }: Props) {
+export function GhostLight({ size = 18, stem = false, stemHeight = 84, boost }: Props) {
   const flicker = useSharedValue(1);
+  const ignite = useSharedValue(1);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (reduceMotion) {
       flicker.value = 1;
+      ignite.value = 1;
       return;
     }
+
+    // Strike the bulb: it stutters up from dark each time the screen appears,
+    // like a filament catching — then holds.
+    ignite.value = 0;
+    ignite.value = withSequence(
+      withTiming(0.18, { duration: 70, easing: Easing.linear }),
+      withTiming(0.55, { duration: 55, easing: Easing.linear }),
+      withTiming(0.24, { duration: 60, easing: Easing.linear }),
+      withTiming(0.9, { duration: 55, easing: Easing.linear }),
+      withTiming(0.55, { duration: 45, easing: Easing.linear }),
+      withTiming(1, { duration: 170, easing: Easing.out(Easing.quad) }),
+    );
 
     // 1 → .55 → .9 → .65 → 1, all inside the last 8% of a seven second cycle.
     flicker.value = withRepeat(
@@ -52,10 +72,22 @@ export function GhostLight({ size = 18, stem = false, stemHeight = 84 }: Props) 
       -1,
       false,
     );
-  }, [reduceMotion, flicker]);
+  }, [reduceMotion, flicker, ignite]);
 
-  const bulbStyle = useAnimatedStyle(() => ({ opacity: flicker.value }));
-  const haloStyle = useAnimatedStyle(() => ({ opacity: 0.38 * flicker.value }));
+  const bulbStyle = useAnimatedStyle(() => {
+    const b = boost ? boost.value : 0;
+    return {
+      opacity: Math.min(1, flicker.value * ignite.value + b * 0.2),
+      transform: [{ scale: 1 + b * 0.22 }],
+    };
+  });
+  const haloStyle = useAnimatedStyle(() => {
+    const b = boost ? boost.value : 0;
+    return {
+      opacity: (0.38 + b * 0.5) * flicker.value * ignite.value,
+      transform: [{ scale: 1 + b * 0.16 }],
+    };
+  });
 
   const halo = size * 5.2;
 

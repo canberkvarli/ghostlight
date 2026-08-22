@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Animated, {
+  Easing,
   FadeIn,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withSpring,
   withTiming,
   type EntryAnimationsValues,
 } from 'react-native-reanimated';
@@ -28,6 +28,7 @@ import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeContext';
 
@@ -43,19 +44,22 @@ import { useTheme } from '../../src/theme/ThemeContext';
  * see src/lib/reads.ts for why it is not faked device-local.
  */
 /**
- * The curtain rises: the paper is below the stage, dim and a touch small, then
- * springs up into the light as the words fade in behind it. A real theatre cue,
- * not a slide.
+ * The curtain rises — slow and even, no bounce. The paper lifts from below the
+ * stage and the light comes up on it over ~three quarters of a second: gentle,
+ * cinematic, settled. A long easeOut, never an overshoot.
  */
+const RISE_MS = 720;
+const RISE_EASE = Easing.out(Easing.cubic);
+
 function curtainRise(_values: EntryAnimationsValues) {
   'worklet';
   return {
-    initialValues: { opacity: 0, transform: [{ translateY: 64 }, { scale: 0.96 }] },
+    initialValues: { opacity: 0, transform: [{ translateY: 52 }, { scale: 0.99 }] },
     animations: {
-      opacity: withTiming(1, { duration: 420 }),
+      opacity: withTiming(1, { duration: RISE_MS, easing: Easing.out(Easing.quad) }),
       transform: [
-        { translateY: withSpring(0, { damping: 17, stiffness: 90 }) },
-        { scale: withSpring(1, { damping: 17, stiffness: 90 }) },
+        { translateY: withTiming(0, { duration: RISE_MS, easing: RISE_EASE }) },
+        { scale: withTiming(1, { duration: RISE_MS, easing: RISE_EASE }) },
       ],
     },
   };
@@ -98,16 +102,15 @@ export default function Read() {
   const [memorizing, setMemorizing] = useState(false);
   const [revealKey, setRevealKey] = useState(0);
 
-  // The title grows into place from the size it was on the card (~19px → 30px),
-  // rising a touch — a matched hand-off from the tapped card, without the
-  // fragile shared-element API. Origin is the left edge so it grows from where
-  // the card title sat, not from its centre.
-  const titleScale = useSharedValue(reduceMotion ? 1 : 0.66);
-  const titleRise = useSharedValue(reduceMotion ? 0 : 12);
+  // The title settles up into place from the card's size — a soft matched
+  // hand-off, eased not sprung, so nothing bounces. Origin is the left edge so
+  // it grows from where the card title sat, not from its centre.
+  const titleScale = useSharedValue(reduceMotion ? 1 : 0.86);
+  const titleRise = useSharedValue(reduceMotion ? 0 : 6);
   useEffect(() => {
     if (reduceMotion) return;
-    titleScale.value = withSpring(1, { damping: 15, stiffness: 130 });
-    titleRise.value = withSpring(0, { damping: 15, stiffness: 130 });
+    titleScale.value = withTiming(1, { duration: RISE_MS, easing: RISE_EASE });
+    titleRise.value = withTiming(0, { duration: RISE_MS, easing: RISE_EASE });
   }, [reduceMotion, titleScale, titleRise]);
   const titleStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: titleRise.value }, { scale: titleScale.value }],
@@ -173,18 +176,15 @@ export default function Read() {
         {/* On the dark shell: the eyebrow and the way back. */}
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
           <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
-            <Text className="text-[26px] leading-[26px]" style={{ color: c.mutedForeground }}>
-              ‹
-            </Text>
+            <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
           </Pressable>
           <StageDirection>(lights up.)</StageDirection>
           <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
-            <Text
-              className="text-[22px] leading-[26px]"
-              style={{ color: favorited ? colors.stageGlow : c.mutedForeground }}
-            >
-              {favorited ? '★' : '☆'}
-            </Text>
+            <Ionicons
+              name={favorited ? 'bookmark' : 'bookmark-outline'}
+              size={22}
+              color={favorited ? colors.stageGlow : c.mutedForeground}
+            />
           </Pressable>
         </View>
 

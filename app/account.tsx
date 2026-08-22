@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -102,13 +103,11 @@ export default function Account() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-            <Text className="text-[26px] leading-[26px]" style={{ color: c.mutedForeground }}>
-              ‹
-            </Text>
+            <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
           </Pressable>
           <Text
             className="text-[20px] text-foreground"
-            style={{ marginLeft: 12, fontFamily: 'PlayfairDisplay_600SemiBold' }}
+            style={{ marginLeft: 8, fontFamily: 'PlayfairDisplay_600SemiBold' }}
           >
             Account
           </Text>
@@ -197,7 +196,7 @@ function Row({
       {busy ? (
         <ActivityIndicator color={c.mutedForeground} />
       ) : (
-        <Text style={{ color: c.mutedForeground, fontSize: 20 }}>›</Text>
+        <Ionicons name="chevron-forward" size={18} color={c.mutedForeground} />
       )}
     </Pressable>
   );

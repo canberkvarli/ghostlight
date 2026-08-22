@@ -3,14 +3,13 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated from 'react-native-reanimated';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useBreathingGlow } from '../src/hooks/useBreathingGlow';
+import { StageButton } from '../src/components/StageButton';
 import { useTheme } from '../src/theme/ThemeContext';
 import {
   getCurrentOffering,
@@ -52,7 +51,6 @@ export default function Paywall() {
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const glow = useBreathingGlow();
   const { colors: c } = useTheme();
 
   useEffect(() => {
@@ -162,25 +160,23 @@ export default function Paywall() {
         </View>
 
         <View style={{ paddingHorizontal: 32, paddingBottom: 24 }}>
-          <Animated.View style={glow}>
-          <Pressable
-            onPress={buy}
-            disabled={busy}
-            accessibilityRole="button"
-            style={{ height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: colors.primary }}
-          >
+          <StageButton onPress={buy} disabled={busy}>
             {busy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.stageGlow} />
             ) : (
               <Text
-                className="text-[15px] uppercase tracking-[2px] text-white"
-                style={{ fontFamily: 'Montserrat_600SemiBold' }}
+                style={{
+                  fontFamily: 'Montserrat_600SemiBold',
+                  fontSize: 14,
+                  letterSpacing: 2.5,
+                  textTransform: 'uppercase',
+                  color: colors.stageGlow,
+                }}
               >
                 Unlock everything
               </Text>
             )}
-          </Pressable>
-          </Animated.View>
+          </StageButton>
 
           {note ? (
             <Text
