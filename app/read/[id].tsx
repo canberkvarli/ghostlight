@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Animated, {
   Easing,
@@ -15,6 +15,9 @@ import Animated, {
 
 import { GhostLight } from '../../src/components/GhostLight';
 import { StageDirection } from '../../src/components/StageDirection';
+import { StageBackdrop } from '../../src/components/StageBackdrop';
+import { StageButton } from '../../src/components/StageButton';
+import { useStageMotion } from '../../src/hooks/useStageMotion';
 import { PaywallShroud } from '../../src/components/PaywallShroud';
 import { MemorizeText } from '../../src/components/MemorizeText';
 import { PageCurl } from '../../src/components/PageCurl';
@@ -77,7 +80,7 @@ export default function Read() {
   // Fixtures first (offline, instant); fall to the live fetch for real search
   // results whose id the device has never seen.
   const fixture = id ? getMonologueById(id) : undefined;
-  const { data: fetched, isLoading, isError } = useQuery<Monologue>({
+  const { data: fetched, isLoading, isError, refetch } = useQuery<Monologue>({
     queryKey: ['monologue', id],
     enabled: Boolean(id) && !fixture,
     retry: false,
@@ -93,6 +96,15 @@ export default function Read() {
     },
   });
   const monologue = fixture ?? fetched;
+
+  // Coming back from the sign-in sheet: if the page couldn't be reached before
+  // (no session), try again now that there might be one — so the read opens
+  // itself instead of leaving the actor on the dead-end.
+  useFocusEffect(
+    useCallback(() => {
+      if (!fixture && !fetched) void refetch();
+    }, [fixture, fetched, refetch]),
+  );
 
   const { isAuthenticated } = useSession();
   const favorited = useIsFavorited(id ?? '', isAuthenticated);
@@ -171,18 +183,31 @@ export default function Read() {
 
   if (isLoading && !monologue) {
     return (
-      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: c.background }}>
-        <GhostLight size={16} />
+      <StageShell onBack={goBack}>
+        <GhostLight size={18} />
         <StageDirection className="mt-6">(finding the page…)</StageDirection>
-      </View>
+      </StageShell>
     );
   }
 
   if (!monologue) {
     return (
-      <View className="items-center justify-center" style={{ flex: 1, backgroundColor: c.background }}>
-        <StageDirection>{isError ? '(sign in to read this one.)' : '(that page is dark.)'}</StageDirection>
-      </View>
+      <StageShell onBack={goBack}>
+        <GhostLight size={18} stem />
+        {isError ? (
+          <>
+            <StageDirection className="mt-6">(this one's behind the stage door.)</StageDirection>
+            <View style={{ marginTop: 24, alignSelf: 'stretch' }}>
+              <StageButton label="Sign in to read" onPress={() => router.push('/auth')} />
+            </View>
+            <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 16 }} accessibilityRole="button">
+              <StageDirection>(back to the list.)</StageDirection>
+            </Pressable>
+          </>
+        ) : (
+          <StageDirection className="mt-6">(that page is dark.)</StageDirection>
+        )}
+      </StageShell>
     );
   }
 
@@ -402,6 +427,31 @@ export default function Read() {
             </Animated.View>
           ) : null}
         </Animated.View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+/**
+ * The dark stage the loading / can't-reach states stand on — so those moments
+ * keep the backdrop and, crucially, a way back. No screen in the app should
+ * ever be a dead end.
+ */
+function StageShell({ onBack, children }: { onBack: () => void; children: React.ReactNode }) {
+  const { tiltX, tiltY } = useStageMotion();
+  const { colors: c } = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={{ height: 48, justifyContent: 'center', paddingHorizontal: 20 }}>
+          <Pressable onPress={onBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 60 }}>
+          {children}
+        </View>
       </SafeAreaView>
     </View>
   );
