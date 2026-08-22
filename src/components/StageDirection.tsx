@@ -12,7 +12,7 @@ export function StageDirection({ children, className = '', ...rest }: TextProps)
   return (
     <Text
       {...rest}
-      className={`text-[13px] lowercase text-muted-foreground ${className}`}
+      className={`text-[15px] lowercase text-muted-foreground ${className}`}
       style={[{ fontFamily: 'CourierPrime_400Regular_Italic', letterSpacing: 1.04 }, rest.style]}
     >
       {children}

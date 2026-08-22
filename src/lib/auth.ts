@@ -65,6 +65,24 @@ export async function signInWithApple(): Promise<AuthResult> {
   }
 }
 
+/**
+ * Sign in with an existing ActorRise email + password. Because the app points at
+ * the same Supabase project as the web app, this is the actor's existing account
+ * — connecting the phone to what they already have on the web.
+ */
+export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) return { ok: false, message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message ?? 'Sign-in failed.' };
+  }
+}
+
 export async function signInWithGoogle(): Promise<AuthResult> {
   try {
     // Anonymous users link so their data is kept; a fresh user just signs in.

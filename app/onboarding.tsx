@@ -16,8 +16,8 @@ import { GhostLight } from '../src/components/GhostLight';
 import { CountUp } from '../src/components/CountUp';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
+import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { StageButton } from '../src/components/StageButton';
 import { markOnboardingComplete } from '../src/lib/onboarding';
 import { colors } from '../src/theme/tokens';
 
@@ -250,16 +250,23 @@ function Footer({
   };
 
   return (
-    <View style={{ paddingHorizontal: 36, paddingBottom: 24, paddingTop: 8 }}>
-      <View style={{ marginBottom: 28, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+    <View style={{ paddingHorizontal: 36, paddingBottom: 40, paddingTop: 8 }}>
+      <View style={{ marginBottom: 30, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
         {Array.from({ length: count }).map((_, i) => (
           <Dot key={i} index={i} width={width} scrollX={scrollX} />
         ))}
       </View>
 
-      <StageButton onPress={press}>
+      {/* Gentle, modern: just the word and an arrow. */}
+      <Pressable
+        onPress={press}
+        accessibilityRole="button"
+        hitSlop={16}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 8 }}
+      >
         <ButtonLabel count={count} width={width} scrollX={scrollX} />
-      </StageButton>
+        <Ionicons name="arrow-forward" size={18} color={colors.stageGlow} />
+      </Pressable>
     </View>
   );
 }

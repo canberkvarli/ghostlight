@@ -133,10 +133,10 @@ export default function Search() {
           </View>
 
           <View style={{ flex: 1 }} className="items-center justify-center">
-            <GhostLight size={18} boost={bulbBoost} />
+            <GhostLight size={18} boost={bulbBoost} stem stemHeight={40} />
 
             <Text
-              className="mt-6 text-center text-[30px] leading-[38px] text-foreground"
+              className="mt-7 text-center text-[38px] leading-[46px] text-foreground"
               style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
             >
               What are you{'\n'}looking for?
@@ -146,13 +146,14 @@ export default function Search() {
               style={[
                 fieldStyle,
                 {
-                  marginTop: 32,
+                  marginTop: 36,
                   width: '100%',
+                  height: 58,
                   flexDirection: 'row',
                   alignItems: 'center',
                   borderRadius: 16,
                   borderWidth: 1,
-                  paddingHorizontal: 16,
+                  paddingHorizontal: 18,
                   backgroundColor: c.card,
                 },
               ]}
@@ -168,7 +169,7 @@ export default function Search() {
                 placeholderTextColor={c.mutedForeground}
                 selectionColor={colors.stageGlow}
                 className="text-[16px] text-foreground"
-                style={{ flex: 1, paddingVertical: 16, fontFamily: 'Montserrat_400Regular' }}
+                style={{ flex: 1, height: '100%', paddingVertical: 0, fontFamily: 'Montserrat_400Regular' }}
               />
             </Animated.View>
 
@@ -216,10 +217,10 @@ export default function Search() {
             </View>
           </View>
 
-          <View style={{ paddingBottom: 16 }}>
+          <View style={{ paddingBottom: 20 }}>
             <StageButton label="Search" onPress={submit} />
 
-            <View className="mt-3 items-center">
+            <View style={{ marginTop: 18, alignItems: 'center' }}>
               <StageDirection>
                 {activeCount > 0
                   ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`

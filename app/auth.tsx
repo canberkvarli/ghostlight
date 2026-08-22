@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -7,9 +7,15 @@ import * as Haptics from 'expo-haptics';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
+import { StageButton } from '../src/components/StageButton';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../src/lib/auth';
+import {
+  isAppleAuthAvailable,
+  signInWithApple,
+  signInWithEmail,
+  signInWithGoogle,
+} from '../src/lib/auth';
 import { useGoBack } from '../src/lib/nav';
 import { colors } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -26,8 +32,11 @@ export default function Auth() {
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
   const [appleReady, setAppleReady] = useState(false);
-  const [busy, setBusy] = useState<null | 'apple' | 'google'>(null);
+  const [busy, setBusy] = useState<null | 'apple' | 'google' | 'email'>(null);
   const [error, setError] = useState<string | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
@@ -56,6 +65,16 @@ export default function Auth() {
     setBusy(null);
     if (res.ok) done();
     else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
+  };
+
+  const withEmail = async () => {
+    if (!email.trim() || !password) return;
+    setBusy('email');
+    setError(null);
+    const res = await signInWithEmail(email, password);
+    setBusy(null);
+    if (res.ok) done();
+    else setError(res.message ?? 'Could not sign in.');
   };
 
   return (
@@ -113,6 +132,51 @@ export default function Auth() {
               </Text>
             )}
           </Pressable>
+
+          {/* Connect an existing ActorRise account (same Supabase as the web). */}
+          {emailOpen ? (
+            <View style={{ marginTop: 18 }}>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="ActorRise email"
+                placeholderTextColor={c.mutedForeground}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                selectionColor={colors.stageGlow}
+                className="text-[15px] text-foreground"
+                style={{ height: 52, borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, paddingHorizontal: 18, fontFamily: 'Montserrat_400Regular' }}
+              />
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                placeholderTextColor={c.mutedForeground}
+                secureTextEntry
+                autoComplete="password"
+                onSubmitEditing={withEmail}
+                selectionColor={colors.stageGlow}
+                className="text-[15px] text-foreground"
+                style={{ height: 52, marginTop: 10, borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, paddingHorizontal: 18, fontFamily: 'Montserrat_400Regular' }}
+              />
+              <View style={{ marginTop: 12 }}>
+                <StageButton onPress={withEmail} disabled={busy === 'email'}>
+                  {busy === 'email' ? (
+                    <ActivityIndicator color={colors.stageGlow} />
+                  ) : (
+                    <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 14, letterSpacing: 2.5, textTransform: 'uppercase', color: colors.stageGlow }}>
+                      Sign in
+                    </Text>
+                  )}
+                </StageButton>
+              </View>
+            </View>
+          ) : (
+            <Pressable onPress={() => setEmailOpen(true)} hitSlop={10} style={{ marginTop: 18, alignItems: 'center' }} accessibilityRole="button">
+              <StageDirection>(connect your actorrise account.)</StageDirection>
+            </Pressable>
+          )}
 
           {busy === 'apple' ? (
             <View className="mt-4 items-center">
