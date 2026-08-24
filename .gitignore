@@ -45,3 +45,14 @@ yarn-error.*
 
 # personal planning notes (listing copy, ASO, go-to-market) — local only
 /docs/plans/
+
+# expo-updates code signing. The private key signs every OTA update: anyone
+# holding it can push JavaScript to every install. Never commit it. Back it up
+# somewhere durable (password manager), because losing it means no signed
+# update can ever reach the shipped binary again without a new App Store build.
+# certs/certificate.pem is public and IS committed — it gets embedded in the
+# binary so the app can verify signatures. The `*.pem` rule above would
+# otherwise swallow it, and EAS honours .gitignore when it uploads the project,
+# so the build would silently ship with no certificate to verify against.
+/keys/
+!certs/certificate.pem

@@ -8,10 +8,17 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "runtimeVersion": { "policy": "fingerprint" },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "updates": {
       "url": "https://u.expo.dev/ee3938d8-8f0f-4a0d-bea1-2f717ef7f911",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "codeSigningCertificate": "./certs/certificate.pem",
+      "codeSigningMetadata": {
+        "keyid": "main",
+        "alg": "rsa-v1_5-sha256"
+      }
     },
     "ios": {
       "supportsTablet": false,
@@ -48,7 +55,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#130b08",
-          "dark": { "backgroundColor": "#130b08" }
+          "dark": {
+            "backgroundColor": "#130b08"
+          }
         }
       ],
       "expo-web-browser",
