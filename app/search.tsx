@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +26,7 @@ import {
   EMPTY_SELECTION,
   advancedCount,
   chipKey,
+  chipText,
   selectionToParams,
   type FilterChip,
   type Selection,
@@ -152,7 +153,8 @@ export default function Search() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={{ flex: 1, paddingHorizontal: 28 }}>
+        {/* Tapping any empty area dismisses the keyboard; child buttons still win. */}
+        <Pressable onPress={() => Keyboard.dismiss()} accessible={false} style={{ flex: 1, paddingHorizontal: 28 }}>
           <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 22 }}>
             <Pressable
               onPress={() => router.push('/saves')}
@@ -182,14 +184,14 @@ export default function Search() {
             />
 
             <Text
-              className="mt-5 text-center text-foreground"
+              className="mt-8 text-center text-foreground"
               style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 15, letterSpacing: 7, textTransform: 'uppercase' }}
             >
               Ghost Light
             </Text>
-            <StageDirection className="mt-3">
+            <StageDirection className="mt-4">
               {medium === 'screen'
-                ? '(14,000+ speeches. screen and stage.)'
+                ? '(film & tv, off the page.)'
                 : '(14,000+ monologues. one stage.)'}
             </StageDirection>
 
@@ -267,7 +269,7 @@ export default function Search() {
                         color: active ? pal.glow : c.mutedForeground,
                       }}
                     >
-                      {chip.label}
+                      {chipText(chip.label)}
                     </Text>
                   </Pressable>
                 );
@@ -307,7 +309,7 @@ export default function Search() {
             </StageDirection>
             <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
           </View>
-        </View>
+        </Pressable>
       </SafeAreaView>
 
       {/* The house-lights flash, over everything, on a medium change. */}

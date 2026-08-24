@@ -139,10 +139,7 @@ export default function Auth() {
                 onSubmitEditing={withEmail}
                 style={{ marginTop: 14 }}
               />
-              <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: colors.dark.chevron }}>
-                  (forgot it.)
-                </Text>
+              <View style={{ marginTop: 16, alignItems: 'flex-end' }}>
                 {busy === 'email' ? (
                   <ActivityIndicator color={colors.stageGlow} />
                 ) : (

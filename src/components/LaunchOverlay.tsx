@@ -73,7 +73,7 @@ export function LaunchOverlay() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <Animated.View style={lampStyle}>
-          <GhostLight size={130} dress="full" />
+          <GhostLight size={82} dress="full" />
         </Animated.View>
         <Animated.Text
           style={[

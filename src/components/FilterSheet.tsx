@@ -7,7 +7,7 @@ import { WordArrow } from './WordArrow';
 import { StageDirection } from './StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
-import { SHEET_GROUPS, chipKey, type FilterChip, type Selection } from '../data/filters';
+import { SHEET_GROUPS, chipKey, chipText, type FilterChip, type Selection } from '../data/filters';
 
 /**
  * The "(more filters.)" sheet. Free identity + length filters (who / how old /
@@ -53,15 +53,16 @@ export function FilterSheet({
           left: 0,
           right: 0,
           bottom: 0,
-          maxHeight: '82%',
+          height: '85%',
           backgroundColor: c.card,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
           borderWidth: 1,
           borderColor: c.border,
+          overflow: 'hidden',
         }}
       >
-        <SafeAreaView edges={['bottom']}>
+        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
           {/* Grabber + title. */}
           <View style={{ alignItems: 'center', paddingTop: 10 }}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border }} />
@@ -74,7 +75,8 @@ export function FilterSheet({
           </View>
 
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
           >
             {SHEET_GROUPS.map((g) => {
@@ -122,7 +124,7 @@ export function FilterSheet({
                               color: active ? glow : c.mutedForeground,
                             }}
                           >
-                            {chip.label}
+                            {chipText(chip.label)}
                           </Text>
                         </Pressable>
                       );
@@ -157,7 +159,9 @@ export function FilterSheet({
               hitSlop={10}
               accessibilityRole="button"
             >
-              <StageDirection>(clear.)</StageDirection>
+              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, letterSpacing: 0.5, color: glow }}>
+                (clear.)
+              </Text>
             </Pressable>
             <WordArrow label="Done" onPress={onApply} tint={glow} />
           </View>

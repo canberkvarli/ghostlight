@@ -145,6 +145,14 @@ export function chipKey(c: FilterChip): string {
   return `${c.group}:${c.value}`;
 }
 
+/**
+ * Chip labels without the stage-direction parentheses — the filter area had too
+ * many "(…)" stacked up and got noisy. `(under 2 min.)` → `under 2 min`.
+ */
+export function chipText(label: string): string {
+  return label.replace(/^\(/, '').replace(/\.?\)$/, '');
+}
+
 const HOME_KEYS = new Set(FILTER_CHIPS.map(chipKey));
 
 /** Active selections that aren't one of the six home chips — the "(N more.)" hint. */

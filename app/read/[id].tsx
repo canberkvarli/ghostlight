@@ -19,7 +19,6 @@ import { StageBackdrop } from '../../src/components/StageBackdrop';
 import { StageButton } from '../../src/components/StageButton';
 import { useStageMotion } from '../../src/hooks/useStageMotion';
 import { PaywallShroud } from '../../src/components/PaywallShroud';
-import { MemorizeText } from '../../src/components/MemorizeText';
 import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
@@ -117,10 +116,6 @@ export default function Read() {
   const favorited = useIsFavorited(id ?? '', isAuthenticated);
   const toggleFavorite = useToggleFavorite();
 
-  // Memorize mode: tap lines to drop them into shadow and rehearse recall.
-  // revealKey bumps to light every line back up at once.
-  const [memorizing, setMemorizing] = useState(false);
-  const [revealKey, setRevealKey] = useState(0);
   const [copied, setCopied] = useState(false);
 
   // The title settles up into place from the card's size — a soft matched
@@ -312,71 +307,19 @@ export default function Read() {
               style={{ marginVertical: 24, height: 1, width: '100%', backgroundColor: colors.light.border }}
             />
 
-            {/* Memorize toggle — a rehearsal aid, only offered on the full text. */}
-            {!gated && monologue.fullText ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginBottom: 18 }}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setMemorizing((m) => !m);
-                  }}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                >
-                  <Text
-                    style={{
-                      fontFamily: 'CourierPrime_400Regular_Italic',
-                      fontSize: 13,
-                      letterSpacing: 0.5,
-                      color: memorizing ? colors.primary : colors.light.mutedForeground,
-                    }}
-                  >
-                    {memorizing ? '(memorizing.)' : '(memorize.)'}
-                  </Text>
-                </Pressable>
-                {memorizing ? (
-                  <Pressable onPress={() => setRevealKey((k) => k + 1)} hitSlop={8} accessibilityRole="button">
-                    <Text
-                      style={{
-                        fontFamily: 'CourierPrime_400Regular_Italic',
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                        color: colors.light.mutedForeground,
-                      }}
-                    >
-                      (reveal all.)
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* The words of the play, in the typewriter, dark ink on warm paper. */}
-            {memorizing && !gated ? (
-              <MemorizeText
-                text={body}
-                active
-                revealKey={revealKey}
-                textStyle={{
-                  fontFamily: 'CourierPrime_400Regular',
-                  fontSize: 16,
-                  color: colors.light.foreground,
-                  lineHeight: 27,
-                }}
-              />
-            ) : (
-              <Animated.Text
-                entering={FadeIn.delay(220).duration(600)}
-                className="text-[16px]"
-                style={{
-                  fontFamily: 'CourierPrime_400Regular',
-                  color: colors.light.foreground,
-                  lineHeight: 27,
-                }}
-              >
-                {gated ? monologue.excerpt : body}
-              </Animated.Text>
-            )}
+            {/* The words of the play, in the typewriter, dark ink on warm paper.
+                (Memorize mode is deferred to v2.) */}
+            <Animated.Text
+              entering={FadeIn.delay(220).duration(600)}
+              className="text-[16px]"
+              style={{
+                fontFamily: 'CourierPrime_400Regular',
+                color: colors.light.foreground,
+                lineHeight: 27,
+              }}
+            >
+              {gated ? monologue.excerpt : body}
+            </Animated.Text>
 
             {gated ? null : !monologue.fullText ? (
               <Text
@@ -388,7 +331,7 @@ export default function Read() {
             ) : null}
 
             {/* Kin at the foot of the page. Never behind the wall. */}
-            {gated || !id ? null : <SimilarRow id={id} enabled={!memorizing} />}
+            {gated || !id ? null : <SimilarRow id={id} enabled />}
           </ScrollView>
 
           {/* A folded corner, so the page reads as paper. Hidden behind the wall. */}

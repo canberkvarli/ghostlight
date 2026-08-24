@@ -122,21 +122,18 @@ export default function Account() {
     );
   };
 
-  // Subscription lives one level down: restore is always reachable (Apple), plus
-  // manage for subscribers or upgrade for free.
+  // Straight to the sub page: subscribers manage in Settings, everyone else sees
+  // the plans (restore lives on the paywall).
   const onSubscription = () => {
-    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [];
-    if (readState?.is_paid) options.push({ text: 'Manage subscription', onPress: () => Linking.openURL(MANAGE_SUBS_URL) });
-    else options.push({ text: 'See the plans', onPress: () => router.push('/paywall') });
-    options.push({ text: 'Restore purchases', onPress: onRestore });
-    options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('Subscription', undefined, options);
+    if (readState?.is_paid) Linking.openURL(MANAGE_SUBS_URL);
+    else router.push('/paywall');
   };
 
   const onHelp = () => {
     const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
       { text: 'Privacy Policy', onPress: () => WebBrowser.openBrowserAsync(PRIVACY_URL) },
       { text: 'Terms of Service', onPress: () => WebBrowser.openBrowserAsync(TERMS_URL) },
+      { text: 'Restore purchases', onPress: onRestore },
       { text: 'Contact support', onPress: () => Linking.openURL('mailto:hello@actorrise.com') },
     ];
     if (isAuthenticated) options.push({ text: 'Delete account', style: 'destructive', onPress: onDelete });
@@ -206,12 +203,14 @@ export default function Account() {
 function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => void }) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
+  const loaded = readState !== undefined;
   const paid = readState?.is_paid === true;
 
   const limit = readState && readState.reads_limit > 0 ? readState.reads_limit : 3;
   const used = Math.min(readState?.reads_used ?? 0, limit);
   const left = Math.max(0, limit - used);
-  const litBars = paid ? 3 : Math.max(0, Math.min(3, Math.round((left / limit) * 3)));
+  // Bars stay dark until we actually know, so the card doesn't flip on load.
+  const litBars = !loaded ? 0 : paid ? 3 : Math.max(0, Math.min(3, Math.round((left / limit) * 3)));
 
   // The bloom breathes on the 7s flicker.
   const bloom = useSharedValue(0.12);
@@ -224,8 +223,14 @@ function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => 
   }, [reduce, bloom]);
   const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value }));
 
-  const eyebrow = paid ? 'THE WHOLE STAGE' : 'FREE';
-  const headline = paid ? 'Every monologue,\nunlimited.' : left > 0 ? `${left} of ${limit} reads\nleft.` : 'The trial\nhas ended.';
+  const eyebrow = !loaded ? '' : paid ? 'THE WHOLE STAGE' : 'FREE';
+  const headline = !loaded
+    ? 'Your stage.'
+    : paid
+      ? 'Every monologue,\nunlimited.'
+      : left > 0
+        ? `${left} of ${limit} reads\nleft.`
+        : 'Your free reads\nare spent.';
 
   return (
     <View
@@ -280,7 +285,7 @@ function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => 
         ))}
       </View>
 
-      {!paid ? (
+      {loaded && !paid ? (
         <View style={{ marginTop: 18, alignItems: 'flex-start' }}>
           <WordArrow label="Stay on" onPress={onStay} />
         </View>

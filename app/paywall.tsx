@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import type { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
@@ -46,6 +47,15 @@ export default function Paywall() {
   const [restoring, setRestoring] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const { colors: c } = useTheme();
+  const queryClient = useQueryClient();
+
+  // After a purchase/restore the entitlement is live in RevenueCat immediately;
+  // force every screen that gates on the read counter to re-check so the app
+  // unlocks now instead of waiting on the server webhook.
+  const refreshEntitlement = () => {
+    queryClient.invalidateQueries({ queryKey: ['read-wall'] });
+    queryClient.invalidateQueries({ queryKey: ['monologue'] });
+  };
 
   useEffect(() => {
     getCurrentOffering().then(setOffering).catch(() => setOffering(null));
@@ -82,6 +92,7 @@ export default function Paywall() {
       const entitled = await purchase(selectedPkg);
       if (entitled) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        refreshEntitlement();
         close();
       }
     } catch (e) {
@@ -98,8 +109,10 @@ export default function Paywall() {
     setNote(null);
     try {
       const entitled = await restore();
-      if (entitled) close();
-      else setNote('Nothing to restore on this account.');
+      if (entitled) {
+        refreshEntitlement();
+        close();
+      } else setNote('Nothing to restore on this account.');
     } catch {
       setNote('Couldn’t reach the store. Try again.');
     } finally {
@@ -131,7 +144,7 @@ export default function Paywall() {
               {headlineWord}{'\n'}on the house.
             </Text>
             <StageDirection className="mt-3">
-              {`(the whole library, free for ${headlineTrial}.\ncancel any time before it ends.)`}
+              {`(free for ${headlineTrial}. cancel anytime.)`}
             </StageDirection>
           </View>
 

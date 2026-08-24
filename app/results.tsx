@@ -220,7 +220,7 @@ export default function Results() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ flex: 1 }}>
         {searching ? (
-          <SearchingStage pal={pal} />
+          <SearchingStage pal={pal} screen={screenMode} />
         ) : noResults ? (
           <RequestStage query={params.q ?? ''} pal={pal} />
         ) : (
@@ -267,7 +267,7 @@ function StageHeader({
         className="mt-3 text-foreground"
         style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
       >
-        {count} {count === 1 ? 'speech' : 'speeches'}
+        {count} {count === 1 ? 'monologue' : 'monologues'}
       </Text>
       <StageDirection className="mt-2">
         {fellBack
@@ -280,16 +280,22 @@ function StageHeader({
   );
 }
 
+const STAGE_VOICES = ['Shakespeare', 'Chekhov', 'Ibsen', 'Williams', 'Miller', 'Wilde', 'Beckett'];
+const SCREEN_VOICES = ['Sorkin', 'Gilligan', 'Waller-Bridge', 'Kaufman', 'Fey', 'Peele'];
+
 /**
- * Hunting (handoff §5): the bulb and halo pulse .25 → 1 → .3 → .9 on a 1.1s loop,
- * "(looking.)" below, and an amber gradient sweeps a hairline. The full screen dip
- * choreography happens during the Search → Results cross-fade; this is the state
- * the actor lands on.
+ * Hunting (handoff §5): the bulb and halo pulse on a loop, an amber gradient
+ * sweeps a hairline, and the line below cycles through the voices we're asking —
+ * "(asking Shakespeare…)" on stage, screenwriters for Film & TV. Reads as the
+ * app going and looking, not a dead spinner.
  */
-function SearchingStage({ pal }: { pal: MediumPalette }) {
+function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }) {
   const reduce = useReducedMotion();
   const pulse = useSharedValue(0.6);
   const sweep = useSharedValue(0);
+  const voices = screen ? SCREEN_VOICES : STAGE_VOICES;
+  const [vi, setVi] = useState(0);
+
   useEffect(() => {
     if (reduce) {
       pulse.value = 0.6;
@@ -306,16 +312,18 @@ function SearchingStage({ pal }: { pal: MediumPalette }) {
       false,
     );
     sweep.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, false);
-  }, [reduce, pulse, sweep]);
+    const id = setInterval(() => setVi((n) => (n + 1) % voices.length), 700);
+    return () => clearInterval(id);
+  }, [reduce, pulse, sweep, voices.length]);
 
   const sweepStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -60 + sweep.value * 150 }] }));
 
   return (
     <View style={{ flex: 1 }} className="items-center justify-center">
       <GhostLight size={44} boost={pulse} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
-      <StageDirection className="mt-6">(looking.)</StageDirection>
+      <StageDirection className="mt-7">{`(asking ${voices[vi]}…)`}</StageDirection>
       {/* a 150pt hairline the light sweeps along */}
-      <View style={{ marginTop: 22, width: 150, height: 1, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
+      <View style={{ marginTop: 24, width: 150, height: 1, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
         <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.glow }]} />
       </View>
     </View>
@@ -354,29 +362,29 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
       {sent ? (
         <>
           <Text
-            className="mt-6 text-center text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
+            className="text-center text-foreground"
+            style={{ marginTop: 44, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
           >
             Sent to{'\n'}the booth.
           </Text>
-          <StageDirection className="mt-3">(we'll go looking.)</StageDirection>
+          <StageDirection className="mt-5">(we'll go looking.)</StageDirection>
         </>
       ) : (
         <>
           <Text
-            className="mt-6 text-center text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
+            className="text-center text-foreground"
+            style={{ marginTop: 44, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
           >
             Not in the{'\n'}library yet.
           </Text>
-          <StageDirection className="mt-3">{query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}</StageDirection>
+          <StageDirection className="mt-5">{query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}</StageDirection>
           <Text
-            className="mt-6 text-center"
-            style={{ fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 21, color: colors.dark.mutedForeground }}
+            className="text-center"
+            style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: colors.dark.mutedForeground }}
           >
             Ask for it and we go looking.{'\n'}Most requests are up inside a week.
           </Text>
-          <View style={{ marginTop: 22 }}>
+          <View style={{ marginTop: 34 }}>
             <WordArrow label="Request it" onPress={ask} disabled={sending} tint={pal.glow} haptic="none" />
           </View>
         </>

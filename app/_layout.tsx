@@ -80,10 +80,12 @@ export default function RootLayout() {
 }
 
 function Shell() {
-  const { colors: c, scheme } = useTheme();
+  const { colors: c } = useTheme();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.background }}>
-      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+      {/* The stage is always warm-dark (even in light mode the backdrop is dark,
+          and Film & TV is a dark violet), so the status bar is always light. */}
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,
