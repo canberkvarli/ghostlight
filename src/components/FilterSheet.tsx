@@ -67,8 +67,9 @@ export function FilterSheet({
           <View style={{ alignItems: 'center', paddingTop: 10 }}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border }} />
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 4 }}>
-            <StageDirection>(refine.)</StageDirection>
+          {/* flex-end, not space-between: the title used to hold the left edge,
+              and without it space-between would park the close button there. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 4 }}>
             <Pressable onPress={onClose} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close filters">
               <Ionicons name="close" size={24} color={c.mutedForeground} />
             </Pressable>

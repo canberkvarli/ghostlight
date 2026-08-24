@@ -189,10 +189,11 @@ export default function Search() {
             >
               Ghost Light
             </Text>
-            <StageDirection className="mt-4">
-              {medium === 'screen'
-                ? '(6,000+ from film & tv, off the page.)'
-                : '(7,000+ monologues. one stage.)'}
+            {/* Kept short on purpose: both variants must hold one line at the
+                widest letter-spacing, and a count here would only ever describe
+                the toggle you're standing in, never the whole library. */}
+            <StageDirection className="mt-8" numberOfLines={1}>
+              {medium === 'screen' ? '(film & tv, off the page.)' : '(every monologue. one stage.)'}
             </StageDirection>
 
             <View style={{ marginTop: 24 }}>

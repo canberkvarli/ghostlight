@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from './supabase';
+import { identifyPurchasesUser } from './purchases';
 
 /**
  * The live auth state, driven by Supabase's `onAuthStateChange`. `isAnonymous`
@@ -25,9 +26,14 @@ export function useSession(): SessionInfo {
       if (!alive) return;
       setSession(data.session);
       setLoading(false);
+      void identifyPurchasesUser(data.session?.user.id ?? null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      // RevenueCat is configured once at launch against the anonymous user. If
+      // it isn't re-bound here, a purchase made after signing in is credited to
+      // the anonymous uuid and the account it was bought for stays locked.
+      void identifyPurchasesUser(next?.user.id ?? null);
     });
     return () => {
       alive = false;

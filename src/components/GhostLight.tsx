@@ -191,7 +191,7 @@ export function GhostLight({
   const cx = g.centerX;
 
   return (
-    <View className="items-center" pointerEvents="none">
+    <View style={{ alignItems: 'center' }} pointerEvents="none">
       <Canvas style={{ width: g.canvasW, height: g.canvasH }}>
         {/* halo — the pool of light around the glass */}
         <Circle cx={cx} cy={g.glassCy} r={haloR} opacity={haloOpacity}>

@@ -261,7 +261,7 @@ function StageHeader({
   const screen = medium === 'screen';
   const noun = screen ? 'on screen' : 'monologues';
   return (
-    <View style={{ height: HEADER_HEIGHT }} className="items-center justify-end pb-7">
+    <View style={{ height: HEADER_HEIGHT, alignItems: 'center', justifyContent: 'flex-end' }} className="pb-7">
       <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
       <Text
         className="mt-3 text-foreground"
@@ -318,10 +318,15 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
 
   const sweepStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -60 + sweep.value * 150 }] }));
 
+  // Centring lives in `style`, not `className` — Uniwind drops layout
+  // utilities (AGENTS.md), so items-center/justify-center silently did nothing
+  // here and the lamp sat in the top-left through every search.
   return (
-    <View style={{ flex: 1 }} className="items-center justify-center">
-      <GhostLight size={44} boost={pulse} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
-      <StageDirection className="mt-7">{`(asking ${voices[vi]}…)`}</StageDirection>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <GhostLight size={34} boost={pulse} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
+      <StageDirection className="mt-7" style={{ textAlign: 'center' }}>
+        {`(asking ${voices[vi]}…)`}
+      </StageDirection>
       {/* a 150pt hairline the light sweeps along */}
       <View style={{ marginTop: 24, width: 150, height: 1, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
         <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.glow }]} />
@@ -395,7 +400,7 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
 
 function EmptyStage() {
   return (
-    <View className="items-center pt-24">
+    <View style={{ alignItems: 'center' }} className="pt-24">
       <GhostLight size={44} />
       <StageDirection className="mt-6">(nothing here yet.)</StageDirection>
     </View>

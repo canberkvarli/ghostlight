@@ -52,7 +52,10 @@ export function MediumToggle({
               borderColor: active ? glow : 'transparent',
             }}
           >
+            {/* "Film & TV" is wide once uppercased and tracked out; without this
+                it wraps on the narrow devices and the pill grows a second row. */}
             <Text
+              numberOfLines={1}
               style={{
                 fontFamily: 'Montserrat_600SemiBold',
                 fontSize: 12,

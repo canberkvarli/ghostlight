@@ -20,6 +20,7 @@ import {
   restore,
 } from '../src/lib/purchases';
 import { colors } from '../src/theme/tokens';
+import type { ReadState } from '../src/api/client';
 
 /**
  * The paywall — a free trial (length set in App Store Connect; handoff §5). No
@@ -38,7 +39,7 @@ import { colors } from '../src/theme/tokens';
 //   copy to clipboard → app/read/[id].tsx:167
 //   tone/emotion/freshness filters → src/data/filters.ts (premium: true)
 const PERKS = [
-  'Unlimited reading, all 13,000+',
+  'Unlimited reading, all 14,000+',
   'Filter by tone, emotion & freshness',
   'Copy any monologue',
 ];
@@ -56,12 +57,26 @@ export default function Paywall() {
   const { colors: c } = useTheme();
   const queryClient = useQueryClient();
 
-  // After a purchase/restore the entitlement is live in RevenueCat immediately;
-  // force every screen that gates on the read counter to re-check so the app
-  // unlocks now instead of waiting on the server webhook.
+  // RevenueCat confirms the entitlement on-device the instant the purchase
+  // returns, but ['read-wall'] is served by our API, which only learns about it
+  // when the RevenueCat webhook lands — a second or two later, sometimes more.
+  // Invalidating alone therefore refetches the one source that is still saying
+  // "free", which is precisely the wait it looks like it's avoiding.
+  //
+  // So: seed the unlocked state so the app opens the moment the sheet closes,
+  // then reconcile against the server as the webhook arrives. The server stays
+  // the source of truth; it just gets a head start.
   const refreshEntitlement = () => {
-    queryClient.invalidateQueries({ queryKey: ['read-wall'] });
+    queryClient.setQueryData<ReadState>(['read-wall'], {
+      reads_used: 0,
+      reads_limit: -1,
+      is_paid: true,
+      atWall: false,
+    });
     queryClient.invalidateQueries({ queryKey: ['monologue'] });
+    for (const ms of [1500, 4000, 9000]) {
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['read-wall'] }), ms);
+    }
   };
 
   useEffect(() => {
@@ -143,15 +158,18 @@ export default function Paywall() {
           showsVerticalScrollIndicator={false}
         >
           <View style={{ alignItems: 'center' }}>
-            <GhostLight size={44} />
+            <GhostLight size={34} />
             <Text
               className="mt-6 text-center text-foreground"
               style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 38, lineHeight: 44 }}
             >
               {headlineWord}{'\n'}on the house.
             </Text>
-            <StageDirection className="mt-3">
-              {`(free for ${headlineTrial}. cancel anytime.)`}
+            {/* The trial length is already the headline, so repeating it here
+                only bought a second line: Courier at 15px with 1.04 tracking
+                runs past the 30pt gutters on a 375pt screen. */}
+            <StageDirection className="mt-3" numberOfLines={1}>
+              {trialLabel ? '(free. cancel anytime.)' : '(cancel anytime.)'}
             </StageDirection>
           </View>
 

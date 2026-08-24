@@ -183,5 +183,9 @@ function SavedCard({ item, onPress }: { item: Saved; onPress: () => void }) {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <View style={{ flex: 1 }} className="items-center justify-center pb-24">{children}</View>;
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} className="pb-24">
+      {children}
+    </View>
+  );
 }

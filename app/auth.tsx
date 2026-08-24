@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -82,6 +82,13 @@ export default function Auth() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        {/* The email fields live in the bottom block, which the keyboard covered
+            outright. Padding behaviour lets the centred hero above (flex: 1)
+            give up its height instead, carrying the inputs up with it. */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
             <Text
@@ -154,7 +161,7 @@ export default function Auth() {
           <WayRow label="(already on actorrise? connect it.)" quiet onPress={() => setEmailOpen(true)} last />
 
           {busy === 'apple' ? (
-            <View className="mt-4 items-center">
+            <View style={{ alignItems: 'center' }} className="mt-4">
               <ActivityIndicator color={colors.stageGlow} />
             </View>
           ) : null}
@@ -165,6 +172,7 @@ export default function Auth() {
             </Text>
           ) : null}
         </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
