@@ -3,32 +3,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { StageButton } from './StageButton';
+import { WordArrow } from './WordArrow';
 import { StageDirection } from './StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
-import { ADVANCED_GROUPS, chipKey, type FilterChip, type Selection } from '../data/filters';
+import { SHEET_GROUPS, chipKey, type FilterChip, type Selection } from '../data/filters';
 
 /**
- * The premium "(more filters.)" sheet — the fine tone palette, emotion, and
- * freshness. Same lit Courier chips as the quick row, grouped by dimension,
- * raised on a sheet that matches the auth/paywall presentation. Only reached by
- * subscribers; free actors who tap "(more filters.)" meet the wall instead.
+ * The "(more filters.)" sheet. Free identity + length filters (who / how old /
+ * how long) are fully usable by everyone. The craft filters (tone, emotion,
+ * freshness) are shown too — the value is visible — but marked premium: a free
+ * actor tapping one routes to the paywall instead of a dead lock. Paid actors
+ * use everything.
  */
 export function FilterSheet({
   visible,
   onClose,
   onApply,
+  onClear,
   selected,
   onToggle,
+  onUnlock,
+  isPaid,
   glow,
   chipFill,
 }: {
   visible: boolean;
   onClose: () => void;
   onApply: () => void;
+  onClear: () => void;
   selected: Selection;
   onToggle: (chip: FilterChip) => void;
+  onUnlock: () => void;
+  isPaid: boolean;
   glow: string;
   chipFill: string;
 }) {
@@ -70,55 +77,89 @@ export function FilterSheet({
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}
           >
-            {ADVANCED_GROUPS.map((g) => (
-              <View key={g.group} style={{ marginBottom: 22 }}>
-                <Text
-                  className="text-[12px] uppercase tracking-[1.6px] text-muted-foreground"
-                  style={{ fontFamily: 'Montserrat_600SemiBold', marginBottom: 12 }}
-                >
-                  {g.title}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {g.chips.map((chip) => {
-                    const active = selected[chip.group] === chip.value;
-                    return (
-                      <Pressable
-                        key={chipKey(chip)}
-                        onPress={() => {
-                          Haptics.selectionAsync().catch(() => {});
-                          onToggle(chip);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        style={{
-                          borderRadius: 999,
-                          borderWidth: 1,
-                          paddingHorizontal: 14,
-                          paddingVertical: 8,
-                          borderColor: active ? glow : c.border,
-                          backgroundColor: active ? chipFill : 'transparent',
-                        }}
-                      >
-                        <Text
-                          className="text-[13px] lowercase"
+            {SHEET_GROUPS.map((g) => {
+              const locked = Boolean(g.premium) && !isPaid;
+              const firstPremium = g.premium && SHEET_GROUPS.find((x) => x.premium)?.group === g.group;
+              return (
+                <View key={g.group} style={{ marginBottom: 22 }}>
+                  {/* A single quiet divider introduces the craft filters. */}
+                  {firstPremium ? (
+                    <View style={{ height: 1, backgroundColor: c.border, marginBottom: 20, marginTop: -2 }} />
+                  ) : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+                    <StageDirection>{g.title}</StageDirection>
+                    {locked ? <Ionicons name="lock-closed" size={12} color={glow} /> : null}
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {g.chips.map((chip) => {
+                      const active = selected[chip.group] === chip.value;
+                      return (
+                        <Pressable
+                          key={chipKey(chip)}
+                          onPress={() => {
+                            Haptics.selectionAsync().catch(() => {});
+                            if (locked) onUnlock();
+                            else onToggle(chip);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          accessibilityHint={locked ? 'Part of the subscription' : undefined}
                           style={{
-                            fontFamily: 'CourierPrime_400Regular_Italic',
-                            letterSpacing: 0.5,
-                            color: active ? glow : c.mutedForeground,
+                            opacity: locked ? 0.55 : 1,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            paddingHorizontal: 14,
+                            paddingVertical: 8,
+                            borderColor: active ? glow : c.border,
+                            backgroundColor: active ? chipFill : 'transparent',
                           }}
                         >
-                          {chip.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                          <Text
+                            className="text-[13px] lowercase"
+                            style={{
+                              fontFamily: 'CourierPrime_400Regular_Italic',
+                              letterSpacing: 0.5,
+                              color: active ? glow : c.mutedForeground,
+                            }}
+                          >
+                            {chip.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {/* One clear upsell, under the first craft group — not a wall. */}
+                  {firstPremium && !isPaid ? (
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                        onUnlock();
+                      }}
+                      accessibilityRole="button"
+                      style={{ marginTop: 14 }}
+                    >
+                      <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: glow }}>
+                        (tone, feeling, freshness — unlock the craft filters.)
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
 
-          <View style={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12 }}>
-            <StageButton label="Show results" onPress={onApply} glow={glow} />
+          <View style={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                onClear();
+              }}
+              hitSlop={10}
+              accessibilityRole="button"
+            >
+              <StageDirection>(clear.)</StageDirection>
+            </Pressable>
+            <WordArrow label="Done" onPress={onApply} tint={glow} />
           </View>
         </SafeAreaView>
       </Animated.View>

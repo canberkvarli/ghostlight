@@ -20,7 +20,16 @@ export const colors = {
     card: '#1d140f',
     foreground: '#f3eee6',
     mutedForeground: '#a59d95',
+    /** Field / input border. */
     border: '#302721',
+    /** Card border — quieter than the field border. */
+    cardBorder: '#2b211b',
+    /** Hairline dividers between rows. */
+    divider: '#241b16',
+    /** The unlit segment of a progress / filament meter. */
+    inactiveMeter: '#3a2c24',
+    /** Chevrons and fine print — dimmer than mutedForeground. */
+    chevron: '#6f665f',
   },
 
   light: {

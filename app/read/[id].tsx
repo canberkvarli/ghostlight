@@ -33,7 +33,7 @@ import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { usePreventScreenCapture } from 'expo-screen-capture';
+import { usePreventCaptureWhileFocused } from '../../src/hooks/usePreventCaptureWhileFocused';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -82,7 +82,7 @@ export default function Read() {
   // Protect the words of the play. Android blocks screenshots + recording
   // outright (FLAG_SECURE); iOS can't block a still screenshot at the OS level,
   // but this obscures the app in screen recordings and the app switcher.
-  usePreventScreenCapture('read');
+  usePreventCaptureWhileFocused('read');
 
   // Fixtures first (offline, instant); fall to the live fetch for real search
   // results whose id the device has never seen.
@@ -200,7 +200,7 @@ export default function Read() {
   if (!monologue) {
     return (
       <StageShell onBack={goBack}>
-        <GhostLight size={18} stem />
+        <GhostLight size={28} />
         {isError ? (
           <>
             <StageDirection className="mt-6">(this one's behind the stage door.)</StageDirection>
@@ -229,8 +229,17 @@ export default function Read() {
             <StageDirection>(lights up.)</StageDirection>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to results">
-              <Ionicons name="chevron-back" size={26} color={c.mutedForeground} />
+            <Pressable
+              onPress={goBack}
+              hitSlop={14}
+              accessibilityRole="button"
+              accessibilityLabel="Back to results"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <Ionicons name="chevron-back" size={22} color={colors.dark.chevron} />
+              <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.dark.chevron }}>
+                Results
+              </Text>
             </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
               <Pressable
@@ -280,7 +289,7 @@ export default function Read() {
               {monologue.character}
             </Text>
             <Animated.Text
-              className="mt-2 text-[30px] leading-[36px]"
+              className="mt-2 text-[31px] leading-[37px]"
               style={[
                 titleStyle,
                 {

@@ -36,6 +36,11 @@
   --color-foreground: #f3eee6;
   --color-muted-foreground: #a59d95;
   --color-border: #302721;
+  /* Chrome-only accents (dark stage). Paper world doesn't use them. */
+  --color-card-border: #2b211b;
+  --color-divider: #241b16;
+  --color-meter: #3a2c24;
+  --color-chevron: #6f665f;
 }
 
 @layer theme {

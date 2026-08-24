@@ -30,6 +30,13 @@ export interface MediumPalette {
   litBorder: string;
   /** Lit chip fill. */
   chipFill: string;
+  /**
+   * The five radial stops of the bulb glass, inner → outer. Retinting these is
+   * what turns the amber bulb violet for Film & TV without touching the brass.
+   */
+  glassStops: [string, string, string, string, string];
+  /** The top of the tapered neck gradient (full dress only). */
+  neck: string;
 }
 
 export const MEDIA: Record<Medium, MediumPalette> = {
@@ -40,15 +47,20 @@ export const MEDIA: Record<Medium, MediumPalette> = {
     line: '#362b24',
     litBorder: 'rgba(243, 130, 29, 0.55)',
     chipFill: 'rgba(243, 130, 29, 0.14)',
+    glassStops: ['#fff6e4', '#ffd08c', '#f9a441', '#f3821d', '#f3821d'],
+    neck: '#e0821f',
   },
   screen: {
     glow: '#a15cff',
     glowRgb: [161, 92, 255],
-    accent: '#7c3aed',
+    // Deep accent 120,52,214 — badges, the paid slab, destructive echoes.
+    accent: '#7834d6',
     line: '#2e2440',
     background: '#0f0a16',
     litBorder: 'rgba(161, 92, 255, 0.55)',
     chipFill: 'rgba(161, 92, 255, 0.16)',
+    glassStops: ['#fbf7ff', '#e2ccff', '#bd8bff', '#a15cff', '#a15cff'],
+    neck: '#8f52e0',
   },
 };
 

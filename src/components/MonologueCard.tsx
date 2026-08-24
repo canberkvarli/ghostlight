@@ -65,7 +65,7 @@ function MonologueCardImpl({
   const containerStyle = useAnimatedStyle(() => ({
     opacity: DARK + lit.value * (1 - DARK),
     transform: [{ scale: 0.968 + lit.value * 0.032 }],
-    borderColor: interpolateColor(lit.value, [0, 1], [c.border, litBorder]),
+    borderColor: interpolateColor(lit.value, [0, 1], [colors.dark.cardBorder, litBorder]),
     shadowOpacity: lit.value * 0.5,
   }));
 
@@ -77,7 +77,7 @@ function MonologueCardImpl({
         containerStyle,
         {
           height: CARD_HEIGHT,
-          borderRadius: 16,
+          borderRadius: 18,
           borderWidth: 1,
           backgroundColor: c.card,
           shadowColor: accent,

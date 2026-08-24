@@ -48,53 +48,54 @@ const chip = (group: FilterGroup, label: string, value: string): FilterChip => (
  * (gender, age). Everything about *how it plays* — tone, length, emotion,
  * freshness — lives in the premium sheet.
  */
+/**
+ * The free home row — a smart, small set: who you are and how long. Kept to four
+ * so the screen stays calm. Everything here is free; the craft filters that a
+ * working actor pays for live one tap deeper (tone, emotion, freshness).
+ */
 export const FILTER_CHIPS: FilterChip[] = [
   chip('gender', '(female.)', 'female'),
   chip('gender', '(male.)', 'male'),
-  chip('age_range', '(teens.)', 'teens'),
   chip('age_range', '(20s.)', '20s'),
-  chip('age_range', '(30s.)', '30s'),
-  chip('age_range', '(40s+.)', '40s'),
+  chip('max_duration', '(under 2 min.)', '120'),
 ];
 
 export interface FilterGroupDef {
   group: FilterGroup;
   title: string;
+  /**
+   * Craft filters — tone, emotion, and hiding the overdone. Free users see them
+   * (the value is visible) but a tap routes to the paywall rather than toggling.
+   * Identity and length stay free so anyone can find parts for themselves.
+   */
+  premium?: boolean;
   chips: FilterChip[];
 }
 
-/** Premium, inside the "(more filters.)" sheet. */
-export const ADVANCED_GROUPS: FilterGroupDef[] = [
+/**
+ * Everything in the "(more filters.)" sheet, grouped under stage-direction heads.
+ * Free groups first (gender / age / length — the identity basics, handoff §5),
+ * then the premium craft groups.
+ */
+export const SHEET_GROUPS: FilterGroupDef[] = [
   {
-    group: 'tone',
-    title: 'Tone',
-    chips: [
-      chip('tone', '(comedic.)', 'comedic'),
-      chip('tone', '(dramatic.)', 'dramatic'),
-      chip('tone', '(dark.)', 'dark'),
-      chip('tone', '(defiant.)', 'defiant'),
-      chip('tone', '(anguished.)', 'anguished'),
-      chip('tone', '(contemplative.)', 'contemplative'),
-      chip('tone', '(philosophical.)', 'philosophical'),
-    ],
+    group: 'gender',
+    title: '(who.)',
+    chips: [chip('gender', '(female.)', 'female'), chip('gender', '(male.)', 'male')],
   },
   {
-    group: 'emotion',
-    title: 'Emotion',
+    group: 'age_range',
+    title: '(how old.)',
     chips: [
-      chip('emotion', '(anger.)', 'anger'),
-      chip('emotion', '(longing.)', 'longing'),
-      chip('emotion', '(sadness.)', 'sadness'),
-      chip('emotion', '(fear.)', 'fear'),
-      chip('emotion', '(joy.)', 'joy'),
-      chip('emotion', '(despair.)', 'despair'),
-      chip('emotion', '(determination.)', 'determination'),
-      chip('emotion', '(anticipation.)', 'anticipation'),
+      chip('age_range', '(teens.)', 'teens'),
+      chip('age_range', '(20s.)', '20s'),
+      chip('age_range', '(30s.)', '30s'),
+      chip('age_range', '(40s+.)', '40s'),
     ],
   },
   {
     group: 'max_duration',
-    title: 'Length',
+    title: '(how long.)',
     chips: [
       chip('max_duration', '(under 1 min.)', '60'),
       chip('max_duration', '(under 2 min.)', '120'),
@@ -102,8 +103,36 @@ export const ADVANCED_GROUPS: FilterGroupDef[] = [
     ],
   },
   {
+    group: 'tone',
+    title: '(what key.)',
+    premium: true,
+    chips: [
+      chip('tone', '(comedic.)', 'comedic'),
+      chip('tone', '(dramatic.)', 'dramatic'),
+      chip('tone', '(dark.)', 'dark'),
+      chip('tone', '(defiant.)', 'defiant'),
+      chip('tone', '(anguished.)', 'anguished'),
+      chip('tone', '(contemplative.)', 'contemplative'),
+    ],
+  },
+  {
+    group: 'emotion',
+    title: '(the feeling.)',
+    premium: true,
+    chips: [
+      chip('emotion', '(anger.)', 'anger'),
+      chip('emotion', '(longing.)', 'longing'),
+      chip('emotion', '(grief.)', 'sadness'),
+      chip('emotion', '(fear.)', 'fear'),
+      chip('emotion', '(joy.)', 'joy'),
+      chip('emotion', '(despair.)', 'despair'),
+      chip('emotion', '(resolve.)', 'determination'),
+    ],
+  },
+  {
     group: 'freshness',
-    title: 'Freshness',
+    title: '(how fresh.)',
+    premium: true,
     chips: [
       chip('freshness', '(fresh.)', '0.5'),
       chip('freshness', '(hidden gems.)', '0.3'),
@@ -116,13 +145,15 @@ export function chipKey(c: FilterChip): string {
   return `${c.group}:${c.value}`;
 }
 
-/** How many selections live only in the premium sheet — the badge on "(more filters.)". */
+const HOME_KEYS = new Set(FILTER_CHIPS.map(chipKey));
+
+/** Active selections that aren't one of the six home chips — the "(N more.)" hint. */
 export function advancedCount(sel: Selection): number {
   let n = 0;
-  if (sel.tone) n += 1;
-  if (sel.emotion) n += 1;
-  if (sel.max_duration) n += 1;
-  if (sel.freshness) n += 1;
+  for (const group of Object.keys(sel) as FilterGroup[]) {
+    const v = sel[group];
+    if (v && !HOME_KEYS.has(`${group}:${v}`)) n += 1;
+  }
   return n;
 }
 

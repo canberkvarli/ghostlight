@@ -1,17 +1,21 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
-import { usePreventScreenCapture } from 'expo-screen-capture';
+import { usePreventCaptureWhileFocused } from '../src/hooks/usePreventCaptureWhileFocused';
 import * as Haptics from 'expo-haptics';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedReaction,
   useAnimatedScrollHandler,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withRepeat,
+  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -20,6 +24,7 @@ import { GhostLight } from '../src/components/GhostLight';
 import { MonologueCard } from '../src/components/MonologueCard';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
+import { WordArrow } from '../src/components/WordArrow';
 import { MONOLOGUES, type Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
@@ -29,7 +34,7 @@ import { apiToMonologue } from '../src/data/adapt';
 import { searchScreen } from '../src/lib/screen';
 import { useGoBack } from '../src/lib/nav';
 import { colors } from '../src/theme/tokens';
-import { mediumPalette, type Medium } from '../src/theme/medium';
+import { mediumPalette, type Medium, type MediumPalette } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
 import {
   CARD_GAP,
@@ -85,8 +90,9 @@ export default function Results() {
   const screenMode = medium === 'screen';
 
   // The excerpts are the words of the play too — same protection as the read
-  // screen (full block on Android; recording/app-switcher cover on iOS).
-  usePreventScreenCapture('results');
+  // screen. Held only while focused so it doesn't stack with Read's lock and
+  // black out that screen (see usePreventCaptureWhileFocused).
+  usePreventCaptureWhileFocused('results');
 
   const params: SearchParams = useMemo(() => {
     const p: SearchParams = {};
@@ -203,17 +209,20 @@ export default function Results() {
         hitSlop={16}
         accessibilityRole="button"
         accessibilityLabel="Back to search"
-        style={{ position: 'absolute', top: insets.top + 8, left: 12, zIndex: 10, padding: 6 }}
+        style={{ position: 'absolute', top: insets.top + 8, left: 12, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 }}
       >
-        <Ionicons name="chevron-back" size={26} color={pal.glow} />
+        <Ionicons name="chevron-back" size={22} color={colors.dark.chevron} />
+        <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.dark.chevron }}>
+          Search
+        </Text>
       </Pressable>
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ flex: 1 }}>
         {searching ? (
-          <SearchingStage />
+          <SearchingStage pal={pal} />
         ) : noResults ? (
-          <RequestStage query={params.q ?? ''} />
+          <RequestStage query={params.q ?? ''} pal={pal} />
         ) : (
           <AnimatedFlashList
             data={data}
@@ -250,33 +259,65 @@ function StageHeader({
 }) {
   const pal = mediumPalette(medium);
   const screen = medium === 'screen';
-  const coldTitle = screen ? 'Film & TV' : 'Ghost Light';
   const noun = screen ? 'on screen' : 'monologues';
   return (
     <View style={{ height: HEADER_HEIGHT }} className="items-center justify-end pb-7">
-      <GhostLight size={18} glow={pal.glow} line={pal.line} />
+      <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
       <Text
         className="mt-3 text-foreground"
-        style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 52, lineHeight: 58 }}
+        style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
       >
-        {query ? 'Results' : coldTitle}
+        {count} {count === 1 ? 'speech' : 'speeches'}
       </Text>
       <StageDirection className="mt-2">
         {fellBack
           ? '(sign in to search. the stage stands.)'
           : query
-            ? `(${count} for “${query}”.)`
+            ? `(for “${query}”.)`
             : `(${count} ${noun}. lights up.)`}
       </StageDirection>
     </View>
   );
 }
 
-function SearchingStage() {
+/**
+ * Hunting (handoff §5): the bulb and halo pulse .25 → 1 → .3 → .9 on a 1.1s loop,
+ * "(looking.)" below, and an amber gradient sweeps a hairline. The full screen dip
+ * choreography happens during the Search → Results cross-fade; this is the state
+ * the actor lands on.
+ */
+function SearchingStage({ pal }: { pal: MediumPalette }) {
+  const reduce = useReducedMotion();
+  const pulse = useSharedValue(0.6);
+  const sweep = useSharedValue(0);
+  useEffect(() => {
+    if (reduce) {
+      pulse.value = 0.6;
+      return;
+    }
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(0.25, { duration: 90, easing: Easing.linear }),
+        withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) }),
+        withTiming(0.3, { duration: 240, easing: Easing.linear }),
+        withTiming(0.9, { duration: 350, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    );
+    sweep.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, false);
+  }, [reduce, pulse, sweep]);
+
+  const sweepStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -60 + sweep.value * 150 }] }));
+
   return (
     <View style={{ flex: 1 }} className="items-center justify-center">
-      <GhostLight size={18} />
-      <StageDirection className="mt-6">(searching the wings…)</StageDirection>
+      <GhostLight size={44} boost={pulse} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
+      <StageDirection className="mt-6">(looking.)</StageDirection>
+      {/* a 150pt hairline the light sweeps along */}
+      <View style={{ marginTop: 22, width: 150, height: 1, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
+        <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.glow }]} />
+      </View>
     </View>
   );
 }
@@ -285,7 +326,7 @@ function SearchingStage() {
  * A search that found nothing isn't a dead end — it's a request. The actor can
  * ask us to add the piece they're after (spec §4, content-request).
  */
-function RequestStage({ query }: { query: string }) {
+function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -305,31 +346,40 @@ function RequestStage({ query }: { query: string }) {
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
-      <GhostLight size={18} stem />
-      <StageDirection className="mt-6">(nothing here yet.)</StageDirection>
+      {/* the lamp drops to a coal */}
+      <View style={{ opacity: 0.5 }}>
+        <GhostLight size={44} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
+      </View>
+
       {sent ? (
-        <StageDirection className="mt-3">(noted. we’ll go looking.)</StageDirection>
-      ) : (
-        <Pressable
-          onPress={ask}
-          disabled={sending}
-          accessibilityRole="button"
-          style={{
-            marginTop: 22,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: colors.stageGlow,
-            paddingHorizontal: 20,
-            paddingVertical: 12,
-          }}
-        >
+        <>
           <Text
-            numberOfLines={1}
-            style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, color: colors.stageGlow }}
+            className="mt-6 text-center text-foreground"
+            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
           >
-            {query ? `(request “${query}”.)` : '(request a piece.)'}
+            Sent to{'\n'}the booth.
           </Text>
-        </Pressable>
+          <StageDirection className="mt-3">(we'll go looking.)</StageDirection>
+        </>
+      ) : (
+        <>
+          <Text
+            className="mt-6 text-center text-foreground"
+            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
+          >
+            Not in the{'\n'}library yet.
+          </Text>
+          <StageDirection className="mt-3">{query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}</StageDirection>
+          <Text
+            className="mt-6 text-center"
+            style={{ fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 21, color: colors.dark.mutedForeground }}
+          >
+            Ask for it and we go looking.{'\n'}Most requests are up inside a week.
+          </Text>
+          <View style={{ marginTop: 22 }}>
+            <WordArrow label="Request it" onPress={ask} disabled={sending} tint={pal.glow} haptic="none" />
+          </View>
+        </>
       )}
     </View>
   );
@@ -338,7 +388,7 @@ function RequestStage({ query }: { query: string }) {
 function EmptyStage() {
   return (
     <View className="items-center pt-24">
-      <GhostLight size={18} stem />
+      <GhostLight size={44} />
       <StageDirection className="mt-6">(nothing here yet.)</StageDirection>
     </View>
   );

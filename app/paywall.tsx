@@ -4,13 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
+import type { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { StageButton } from '../src/components/StageButton';
+import { WordArrow } from '../src/components/WordArrow';
 import { useTheme } from '../src/theme/ThemeContext';
 import {
   getCurrentOffering,
@@ -21,20 +21,18 @@ import {
 import { colors } from '../src/theme/tokens';
 
 /**
- * The paywall — the product decision the whole app is built around, so it is
- * built last and slowly. Modern and quiet: the bulb returns carrying the offer,
- * a short list of what unlocks, two clean plan cards (annual pushed), one CTA.
- * Restore is present because Apple requires it.
- *
- * Live prices come from RevenueCat when configured; the static $29.99 / $4.99
- * copy stands otherwise so the screen is never empty.
+ * The paywall — a free trial (length set in App Store Connect; handoff §5). No
+ * slabs: the offer is a headline, a
+ * short list of perks with glowing dots, two hairline radio rows, and one word +
+ * arrow. Restore is present because Apple requires it. Live prices come from
+ * RevenueCat when configured; the static copy stands otherwise so it's never empty.
  */
 
-const FEATURES = [
-  'Every monologue — all 10,863',
-  'Memorize mode & copy any speech',
-  'Hide the overdone ones',
-  'Unlimited saves, works offline',
+const PERKS = [
+  'Every monologue, all 14,000+',
+  'Unlimited saves',
+  'Memorize mode',
+  'Works offline',
 ];
 
 type Plan = 'annual' | 'monthly';
@@ -55,22 +53,33 @@ export default function Paywall() {
 
   const annualPkg = offering?.annual ?? null;
   const monthlyPkg = offering?.monthly ?? null;
-  const annualPrice = annualPkg?.product.priceString ?? '$29.99';
-  const monthlyPrice = monthlyPkg?.product.priceString ?? '$4.99';
+  const annualBilled = annualPkg?.product.priceString ?? '$29.99';
+  const monthlyBilled = monthlyPkg?.product.priceString ?? '$4.99';
+  const annualPerMonth = perMonthString(annualPkg?.product, 12) ?? '$2.50';
+  const monthlyPerMonth = perMonthString(monthlyPkg?.product, 1) ?? monthlyBilled;
+
+  const selectedPkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
+  const billed = plan === 'annual' ? annualBilled : monthlyBilled;
+  const cadence = plan === 'annual' ? 'a year' : 'a month';
+  // Real trial from RevenueCat when live; else the 7-day trial set in App Store
+  // Connect. `trialLabel` gates the CTA/terms; `headlineTrial` always carries a
+  // length for the headline copy.
+  const trialLabel = introTrialLabel(selectedPkg) ?? (offering ? null : '7 days');
+  const headlineTrial = trialLabel ?? '7 days';
+  const headlineWord = `${headlineTrial[0].toUpperCase()}${headlineTrial.slice(1)}`;
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/search'));
 
   const buy = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    const pkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
-    if (!isPurchasesConfigured() || !pkg) {
+    if (!isPurchasesConfigured() || !selectedPkg) {
       setNote('Purchases aren’t configured yet in this build.');
       return;
     }
     setBusy(true);
     setNote(null);
     try {
-      const entitled = await purchase(pkg);
+      const entitled = await purchase(selectedPkg);
       if (entitled) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         close();
@@ -89,11 +98,8 @@ export default function Paywall() {
     setNote(null);
     try {
       const entitled = await restore();
-      if (entitled) {
-        close();
-      } else {
-        setNote('Nothing to restore on this account.');
-      }
+      if (entitled) close();
+      else setNote('Nothing to restore on this account.');
     } catch {
       setNote('Couldn’t reach the store. Try again.');
     } finally {
@@ -113,25 +119,39 @@ export default function Paywall() {
         </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' }}
+          contentContainerStyle={{ paddingHorizontal: 30, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' }}
           showsVerticalScrollIndicator={false}
         >
           <View style={{ alignItems: 'center' }}>
-            <GhostLight size={22} />
+            <GhostLight size={44} />
             <Text
               className="mt-6 text-center text-foreground"
-              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 44, lineHeight: 50 }}
+              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 38, lineHeight: 44 }}
             >
-              The whole stage.
+              {headlineWord}{'\n'}on the house.
             </Text>
-            <StageDirection className="mt-3">(three reads were the trial.)</StageDirection>
+            <StageDirection className="mt-3">
+              {`(the whole library, free for ${headlineTrial}.\ncancel any time before it ends.)`}
+            </StageDirection>
           </View>
 
-          {/* What unlocks — quiet amber ticks, no loud bullets. */}
-          <View style={{ marginTop: 30, alignSelf: 'center' }}>
-            {FEATURES.map((f) => (
-              <View key={f} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <Ionicons name="checkmark-sharp" size={18} color={colors.stageGlow} style={{ marginRight: 12 }} />
+          {/* Perks — 5pt glowing dots, no loud bullets. */}
+          <View style={{ marginTop: 28, alignSelf: 'center' }}>
+            {PERKS.map((f) => (
+              <View key={f} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                <View
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: 3,
+                    backgroundColor: colors.stageGlow,
+                    marginRight: 14,
+                    shadowColor: colors.stageGlow,
+                    shadowOpacity: 0.9,
+                    shadowRadius: 5,
+                    shadowOffset: { width: 0, height: 0 },
+                  }}
+                />
                 <Text className="text-[15px] text-foreground" style={{ fontFamily: 'Montserrat_400Regular' }}>
                   {f}
                 </Text>
@@ -139,62 +159,53 @@ export default function Paywall() {
             ))}
           </View>
 
-          <View style={{ marginTop: 26, gap: 12 }}>
-            <PlanCard
+          {/* Plans — hairline radio rows, not slabs. */}
+          <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: colors.dark.divider }}>
+            <PlanRow
               selected={plan === 'annual'}
               onPress={() => setPlan('annual')}
-              title="Annual"
-              price={annualPrice}
-              caption="billed yearly"
-              badge="save 50%"
+              name="Yearly"
+              badge="best."
+              note={`billed ${annualBilled} a year`}
+              price={annualPerMonth}
             />
-            <PlanCard
+            <PlanRow
               selected={plan === 'monthly'}
               onPress={() => setPlan('monthly')}
-              title="Monthly"
-              price={monthlyPrice}
-              caption="billed monthly"
+              name="Monthly"
+              note={`billed ${monthlyBilled} a month`}
+              price={monthlyPerMonth}
             />
           </View>
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 28, paddingBottom: 20, paddingTop: 8 }}>
-          <StageButton onPress={buy} disabled={busy}>
-            {busy ? (
-              <ActivityIndicator color={colors.stageGlow} />
-            ) : (
-              <Text
-                style={{
-                  fontFamily: 'Montserrat_600SemiBold',
-                  fontSize: 14,
-                  letterSpacing: 2.5,
-                  textTransform: 'uppercase',
-                  color: colors.stageGlow,
-                }}
-              >
-                Unlock everything
-              </Text>
-            )}
-          </StageButton>
+        <View style={{ paddingHorizontal: 30, paddingBottom: 20, paddingTop: 10, alignItems: 'center' }}>
+          {busy ? (
+            <ActivityIndicator color={colors.stageGlow} style={{ height: 30 }} />
+          ) : (
+            <WordArrow
+              label={trialLabel ? 'Start the trial' : 'Unlock everything'}
+              onPress={buy}
+              haptic="none"
+            />
+          )}
 
-          {/* Fixed-height note slot so nothing jumps as it appears. */}
-          <View style={{ minHeight: 20, marginTop: 10, justifyContent: 'center' }}>
-            {note ? (
-              <Text
-                className="text-center text-[13px]"
-                style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
-              >
-                {note}
-              </Text>
-            ) : null}
+          {/* Fixed-height slot: error note, else the disclosure Apple checks for. */}
+          <View style={{ minHeight: 18, marginTop: 12, justifyContent: 'center' }}>
+            <Text
+              className="text-center text-[12px]"
+              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
+            >
+              {note ?? `Then ${billed} ${cadence}. Cancel any time in Settings.`}
+            </Text>
           </View>
 
-          <Pressable onPress={onRestore} hitSlop={10} style={{ alignItems: 'center', paddingVertical: 6 }} accessibilityRole="button">
+          <Pressable onPress={onRestore} hitSlop={10} style={{ alignItems: 'center', paddingVertical: 8 }} accessibilityRole="button">
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />
             ) : (
-              <Text className="text-[13px] text-muted-foreground" style={{ fontFamily: 'Montserrat_500Medium' }}>
-                Restore Purchases
+              <Text className="text-[13px]" style={{ fontFamily: 'Montserrat_500Medium', color: colors.dark.chevron }}>
+                Restore purchases
               </Text>
             )}
           </Pressable>
@@ -204,20 +215,37 @@ export default function Paywall() {
   );
 }
 
-function PlanCard({
+/** A human label for a package's introductory *free* trial ("3 days"), or null. */
+function introTrialLabel(pkg: PurchasesPackage | null): string | null {
+  const intro = pkg?.product.introPrice;
+  if (!intro || intro.price > 0) return null;
+  const n = intro.periodNumberOfUnits ?? 0;
+  if (n <= 0) return null;
+  const unit = String(intro.periodUnit ?? 'DAY').toLowerCase();
+  return `${n} ${unit}${n === 1 ? '' : 's'}`;
+}
+
+/** "$2.50" from an annual product's price / 12, keeping the store's currency symbol. */
+function perMonthString(product: PurchasesStoreProduct | undefined, divisor: number): string | null {
+  if (!product || !product.price) return null;
+  const symbol = product.priceString.replace(/[\d.,\s ]/g, '') || '$';
+  return `${symbol}${(product.price / divisor).toFixed(2)}`;
+}
+
+function PlanRow({
   selected,
   onPress,
-  title,
-  price,
-  caption,
+  name,
   badge,
+  note,
+  price,
 }: {
   selected: boolean;
   onPress: () => void;
-  title: string;
-  price: string;
-  caption: string;
+  name: string;
   badge?: string;
+  note: string;
+  price: string;
 }) {
   const { colors: c } = useTheme();
   return (
@@ -231,54 +259,51 @@ function PlanCard({
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 18,
-        borderWidth: selected ? 1.5 : 1,
-        paddingHorizontal: 18,
         paddingVertical: 18,
-        borderColor: selected ? colors.stageGlow : c.border,
-        backgroundColor: selected ? 'rgba(243, 130, 29, 0.10)' : c.card,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.dark.divider,
       }}
     >
-      {/* Radio dot. */}
+      {/* Radio ring — fills with the accent when selected. */}
       <View
         style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          borderWidth: 2,
+          width: 17,
+          height: 17,
+          borderRadius: 9,
+          borderWidth: 1.5,
           borderColor: selected ? colors.stageGlow : c.border,
           alignItems: 'center',
           justifyContent: 'center',
-          marginRight: 14,
+          marginRight: 16,
         }}
       >
-        {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.stageGlow }} /> : null}
+        {selected ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: colors.stageGlow }} /> : null}
       </View>
 
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text className="text-[17px] text-foreground" style={{ fontFamily: 'Montserrat_600SemiBold' }}>
-            {title}
+            {name}
           </Text>
           {badge ? (
-            <View style={{ borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.primary }}>
-              <Text
-                className="text-[10px] uppercase tracking-[1px] text-white"
-                style={{ fontFamily: 'Montserrat_600SemiBold' }}
-              >
-                {badge}
-              </Text>
-            </View>
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: colors.stageGlow }}>
+              ({badge})
+            </Text>
           ) : null}
         </View>
-        <Text className="mt-0.5 text-[12px] text-muted-foreground" style={{ fontFamily: 'Montserrat_400Regular' }}>
-          {caption}
+        <Text className="mt-0.5 text-[12px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}>
+          {note}
         </Text>
       </View>
 
-      <Text className="text-foreground" style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30 }}>
-        {price}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+        <Text className="text-foreground" style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 28 }}>
+          {price}
+        </Text>
+        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 12, color: c.mutedForeground, marginLeft: 2 }}>
+          /mo
+        </Text>
+      </View>
     </Pressable>
   );
 }

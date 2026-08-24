@@ -19,6 +19,7 @@ import Montserrat_600SemiBold from '@expo-google-fonts/montserrat/600SemiBold/Mo
 
 import '../src/global.css';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
+import { LaunchOverlay } from '../src/components/LaunchOverlay';
 import { bootstrapSession } from '../src/lib/session';
 import { configurePurchases } from '../src/lib/purchases';
 
@@ -98,6 +99,9 @@ function Shell() {
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
       </Stack>
+
+      {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
+      <LaunchOverlay />
     </GestureHandlerRootView>
   );
 }

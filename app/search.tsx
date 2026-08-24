@@ -16,7 +16,7 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { StageButton } from '../src/components/StageButton';
+import { WordArrow } from '../src/components/WordArrow';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
 import { useQuery } from '@tanstack/react-query';
@@ -57,9 +57,9 @@ export default function Search() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const pal = mediumPalette(medium);
 
-  // The advanced filter sheet is a subscriber privilege; the read counter tells
-  // us who's paid. If the counter can't be reached, treat as not paid — free
-  // actors still get the quick chips.
+  // Everyone can open the sheet and use the free identity/length filters; the
+  // craft filters inside (tone, emotion, freshness) route to the paywall for
+  // free actors. isPaid comes from the server read counter.
   const { data: wall } = useQuery({
     queryKey: ['read-wall'],
     queryFn: ({ signal }) => getReadState(signal),
@@ -70,14 +70,9 @@ export default function Search() {
   const advanced = advancedCount(selected);
 
   const openMoreFilters = useCallback(() => {
-    if (!isPaid) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      router.push('/paywall');
-      return;
-    }
     Haptics.selectionAsync().catch(() => {});
     setSheetOpen(true);
-  }, [isPaid, router]);
+  }, []);
 
   // The house-lights flash: a wash of the new colour that blooms and fades as
   // the medium changes, so the switch feels like a lighting cue, not a repaint.
@@ -178,16 +173,27 @@ export default function Search() {
           </View>
 
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
-            <GhostLight size={22} boost={bulbBoost} stem stemHeight={44} glow={pal.glow} line={pal.line} />
+            <GhostLight
+              size={52}
+              boost={bulbBoost}
+              glow={pal.glow}
+              glassStops={pal.glassStops}
+              neck={pal.neck}
+            />
 
             <Text
-              className="mt-8 text-center text-foreground"
-              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 50, lineHeight: 56 }}
+              className="mt-5 text-center text-foreground"
+              style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 15, letterSpacing: 7, textTransform: 'uppercase' }}
             >
-              What are you{'\n'}looking for?
+              Ghost Light
             </Text>
+            <StageDirection className="mt-3">
+              {medium === 'screen'
+                ? '(14,000+ speeches. screen and stage.)'
+                : '(14,000+ monologues. one stage.)'}
+            </StageDirection>
 
-            <View style={{ marginTop: 26 }}>
+            <View style={{ marginTop: 24 }}>
               <MediumToggle medium={medium} onChange={setMedium} />
             </View>
 
@@ -195,19 +201,19 @@ export default function Search() {
               style={[
                 fieldStyle,
                 {
-                  marginTop: 24,
+                  marginTop: 22,
                   width: '100%',
-                  height: 58,
+                  height: 60,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 16,
+                  borderRadius: 17,
                   borderWidth: 1,
                   paddingHorizontal: 18,
                   backgroundColor: c.card,
                 },
               ]}
             >
+              <Ionicons name="search-outline" size={18} color={c.mutedForeground} style={{ marginRight: 12 }} />
               <TextInput
                 value={query}
                 onChangeText={onChangeQuery}
@@ -243,6 +249,7 @@ export default function Search() {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     style={{
+                      flexShrink: 0,
                       borderRadius: 999,
                       borderWidth: 1,
                       paddingHorizontal: 14,
@@ -252,6 +259,7 @@ export default function Search() {
                     }}
                   >
                     <Text
+                      numberOfLines={1}
                       className="text-[13px] lowercase"
                       style={{
                         fontFamily: 'CourierPrime_400Regular_Italic',
@@ -274,25 +282,30 @@ export default function Search() {
               accessibilityLabel="More filters"
               style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 }}
             >
-              {!isPaid ? <Ionicons name="lock-closed" size={12} color={pal.glow} /> : null}
+              <Ionicons name="options-outline" size={14} color={pal.glow} />
               <Text
                 style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, letterSpacing: 0.5, color: pal.glow }}
               >
-                {advanced > 0 ? `(${advanced} more lit.)` : '(more filters.)'}
+                {advanced > 0 ? `(${advanced} more.)` : '(more filters.)'}
               </Text>
             </Pressable>
           </View>
 
-          <View style={{ paddingBottom: 20 }}>
-            <StageButton label="Search" onPress={submit} glow={pal.glow} />
-
-            <View style={{ marginTop: 18, alignItems: 'center' }}>
-              <StageDirection>
-                {activeCount > 0
-                  ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
-                  : '(the whole stage.)'}
-              </StageDirection>
-            </View>
+          {/* Footer: the state on the left, the action on the right. No slab. */}
+          <View
+            style={{
+              paddingBottom: 22,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <StageDirection>
+              {activeCount > 0
+                ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
+                : '(the whole stage.)'}
+            </StageDirection>
+            <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
           </View>
         </View>
       </SafeAreaView>
@@ -310,8 +323,14 @@ export default function Search() {
           setSheetOpen(false);
           submit();
         }}
+        onClear={() => setSelected(EMPTY_SELECTION)}
         selected={selected}
         onToggle={toggle}
+        onUnlock={() => {
+          setSheetOpen(false);
+          router.push('/paywall');
+        }}
+        isPaid={isPaid}
         glow={pal.glow}
         chipFill={pal.chipFill}
       />

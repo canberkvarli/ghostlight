@@ -1,104 +1,184 @@
 import { useCallback } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
-import { useSharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
 import { GhostLight } from '../src/components/GhostLight';
-import { MonologueCard } from '../src/components/MonologueCard';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
+import { BackHeader } from '../src/components/BackHeader';
+import { WordArrow } from '../src/components/WordArrow';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
-import { CARD_GAP } from '../src/theme/layout';
-import type { Monologue } from '../src/data/monologues';
+import { colors } from '../src/theme/tokens';
+import { formatDuration, type Monologue } from '../src/data/monologues';
 
 /**
- * Step 6 — the saved list. Every card sits lit (there is no spotlight to chase
- * here, the same way reduced-motion lights the whole stage). Anonymous users
- * see the door to sign in; the saves themselves are server-backed because they
- * are a paid feature and must be real.
+ * Saved — "Your book" (handoff §5). The result card, warmed up: an amber-tinted
+ * border and fill, a filled bookmark, and a progress rule. Every card sits lit —
+ * there's no light to chase here. The subhead is derived from the data, never a
+ * hardcoded string.
+ *
+ * Progress (off book / learning / just read) is server-owned prep state; until
+ * that's wired per-save it rests at "just read", and the rule fills when it lands.
  */
+
+/** 0 = just read, 1 = off book. */
+function progressLabel(pct: number): string {
+  if (pct >= 1) return '(off book.)';
+  if (pct > 0) return '(learning.)';
+  return '(just read.)';
+}
+
+type Saved = Monologue & { pct?: number };
+
 export default function Saves() {
   const router = useRouter();
   const goBack = useGoBack('/search');
-  const { width } = useWindowDimensions();
   const { tiltX, tiltY } = useStageMotion();
   const { isAuthenticated } = useSession();
   const { data, isLoading } = useFavorites(isAuthenticated);
 
-  // The card wants a scroll offset; here nothing chases the light, so it is a
-  // frozen zero and every card is lit via reduceMotion.
-  const frozenScroll = useSharedValue(0);
+  const items = (data ?? []) as Saved[];
+  const offBook = items.filter((m) => (m.pct ?? 0) >= 1).length;
+  const subhead =
+    offBook > 0 ? `(${items.length} kept. ${offBook} off book.)` : `(${items.length} kept.)`;
 
   const renderItem = useCallback(
-    ({ item, index }: { item: Monologue; index: number }) => (
-      <Pressable
-        style={{ marginBottom: CARD_GAP }}
-        onPress={() => router.push(`/read/${item.id}`)}
-        accessibilityRole="button"
-      >
-        <MonologueCard
-          item={item}
-          index={index}
-          scrollY={frozenScroll}
-          viewportHeight={width}
-          reduceMotion
-        />
-      </Pressable>
+    ({ item }: { item: Saved }) => (
+      <SavedCard item={item} onPress={() => router.push(`/read/${item.id}`)} />
     ),
-    [router, frozenScroll, width],
+    [router],
   );
 
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }}>
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-            <Ionicons name="chevron-back" size={26} color="#a59d95" />
-          </Pressable>
-          <Text
-            className="text-[20px] text-foreground"
-            style={{ marginLeft: 12, fontFamily: 'PlayfairDisplay_600SemiBold' }}
-          >
-            Saved
-          </Text>
-        </View>
+        <BackHeader label="Search" onPress={goBack} />
 
         {!isAuthenticated ? (
           <Center>
-            <GhostLight size={18} stem />
+            <GhostLight size={44} />
             <StageDirection className="mt-6">(sign in to keep monologues.)</StageDirection>
+            <View style={{ marginTop: 18 }}>
+              <WordArrow label="Sign in" onPress={() => router.push('/auth')} />
+            </View>
           </Center>
         ) : isLoading ? (
           <Center>
-            <GhostLight size={16} />
+            <GhostLight size={28} />
             <StageDirection className="mt-6">(gathering your saves…)</StageDirection>
           </Center>
         ) : (
-          <View style={{ flex: 1 }}>
-            <FlashList
-              data={data ?? []}
-              renderItem={renderItem}
-              keyExtractor={(m) => m.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 96 }}
-              ListEmptyComponent={
-                <Center>
-                  <GhostLight size={18} stem />
-                  <StageDirection className="mt-6">(nothing saved yet.)</StageDirection>
-                </Center>
-              }
-            />
-          </View>
+          <FlashList
+            data={items}
+            renderItem={renderItem}
+            keyExtractor={(m) => m.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 96 }}
+            ListHeaderComponent={
+              <View style={{ paddingTop: 6, paddingBottom: 18 }}>
+                <Text
+                  className="text-foreground"
+                  style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 34 }}
+                >
+                  Your book
+                </Text>
+                <StageDirection className="mt-1">{subhead}</StageDirection>
+              </View>
+            }
+            ListEmptyComponent={
+              <Center>
+                <GhostLight size={44} />
+                <StageDirection className="mt-6">(nothing saved yet.)</StageDirection>
+              </Center>
+            }
+          />
         )}
       </SafeAreaView>
     </View>
+  );
+}
+
+function SavedCard({ item, onPress }: { item: Saved; onPress: () => void }) {
+  const pct = item.pct ?? 0;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{
+        marginBottom: 13,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(243, 130, 29, 0.3)',
+        backgroundColor: colors.dark.card,
+        padding: 18,
+        overflow: 'hidden',
+      }}
+    >
+      {/* warm wash bleeding from the top-left (linear-gradient(150°) approximation) */}
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120, backgroundColor: 'rgba(243, 130, 29, 0.06)' }}
+      />
+
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text
+            className="text-foreground"
+            numberOfLines={1}
+            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 20 }}
+          >
+            {item.title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'Montserrat_500Medium',
+              fontSize: 11,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              color: colors.dark.mutedForeground,
+              marginTop: 6,
+            }}
+          >
+            {item.character} · {item.source}
+          </Text>
+        </View>
+        <Ionicons name="bookmark" size={20} color={colors.stageGlow} />
+      </View>
+
+      <Text
+        numberOfLines={2}
+        style={{
+          fontFamily: 'CourierPrime_400Regular',
+          fontSize: 13,
+          lineHeight: 20,
+          color: 'rgba(243, 238, 230, 0.82)',
+          marginTop: 12,
+        }}
+      >
+        {item.excerpt}
+      </Text>
+
+      {/* progress rule */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 }}>
+        <View style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
+          <View style={{ width: `${Math.max(6, pct * 100)}%`, height: '100%', backgroundColor: colors.stageGlow }} />
+        </View>
+        <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: colors.dark.mutedForeground }}>
+          {progressLabel(pct)}
+        </Text>
+        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 11, color: colors.dark.chevron }}>
+          {formatDuration(item.duration)}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
