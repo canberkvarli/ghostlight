@@ -191,8 +191,8 @@ export default function Search() {
             </Text>
             <StageDirection className="mt-4">
               {medium === 'screen'
-                ? '(film & tv, off the page.)'
-                : '(14,000+ monologues. one stage.)'}
+                ? '(6,000+ from film & tv, off the page.)'
+                : '(7,000+ monologues. one stage.)'}
             </StageDirection>
 
             <View style={{ marginTop: 24 }}>

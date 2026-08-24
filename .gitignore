@@ -42,3 +42,6 @@ yarn-error.*
 
 # local secrets
 .env
+
+# personal planning notes (listing copy, ASO, go-to-market) — local only
+/docs/plans/

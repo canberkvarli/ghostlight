@@ -29,11 +29,18 @@ import { colors } from '../src/theme/tokens';
  * RevenueCat when configured; the static copy stands otherwise so it's never empty.
  */
 
+// Every line here must map to a real entitlement check, or App Review reads it
+// as a promise the purchase doesn't keep (Guideline 2.3.1/3.1.2). Saves,
+// offline and memorize mode were listed once and none of them were gated —
+// saves and offline are free for everyone, memorize mode is deferred to v2.
+// Three true perks beat four with a lie in them. The gates, for the record:
+//   unlimited reads  → app/read/[id].tsx:148 (free tier is 3 lifetime reads)
+//   copy to clipboard → app/read/[id].tsx:167
+//   tone/emotion/freshness filters → src/data/filters.ts (premium: true)
 const PERKS = [
-  'Every monologue, all 14,000+',
-  'Unlimited saves',
-  'Memorize mode',
-  'Works offline',
+  'Unlimited reading, all 13,000+',
+  'Filter by tone, emotion & freshness',
+  'Copy any monologue',
 ];
 
 type Plan = 'annual' | 'monthly';
