@@ -181,11 +181,18 @@ export default function Paywall() {
         >
           <View style={{ alignItems: 'center' }}>
             <GhostLight size={34} />
+            {/* Only promise a trial when one actually exists. `headlineTrial`
+                fell back to "7 days" whenever RevenueCat reported no intro
+                offer, so the headline read "7 Days on the house." over a CTA
+                that correctly said "Unlock everything" — the screen offered a
+                free trial and charged immediately. If no introductory offer is
+                configured in App Store Connect, this headline is the difference
+                between an honest paywall and a surprise charge. */}
             <Text
               className="mt-6 text-center text-foreground"
               style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 38, lineHeight: 44 }}
             >
-              {headlineWord}{'\n'}on the house.
+              {trialLabel ? `${headlineWord}\non the house.` : 'The whole\nlibrary.'}
             </Text>
             {/* The trial length is already the headline, so repeating it here
                 only bought a second line: Courier at 15px with 1.04 tracking
