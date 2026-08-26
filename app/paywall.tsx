@@ -32,17 +32,20 @@ import { useSession } from '../src/lib/useSession';
  */
 
 // Every line here must map to a real entitlement check, or App Review reads it
-// as a promise the purchase doesn't keep (Guideline 2.3.1/3.1.2). Saves,
-// offline and memorize mode were listed once and none of them were gated —
-// saves and offline are free for everyone, memorize mode is deferred to v2.
-// Three true perks beat four with a lie in them. The gates, for the record:
+// as a promise the purchase doesn't keep (Guideline 2.3.1/3.1.2). This list
+// once carried three that weren't gated at all — memorize mode (never shipped),
+// unlimited saves (free for everyone) and offline (mirrored for everyone).
+// Offline earned its place back by being implemented; the other two are gone.
+// The gates, for the record:
 //   unlimited reads  → app/read/[id].tsx:148 (free tier is 3 lifetime reads)
 //   copy to clipboard → app/read/[id].tsx:167
 //   tone/emotion/freshness filters → src/data/filters.ts (premium: true)
+//   offline copies    → src/lib/offline.ts, driven by useEntitlement
 const PERKS = [
   'Unlimited reading, all 14,000+',
   'Filter by tone, emotion & freshness',
   'Copy any monologue',
+  'Read offline, anywhere',
 ];
 
 type Plan = 'annual' | 'monthly';

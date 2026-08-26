@@ -43,7 +43,7 @@ export default function Saves() {
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
   const { isAuthenticated } = useSession();
-  const { data, isLoading } = useFavorites(isAuthenticated);
+  const { data, isLoading, isError } = useFavorites(isAuthenticated);
 
   const toggleFavorite = useToggleFavorite();
   // The row being undone is hidden optimistically rather than removed, so the
@@ -105,6 +105,22 @@ export default function Saves() {
           <Center>
             <GhostLight size={28} />
             <StageDirection className="mt-6">(gathering your saves…)</StageDirection>
+          </Center>
+        ) : isError ? (
+          // Not the same as an empty book. Free actors have no offline shelf to
+          // fall back on, so a dropped signal used to render "(nothing saved
+          // yet.)" — telling someone their saves are gone when they are fine.
+          <Center>
+            <GhostLight size={44} />
+            <StageDirection className="mt-6" style={{ textAlign: 'center' }}>
+              (couldn&apos;t reach your book.)
+            </StageDirection>
+            <Text
+              className="text-center"
+              style={{ marginTop: 16, fontFamily: 'Montserrat_400Regular', fontSize: 13, color: colors.dark.mutedForeground }}
+            >
+              Your saves are safe. Check your{'\n'}connection and try again.
+            </Text>
           </Center>
         ) : (
           <FlashList

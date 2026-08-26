@@ -11,6 +11,24 @@ import type { Gender, Monologue, SourceType, Tone } from '../data/monologues';
  * back to when the network isn't there.
  */
 
+/**
+ * Whether offline copies may be written or served.
+ *
+ * The doc above always described this as a paid feature, but nothing enforced
+ * it — the mirror ran for everyone, so the paywall and the App Store listing
+ * were both selling something every free user already had. `useEntitlement`
+ * keeps this in step with the server's answer.
+ *
+ * Deliberately starts false. A cold launch has no entitlement answer yet, and
+ * the safe direction to be wrong in is "locked" — a paid actor waits a moment
+ * for their shelf, where the reverse would hand it to everyone.
+ */
+let allowed = false;
+
+export function setOfflineAllowed(next: boolean): void {
+  allowed = next;
+}
+
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 async function db(): Promise<SQLite.SQLiteDatabase> {
@@ -76,6 +94,7 @@ function rowToMonologue(r: Row): Monologue {
 }
 
 export async function saveOffline(m: Monologue): Promise<void> {
+  if (!allowed) return;
   const d = await db();
   await d.runAsync(
     `INSERT OR REPLACE INTO saved_monologues
@@ -95,12 +114,14 @@ export async function removeOffline(id: string): Promise<void> {
 }
 
 export async function listOffline(): Promise<Monologue[]> {
+  if (!allowed) return [];
   const d = await db();
   const rows = await d.getAllAsync<Row>('SELECT * FROM saved_monologues ORDER BY saved_at DESC');
   return rows.map(rowToMonologue);
 }
 
 export async function getOffline(id: string): Promise<Monologue | null> {
+  if (!allowed) return null;
   const d = await db();
   const row = await d.getFirstAsync<Row>('SELECT * FROM saved_monologues WHERE id = ?', [id]);
   return row ? rowToMonologue(row) : null;

@@ -22,6 +22,7 @@ import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
 import { bootstrapSession } from '../src/lib/session';
 import { supabase } from '../src/lib/supabase';
+import { useEntitlement } from '../src/hooks/useEntitlement';
 import { configurePurchases } from '../src/lib/purchases';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -104,6 +105,9 @@ export default function RootLayout() {
 
 function Shell() {
   const { colors: c } = useTheme();
+  // Mounted here so the offline gate tracks entitlement app-wide, including
+  // when a session ends on a screen that never asks about the paywall itself.
+  useEntitlement();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.background }}>
       {/* This was hardcoded `light` on the claim that the stage is always
