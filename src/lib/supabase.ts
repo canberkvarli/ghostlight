@@ -39,6 +39,15 @@ export const supabase = createClient(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      // Load-bearing. supabase-js v2 defaults to the implicit flow, which
+      // returns the session as a URL *fragment* (#access_token=…) and never
+      // issues an auth code. src/lib/auth.ts finishes Google sign-in with
+      // exchangeCodeForSession(), which exists only in PKCE — so on the default
+      // the redirect came back with no `code`, the parse returned null, and
+      // Google sign-in failed every single time with "No auth code in
+      // redirect." Nothing about that error points at flow type, which is why
+      // it survived this long.
+      flowType: 'pkce',
     },
   },
 );

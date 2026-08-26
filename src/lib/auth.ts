@@ -85,19 +85,26 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
 export async function signInWithGoogle(): Promise<AuthResult> {
   try {
-    // Anonymous users link so their data is kept; a fresh user just signs in.
+    // Anonymous users link so their saves and read count carry across the
+    // upgrade; a fresh user just signs in.
     const { data: sessionData } = await supabase.auth.getSession();
     const isAnon = sessionData.session?.user.is_anonymous ?? false;
 
-    const oauth = isAnon
-      ? await supabase.auth.linkIdentity({
-          provider: 'google',
-          options: { redirectTo, skipBrowserRedirect: true },
-        })
-      : await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo, skipBrowserRedirect: true },
-        });
+    const options = { redirectTo, skipBrowserRedirect: true } as const;
+
+    let oauth = isAnon
+      ? await supabase.auth.linkIdentity({ provider: 'google', options })
+      : await supabase.auth.signInWithOAuth({ provider: 'google', options });
+
+    // linkIdentity needs "Allow manual linking" switched on for the project. If
+    // it isn't, this is the ONLY path Google ever takes — the app mints an
+    // anonymous session at launch, so every user is anonymous when they reach
+    // here — and Google sign-in is dead for everyone. Falling back to a plain
+    // sign-in costs the anonymous user's rows, which is bad, but is far better
+    // than a sign-in button that cannot work.
+    if (isAnon && oauth.error) {
+      oauth = await supabase.auth.signInWithOAuth({ provider: 'google', options });
+    }
 
     if (oauth.error) return { ok: false, message: oauth.error.message };
     if (!oauth.data?.url) return { ok: false, message: 'No OAuth URL returned.' };
@@ -105,8 +112,24 @@ export async function signInWithGoogle(): Promise<AuthResult> {
     const result = await WebBrowser.openAuthSessionAsync(oauth.data.url, redirectTo);
     if (result.type !== 'success') return { ok: false, canceled: true };
 
-    const code = new URL(result.url).searchParams.get('code');
-    if (!code) return { ok: false, message: 'No auth code in redirect.' };
+    const url = new URL(result.url);
+
+    // Supabase reports provider-side failures as query params on the redirect
+    // rather than by failing the browser session, so without this the user just
+    // sees the generic "no auth code" line and we learn nothing.
+    const oauthError = url.searchParams.get('error_description') ?? url.searchParams.get('error');
+    if (oauthError) return { ok: false, message: oauthError };
+
+    const code = url.searchParams.get('code');
+    if (!code) {
+      // Almost always one of two dashboard problems: the client is not on the
+      // PKCE flow (see src/lib/supabase.ts), or `redirectTo` is missing from
+      // Authentication → URL Configuration → Redirect URLs.
+      return {
+        ok: false,
+        message: `Sign-in came back without an auth code. Check that ${redirectTo} is an allowed redirect URL.`,
+      };
+    }
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) return { ok: false, message: error.message };
@@ -114,6 +137,16 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   } catch (e) {
     return { ok: false, message: (e as Error).message ?? 'Google sign-in failed.' };
   }
+}
+
+/**
+ * The deep link the OAuth redirect must come back to. Exported so the auth
+ * screen can show it when something goes wrong — it has to be listed verbatim
+ * under Authentication → URL Configuration → Redirect URLs in Supabase, and
+ * getting it from the running app beats guessing at the scheme.
+ */
+export function authRedirectUrl(): string {
+  return redirectTo;
 }
 
 function randomNonce(): string {
