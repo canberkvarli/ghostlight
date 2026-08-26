@@ -22,8 +22,13 @@ export interface MediumPalette {
   /** The stand under the bulb. */
   line: string;
   /**
-   * The stage floor. Undefined for theatre so it follows the light/dark theme;
-   * screen forces its violet near-black regardless of scheme.
+   * The stage floor. Undefined for theatre so it follows the light/dark theme.
+   *
+   * Screen used to force a violet near-black in BOTH schemes, which is why Film
+   * & TV was unreadable in light mode: the floor went near-black while every
+   * text class still resolved light (foreground #15110f on #0f0a16). The violet
+   * is a mood, and a mood must not win an argument with legibility, so light
+   * mode now gets a pale violet paper instead.
    */
   background?: string;
   /** The lit-card border under the spotlight. */
@@ -64,8 +69,31 @@ export const MEDIA: Record<Medium, MediumPalette> = {
   },
 };
 
-export function mediumPalette(medium: Medium | undefined): MediumPalette {
-  return MEDIA[medium === 'screen' ? 'screen' : 'theatre'];
+/** Light-scheme overrides. Only what must change for the text to be readable. */
+const LIGHT_OVERRIDES: Partial<Record<Medium, Partial<MediumPalette>>> = {
+  screen: {
+    // Pale violet paper — still unmistakably the other house, still legible
+    // under #15110f text.
+    background: '#f3f0f8',
+    // The bulb violet is bright enough to glow on near-black and too pale to
+    // read on paper, so lit accents darken in light mode.
+    accent: '#5b21b6',
+    litBorder: 'rgba(91, 33, 182, 0.45)',
+    chipFill: 'rgba(91, 33, 182, 0.12)',
+  },
+};
+
+/**
+ * @param isLight pass `useTheme().isLight`. Omitting it keeps the dark palette,
+ * which is the correct default for the launch overlay and any Skia canvas that
+ * paints its own dark field regardless of scheme.
+ */
+export function mediumPalette(medium: Medium | undefined, isLight = false): MediumPalette {
+  const key: Medium = medium === 'screen' ? 'screen' : 'theatre';
+  const base = MEDIA[key];
+  if (!isLight) return base;
+  const over = LIGHT_OVERRIDES[key];
+  return over ? { ...base, ...over } : base;
 }
 
 /** rgba() from a palette's glow at a given alpha — for Skia gradients. */

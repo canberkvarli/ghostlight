@@ -37,7 +37,14 @@ interface Props {
   litBorder?: string;
 }
 
-const DARK = 0.42;
+/**
+ * How dim an unlit card sits. The spotlight is the point of the list, so cards
+ * outside it must recede — but 0.42 took the title to roughly 2.4:1 on paper,
+ * which is below the floor for readable text and is what "the titles are black,
+ * I can't see them" actually was. The light still falls off; it just no longer
+ * falls off past legibility.
+ */
+const DARK = 0.66;
 
 function MonologueCardImpl({
   item,
@@ -62,10 +69,13 @@ function MonologueCardImpl({
     );
   });
 
+  // `colors.dark.cardBorder` was hardcoded here, so a dark-stage hairline was
+  // drawn around cards sitting on paper. Follow the theme instead.
+  const unlitBorder = c.cardBorder;
   const containerStyle = useAnimatedStyle(() => ({
     opacity: DARK + lit.value * (1 - DARK),
     transform: [{ scale: 0.968 + lit.value * 0.032 }],
-    borderColor: interpolateColor(lit.value, [0, 1], [colors.dark.cardBorder, litBorder]),
+    borderColor: interpolateColor(lit.value, [0, 1], [unlitBorder, litBorder]),
     shadowOpacity: lit.value * 0.5,
   }));
 

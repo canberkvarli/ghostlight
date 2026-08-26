@@ -141,11 +141,24 @@ export default function Account() {
     );
   };
 
-  // Straight to the sub page: subscribers manage in Settings, everyone else sees
-  // the plans (restore lives on the paywall).
+  // Non-subscribers see the plans. Subscribers used to be thrown straight out
+  // to Apple's subscription settings, which is a one-tap path to Cancel and the
+  // only thing on that screen — a strange destination to hand someone who just
+  // wanted to check what they're on. Show their status first; managing (and
+  // therefore cancelling) stays available, just not as the default action.
   const onSubscription = () => {
-    if (readState?.is_paid) Linking.openURL(MANAGE_SUBS_URL);
-    else router.push('/paywall');
+    if (!readState?.is_paid) {
+      router.push('/paywall');
+      return;
+    }
+    Alert.alert(
+      'Ghost Light, in full',
+      'Every monologue, every filter, offline. Renews through the App Store.',
+      [
+        { text: 'Done', style: 'cancel' },
+        { text: 'Manage in Settings', onPress: () => Linking.openURL(MANAGE_SUBS_URL) },
+      ],
+    );
   };
 
   const onHelp = () => {
@@ -185,7 +198,7 @@ export default function Account() {
 
           {/* Two stat tiles — kept and read. */}
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-            <StatTile n={keptCount} label="(kept.)" />
+            <StatTile n={keptCount} label="(kept.)" onPress={() => router.push('/saves')} />
             <StatTile n={readCount} label="(read.)" />
           </View>
 
@@ -313,10 +326,17 @@ function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => 
   );
 }
 
-function StatTile({ n, label }: { n: number; label: string }) {
+/**
+ * A count, optionally a door. "Kept" leads to the book; "read" is a tally with
+ * nowhere to go, so it stays inert and doesn't pretend to be tappable.
+ */
+function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
   const { colors: c } = useTheme();
+  const Container = onPress ? Pressable : View;
   return (
-    <View
+    <Container
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
       style={{
         flex: 1,
         borderRadius: 18,
@@ -328,10 +348,15 @@ function StatTile({ n, label }: { n: number; label: string }) {
       }}
     >
       <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, color: c.foreground }}>{n}</Text>
-      <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.mutedForeground, marginTop: 2 }}>
-        {label}
-      </Text>
-    </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+        <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.mutedForeground }}>
+          {label}
+        </Text>
+        {onPress ? (
+          <Ionicons name="chevron-forward" size={13} color={c.mutedForeground} style={{ marginLeft: 2 }} />
+        ) : null}
+      </View>
+    </Container>
   );
 }
 

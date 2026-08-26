@@ -86,7 +86,7 @@ export default function Results() {
   }>();
 
   const medium: Medium = raw.medium === 'screen' ? 'screen' : 'theatre';
-  const pal = mediumPalette(medium);
+  const pal = mediumPalette(medium, c.isLight);
   const screenMode = medium === 'screen';
 
   // The excerpts are the words of the play too — same protection as the read
@@ -263,7 +263,8 @@ function StageHeader({
   query: string | null;
   medium: Medium;
 }) {
-  const pal = mediumPalette(medium);
+  const { colors: c } = useTheme();
+  const pal = mediumPalette(medium, c.isLight);
   const screen = medium === 'screen';
   const noun = screen ? 'on screen' : 'monologues';
   // The old `fellBack` branch said "(sign in to search. the stage stands.)"

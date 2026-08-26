@@ -106,9 +106,13 @@ function Shell() {
   const { colors: c } = useTheme();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.background }}>
-      {/* The stage is always warm-dark (even in light mode the backdrop is dark,
-          and Film & TV is a dark violet), so the status bar is always light. */}
-      <StatusBar style="light" />
+      {/* This was hardcoded `light` on the claim that the stage is always
+          warm-dark. It isn't: StageBackdrop falls back to the theme background,
+          so in light mode the theatre stage is paper (#f8f4f0) and white clock,
+          wifi and battery glyphs vanished into it. Follow the scheme — the
+          system draws those glyphs and we never get to restyle them, so the
+          only defence is picking the right side. */}
+      <StatusBar style={c.isLight ? 'dark' : 'light'} />
       <Stack
         screenOptions={{
           headerShown: false,

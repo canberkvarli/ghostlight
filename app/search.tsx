@@ -56,7 +56,7 @@ export default function Search() {
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
   const [medium, setMediumState] = useState<Medium>('theatre');
   const [sheetOpen, setSheetOpen] = useState(false);
-  const pal = mediumPalette(medium);
+  const pal = mediumPalette(medium, c.isLight);
 
   // Everyone can open the sheet and use the free identity/length filters; the
   // craft filters inside (tone, emotion, freshness) route to the paywall for
@@ -75,6 +75,12 @@ export default function Search() {
     setSheetOpen(true);
   }, []);
 
+  // The bulb answers the search: it flares as the actor types and flares harder
+  // on submit, then settles to a gentle idle while there's a query.
+  // Declared above `setMedium` because that callback's dependency array reads
+  // it, and a `const` further down would be in the temporal dead zone.
+  const bulbBoost = useSharedValue(0);
+
   // The house-lights flash: a wash of the new colour that blooms and fades as
   // the medium changes, so the switch feels like a lighting cue, not a repaint.
   const flash = useSharedValue(0);
@@ -89,13 +95,19 @@ export default function Search() {
         withTiming(1, { duration: 140 }),
         withTiming(0, { duration: 520 }),
       );
+      // Changing house is a lighting change, so the lamp restrikes: a hard dip,
+      // two stutters, then settle. The colour wash alone read as a repaint.
+      bulbBoost.value = withSequence(
+        withTiming(0, { duration: 60 }),
+        withTiming(0.9, { duration: 90 }),
+        withTiming(0.15, { duration: 70 }),
+        withTiming(0.75, { duration: 110 }),
+        withTiming(0, { duration: 460 }),
+      );
     },
-    [medium, flash],
+    [medium, flash, bulbBoost],
   );
 
-  // The bulb answers the search: it flares as the actor types and flares harder
-  // on submit, then settles to a gentle idle while there's a query.
-  const bulbBoost = useSharedValue(0);
   const onChangeQuery = useCallback((text: string) => {
     setQuery(text);
     bulbBoost.value = withSequence(

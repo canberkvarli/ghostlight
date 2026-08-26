@@ -25,6 +25,13 @@ export interface ThemeColors {
   foreground: string;
   mutedForeground: string;
   border: string;
+  // Chrome. These used to exist only on the dark palette, so every call site
+  // reached for `colors.dark.*` directly and was theme-blind by construction —
+  // dark-stage hairlines and chevrons drawn on paper. Resolved per scheme now.
+  cardBorder: string;
+  divider: string;
+  inactiveMeter: string;
+  chevron: string;
   // Fixed across schemes — the light itself.
   stageGlow: string;
   stageLine: string;
@@ -41,6 +48,10 @@ function resolve(scheme: Scheme): ThemeColors {
     foreground: p.foreground,
     mutedForeground: p.mutedForeground,
     border: p.border,
+    cardBorder: p.cardBorder,
+    divider: p.divider,
+    inactiveMeter: p.inactiveMeter,
+    chevron: p.chevron,
     stageGlow: tokens.stageGlow,
     stageLine: tokens.stageLine,
     primary: tokens.primary,

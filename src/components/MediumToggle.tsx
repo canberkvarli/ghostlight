@@ -36,7 +36,7 @@ export function MediumToggle({
     >
       {SEGMENTS.map((seg) => {
         const active = seg.medium === medium;
-        const glow = mediumPalette(seg.medium).glow;
+        const glow = mediumPalette(seg.medium, c.isLight).glow;
         return (
           <Pressable
             key={seg.medium}
@@ -47,7 +47,7 @@ export function MediumToggle({
               paddingHorizontal: 20,
               paddingVertical: 9,
               borderRadius: 999,
-              backgroundColor: active ? mediumPalette(seg.medium).chipFill : 'transparent',
+              backgroundColor: active ? mediumPalette(seg.medium, c.isLight).chipFill : 'transparent',
               borderWidth: 1,
               borderColor: active ? glow : 'transparent',
             }}

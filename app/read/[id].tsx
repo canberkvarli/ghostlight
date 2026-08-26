@@ -284,7 +284,7 @@ export default function Read() {
               {monologue.character}
             </Text>
             <Animated.Text
-              className="mt-2 text-[31px] leading-[37px]"
+              className="mt-2 text-[38px] leading-[44px]"
               style={[
                 titleStyle,
                 {

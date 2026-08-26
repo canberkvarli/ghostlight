@@ -18,8 +18,10 @@ export const colors = {
     /** oklch(0.16 0.015 50) — warm near-black. Never flat black. */
     background: '#130b08',
     card: '#1d140f',
-    foreground: '#f3eee6',
-    mutedForeground: '#a59d95',
+    /** Warm, but near-white. Cards dim their contents, so body text needs the
+     *  headroom — #f3eee6 was already faint before the unlit multiplier. */
+    foreground: '#fbf8f3',
+    mutedForeground: '#c2bab1',
     /** Field / input border. */
     border: '#302721',
     /** Card border — quieter than the field border. */
@@ -29,7 +31,7 @@ export const colors = {
     /** The unlit segment of a progress / filament meter. */
     inactiveMeter: '#3a2c24',
     /** Chevrons and fine print — dimmer than mutedForeground. */
-    chevron: '#6f665f',
+    chevron: '#8a8078',
   },
 
   light: {
@@ -39,6 +41,13 @@ export const colors = {
     foreground: '#15110f',
     mutedForeground: '#5a5450',
     border: '#dbd6d2',
+    /** Light needs these too. Every `colors.dark.*` call site was theme-blind
+     *  by construction while they were missing, which put dark-mode hairlines
+     *  and chevrons on paper. */
+    cardBorder: '#e4dfda',
+    divider: '#ece7e2',
+    inactiveMeter: '#dbd6d2',
+    chevron: '#8a8480',
   },
 } as const;
 

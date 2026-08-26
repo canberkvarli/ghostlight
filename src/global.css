@@ -33,14 +33,14 @@
      reading page. */
   --color-background: #130b08;
   --color-card: #1d140f;
-  --color-foreground: #f3eee6;
-  --color-muted-foreground: #a59d95;
+  --color-foreground: #fbf8f3;
+  --color-muted-foreground: #c2bab1;
   --color-border: #302721;
-  /* Chrome-only accents (dark stage). Paper world doesn't use them. */
+  /* Chrome accents. */
   --color-card-border: #2b211b;
   --color-divider: #241b16;
   --color-meter: #3a2c24;
-  --color-chevron: #6f665f;
+  --color-chevron: #8a8078;
 }
 
 @layer theme {
@@ -48,9 +48,14 @@
     @variant dark {
       --color-background: #130b08; /* oklch(0.16 0.015 50) — warm near-black, never flat black */
       --color-card: #1d140f; /* oklch(0.20 0.018 52) */
-      --color-foreground: #f3eee6; /* oklch(0.95 0.012 78) */
-      --color-muted-foreground: #a59d95;
+      /* Near-white: cards dim their own contents, so body text needs headroom. */
+      --color-foreground: #fbf8f3;
+      --color-muted-foreground: #c2bab1;
       --color-border: #302721;
+      --color-card-border: #2b211b;
+      --color-divider: #241b16;
+      --color-meter: #3a2c24;
+      --color-chevron: #8a8078;
     }
 
     @variant light {
@@ -60,6 +65,12 @@
       --color-foreground: #15110f; /* oklch(0.18 0.008 45) */
       --color-muted-foreground: #5a5450;
       --color-border: #dbd6d2;
+      /* Paper equivalents, so the chrome utilities stop emitting dark-stage
+         hairlines onto a light background. */
+      --color-card-border: #e4dfda;
+      --color-divider: #ece7e2;
+      --color-meter: #dbd6d2;
+      --color-chevron: #8a8480;
     }
   }
 }
