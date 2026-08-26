@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, {
+  Easing,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
@@ -125,6 +126,20 @@ export default function Search() {
   // The search field catches the light when you touch it — the border warms to
   // the house colour and a soft glow rises, like stepping into the spot.
   const focus = useSharedValue(0);
+
+  // The wordmark, tagline and house toggle fold away while the field is live.
+  // `chromeH` is measured once and then never changes, so the height animation
+  // has a fixed target and the whole collapse stays on the UI thread.
+  // `fieldFocused` is React state only because pointerEvents can't be animated;
+  // it changes twice per focus cycle, not per frame.
+  const [chromeH, setChromeH] = useState(0);
+  const [fieldFocused, setFieldFocused] = useState(false);
+  const chromeStyle = useAnimatedStyle(() => ({
+    opacity: 1 - focus.value,
+    transform: [{ translateY: -12 * focus.value }],
+    // Until it's measured, leave height alone so the block can size itself.
+    height: chromeH > 0 ? chromeH * (1 - focus.value) : undefined,
+  }));
   const fieldStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(focus.value, [0, 1], [c.border, pal.glow]),
     shadowColor: pal.glow,
@@ -206,30 +221,54 @@ export default function Search() {
           </View>
 
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
+            {/* Subscribers get the lamp in full dress — the standing ghost
+                light with its neck, base and floor pool — where free actors get
+                the bare bulb. Same silhouette, same ratios, so nothing shouts;
+                it just reads as the real thing having been wheeled onto the
+                stage. Reuses the dressing the brand already has rather than
+                inventing a badge, and it's the first thing you see, so paying
+                visibly changed something. */}
             <GhostLight
-              size={52}
+              size={isPaid ? 60 : 52}
+              dress={isPaid ? 'full' : 'bare'}
               boost={bulbBoost}
               glow={pal.glow}
               glassStops={pal.glassStops}
               neck={pal.neck}
             />
 
-            <Text
-              className="mt-8 text-center text-foreground"
-              style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 15, letterSpacing: 7, textTransform: 'uppercase' }}
+            {/* Everything between the lamp and the field clears out of the way
+                when the field takes focus, so typing happens on a bare stage.
+                Height is measured once on layout and then driven from the same
+                `focus` shared value as the field itself — the collapse runs on
+                the UI thread with no JS per frame, and no re-render. */}
+            <Animated.View
+              onLayout={(e) => {
+                const h = Math.round(e.nativeEvent.layout.height);
+                // Only capture the resting height, or the collapse would keep
+                // re-measuring itself down to zero on the way in.
+                if (h > 0 && chromeH === 0) setChromeH(h);
+              }}
+              pointerEvents={fieldFocused ? 'none' : 'auto'}
+              style={[chromeStyle, { width: '100%', alignItems: 'center', overflow: 'hidden' }]}
             >
-              Ghost Light
-            </Text>
-            {/* Kept short on purpose: both variants must hold one line at the
-                widest letter-spacing, and a count here would only ever describe
-                the toggle you're standing in, never the whole library. */}
-            <StageDirection className="mt-8" numberOfLines={1}>
-              {medium === 'screen' ? '(film & tv, off the page.)' : '(every monologue. one stage.)'}
-            </StageDirection>
+              <Text
+                className="mt-8 text-center text-foreground"
+                style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 15, letterSpacing: 7, textTransform: 'uppercase' }}
+              >
+                Ghost Light
+              </Text>
+              {/* Kept short on purpose: both variants must hold one line at the
+                  widest letter-spacing, and a count here would only ever describe
+                  the toggle you're standing in, never the whole library. */}
+              <StageDirection className="mt-8" numberOfLines={1}>
+                {medium === 'screen' ? '(film & tv, off the page.)' : '(every monologue. one stage.)'}
+              </StageDirection>
 
-            <View style={{ marginTop: 24 }}>
-              <MediumToggle medium={medium} onChange={setMedium} />
-            </View>
+              <View style={{ marginTop: 24 }}>
+                <MediumToggle medium={medium} onChange={setMedium} />
+              </View>
+            </Animated.View>
 
             <Animated.View
               style={[
@@ -252,8 +291,14 @@ export default function Search() {
                 value={query}
                 onChangeText={onChangeQuery}
                 onSubmitEditing={submit}
-                onFocus={() => (focus.value = withTiming(1, { duration: 260 }))}
-                onBlur={() => (focus.value = withTiming(0, { duration: 320 }))}
+                onFocus={() => {
+                  setFieldFocused(true);
+                  focus.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+                }}
+                onBlur={() => {
+                  setFieldFocused(false);
+                  focus.value = withTiming(0, { duration: 360, easing: Easing.out(Easing.cubic) });
+                }}
                 returnKeyType="search"
                 placeholder="a grieving mother, something funny…"
                 placeholderTextColor={c.mutedForeground}
