@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
@@ -11,7 +12,8 @@ import { StageDirection } from '../src/components/StageDirection';
 import { BackHeader } from '../src/components/BackHeader';
 import { WordArrow } from '../src/components/WordArrow';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useFavorites } from '../src/hooks/useFavorites';
+import { useFavorites, useToggleFavorite } from '../src/hooks/useFavorites';
+import { UndoBar } from '../src/components/UndoBar';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
 import { colors } from '../src/theme/tokens';
@@ -43,16 +45,46 @@ export default function Saves() {
   const { isAuthenticated } = useSession();
   const { data, isLoading } = useFavorites(isAuthenticated);
 
-  const items = (data ?? []) as Saved[];
+  const toggleFavorite = useToggleFavorite();
+  // The row being undone is hidden optimistically rather than removed, so the
+  // server round-trip never makes the list jump under the actor's thumb. It
+  // reappears in place if they undo.
+  const [pendingRemoval, setPendingRemoval] = useState<Saved | null>(null);
+
+  const all = (data ?? []) as Saved[];
+  const items = pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all;
   const offBook = items.filter((m) => (m.pct ?? 0) >= 1).length;
   const subhead =
     offBook > 0 ? `(${items.length} kept. ${offBook} off book.)` : `(${items.length} kept.)`;
 
+  const onUnsave = useCallback((item: Saved) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setPendingRemoval(item);
+  }, []);
+
+  // Undo simply drops the pending state — nothing was ever sent.
+  const onUndo = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    setPendingRemoval(null);
+  }, []);
+
+  // The five seconds elapsed, so make it real.
+  const onExpire = useCallback(() => {
+    setPendingRemoval((victim) => {
+      if (victim) toggleFavorite.mutate({ id: victim.id, on: false });
+      return null;
+    });
+  }, [toggleFavorite]);
+
   const renderItem = useCallback(
     ({ item }: { item: Saved }) => (
-      <SavedCard item={item} onPress={() => router.push(`/read/${item.id}`)} />
+      <SavedCard
+        item={item}
+        onPress={() => router.push(`/read/${item.id}`)}
+        onUnsave={() => onUnsave(item)}
+      />
     ),
-    [router],
+    [router, onUnsave],
   );
 
   return (
@@ -100,12 +132,31 @@ export default function Saves() {
             }
           />
         )}
+
+        {pendingRemoval ? (
+          // Keyed on the id so a second removal restarts the five seconds
+          // instead of inheriting the first one's remaining time.
+          <UndoBar
+            key={pendingRemoval.id}
+            label={`Removed “${pendingRemoval.title}”`}
+            onUndo={onUndo}
+            onExpire={onExpire}
+          />
+        ) : null}
       </SafeAreaView>
     </View>
   );
 }
 
-function SavedCard({ item, onPress }: { item: Saved; onPress: () => void }) {
+function SavedCard({
+  item,
+  onPress,
+  onUnsave,
+}: {
+  item: Saved;
+  onPress: () => void;
+  onUnsave: () => void;
+}) {
   const pct = item.pct ?? 0;
   return (
     <Pressable
@@ -150,7 +201,18 @@ function SavedCard({ item, onPress }: { item: Saved; onPress: () => void }) {
             {item.character} · {item.source}
           </Text>
         </View>
-        <Ionicons name="bookmark" size={20} color={colors.stageGlow} />
+        {/* The bookmark was decoration. It's the unsave now — the obvious place
+            to tap to take something out of the book, with UndoBar covering the
+            mistap rather than a confirm dialog on every removal. hitSlop keeps
+            it from stealing taps meant for the card. */}
+        <Pressable
+          onPress={onUnsave}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${item.title} from your book`}
+        >
+          <Ionicons name="bookmark" size={20} color={colors.stageGlow} />
+        </Pressable>
       </View>
 
       <Text

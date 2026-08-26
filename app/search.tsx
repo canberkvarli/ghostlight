@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
+import { loadSearchHistory, pushSearchHistory } from '../src/lib/searchHistory';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,6 +57,11 @@ export default function Search() {
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
   const [medium, setMediumState] = useState<Medium>('theatre');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    void loadSearchHistory().then(setHistory);
+  }, []);
   const pal = mediumPalette(medium, c.isLight);
 
   // Everyone can open the sheet and use the free identity/length filters; the
@@ -142,6 +148,9 @@ export default function Search() {
       withTiming(0.95, { duration: 90 }),
       withTiming(0, { duration: 520 }),
     );
+    // Local only, and only the text — see src/lib/searchHistory.ts on why the
+    // filters deliberately don't come along for the ride.
+    void pushSearchHistory(query).then(setHistory);
     const params = selectionToParams(selected);
     router.push({
       pathname: '/results',
@@ -154,6 +163,16 @@ export default function Search() {
       },
     });
   }, [query, selected, medium, router, bulbBoost]);
+
+  const runRecent = useCallback(
+    (term: string) => {
+      Haptics.selectionAsync().catch(() => {});
+      setQuery(term);
+      void pushSearchHistory(term).then(setHistory);
+      router.push({ pathname: '/results', params: { q: term, medium } });
+    },
+    [medium, router],
+  );
 
   const activeCount = useMemo(
     () => Object.values(selected).filter(Boolean).length,
@@ -243,6 +262,45 @@ export default function Search() {
                 style={{ flex: 1, paddingVertical: 0, textAlignVertical: 'center', fontFamily: 'Montserrat_400Regular' }}
               />
             </Animated.View>
+
+            {/* Recent searches. On device, free, text only. Hidden once there's
+                a query, since re-running what you're already typing is noise. */}
+            {history.length > 0 && !query.trim() ? (
+              <View style={{ width: '100%', marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {history.slice(0, 4).map((term) => (
+                  <Pressable
+                    key={term}
+                    onPress={() => runRecent(term)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search again for ${term}`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      borderRadius: 999,
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      backgroundColor: c.card,
+                      borderWidth: 1,
+                      borderColor: c.cardBorder,
+                    }}
+                  >
+                    <Ionicons name="time-outline" size={12} color={c.chevron} />
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        maxWidth: 150,
+                        fontFamily: 'Montserrat_400Regular',
+                        fontSize: 12,
+                        color: c.mutedForeground,
+                      }}
+                    >
+                      {term}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
 
             {/* Filters: a row of stage-direction chips. Lit = active, in the house colour. */}
             <View

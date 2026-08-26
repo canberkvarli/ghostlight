@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,6 +21,7 @@ import {
 } from '../src/lib/purchases';
 import { colors } from '../src/theme/tokens';
 import type { ReadState } from '../src/api/client';
+import { useSession } from '../src/lib/useSession';
 
 /**
  * The paywall — a free trial (length set in App Store Connect; handoff §5). No
@@ -56,6 +57,7 @@ export default function Paywall() {
   const [note, setNote] = useState<string | null>(null);
   const { colors: c } = useTheme();
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useSession();
 
   // RevenueCat confirms the entitlement on-device the instant the purchase
   // returns, but ['read-wall'] is served by our API, which only learns about it
@@ -115,6 +117,23 @@ export default function Paywall() {
       if (entitled) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         refreshEntitlement();
+        // Buying without an account is allowed, but the entitlement then hangs
+        // off an anonymous RevenueCat id that does not survive a reinstall or a
+        // new phone. Restore Purchases is the only way back, and the people who
+        // need it most are the ones least likely to find it — so ask once, here,
+        // while the purchase is the thing they're thinking about. Never block:
+        // they've paid, they get in either way.
+        if (!isAuthenticated) {
+          Alert.alert(
+            'Keep this subscription safe',
+            'Sign in and it follows you to any device. Without an account it lives on this phone only.',
+            [
+              { text: 'Not now', style: 'cancel', onPress: close },
+              { text: 'Sign in', onPress: () => router.replace('/auth') },
+            ],
+          );
+          return;
+        }
         close();
       }
     } catch (e) {

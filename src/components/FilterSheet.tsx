@@ -4,7 +4,6 @@ import Animated, { SlideInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { WordArrow } from './WordArrow';
-import { StageDirection } from './StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { SHEET_GROUPS, chipKey, chipText, type FilterChip, type Selection } from '../data/filters';
@@ -84,13 +83,30 @@ export function FilterSheet({
               const locked = Boolean(g.premium) && !isPaid;
               const firstPremium = g.premium && SHEET_GROUPS.find((x) => x.premium)?.group === g.group;
               return (
-                <View key={g.group} style={{ marginBottom: 22 }}>
+                <View key={g.group} style={{ marginBottom: 30 }}>
                   {/* A single quiet divider introduces the craft filters. */}
                   {firstPremium ? (
-                    <View style={{ height: 1, backgroundColor: c.border, marginBottom: 20, marginTop: -2 }} />
+                    <View style={{ height: 1, backgroundColor: c.border, marginBottom: 26, marginTop: -2 }} />
                   ) : null}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-                    <StageDirection>{g.title}</StageDirection>
+                  {/* The group label is the app talking, so it's Montserrat —
+                      and it has to be, because it used to be Courier italic
+                      lowercase in muted grey exactly like the chips beneath it.
+                      Same face, same case, same colour: nothing told your eye
+                      where a heading ended and its options began, which is what
+                      made the sheet tiring to scan. Typeface does the
+                      separating now, not size alone. */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+                    <Text
+                      style={{
+                        fontFamily: 'Montserrat_600SemiBold',
+                        fontSize: 11,
+                        letterSpacing: 2.6,
+                        textTransform: 'uppercase',
+                        color: c.mutedForeground,
+                      }}
+                    >
+                      {chipText(g.title)}
+                    </Text>
                     {locked ? <Ionicons name="lock-closed" size={12} color={glow} /> : null}
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
