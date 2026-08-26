@@ -13,12 +13,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/ee3938d8-8f0f-4a0d-bea1-2f717ef7f911",
-      "fallbackToCacheTimeout": 0,
-      "codeSigningCertificate": "./certs/certificate.pem",
-      "codeSigningMetadata": {
-        "keyid": "main",
-        "alg": "rsa-v1_5-sha256"
-      }
+      "fallbackToCacheTimeout": 0
     },
     "ios": {
       "supportsTablet": false,
