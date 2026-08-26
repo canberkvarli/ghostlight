@@ -321,15 +321,6 @@ export default function Read() {
               {gated ? monologue.excerpt : body}
             </Animated.Text>
 
-            {gated ? null : !monologue.fullText ? (
-              <Text
-                className="mt-8 text-[13px] italic"
-                style={{ fontFamily: 'CourierPrime_400Regular_Italic', color: colors.light.mutedForeground }}
-              >
-                (the rest arrives with the live text.)
-              </Text>
-            ) : null}
-
             {/* Kin at the foot of the page. Never behind the wall. */}
             {gated || !id ? null : <SimilarRow id={id} enabled />}
           </ScrollView>
