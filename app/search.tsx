@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { GhostLight } from '../src/components/GhostLight';
+import { GhostLight, ghostLightMetrics } from '../src/components/GhostLight';
 import { loadSearchHistory, pushSearchHistory } from '../src/lib/searchHistory';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -52,6 +52,13 @@ import { useTheme } from '../src/theme/ThemeContext';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Both lamps measured up front, so the layout can hold the taller one's room
+// and keep the glass at a fixed height whichever is showing.
+const LAMP_PAID = ghostLightMetrics(60, 'full');
+const LAMP_FREE = ghostLightMetrics(52, 'bare');
+const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
+const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
+
 /**
  * Three states, one chip: guest, free, subscribed.
  *
@@ -77,7 +84,10 @@ function StandingChip({
   // telling a subscriber they're a guest on every single launch, so it waits.
   if (loading) return null;
 
-  const label = isPaid ? 'in full' : isAuthenticated ? 'free' : 'guest';
+  // "in full" was a costume reference nobody outside this codebase could read.
+  // These are the three words an actor would actually use about their own
+  // account, and the chevron says the chip is a door rather than a badge.
+  const label = isPaid ? 'subscribed' : isAuthenticated ? 'free' : 'sign in';
   const lit = isPaid;
 
   return (
@@ -86,7 +96,7 @@ function StandingChip({
       hitSlop={10}
       accessibilityRole="button"
       accessibilityLabel={
-        isPaid ? 'Subscribed. Open account' : isAuthenticated ? 'Free account. Open account' : 'Not signed in. Open account'
+        isPaid ? 'Subscribed. Open account' : isAuthenticated ? 'Free account. Open account' : 'Sign in'
       }
       style={{
         flexDirection: 'row',
@@ -125,6 +135,12 @@ function StandingChip({
       >
         {label}
       </Text>
+      <Ionicons
+        name="chevron-forward"
+        size={11}
+        color={lit ? colors.stageGlow : c.chevron}
+        style={{ marginLeft: -1 }}
+      />
     </Pressable>
   );
 }
@@ -211,9 +227,12 @@ export default function Search() {
   // everything BELOW it: the chips and the refine link fade and drop away, since
   // half a row of filters disappearing under a keyboard is worse than no row at
   // all. They come straight back on blur with the choices intact.
+  // Opacity alone at 130ms was too subtle to register as a transition at all —
+  // things simply weren't there any more. A short drop and a slight shrink read
+  // as the row stepping back out of the light, and stay quick.
   const belowStyle = useAnimatedStyle(() => ({
     opacity: 1 - focus.value,
-    transform: [{ translateY: 10 * focus.value }],
+    transform: [{ translateY: 18 * focus.value }, { scale: 1 - 0.04 * focus.value }],
   }));
   const fieldStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(focus.value, [0, 1], [c.border, pal.glow]),
@@ -345,7 +364,10 @@ export default function Search() {
               isPaid={isPaid}
               isAuthenticated={isAuthenticated}
               loading={sessionLoading}
-              onPress={() => router.push('/account')}
+              // A chip reading "sign in" that opens a settings screen is a
+              // riddle. It goes where it says it goes; the other two states
+              // describe an account, so they open the account.
+              onPress={() => router.push(isAuthenticated ? '/account' : '/auth')}
             />
             <Pressable
               onPress={() => router.push('/saves')}
@@ -373,21 +395,30 @@ export default function Search() {
                 stage. Reuses the dressing the brand already has rather than
                 inventing a badge, and it's the first thing you see, so paying
                 visibly changed something. */}
-            <Pressable
-              onPress={onLampPress}
-              hitSlop={14}
-              accessibilityRole="image"
-              accessibilityLabel="The ghost light"
-            >
-              <GhostLight
-                size={isPaid ? 60 : 52}
-                dress={isPaid ? 'full' : 'bare'}
-                boost={bulbBoost}
-                glow={pal.glow}
-                glassStops={pal.glassStops}
-                neck={pal.neck}
-              />
-            </Pressable>
+            {/* The taller of the two lamps is reserved always, and the shorter
+                one is nudged down so its glass lands at the same height. Without
+                this, entitlement resolving swapped a 52pt bare bulb for a 60pt
+                standing lamp — 39.5pt taller, glass 10.7pt lower — so signing in
+                or out shoved the whole screen down and slid the bulb with it,
+                a beat or two after the screen had already settled. */}
+            <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
+              <Pressable
+                onPress={onLampPress}
+                hitSlop={14}
+                accessibilityRole="image"
+                accessibilityLabel="The ghost light"
+                style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}
+              >
+                <GhostLight
+                  size={isPaid ? 60 : 52}
+                  dress={isPaid ? 'full' : 'bare'}
+                  boost={bulbBoost}
+                  glow={pal.glow}
+                  glassStops={pal.glassStops}
+                  neck={pal.neck}
+                />
+              </Pressable>
+            </View>
 
             {/* Everything between the lamp and the field clears out of the way
                 when the field takes focus, so typing happens on a bare stage.
@@ -455,7 +486,13 @@ export default function Search() {
             {/* Recent searches. On device, free, text only. Hidden once there's
                 a query, since re-running what you're already typing is noise. */}
             {history.length > 0 && !query.trim() ? (
-              <View style={{ width: '100%', marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Animated.View
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[
+                  belowStyle,
+                  { width: '100%', marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+                ]}
+              >
                 {history.slice(0, 4).map((term) => (
                   <Pressable
                     key={term}
@@ -488,7 +525,7 @@ export default function Search() {
                     </Text>
                   </Pressable>
                 ))}
-              </View>
+              </Animated.View>
             ) : null}
 
             {/* Filters: a row of stage-direction chips. Lit = active, in the house colour. */}
@@ -570,15 +607,16 @@ export default function Search() {
               justifyContent: 'space-between',
             }}
           >
-            {/* The row is space-between, so an unbounded line on the left simply
-                took the width it wanted and shoved Search off the right edge —
-                which happened exactly when you'd just been told to try again and
-                needed the button most. It shrinks and clips instead now, and the
-                scolding line is short enough not to need to. */}
+            {/* The row is space-between, so an unbounded line on the left took
+                the width it wanted and shoved Search off the right edge —
+                exactly when you'd been told to try again and needed the button.
+                Clipping it instead only traded one ugly failure for another, so
+                the copy is now short enough to fit beside the button on the
+                narrowest phone. `flex: 1` is the backstop, not the plan. */}
             <View style={{ flex: 1, marginRight: 14 }}>
               <StageDirection numberOfLines={1} style={scolding ? { color: pal.glow } : undefined}>
                 {scolding
-                  ? '(give the light something.)'
+                  ? '(nothing to find.)'
                   : activeCount > 0
                     ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
                     : '(the whole stage.)'}

@@ -85,6 +85,68 @@ interface Props {
 
 const FLICKER_PERIOD = 7000;
 
+/**
+ * Every measurement of the lamp, from the glass width out.
+ *
+ * Lifted out of the component so a caller can ask how tall a lamp WOULD be
+ * without rendering one. The search screen needs that: it swaps a 52pt bare
+ * bulb for a 60pt standing lamp the moment entitlement resolves, and the two
+ * canvases differ by 39.5pt with the glass itself sitting 10.7pt lower — so
+ * signing in or out visibly shoved the screen down and slid the bulb with it.
+ * It can reserve the taller footprint up front now. One implementation, because
+ * two copies of this arithmetic would drift the first time a ratio changed.
+ */
+function lampBox(W: number, full: boolean) {
+  const scale = W / 262;
+  const H = 282 * scale; // glass height
+  const haloR = 1.2 * W;
+  const centerX = 1.3 * W; // canvas half-width (halo is widest at 2.4W)
+  const pad = 0.14 * W;
+  const glassCy = pad + haloR; // halo top ≈ pad
+  const glassTop = glassCy - H / 2;
+  const glassBottom = glassTop + H;
+  const glassLeft = centerX - W / 2;
+
+  // Stack below the glass (ratios of H), centred. Bare skips neck/collar/cap.
+  let y = glassBottom - 2 * scale;
+  const neckW = 0.418 * H, neckH = 0.092 * H;
+  const neckTop = y; if (full) y += neckH;
+  const collarW = 0.397 * H, collarH = 0.043 * H;
+  const collarTop = y; if (full) y += collarH;
+  const baseW = 0.369 * H, baseH = 0.305 * H;
+  const baseTop = y; y += baseH;
+  const capW = 0.184 * H, capH = 0.078 * H;
+  const capTop = y; if (full) y += capH;
+  const poleW = Math.max(1, 0.046 * H), poleH = 0.61 * H;
+  const poleTop = y; y += poleH;
+  const footW = 0.61 * H, footH = Math.max(1, 0.035 * H);
+  const footTop = y;
+  const floorW = 1.06 * H, floorH = 0.156 * H;
+  const floorCy = footTop + footH / 2;
+
+  const stackBottom = full ? floorCy + floorH / 2 : footTop + footH + 0.04 * W;
+
+  return {
+    centerX, glassCy, glassTop, glassLeft, haloR,
+    neckTop, neckW, neckH, collarTop, collarW, collarH,
+    baseTop, baseW, baseH, capTop, capW, capH,
+    poleTop, poleW, poleH, footTop, footW, footH,
+    floorCy, floorW, floorH,
+    canvasW: 2 * centerX,
+    canvasH: stackBottom + 0.1 * W,
+  };
+}
+
+/**
+ * How much room a lamp needs, and where its glass sits inside that room.
+ * Reserve `canvasH` and offset by the difference in `glassCy` to keep the bulb
+ * perfectly still while the fixture beneath it changes.
+ */
+export function ghostLightMetrics(size: number, dress: 'full' | 'bare') {
+  const { canvasH, canvasW, glassCy } = lampBox(size, dress === 'full');
+  return { canvasH, canvasW, glassCy };
+}
+
 function rgbTriplet(hex: string): string {
   const h = hex.replace('#', '');
   const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
@@ -137,48 +199,14 @@ export function GhostLight({
   const haloR = 1.2 * W;
 
   const g = useMemo(() => {
-    const centerX = 1.3 * W; // canvas half-width (halo is widest at 2.4W)
-    const pad = 0.14 * W;
-    const glassCy = pad + haloR; // halo top ≈ pad
-    const glassTop = glassCy - H / 2;
-    const glassBottom = glassTop + H;
-    const glassLeft = centerX - W / 2;
-
-    // Stack below the glass (ratios of H), centred. Bare skips neck/collar/cap.
-    let y = glassBottom - 2 * scale;
-    const neckW = 0.418 * H, neckH = 0.092 * H;
-    const neckTop = y; if (full) y += neckH;
-    const collarW = 0.397 * H, collarH = 0.043 * H;
-    const collarTop = y; if (full) y += collarH;
-    const baseW = 0.369 * H, baseH = 0.305 * H;
-    const baseTop = y; y += baseH;
-    const capW = 0.184 * H, capH = 0.078 * H;
-    const capTop = y; if (full) y += capH;
-    const poleW = Math.max(1, 0.046 * H), poleH = 0.61 * H;
-    const poleTop = y; y += poleH;
-    const footW = 0.61 * H, footH = Math.max(1, 0.035 * H);
-    const footTop = y;
-    const floorW = 1.06 * H, floorH = 0.156 * H;
-    const floorCy = footTop + footH / 2;
-
-    const stackBottom = full ? floorCy + floorH / 2 : footTop + footH + 0.04 * W;
-    const canvasW = 2 * centerX;
-    const canvasH = stackBottom + 0.1 * W;
-
+    const box = lampBox(W, full);
     const path = Skia.Path.MakeFromSVGString(GLASS_PATH)!;
     const m = Skia.Matrix();
-    m.translate(glassLeft, glassTop);
+    m.translate(box.glassLeft, box.glassTop);
     m.scale(scale, scale);
     path.transform(m);
-
-    return {
-      centerX, glassCy, glassTop, glassLeft, path,
-      neckTop, neckW, neckH, collarTop, collarW, collarH,
-      baseTop, baseW, baseH, capTop, capW, capH,
-      poleTop, poleW, poleH, footTop, footW, footH,
-      floorCy, floorW, floorH, canvasW, canvasH,
-    };
-  }, [W, H, scale, haloR, full]);
+    return { ...box, path };
+  }, [W, scale, full]);
 
   // The glass holds lit and dips on the flicker; the halo and floor rest below 1
   // and climb with the boost, so a surge is actually visible (opacity clamps at 1).
