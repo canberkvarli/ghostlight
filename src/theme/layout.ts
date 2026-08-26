@@ -13,7 +13,16 @@ export const CARD_GAP = 14;
 export const ROW_HEIGHT = CARD_HEIGHT + CARD_GAP;
 
 export const LIST_PADDING_TOP = 8;
-export const HEADER_HEIGHT = 224;
+/**
+ * Raised from 224. The lamp, the count and the stage direction were packed into
+ * the bottom of a short header and then sat almost on top of the first card, so
+ * the whole block read as one crowded lump. The extra 44pt is spent above the
+ * lamp and below the stage direction, not between the lines.
+ *
+ * This is not a cosmetic constant: `cardTop` and the scroll-spotlight reaction
+ * both offset by it, so it must match StageHeader's actual rendered height.
+ */
+export const HEADER_HEIGHT = 248;
 
 /** Top of a card in content coordinates. */
 export function cardTop(index: number): number {

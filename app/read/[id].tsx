@@ -23,7 +23,7 @@ import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
-import { getMonologue, getReadState } from '../../src/api/client';
+import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
 import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
@@ -35,6 +35,8 @@ import * as Clipboard from 'expo-clipboard';
 import { usePreventCaptureWhileFocused } from '../../src/hooks/usePreventCaptureWhileFocused';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/tokens';
+import { mediumPalette, type Medium, type MediumPalette } from '../../src/theme/medium';
+import { useEntitlement } from '../../src/hooks/useEntitlement';
 import { useTheme } from '../../src/theme/ThemeContext';
 
 /**
@@ -70,13 +72,28 @@ function curtainRise(_values: EntryAnimationsValues) {
   };
 }
 
+/** The typewriter's line box. The wall is placed a whole number of these down. */
+const LINE_HEIGHT = 27;
+/** How much of the part you get to read before the light goes off it. */
+const FREE_LINES = 4;
+
 export default function Read() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, medium: mediumParam } = useLocalSearchParams<{ id: string; medium?: string }>();
   const router = useRouter();
   const goBack = useGoBack('/search');
   const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();
   const { colors: c } = useTheme();
+
+  // Which house you came through. Results hands this over on the push; without
+  // it a Film & TV monologue opened in theatre amber, which made the toggle feel
+  // like it had been forgotten the moment you tapped something.
+  const medium: Medium = mediumParam === 'screen' ? 'screen' : 'theatre';
+  const pal = mediumPalette(medium, c.isLight);
+  // Anything drawn ON the card asks for the light-scheme palette regardless of
+  // the app's scheme, because the reading card is always warm paper — the violet
+  // that glows on near-black is far too pale to read on cream.
+  const ink = mediumPalette(medium, true);
 
   // Protect the words of the play. Android blocks screenshots + recording
   // outright (FLAG_SECURE); iOS can't block a still screenshot at the OS level,
@@ -118,6 +135,26 @@ export default function Read() {
 
   const [copied, setCopied] = useState(false);
 
+  // Where the words start inside the card, and how tall the card is. Both are
+  // measured rather than assumed, because the wall is placed relative to the
+  // text (four lines down) and has to leave room for the offer underneath.
+  const [textTop, setTextTop] = useState<number | null>(null);
+  const [cardH, setCardH] = useState(0);
+  /** Room the offer block needs at the foot of the card: lamp, two lines, button. */
+  const OFFER_HEIGHT = 292;
+  const wallTop =
+    textTop === null
+      ? 0
+      : Math.max(
+          textTop + LINE_HEIGHT,
+          Math.min(
+            textTop + LINE_HEIGHT * FREE_LINES,
+            // On a short excerpt or a small phone the wall comes UP to meet the
+            // offer rather than letting it slide off the bottom of the card.
+            (cardH || height * 0.72) - OFFER_HEIGHT,
+          ),
+        );
+
   // The title settles up into place from the card's size — a soft matched
   // hand-off, eased not sprung, so nothing bounces. Origin is the left edge so
   // it grows from where the card title sat, not from its centre.
@@ -136,16 +173,19 @@ export default function Read() {
   // owns the count (src/lib/reads.ts). If we can't reach it — no session yet,
   // anon sign-ins still off — we don't gate: reading never breaks on a missing
   // counter, the wall just doesn't fire until the backend is live.
-  const { data: wall } = useQuery({
-    queryKey: ['read-wall'],
-    queryFn: ({ signal }) => getReadState(signal),
-    retry: false,
-    staleTime: 15_000,
-  });
+  const { isPaid, atWall, settled } = useEntitlement();
   // Server-authoritative first: if the API withheld the text (paywalled), we're
   // walled no matter what the client thinks. Fall back to the usage counter for
   // fixtures and offline, which carry no server flag.
-  const gated = monologue?.paywalled === true || wall?.atWall === true;
+  const gated = monologue?.paywalled === true || (settled && atWall);
+
+  // Do we yet KNOW whether this is walled? This gap is why the whole monologue
+  // flashed up for a beat on the very first open: `atWall` is undefined until
+  // the counter comes back, undefined isn't true, so the text rendered unwalled
+  // and the shroud dropped on top of it a moment later. You could read the
+  // ending of a piece you hadn't paid for by opening it and looking quickly.
+  // Now the words wait until the answer is in.
+  const wallKnown = monologue?.paywalled !== undefined || settled;
 
   const onSave = () => {
     if (!monologue) return;
@@ -156,7 +196,9 @@ export default function Read() {
       return;
     }
     const willSave = !favorited;
-    toggleFavorite.mutate({ id: monologue.id, on: willSave });
+    // Handing the row over lets the cache paint the save without waiting for the
+    // POST, which is what made this button feel dead (see useToggleFavorite).
+    toggleFavorite.mutate({ id: monologue.id, on: willSave, item: monologue });
     // Mirror to the offline shelf so a saved piece reads without signal.
     if (willSave) void saveOffline(monologue);
     else void removeOffline(monologue.id);
@@ -164,7 +206,6 @@ export default function Read() {
 
   // Copying the words is a subscriber privilege — the free tier reads on the
   // stage, it doesn't walk off with the script. Non-subscribers meet the wall.
-  const isPaid = wall?.is_paid === true;
   const onCopy = async () => {
     if (!monologue) return;
     if (!isPaid) {
@@ -179,14 +220,16 @@ export default function Read() {
   };
 
   useEffect(() => {
-    // Spend a read only when one is actually being read — never behind the wall.
-    if (monologue && !gated) void recordRead(monologue.id);
-  }, [monologue, gated]);
+    // Spend a read only when one is actually being read — never behind the wall,
+    // and never before we know whether there IS a wall. Without `wallKnown` the
+    // first open of a walled piece spent a read it then refused to show.
+    if (monologue && wallKnown && !gated) void recordRead(monologue.id);
+  }, [monologue, gated, wallKnown]);
 
   if (isLoading && !monologue) {
     return (
-      <StageShell onBack={goBack}>
-        <GhostLight size={18} />
+      <StageShell onBack={goBack} pal={pal}>
+        <GhostLight size={18} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
         <StageDirection className="mt-6">(finding the page…)</StageDirection>
       </StageShell>
     );
@@ -194,8 +237,8 @@ export default function Read() {
 
   if (!monologue) {
     return (
-      <StageShell onBack={goBack}>
-        <GhostLight size={28} />
+      <StageShell onBack={goBack} pal={pal}>
+        <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
         {isError ? (
           <>
             <StageDirection className="mt-6">(this one's behind the stage door.)</StageDirection>
@@ -216,7 +259,7 @@ export default function Read() {
   const body = monologue.fullText ?? monologue.excerpt;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.background }}>
+    <View style={{ flex: 1, backgroundColor: pal.background ?? c.background }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* On the dark shell: the eyebrow (centred), the way back, and the tools. */}
         <View style={{ height: 48, justifyContent: 'center', paddingHorizontal: 20 }}>
@@ -246,14 +289,14 @@ export default function Read() {
                 <Ionicons
                   name={copied ? 'checkmark' : 'copy-outline'}
                   size={21}
-                  color={copied ? colors.stageGlow : c.mutedForeground}
+                  color={copied ? pal.glow : c.mutedForeground}
                 />
               </Pressable>
               <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
                 <Ionicons
                   name={favorited ? 'bookmark' : 'bookmark-outline'}
                   size={22}
-                  color={favorited ? colors.stageGlow : c.mutedForeground}
+                  color={favorited ? pal.glow : c.mutedForeground}
                 />
               </Pressable>
             </View>
@@ -263,6 +306,7 @@ export default function Read() {
         {/* The paper rises into the light. */}
         <Animated.View
           entering={reduceMotion ? undefined : curtainRise}
+          onLayout={(e) => setCardH(Math.round(e.nativeEvent.layout.height))}
           style={{
             flex: 1,
             marginHorizontal: 16,
@@ -273,13 +317,13 @@ export default function Read() {
           }}
         >
           <ScrollView
-            contentContainerStyle={{ padding: 28, paddingBottom: gated ? 220 : 56 }}
+            contentContainerStyle={{ padding: 28, paddingBottom: gated ? 32 : 56 }}
             showsVerticalScrollIndicator={false}
             scrollEnabled={!gated}
           >
             <Text
               className="text-[13px] uppercase tracking-[1.6px]"
-              style={{ fontFamily: 'Montserrat_600SemiBold', color: colors.primary }}
+              style={{ fontFamily: 'Montserrat_600SemiBold', color: ink.accent }}
             >
               {monologue.character}
             </Text>
@@ -308,18 +352,31 @@ export default function Read() {
             />
 
             {/* The words of the play, in the typewriter, dark ink on warm paper.
-                (Memorize mode is deferred to v2.) */}
-            <Animated.Text
-              entering={FadeIn.delay(220).duration(600)}
-              className="text-[16px]"
-              style={{
-                fontFamily: 'CourierPrime_400Regular',
-                color: colors.light.foreground,
-                lineHeight: 27,
-              }}
-            >
-              {gated ? monologue.excerpt : body}
-            </Animated.Text>
+                (Memorize mode is deferred to v2.)
+
+                `onLayout` is how the wall knows where line five begins: the y it
+                reports is this block's top inside the card, and the shroud is
+                pinned four line-boxes below it. Everything about the old fixed
+                "56% of the window" placement was a guess that a tall phone got
+                wrong in one direction and a small one in the other. */}
+            {wallKnown ? (
+              <Animated.Text
+                onLayout={(e) => setTextTop(e.nativeEvent.layout.y)}
+                entering={FadeIn.duration(500)}
+                className="text-[16px]"
+                style={{
+                  fontFamily: 'CourierPrime_400Regular',
+                  color: colors.light.foreground,
+                  lineHeight: LINE_HEIGHT,
+                }}
+              >
+                {gated ? monologue.excerpt : body}
+              </Animated.Text>
+            ) : (
+              // Holds the scroll steady while we find out, so the page doesn't
+              // jump when the words arrive.
+              <View style={{ height: LINE_HEIGHT * FREE_LINES }} />
+            )}
 
             {/* Kin at the foot of the page. Never behind the wall. */}
             {gated || !id ? null : <SimilarRow id={id} enabled />}
@@ -328,15 +385,18 @@ export default function Read() {
           {/* A folded corner, so the page reads as paper. Hidden behind the wall. */}
           {gated ? null : <PageCurl />}
 
-          {/* The wall: they've seen it is genuinely their part; now the light
-              dims on the rest and the bulb comes back carrying the offer. */}
-          {gated ? (
+          {/* The wall. Four lines stay lit — enough to hear the voice and know
+              whether it's yours — and then the page goes out of focus and the
+              offer sits on the same sheet of paper. It used to ramp to stage
+              black and cover the bottom half of the screen whatever was there,
+              which is the "too rigid" of it: a shutter, not a dimmer. */}
+          {gated && textTop !== null ? (
             <Animated.View
-              entering={FadeIn.delay(400).duration(700)}
-              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height * 0.56 }}
+              entering={FadeIn.delay(260).duration(600)}
+              style={{ position: 'absolute', left: 0, right: 0, top: wallTop, bottom: 0 }}
               pointerEvents="box-none"
             >
-              <PaywallShroud width={width - 32} height={height * 0.56} />
+              <PaywallShroud width={width - 32} height={Math.max(0, height - wallTop)} />
               <View
                 style={{
                   position: 'absolute',
@@ -345,26 +405,63 @@ export default function Read() {
                   bottom: 0,
                   alignItems: 'center',
                   paddingHorizontal: 28,
-                  paddingBottom: 28,
+                  paddingBottom: 30,
                 }}
               >
-                <GhostLight size={16} />
-                <StageDirection className="mt-4">(three reads were the trial.)</StageDirection>
+                <GhostLight
+                  size={17}
+                  glow={ink.glow}
+                  glassStops={ink.glassStops}
+                  neck={ink.neck}
+                />
+                <Text
+                  style={{
+                    marginTop: 14,
+                    fontFamily: 'PlayfairDisplay_600SemiBold',
+                    fontSize: 23,
+                    lineHeight: 29,
+                    textAlign: 'center',
+                    color: colors.light.foreground,
+                  }}
+                >
+                  The rest of it{'\n'}is waiting.
+                </Text>
+                <Text
+                  style={{
+                    marginTop: 9,
+                    fontFamily: 'CourierPrime_400Regular_Italic',
+                    fontSize: 13,
+                    letterSpacing: 0.4,
+                    textAlign: 'center',
+                    color: colors.light.mutedForeground,
+                  }}
+                >
+                  (three reads were the trial.)
+                </Text>
                 <Pressable
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                     router.push('/paywall');
                   }}
                   accessibilityRole="button"
-                  style={{
-                    marginTop: 16,
+                  accessibilityLabel="Unlock every monologue"
+                  style={({ pressed }) => ({
+                    marginTop: 20,
                     alignSelf: 'stretch',
-                    height: 52,
+                    height: 54,
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderRadius: 16,
-                    backgroundColor: colors.primary,
-                  }}
+                    backgroundColor: ink.accent,
+                    // The card is paper in both schemes, so the button is
+                    // pinned to the paper palette rather than the app's —
+                    // a lift and a coloured shadow, not a scheme-dependent fill.
+                    shadowColor: ink.accent,
+                    shadowOpacity: pressed ? 0.18 : 0.34,
+                    shadowRadius: pressed ? 8 : 16,
+                    shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+                    transform: [{ scale: pressed ? 0.985 : 1 }],
+                  })}
                 >
                   <Text
                     className="text-[15px] uppercase tracking-[2px] text-white"
@@ -373,6 +470,16 @@ export default function Read() {
                     Unlock every monologue
                   </Text>
                 </Pressable>
+                <Text
+                  style={{
+                    marginTop: 12,
+                    fontFamily: 'Montserrat_400Regular',
+                    fontSize: 12,
+                    color: colors.light.mutedForeground,
+                  }}
+                >
+                  Saving stays free.
+                </Text>
               </View>
             </Animated.View>
           ) : null}
@@ -390,12 +497,20 @@ export default function Read() {
  * keep the backdrop and, crucially, a way back. No screen in the app should
  * ever be a dead end.
  */
-function StageShell({ onBack, children }: { onBack: () => void; children: React.ReactNode }) {
+function StageShell({
+  onBack,
+  pal,
+  children,
+}: {
+  onBack: () => void;
+  pal?: MediumPalette;
+  children: React.ReactNode;
+}) {
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
   return (
     <View style={{ flex: 1 }}>
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal?.glow} background={pal?.background} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, justifyContent: 'center', paddingHorizontal: 20 }}>
           <Pressable onPress={onBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back">

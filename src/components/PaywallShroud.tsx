@@ -2,29 +2,43 @@ import { StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
+import { colors } from '../theme/tokens';
+
 /**
- * The wall (spec §5, Step 7). The lit lines stay legible at the top; below the
- * fold the warm paper falls into stage shadow, so the actor can see it is
- * genuinely their part before the light dims on the rest.
+ * The wall (spec §5, Step 7) — the page going soft, not a shutter coming down.
  *
- * Originally a pure gradient — the spec said "not a blur" — but a fade alone
- * left the first few walled lines readable if you tilted the screen, which is
- * both a worse tease and a worse wall. So there are two layers now:
+ * The first version ramped the paper into stage black, so a light-mode reader
+ * got a hard dark slab dropped into the middle of a cream card, three quarters
+ * of the way up the screen. It read as a modal that had failed to open. It was
+ * also anchored to a fixed fraction of the *window*, so where it landed in the
+ * text was down to how tall your phone is.
  *
- *   1. A real blur, so the walled text is genuinely unresolvable rather than
- *      merely dim. It starts 10% down instead of at the top edge: a blur that
- *      began at y=0 would cut a hard focus seam straight across the last lit
- *      line. By 10% the gradient is already ~37% opaque and swallows the edge.
- *   2. The gradient on top, ramping faster than it used to, carrying the paper
- *      into the card's shadow and then the stage floor.
+ * Now it starts at a known line (the read screen measures four lines down and
+ * puts this there) and fades the paper into itself: the words go out of focus
+ * and then out of existence, and the card stays one continuous piece of paper
+ * that the offer sits on. Nothing to be dark in either scheme.
+ *
+ * Two stacked blurs rather than one, offset by 30pt: a single BlurView has a
+ * uniform radius, so wherever it begins there is a visible focus seam straight
+ * across the line beneath it. Stepping them lets the gradient swallow the first
+ * edge before the strong blur starts.
  */
+const PAPER = colors.light.background;
+
+function paperAlpha(a: number): string {
+  const h = PAPER.replace('#', '');
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
 export function PaywallShroud({ width, height }: { width: number; height: number }) {
   return (
     <View style={[StyleSheet.absoluteFill, { width, height }]} pointerEvents="none">
+      <BlurView intensity={16} tint="light" style={StyleSheet.absoluteFill} />
       <BlurView
-        intensity={38}
+        intensity={46}
         tint="light"
-        style={{ position: 'absolute', top: height * 0.1, left: 0, right: 0, bottom: 0 }}
+        style={{ position: 'absolute', top: 30, left: 0, right: 0, bottom: 0 }}
       />
       <Canvas style={[StyleSheet.absoluteFill, { width, height }]} pointerEvents="none">
         <Rect x={0} y={0} width={width} height={height}>
@@ -32,12 +46,13 @@ export function PaywallShroud({ width, height }: { width: number; height: number
             start={vec(0, 0)}
             end={vec(0, height)}
             colors={[
-              'rgba(248, 244, 240, 0)',
-              'rgba(248, 244, 240, 0.9)',
-              'rgba(29, 20, 15, 0.96)',
-              '#130b08',
+              paperAlpha(0),
+              paperAlpha(0.45),
+              paperAlpha(0.88),
+              paperAlpha(1),
+              paperAlpha(1),
             ]}
-            positions={[0, 0.16, 0.55, 1]}
+            positions={[0, 0.14, 0.34, 0.5, 1]}
           />
         </Rect>
       </Canvas>

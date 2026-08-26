@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { LogBox } from 'react-native';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -108,7 +108,25 @@ function Shell() {
   // Mounted here so the offline gate tracks entitlement app-wide, including
   // when a session ends on a screen that never asks about the paywall itself.
   useEntitlement();
+
+  /**
+   * The navigator's own container colour, and the reason you could see white in
+   * the corners on every push.
+   *
+   * `contentStyle` below paints the *screen*, but during a transition iOS rounds
+   * the corners of the moving card and slides it, and for those few hundred
+   * milliseconds what shows through underneath is the navigation container's
+   * background — which comes from React Navigation's theme, not from ours. The
+   * default is `rgb(242, 242, 242)`, near-white, so a dark app flashed pale
+   * behind every screen change. Feed it the stage colour instead.
+   */
+  const navTheme = useMemo(() => {
+    const base = c.isLight ? DefaultTheme : DarkTheme;
+    return { ...base, colors: { ...base.colors, background: c.background, card: c.background } };
+  }, [c.isLight, c.background]);
+
   return (
+    <NavThemeProvider value={navTheme}>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.background }}>
       {/* This was hardcoded `light` on the claim that the stage is always
           warm-dark. It isn't: StageBackdrop falls back to the theme background,
@@ -136,5 +154,6 @@ function Shell() {
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
       <LaunchOverlay />
     </GestureHandlerRootView>
+    </NavThemeProvider>
   );
 }

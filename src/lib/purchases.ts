@@ -1,4 +1,9 @@
-import Purchases, { LOG_LEVEL, type PurchasesOffering, type PurchasesPackage } from 'react-native-purchases';
+import Purchases, {
+  LOG_LEVEL,
+  type CustomerInfo,
+  type PurchasesOffering,
+  type PurchasesPackage,
+} from 'react-native-purchases';
 
 import { supabase } from './supabase';
 
@@ -84,6 +89,35 @@ export async function hasMonologuesEntitlement(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Watch the device's own entitlement.
+ *
+ * The server is the source of truth, but it learns about a purchase from a
+ * webhook, and that round trip takes seconds it doesn't promise. In the gap the
+ * API still answers `is_paid: false`, so the app was showing "every monologue,
+ * unlimited" the instant the sheet closed and then flipping back to "your free
+ * reads are spent" when the next poll landed. Paying and watching the app take
+ * it away again is the worst thirty seconds we could hand a new subscriber.
+ *
+ * RevenueCat's local customer info knows immediately and survives relaunch, so
+ * useEntitlement ORs the two: server OR receipt. No latch, no lie — both are
+ * real answers, and the local one is simply earlier.
+ */
+export function onCustomerInfoUpdate(cb: (active: boolean) => void): () => void {
+  if (!configured) return () => {};
+  const handler = (info: CustomerInfo) => {
+    cb(info.entitlements.active[ENTITLEMENT_ID] !== undefined);
+  };
+  Purchases.addCustomerInfoUpdateListener(handler);
+  return () => {
+    try {
+      Purchases.removeCustomerInfoUpdateListener(handler);
+    } catch {
+      // Older SDK builds don't expose the remover; the listener is harmless.
+    }
+  };
 }
 
 export async function purchase(pkg: PurchasesPackage): Promise<boolean> {

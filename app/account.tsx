@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import type { Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,7 +26,8 @@ import type { ReadState } from '../src/api/client';
 import { useSession } from '../src/lib/useSession';
 import { useGoBack } from '../src/lib/nav';
 import { supabase } from '../src/lib/supabase';
-import { deleteAccount, getReadState } from '../src/api/client';
+import { deleteAccount } from '../src/api/client';
+import { useEntitlement } from '../src/hooks/useEntitlement';
 import { restore } from '../src/lib/purchases';
 import { colors } from '../src/theme/tokens';
 import { useTheme, type ThemeMode } from '../src/theme/ThemeContext';
@@ -64,12 +65,11 @@ export default function Account() {
   const { session, isAuthenticated } = useSession();
   const [busy, setBusy] = useState<null | 'restore' | 'signout' | 'delete'>(null);
 
-  const { data: readState } = useQuery({
-    queryKey: ['read-wall'],
-    queryFn: ({ signal }) => getReadState(signal),
-    retry: false,
-    staleTime: 15_000,
-  });
+  // Not a raw ['read-wall'] read: the server learns about a purchase from a
+  // webhook, so for the first seconds after paying it still answers is_paid:
+  // false. useEntitlement ORs in the device's own receipt, which is why this
+  // card no longer says "unlimited" and then takes it back.
+  const { wall: readState, isPaid } = useEntitlement();
   const { data: saved } = useFavorites(isAuthenticated);
 
   const name = firstName(session?.user.email);
@@ -147,7 +147,7 @@ export default function Account() {
   // wanted to check what they're on. Show their status first; managing (and
   // therefore cancelling) stays available, just not as the default action.
   const onSubscription = () => {
-    if (!readState?.is_paid) {
+    if (!isPaid) {
       router.push('/paywall');
       return;
     }
@@ -193,7 +193,16 @@ export default function Account() {
           <StageDirection className="mt-1">(the light's still on.)</StageDirection>
 
           <View style={{ marginTop: 22 }}>
-            <PlanCard readState={readState} onStay={() => router.push('/paywall')} />
+            <PlanCard readState={readState} paid={isPaid} onStay={() => router.push('/paywall')} />
+          </View>
+
+          {/* Who you're signed in as. This was the one question the screen
+              couldn't answer: Sign in with Apple often hands back a relay
+              address you've never seen, so "am I even signed in, and as whom?"
+              had no answer anywhere in the app — which is exactly the doubt
+              someone has when they've paid and the app still looks locked. */}
+          <View style={{ marginTop: 12 }}>
+            <IdentityCard session={session} isAuthenticated={isAuthenticated} />
           </View>
 
           {/* Two stat tiles — kept and read. */}
@@ -232,11 +241,18 @@ export default function Account() {
  * Playfair line, three filament bars, and the action. Honest — driven by the
  * server counter, never a hardcoded "two days left".
  */
-function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => void }) {
+function PlanCard({
+  readState,
+  paid,
+  onStay,
+}: {
+  readState?: ReadState;
+  paid: boolean;
+  onStay: () => void;
+}) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
-  const loaded = readState !== undefined;
-  const paid = readState?.is_paid === true;
+  const loaded = readState !== undefined || paid;
 
   const limit = readState && readState.reads_limit > 0 ? readState.reads_limit : 3;
   const used = Math.min(readState?.reads_used ?? 0, limit);
@@ -256,13 +272,20 @@ function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => 
   const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value }));
 
   const eyebrow = !loaded ? '' : paid ? 'THE WHOLE STAGE' : 'FREE';
+  // "3 of 3 reads left" is a strange thing to tell someone who has not read
+  // anything yet — it reads like a countdown that has already started, and the
+  // three filament bars below already say "of three". So an untouched account
+  // gets an invitation, a part-spent one gets the plain remainder, and only the
+  // empty one gets told it's empty.
   const headline = !loaded
     ? 'Your stage.'
     : paid
       ? 'Every monologue,\nunlimited.'
-      : left > 0
-        ? `${left} of ${limit} reads\nleft.`
-        : 'Your free reads\nare spent.';
+      : used === 0
+        ? `${limit} reads,\non the house.`
+        : left > 0
+          ? `${left} read${left === 1 ? '' : 's'}\nleft.`
+          : 'Your free reads\nare spent.';
 
   return (
     <View
@@ -322,6 +345,91 @@ function PlanCard({ readState, onStay }: { readState?: ReadState; onStay: () => 
           <WordArrow label="Stay on" onPress={onStay} />
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** How the session was actually established, in words an actor would use. */
+function providerLabel(session: Session | null): string | null {
+  if (!session) return null;
+  const ids = session.user.identities ?? [];
+  const provider =
+    ids.find((i) => i.provider !== 'anonymous')?.provider ??
+    (session.user.app_metadata?.provider as string | undefined);
+  switch (provider) {
+    case 'apple':
+      return 'Signed in with Apple';
+    case 'google':
+      return 'Signed in with Google';
+    case 'email':
+      return 'Signed in with email';
+    default:
+      return provider ? `Signed in with ${provider}` : null;
+  }
+}
+
+/**
+ * The who-am-I card. Apple's private relay means the address on the account is
+ * frequently one the actor has never typed and won't recognise, so the provider
+ * line matters more than the address does — "Signed in with Apple" is the fact
+ * they can act on when a purchase looks like it went to the wrong place.
+ */
+function IdentityCard({
+  session,
+  isAuthenticated,
+}: {
+  session: Session | null;
+  isAuthenticated: boolean;
+}) {
+  const { colors: c } = useTheme();
+  const email = session?.user.email ?? null;
+  const provider = providerLabel(session);
+  const relay = Boolean(email?.endsWith('@privaterelay.appleid.com'));
+
+  return (
+    <View
+      style={{
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: colors.dark.cardBorder,
+        backgroundColor: c.card,
+        paddingVertical: 16,
+        paddingHorizontal: 18,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 13,
+      }}
+    >
+      <Ionicons
+        name={isAuthenticated ? 'person-circle-outline' : 'ellipse-outline'}
+        size={26}
+        color={isAuthenticated ? colors.stageGlow : c.mutedForeground}
+      />
+      <View style={{ flex: 1 }}>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: 'Montserrat_500Medium', fontSize: 14, color: c.foreground }}
+        >
+          {isAuthenticated ? (email ?? 'Signed in') : 'Not signed in'}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            marginTop: 3,
+            fontFamily: 'CourierPrime_400Regular_Italic',
+            fontSize: 12,
+            color: c.mutedForeground,
+          }}
+        >
+          {isAuthenticated
+            ? relay
+              ? '(apple relay address. mail still reaches you.)'
+              : provider
+                ? `(${provider.toLowerCase()}.)`
+                : '(signed in.)'
+            : '(reading as a guest. saves need an account.)'}
+        </Text>
+      </View>
     </View>
   );
 }

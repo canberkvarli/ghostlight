@@ -21,8 +21,7 @@ import { useStageMotion } from '../src/hooks/useStageMotion';
 import { WordArrow } from '../src/components/WordArrow';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
-import { useQuery } from '@tanstack/react-query';
-import { getReadState } from '../src/api/client';
+import { useEntitlement } from '../src/hooks/useEntitlement';
 import {
   FILTER_CHIPS,
   EMPTY_SELECTION,
@@ -68,13 +67,7 @@ export default function Search() {
   // Everyone can open the sheet and use the free identity/length filters; the
   // craft filters inside (tone, emotion, freshness) route to the paywall for
   // free actors. isPaid comes from the server read counter.
-  const { data: wall } = useQuery({
-    queryKey: ['read-wall'],
-    queryFn: ({ signal }) => getReadState(signal),
-    retry: false,
-    staleTime: 15_000,
-  });
-  const isPaid = wall?.is_paid === true;
+  const { isPaid } = useEntitlement();
   const advanced = advancedCount(selected);
 
   const openMoreFilters = useCallback(() => {
@@ -157,7 +150,47 @@ export default function Search() {
     }));
   }, []);
 
+  // The empty-handed search. A query with nothing in it and no chips lit used to
+  // sail through and land on a results screen that had no idea what it was
+  // showing — so the lamp blows instead: a hard blackout, two failed strikes,
+  // then it catches again, while the field shivers. The stage direction below
+  // says what to do about it and then goes quiet on its own.
+  const shake = useSharedValue(0);
+  const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
+  const [scolding, setScolding] = useState(false);
+
+  const blow = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    shake.value = withSequence(
+      withTiming(-9, { duration: 55 }),
+      withTiming(8, { duration: 55 }),
+      withTiming(-6, { duration: 50 }),
+      withTiming(4, { duration: 50 }),
+      withTiming(0, { duration: 60 }),
+    );
+    bulbBoost.value = withSequence(
+      withTiming(1, { duration: 60 }),
+      withTiming(-1, { duration: 90 }),
+      withTiming(-0.85, { duration: 220 }),
+      withTiming(-0.4, { duration: 70 }),
+      withTiming(-0.9, { duration: 90 }),
+      withTiming(0.4, { duration: 140 }),
+      withTiming(0, { duration: 420 }),
+    );
+    setScolding(true);
+    setTimeout(() => setScolding(false), 2600);
+  }, [shake, bulbBoost]);
+
+  const activeCount = useMemo(
+    () => Object.values(selected).filter(Boolean).length,
+    [selected],
+  );
+
   const submit = useCallback(() => {
+    if (!query.trim() && activeCount === 0) {
+      blow();
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
     bulbBoost.value = withSequence(
       withTiming(0.95, { duration: 90 }),
@@ -177,7 +210,7 @@ export default function Search() {
         ),
       },
     });
-  }, [query, selected, medium, router, bulbBoost]);
+  }, [query, selected, medium, router, bulbBoost, activeCount, blow]);
 
   const runRecent = useCallback(
     (term: string) => {
@@ -189,10 +222,18 @@ export default function Search() {
     [medium, router],
   );
 
-  const activeCount = useMemo(
-    () => Object.values(selected).filter(Boolean).length,
-    [selected],
-  );
+  // The lamp is the one thing on this screen that always had an answer and no
+  // way to be asked. Tapping it skips the query entirely and walks straight out
+  // onto the lineup — the ghost light showing you what's on tonight.
+  const onLampPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    bulbBoost.value = withSequence(
+      withTiming(0.2, { duration: 60 }),
+      withTiming(1, { duration: 130 }),
+      withTiming(0, { duration: 560 }),
+    );
+    router.push({ pathname: '/results', params: { medium } });
+  }, [bulbBoost, router, medium]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -228,14 +269,22 @@ export default function Search() {
                 stage. Reuses the dressing the brand already has rather than
                 inventing a badge, and it's the first thing you see, so paying
                 visibly changed something. */}
-            <GhostLight
-              size={isPaid ? 60 : 52}
-              dress={isPaid ? 'full' : 'bare'}
-              boost={bulbBoost}
-              glow={pal.glow}
-              glassStops={pal.glassStops}
-              neck={pal.neck}
-            />
+            <Pressable
+              onPress={onLampPress}
+              hitSlop={14}
+              accessibilityRole="button"
+              accessibilityLabel="What's on tonight"
+              accessibilityHint="Opens the lineup without a search"
+            >
+              <GhostLight
+                size={isPaid ? 60 : 52}
+                dress={isPaid ? 'full' : 'bare'}
+                boost={bulbBoost}
+                glow={pal.glow}
+                glassStops={pal.glassStops}
+                neck={pal.neck}
+              />
+            </Pressable>
 
             {/* Everything between the lamp and the field clears out of the way
                 when the field takes focus, so typing happens on a bare stage.
@@ -273,6 +322,7 @@ export default function Search() {
             <Animated.View
               style={[
                 fieldStyle,
+                shakeStyle,
                 {
                   marginTop: 22,
                   width: '100%',
@@ -418,10 +468,12 @@ export default function Search() {
               justifyContent: 'space-between',
             }}
           >
-            <StageDirection>
-              {activeCount > 0
-                ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
-                : '(the whole stage.)'}
+            <StageDirection style={scolding ? { color: pal.glow } : undefined}>
+              {scolding
+                ? '(give the light something to find.)'
+                : activeCount > 0
+                  ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
+                  : '(tap the lamp for tonight.)'}
             </StageDirection>
             <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
           </View>

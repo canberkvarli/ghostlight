@@ -66,6 +66,9 @@ const AnimatedFlashList = Animated.createAnimatedComponent(
   FlashList as React.ComponentType<FlashListProps<Monologue>>,
 );
 
+/** How many cards a page of results is. See `shown` in Results. */
+const PAGE = 20;
+
 export default function Results() {
   const { height } = useWindowDimensions();
   const router = useRouter();
@@ -143,12 +146,21 @@ export default function Results() {
   // which is "To be, or not to be". A failed search looked like a good one, so
   // the failure was invisible and the results were nonsense. A search that
   // fails must say so; only discover may fall back to something pretty.
-  const data = screenMode
+  const all = screenMode
     ? (screenData ?? [])
     : hasIntent
       ? (live?.monologues ?? [])
       : (discoverLive && discoverLive.length ? discoverLive : MONOLOGUES);
-  const count = data.length;
+
+  // Sixty cards is not a shortlist, it's a phone book, and nobody scrolls one
+  // looking for a monologue. Show a castable twenty and let the rest be asked
+  // for. `shown` only ever grows, and resetting it when the query changes is
+  // what stops a new search inheriting the last one's expanded page.
+  const [shown, setShown] = useState(PAGE);
+  useEffect(() => setShown(PAGE), [params, medium]);
+  const data = useMemo(() => all.slice(0, shown), [all, shown]);
+  const more = Math.max(0, all.length - data.length);
+  const count = all.length;
   const searching = screenMode ? screenLoading : hasIntent && isLoading;
   const searchFailed = screenMode ? Boolean(screenError) : hasIntent && isError;
   // A search that genuinely found nothing — offer to request it. Note this is
@@ -170,14 +182,16 @@ export default function Results() {
     () => {
       const focus = scrollY.value + height * FOCUS_POINT - HEADER_HEIGHT - LIST_PADDING_TOP;
       const index = Math.round((focus - CARD_HEIGHT / 2) / ROW_HEIGHT);
-      return Math.min(count - 1, Math.max(0, index));
+      // Clamped to what's actually on screen, not to how many were found —
+      // otherwise the light keeps "moving" past the last rendered card.
+      return Math.min(data.length - 1, Math.max(0, index));
     },
     (current, previous) => {
       if (previous !== null && current !== previous && !reduceMotion) {
         runOnJS(tick)();
       }
     },
-    [height, reduceMotion, count],
+    [height, reduceMotion, data.length],
   );
 
   const renderItem = useCallback(
@@ -190,10 +204,14 @@ export default function Results() {
         reduceMotion={reduceMotion}
         accent={pal.glow}
         litBorder={pal.litBorder}
-        onPress={() => router.push(`/read/${item.id}`)}
+        // The house travels with the card. Without this the read screen had no
+        // idea which toggle you came through and painted every Film & TV piece
+        // in theatre amber, so tapping a violet result dropped you into an
+        // orange room.
+        onPress={() => router.push({ pathname: '/read/[id]', params: { id: item.id, medium } })}
       />
     ),
-    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder],
+    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder, medium],
   );
 
   const header = useMemo(
@@ -201,6 +219,21 @@ export default function Results() {
       <StageHeader count={count} query={params.q ?? null} medium={medium} />
     ),
     [count, params.q, medium],
+  );
+
+  const footer = useMemo(
+    () =>
+      more > 0 ? (
+        <MoreRow
+          more={more}
+          pal={pal}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+            setShown((n) => n + PAGE);
+          }}
+        />
+      ) : null,
+    [more, pal],
   );
 
   return (
@@ -245,6 +278,7 @@ export default function Results() {
               paddingBottom: 96,
             }}
             ListHeaderComponent={header}
+            ListFooterComponent={footer}
             ListEmptyComponent={EmptyStage}
           />
         )}
@@ -272,16 +306,20 @@ function StageHeader({
   // behind it. So the screen showed results and claimed you weren't signed in,
   // at the same time. Failures now own the whole screen (SearchFailedStage) and
   // the header only ever describes what's actually on it.
+  // The lamp sits high and the block breathes: it used to be bottom-aligned with
+  // a 28pt tail, which pinned the stage direction to the first card and pushed
+  // the lamp down into the count. Now the lamp hangs near the top, where a ghost
+  // light actually hangs, and there is real air under the direction line.
   return (
-    <View style={{ height: HEADER_HEIGHT, alignItems: 'center', justifyContent: 'flex-end' }} className="pb-7">
+    <View style={{ height: HEADER_HEIGHT, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 14 }}>
       <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
       <Text
-        className="mt-5 text-foreground"
-        style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
+        className="text-foreground"
+        style={{ marginTop: 26, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
       >
         {count} {count === 1 ? 'monologue' : 'monologues'}
       </Text>
-      <StageDirection className="mt-4" numberOfLines={1}>
+      <StageDirection style={{ marginTop: 14 }} numberOfLines={1}>
         {query ? `(for “${query}”.)` : `(${count} ${noun}. lights up.)`}
       </StageDirection>
     </View>
@@ -436,6 +474,38 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
           </View>
         </>
       )}
+    </View>
+  );
+}
+
+/**
+ * The foot of a page of results. Says what's still waiting rather than just
+ * offering a button, because "42 more" is the thing that tells you whether it's
+ * worth another tap.
+ */
+function MoreRow({ more, pal, onPress }: { more: number; pal: MediumPalette; onPress: () => void }) {
+  return (
+    <View style={{ alignItems: 'center', paddingTop: 26, paddingBottom: 8 }}>
+      <View style={{ width: 44, height: 1, backgroundColor: colors.dark.inactiveMeter }} />
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Show ${more} more`}
+        style={{ marginTop: 22, paddingVertical: 10, paddingHorizontal: 24 }}
+      >
+        <Text
+          style={{
+            fontFamily: 'Montserrat_600SemiBold',
+            fontSize: 13,
+            letterSpacing: 3,
+            textTransform: 'uppercase',
+            color: pal.glow,
+          }}
+        >
+          See more
+        </Text>
+      </Pressable>
+      <StageDirection>{`(${more} still in the wings.)`}</StageDirection>
     </View>
   );
 }

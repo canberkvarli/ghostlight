@@ -44,7 +44,8 @@ import { colors } from '../theme/tokens';
  *
  * Motion (handoff §4): the resting state is the *lit, settled* lamp — never an
  * opacity-0 rest, or the mark is blank in App Store shots and under reduced
- * motion. A single `boost` (0–1) climbs the halo and floor from a rest below 1;
+ * motion. A single `boost` (-1–1) climbs the halo and floor from a rest below 1,
+ * and goes the other way to put the lamp out;
  * the glass holds lit and only dips on the idle flicker.
  */
 
@@ -178,14 +179,24 @@ export function GhostLight({
 
   // The glass holds lit and dips on the flicker; the halo and floor rest below 1
   // and climb with the boost, so a surge is actually visible (opacity clamps at 1).
-  const litGlass = useDerivedValue(() => flicker.value);
+  //
+  // A NEGATIVE boost is the lamp going out — search.tsx blows it when you ask
+  // for nothing — and it has to scale the rest down rather than subtract from
+  // it, or -1 lands on a negative opacity, which is not a colour. It also has to
+  // reach the glass: dimming only the halo left a bulb that was plainly still
+  // lit inside a dark room, which reads as a rendering fault, not a blackout.
+  const dim = (b: number) => {
+    'worklet';
+    return b < 0 ? 1 + Math.max(-1, b) : 1;
+  };
+  const litGlass = useDerivedValue(() => flicker.value * dim(boost ? boost.value : 0));
   const haloOpacity = useDerivedValue(() => {
     const b = boost ? boost.value : 0;
-    return (0.34 + b * 0.5) * (0.72 + 0.28 * flicker.value);
+    return 0.34 * dim(b) * (1 + Math.max(0, b) * 1.47) * (0.72 + 0.28 * flicker.value);
   });
   const floorOpacity = useDerivedValue(() => {
     const b = boost ? boost.value : 0;
-    return (0.6 + b * 0.4) * (0.72 + 0.28 * flicker.value);
+    return 0.6 * dim(b) * (1 + Math.max(0, b) * 0.67) * (0.72 + 0.28 * flicker.value);
   });
 
   const cx = g.centerX;
