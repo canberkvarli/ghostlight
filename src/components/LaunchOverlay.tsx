@@ -82,20 +82,36 @@ export function LaunchOverlay() {
         <Animated.View style={lampStyle}>
           <GhostLight size={82} dress="full" />
         </Animated.View>
-        <Animated.Text
-          style={[
-            wordStyle,
-            {
-              marginTop: 12,
-              fontFamily: 'Montserrat_500Medium',
-              fontSize: 21,
-              textTransform: 'uppercase',
-              color: colors.dark.foreground,
-            },
-          ]}
-        >
-          Ghost Light
-        </Animated.Text>
+        {/* The wordmark's tracking eases 26 → 17, and that animation is why the
+            title appeared one pixel wide and then stretched out on every launch.
+            An auto-sized Text re-measures its own width when letterSpacing
+            changes, and the native shadow node lags the animated value by a
+            frame or two, so the box was laid out at a stale width while the
+            glyphs drew at the new one.
+
+            The animation is fine; the auto-sizing was the problem. Pinning the
+            Text to the full width with textAlign centre means the box never
+            changes size, so there is nothing left to re-measure — the tracking
+            now only moves glyphs around inside a container that was already the
+            right shape. */}
+        <View style={{ width: '100%', marginTop: 12 }}>
+          <Animated.Text
+            numberOfLines={1}
+            style={[
+              wordStyle,
+              {
+                width: '100%',
+                textAlign: 'center',
+                fontFamily: 'Montserrat_500Medium',
+                fontSize: 21,
+                textTransform: 'uppercase',
+                color: colors.dark.foreground,
+              },
+            ]}
+          >
+            Ghost Light
+          </Animated.Text>
+        </View>
         {/* The line is words of the play, so it's Courier; the attribution is
             the app speaking, so it's Montserrat (AGENTS.md, the type rule). */}
         <Animated.View style={[tagStyle, { marginTop: 14, paddingHorizontal: 40 }]}>

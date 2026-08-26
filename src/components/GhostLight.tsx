@@ -25,6 +25,7 @@ import {
 } from 'react-native-reanimated';
 
 import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * The ghost light: a bulb with a real silhouette standing on a pole in a pool of
@@ -100,6 +101,8 @@ export function GhostLight({
   neck = '#e0821f',
 }: Props) {
   const full = (dress ?? (stem ? 'full' : 'bare')) === 'full';
+  const { colors: theme } = useTheme();
+  const isLight = theme.isLight;
   const flicker = useSharedValue(1);
   const reduceMotion = useReducedMotion();
   const rgb = rgbTriplet(glow);
@@ -289,22 +292,27 @@ export function GhostLight({
             where the fixture should be, which reads as a rendering fault rather
             than a lamp that's off. Now it dims toward its own cold silhouette,
             which is what an unlit bulb actually looks like, and the idle flicker
-            gets better for free: it dips toward dark glass, not toward nothing. */}
+            gets better for free: it dips toward dark glass, not toward nothing.
+
+            No outline. A rim read as a drawn edge rather than as glass.
+
+            The colour has to follow the scheme, and not by inverting: on paper a
+            near-black bulb is a hole punched in the page, far heavier than the
+            brass fittings it hangs from. An unlit bulb on a bright surface is
+            actually a pale, slightly cool grey — you see the room through it —
+            so light mode gets that instead of the dark-stage version. */}
         <Path path={g.path}>
           <LinearGradient
             start={vec(0, g.glassTop)}
             end={vec(0, g.glassTop + H)}
-            colors={['#2b211a', '#1c1411', '#120c0a']}
+            colors={
+              isLight
+                ? ['#d9d2c9', '#c6bdb2', '#b3a99d']
+                : ['#2b211a', '#1c1411', '#120c0a']
+            }
             positions={[0, 0.55, 1]}
           />
         </Path>
-        {/* a thin rim, so the silhouette reads as glass and not a smudge */}
-        <Path
-          path={g.path}
-          style="stroke"
-          strokeWidth={Math.max(0.8, W * 0.016)}
-          color="rgba(126, 102, 80, 0.55)"
-        />
 
         {/* glass — the bulb, frontmost light */}
         <Group opacity={litGlass}>

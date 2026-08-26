@@ -50,6 +50,8 @@ import { useTheme } from '../src/theme/ThemeContext';
  * and the whole screen — bulb, spotlight, chips, floor — answers.
  */
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 /**
  * Three states, one chip: guest, free, subscribed.
  *
@@ -199,12 +201,20 @@ export default function Search() {
   // The search field catches the light when you touch it — the border warms to
   // the house colour and a soft glow rises, like stepping into the spot.
   const focus = useSharedValue(0);
+  // React state only because pointerEvents can't be animated; twice per focus
+  // cycle, never per frame.
+  const [fieldFocused, setFieldFocused] = useState(false);
 
-  // The wordmark, tagline and toggle used to fold away on focus, which collapsed
-  // their height and slid the field up the screen the instant you touched it.
-  // Typing into something that has just moved out from under your thumb is the
-  // one moment on this screen that has to be dead steady, so nothing moves now:
-  // focus only warms the border and raises the glow. The stage stands still.
+  // Focus used to collapse the block ABOVE the field, which slid the field up
+  // the screen the instant you touched it — the one moment here that has to be
+  // dead steady. So the field itself never moves now. What clears instead is
+  // everything BELOW it: the chips and the refine link fade and drop away, since
+  // half a row of filters disappearing under a keyboard is worse than no row at
+  // all. They come straight back on blur with the choices intact.
+  const belowStyle = useAnimatedStyle(() => ({
+    opacity: 1 - focus.value,
+    transform: [{ translateY: 10 * focus.value }],
+  }));
   const fieldStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(focus.value, [0, 1], [c.border, pal.glow]),
     shadowColor: pal.glow,
@@ -426,10 +436,12 @@ export default function Search() {
                 onChangeText={onChangeQuery}
                 onSubmitEditing={submit}
                 onFocus={() => {
-                  focus.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
+                  setFieldFocused(true);
+                  focus.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
                 }}
                 onBlur={() => {
-                  focus.value = withTiming(0, { duration: 360, easing: Easing.out(Easing.cubic) });
+                  setFieldFocused(false);
+                  focus.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.cubic) });
                 }}
                 returnKeyType="search"
                 placeholder="a grieving mother, something funny…"
@@ -480,15 +492,19 @@ export default function Search() {
             ) : null}
 
             {/* Filters: a row of stage-direction chips. Lit = active, in the house colour. */}
-            <View
-              style={{
-                marginTop: 24,
-                width: '100%',
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                gap: 8,
-              }}
+            <Animated.View
+              pointerEvents={fieldFocused ? 'none' : 'auto'}
+              style={[
+                belowStyle,
+                {
+                  marginTop: 24,
+                  width: '100%',
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  gap: 8,
+                },
+              ]}
             >
               {FILTER_CHIPS.map((chip) => {
                 const active = selected[chip.group] === chip.value;
@@ -522,15 +538,19 @@ export default function Search() {
                   </Pressable>
                 );
               })}
-            </View>
+            </Animated.View>
 
             {/* The premium refinement sheet — locked for free actors. */}
-            <Pressable
+            <AnimatedPressable
               onPress={openMoreFilters}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="More filters"
-              style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 }}
+              pointerEvents={fieldFocused ? 'none' : 'auto'}
+              style={[
+                belowStyle,
+                { marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 },
+              ]}
             >
               <Ionicons name="options-outline" size={14} color={pal.glow} />
               <Text
@@ -538,7 +558,7 @@ export default function Search() {
               >
                 {advanced > 0 ? `(${advanced} more.)` : '(more filters.)'}
               </Text>
-            </Pressable>
+            </AnimatedPressable>
           </View>
 
           {/* Footer: the state on the left, the action on the right. No slab. */}

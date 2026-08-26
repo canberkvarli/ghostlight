@@ -603,18 +603,21 @@ function SearchFailedStage({
   pal: ReturnType<typeof mediumPalette>;
   onRetry: () => void;
 }) {
+  // The lamp sat too low and the stage direction sat right under the headline,
+  // so the three read as one clump in the middle of an empty screen. The lamp
+  // moves up out of the text's way and the direction gets room to be an aside.
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 64 }}>
       <View style={{ opacity: 0.4 }}>
         <GhostLight size={44} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
       </View>
       <Text
         className="text-center text-foreground"
-        style={{ marginTop: 44, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
+        style={{ marginTop: 56, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
       >
         The house{'\n'}went dark.
       </Text>
-      <StageDirection className="mt-5" style={{ textAlign: 'center' }}>
+      <StageDirection style={{ marginTop: 22, textAlign: 'center' }}>
         (couldn&apos;t reach the library.)
       </StageDirection>
       <Text

@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -99,17 +108,46 @@ export default function Auth() {
           </Pressable>
         </View>
 
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
-          <GhostLight size={66} />
+        {/* Scrollable, and the hero shrinks once the email fields are out.
+            This was a fixed `flex: 1` hero above a fixed block, inside a
+            KeyboardAvoidingView on `padding`. The keyboard shrank the container,
+            the hero's contents could not shrink with it — a 66pt lamp and a 40pt
+            Playfair line have a floor — and nothing clipped the overflow, so the
+            Apple slab and the Google row rendered straight over the top of
+            "Keep this one." Scrolling gives the overflow somewhere to go;
+            compacting the hero means it rarely has to. */}
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+        <View
+          style={{
+            flexGrow: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 36,
+            paddingVertical: 20,
+          }}
+        >
+          <GhostLight size={emailOpen ? 34 : 66} />
           <Text
-            className="mt-7 text-center text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 40, lineHeight: 46 }}
+            className="text-center text-foreground"
+            style={{
+              marginTop: emailOpen ? 16 : 28,
+              fontFamily: 'PlayfairDisplay_600SemiBold',
+              fontSize: emailOpen ? 26 : 40,
+              lineHeight: emailOpen ? 32 : 46,
+            }}
           >
             Keep this one.
           </Text>
-          <StageDirection className="mt-3">
-            {'(sign in to save.\nnothing you did is lost.)'}
-          </StageDirection>
+          {emailOpen ? null : (
+            <StageDirection className="mt-3">
+              {'(sign in to save.\nnothing you did is lost.)'}
+            </StageDirection>
+          )}
         </View>
 
         <View style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
@@ -172,6 +210,7 @@ export default function Auth() {
             </Text>
           ) : null}
         </View>
+        </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
