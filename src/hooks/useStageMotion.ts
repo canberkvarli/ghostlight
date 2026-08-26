@@ -27,10 +27,18 @@ const MAX_TILT = 0.5;
 /** How fast neutral follows you. Low enough to feel still, high enough not to trap you at the edge. */
 const RECENTRE_RATE = 0.0025;
 
+/**
+ * Softer and heavier than it was (damping 24 / stiffness 55 / mass 1.1). A stiff
+ * spring tracks the sensor closely, which is the wrong goal: it makes the light
+ * feel stuck to the phone, and every small hand tremor arrives on screen. A
+ * lamp hanging in a room has mass and lags. Lower stiffness with proportionally
+ * higher damping keeps it critically damped — it never overshoots and wobbles,
+ * it just takes its time.
+ */
 const SPRING = {
-  damping: 24,
-  stiffness: 55,
-  mass: 1.1,
+  damping: 30,
+  stiffness: 26,
+  mass: 1.6,
 } as const;
 
 export interface StageMotion {

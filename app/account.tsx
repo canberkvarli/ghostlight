@@ -202,7 +202,14 @@ export default function Account() {
               had no answer anywhere in the app — which is exactly the doubt
               someone has when they've paid and the app still looks locked. */}
           <View style={{ marginTop: 12 }}>
-            <IdentityCard session={session} isAuthenticated={isAuthenticated} />
+            <IdentityCard
+              session={session}
+              isAuthenticated={isAuthenticated}
+              onSignIn={() => {
+                Haptics.selectionAsync().catch(() => {});
+                router.push('/auth');
+              }}
+            />
           </View>
 
           {/* Two stat tiles — kept and read. */}
@@ -211,11 +218,9 @@ export default function Account() {
             <StatTile n={readCount} label="(read.)" />
           </View>
 
-          {!isAuthenticated ? (
-            <View style={{ marginTop: 18 }}>
-              <WordArrow label="Sign in" onPress={() => router.push('/auth')} />
-            </View>
-          ) : null}
+          {/* The standalone "Sign in" arrow that used to sit here is gone: the
+              identity card directly above now says "tap to sign in", so two
+              affordances for the same act were stacked one on top of the other. */}
 
           {/* Four rows only. Everything else is one level down. */}
           <View style={{ marginTop: 22, borderTopWidth: 1, borderTopColor: colors.dark.divider }}>
@@ -377,21 +382,30 @@ function providerLabel(session: Session | null): string | null {
 function IdentityCard({
   session,
   isAuthenticated,
+  onSignIn,
 }: {
   session: Session | null;
   isAuthenticated: boolean;
+  onSignIn: () => void;
 }) {
   const { colors: c } = useTheme();
   const email = session?.user.email ?? null;
   const provider = providerLabel(session);
   const relay = Boolean(email?.endsWith('@privaterelay.appleid.com'));
 
+  // Not signed in, so the card IS the invitation. Reading "not signed in" and
+  // having no way to act on it from the thing that just told you is a dead end.
+  const Container = isAuthenticated ? View : Pressable;
+
   return (
-    <View
+    <Container
+      onPress={isAuthenticated ? undefined : onSignIn}
+      accessibilityRole={isAuthenticated ? undefined : 'button'}
+      accessibilityLabel={isAuthenticated ? undefined : 'Sign in'}
       style={{
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: colors.dark.cardBorder,
+        borderColor: isAuthenticated ? colors.dark.cardBorder : 'rgba(243, 130, 29, 0.3)',
         backgroundColor: c.card,
         paddingVertical: 16,
         paddingHorizontal: 18,
@@ -412,25 +426,32 @@ function IdentityCard({
         >
           {isAuthenticated ? (email ?? 'Signed in') : 'Not signed in'}
         </Text>
+        {/* Two lines, not one. At 12px Courier italic inside a card that has an
+            icon and a chevron eating the width, every one of these strings ran
+            past the edge and got clipped mid-word. */}
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           style={{
             marginTop: 3,
             fontFamily: 'CourierPrime_400Regular_Italic',
             fontSize: 12,
+            lineHeight: 17,
             color: c.mutedForeground,
           }}
         >
           {isAuthenticated
             ? relay
-              ? '(apple relay address. mail still reaches you.)'
+              ? '(apple relay. mail still reaches you.)'
               : provider
                 ? `(${provider.toLowerCase()}.)`
                 : '(signed in.)'
-            : '(reading as a guest. saves need an account.)'}
+            : '(tap to sign in and keep your saves.)'}
         </Text>
       </View>
-    </View>
+      {isAuthenticated ? null : (
+        <Ionicons name="chevron-forward" size={16} color={colors.stageGlow} />
+      )}
+    </Container>
   );
 }
 

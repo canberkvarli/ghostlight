@@ -120,19 +120,11 @@ export default function Search() {
   // the house colour and a soft glow rises, like stepping into the spot.
   const focus = useSharedValue(0);
 
-  // The wordmark, tagline and house toggle fold away while the field is live.
-  // `chromeH` is measured once and then never changes, so the height animation
-  // has a fixed target and the whole collapse stays on the UI thread.
-  // `fieldFocused` is React state only because pointerEvents can't be animated;
-  // it changes twice per focus cycle, not per frame.
-  const [chromeH, setChromeH] = useState(0);
-  const [fieldFocused, setFieldFocused] = useState(false);
-  const chromeStyle = useAnimatedStyle(() => ({
-    opacity: 1 - focus.value,
-    transform: [{ translateY: -12 * focus.value }],
-    // Until it's measured, leave height alone so the block can size itself.
-    height: chromeH > 0 ? chromeH * (1 - focus.value) : undefined,
-  }));
+  // The wordmark, tagline and toggle used to fold away on focus, which collapsed
+  // their height and slid the field up the screen the instant you touched it.
+  // Typing into something that has just moved out from under your thumb is the
+  // one moment on this screen that has to be dead steady, so nothing moves now:
+  // focus only warms the border and raises the glow. The stage stands still.
   const fieldStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(focus.value, [0, 1], [c.border, pal.glow]),
     shadowColor: pal.glow,
@@ -168,17 +160,26 @@ export default function Search() {
       withTiming(4, { duration: 50 }),
       withTiming(0, { duration: 60 }),
     );
+    // A filament failing, in the order a filament actually fails: it surges
+    // bright for an instant, snaps out, sits properly dark long enough that you
+    // register the room went black, then gropes back — two weak strikes that
+    // don't take, a third that catches too hard, and a settle. The dark beat in
+    // the middle is what sells it; the first pass cycled too fast to read as
+    // anything but a flicker.
     bulbBoost.value = withSequence(
-      withTiming(1, { duration: 60 }),
-      withTiming(-1, { duration: 90 }),
-      withTiming(-0.85, { duration: 220 }),
-      withTiming(-0.4, { duration: 70 }),
-      withTiming(-0.9, { duration: 90 }),
-      withTiming(0.4, { duration: 140 }),
-      withTiming(0, { duration: 420 }),
+      withTiming(1, { duration: 55, easing: Easing.out(Easing.quad) }),
+      withTiming(-1, { duration: 70, easing: Easing.in(Easing.quad) }),
+      withTiming(-1, { duration: 260 }),
+      withTiming(-0.55, { duration: 45 }),
+      withTiming(-1, { duration: 80 }),
+      withTiming(-0.3, { duration: 55 }),
+      withTiming(-0.95, { duration: 90 }),
+      withTiming(0.75, { duration: 120, easing: Easing.out(Easing.quad) }),
+      withTiming(-0.15, { duration: 90 }),
+      withTiming(0, { duration: 520, easing: Easing.out(Easing.cubic) }),
     );
     setScolding(true);
-    setTimeout(() => setScolding(false), 2600);
+    setTimeout(() => setScolding(false), 3200);
   }, [shake, bulbBoost]);
 
   const activeCount = useMemo(
@@ -291,16 +292,7 @@ export default function Search() {
                 Height is measured once on layout and then driven from the same
                 `focus` shared value as the field itself — the collapse runs on
                 the UI thread with no JS per frame, and no re-render. */}
-            <Animated.View
-              onLayout={(e) => {
-                const h = Math.round(e.nativeEvent.layout.height);
-                // Only capture the resting height, or the collapse would keep
-                // re-measuring itself down to zero on the way in.
-                if (h > 0 && chromeH === 0) setChromeH(h);
-              }}
-              pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[chromeStyle, { width: '100%', alignItems: 'center', overflow: 'hidden' }]}
-            >
+            <View style={{ width: '100%', alignItems: 'center' }}>
               <Text
                 className="mt-8 text-center text-foreground"
                 style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 15, letterSpacing: 7, textTransform: 'uppercase' }}
@@ -317,7 +309,7 @@ export default function Search() {
               <View style={{ marginTop: 24 }}>
                 <MediumToggle medium={medium} onChange={setMedium} />
               </View>
-            </Animated.View>
+            </View>
 
             <Animated.View
               style={[
@@ -342,11 +334,9 @@ export default function Search() {
                 onChangeText={onChangeQuery}
                 onSubmitEditing={submit}
                 onFocus={() => {
-                  setFieldFocused(true);
                   focus.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
                 }}
                 onBlur={() => {
-                  setFieldFocused(false);
                   focus.value = withTiming(0, { duration: 360, easing: Easing.out(Easing.cubic) });
                 }}
                 returnKeyType="search"
