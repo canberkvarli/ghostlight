@@ -107,7 +107,7 @@ export default function Results() {
   }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.emotion, raw.max_duration, raw.max_overdone_score]);
 
   const hasIntent = Object.keys(params).length > 0;
-  const { data: live, isLoading, isError } = useMonologueSearch(params, hasIntent && !screenMode);
+  const { data: live, isLoading, isError, refetch } = useMonologueSearch(params, hasIntent && !screenMode);
 
   // Cold start (no query) shows a live discover lineup; fixtures stand in until
   // there's a session, and as the offline fallback. Theatre only.
@@ -125,6 +125,7 @@ export default function Results() {
     data: screenData,
     isLoading: screenLoading,
     isError: screenError,
+    refetch: refetchScreen,
   } = useQuery({
     queryKey: ['screen', params],
     enabled: screenMode,
@@ -133,16 +134,26 @@ export default function Results() {
     queryFn: () => searchScreen(params, 60),
   });
 
-  // Live search results when present; live discover on cold start; the fixtures
-  // as the standing fallback for both. Screen has its own Supabase source.
+  // Live search results; live discover on cold start. The fixtures are the
+  // standing fallback for DISCOVER ONLY.
+  //
+  // They used to back the search path too, and that was the "I typed xxxx and
+  // got hamlet results" bug: on any error `live` is undefined, `??` fired, and
+  // the screen rendered the same 22 fixtures for every query — the first of
+  // which is "To be, or not to be". A failed search looked like a good one, so
+  // the failure was invisible and the results were nonsense. A search that
+  // fails must say so; only discover may fall back to something pretty.
   const data = screenMode
     ? (screenData ?? [])
     : hasIntent
-      ? (live?.monologues ?? MONOLOGUES)
+      ? (live?.monologues ?? [])
       : (discoverLive && discoverLive.length ? discoverLive : MONOLOGUES);
   const count = data.length;
   const searching = screenMode ? screenLoading : hasIntent && isLoading;
-  // A search that genuinely found nothing — offer to request it.
+  const searchFailed = screenMode ? Boolean(screenError) : hasIntent && isError;
+  // A search that genuinely found nothing — offer to request it. Note this is
+  // still gated on "not errored": empty-because-broken is a different state and
+  // gets its own message below, rather than being dressed up as "no matches".
   const noResults = screenMode
     ? !screenLoading && !screenError && (screenData?.length ?? 0) === 0
     : hasIntent && !isLoading && !isError && live?.monologues.length === 0;
@@ -187,14 +198,9 @@ export default function Results() {
 
   const header = useMemo(
     () => (
-      <StageHeader
-        count={count}
-        query={params.q ?? null}
-        fellBack={hasIntent && isError && !screenMode}
-        medium={medium}
-      />
+      <StageHeader count={count} query={params.q ?? null} medium={medium} />
     ),
-    [count, params.q, hasIntent, isError, screenMode, medium],
+    [count, params.q, medium],
   );
 
   return (
@@ -221,6 +227,8 @@ export default function Results() {
         <View style={{ flex: 1 }}>
         {searching ? (
           <SearchingStage pal={pal} screen={screenMode} />
+        ) : searchFailed ? (
+          <SearchFailedStage pal={pal} onRetry={() => (screenMode ? refetchScreen() : refetch())} />
         ) : noResults ? (
           <RequestStage query={params.q ?? ''} pal={pal} />
         ) : (
@@ -249,51 +257,83 @@ export default function Results() {
 function StageHeader({
   count,
   query,
-  fellBack,
   medium,
 }: {
   count: number;
   query: string | null;
-  fellBack: boolean;
   medium: Medium;
 }) {
   const pal = mediumPalette(medium);
   const screen = medium === 'screen';
   const noun = screen ? 'on screen' : 'monologues';
+  // The old `fellBack` branch said "(sign in to search. the stage stands.)"
+  // whenever the request errored — while the fixture fallback rendered rows
+  // behind it. So the screen showed results and claimed you weren't signed in,
+  // at the same time. Failures now own the whole screen (SearchFailedStage) and
+  // the header only ever describes what's actually on it.
   return (
     <View style={{ height: HEADER_HEIGHT, alignItems: 'center', justifyContent: 'flex-end' }} className="pb-7">
       <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
       <Text
-        className="mt-3 text-foreground"
+        className="mt-5 text-foreground"
         style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
       >
         {count} {count === 1 ? 'monologue' : 'monologues'}
       </Text>
-      <StageDirection className="mt-2">
-        {fellBack
-          ? '(sign in to search. the stage stands.)'
-          : query
-            ? `(for “${query}”.)`
-            : `(${count} ${noun}. lights up.)`}
+      <StageDirection className="mt-4" numberOfLines={1}>
+        {query ? `(for “${query}”.)` : `(${count} ${noun}. lights up.)`}
       </StageDirection>
     </View>
   );
 }
 
-const STAGE_VOICES = ['Shakespeare', 'Chekhov', 'Ibsen', 'Williams', 'Miller', 'Wilde', 'Beckett'];
-const SCREEN_VOICES = ['Sorkin', 'Gilligan', 'Waller-Bridge', 'Kaufman', 'Fey', 'Peele'];
+// Whole lines now, not just names, so the loading state has some wit in it and
+// doesn't read as the same sentence seven times. Both houses get the same
+// treatment — Film & TV used to feel like the poor relation here.
+const STAGE_LINES = [
+  'asking Shakespeare…',
+  'asking Chekhov…',
+  'asking Ibsen…',
+  'asking Tennessee…',
+  'waking Beckett…',
+  'checking with Wilde…',
+  'rifling the prompt book…',
+  'turning the house lights down…',
+  'reading the margins…',
+  'asking who else is off book…',
+];
+const SCREEN_LINES = [
+  'asking Sorkin…',
+  'asking Waller-Bridge…',
+  'asking Kaufman…',
+  'asking Peele…',
+  'paging through call sheets…',
+  'checking the shooting script…',
+  'asking for one more take…',
+  'rolling sound…',
+  'finding the close-up…',
+];
 
 /**
  * Hunting (handoff §5): the bulb and halo pulse on a loop, an amber gradient
- * sweeps a hairline, and the line below cycles through the voices we're asking —
- * "(asking Shakespeare…)" on stage, screenwriters for Film & TV. Reads as the
- * app going and looking, not a dead spinner.
+ * sweeps a hairline, and the line below cycles through what we're asking.
+ * Reads as the app going and looking, not a dead spinner.
+ *
+ * The list is shuffled per mount so you don't see the same opening line every
+ * search — with a fast backend most people only ever read the first one or two.
  */
 function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }) {
   const reduce = useReducedMotion();
   const pulse = useSharedValue(0.6);
   const sweep = useSharedValue(0);
-  const voices = screen ? SCREEN_VOICES : STAGE_VOICES;
+  const [lines] = useState(() => {
+    const pool = [...(screen ? SCREEN_LINES : STAGE_LINES)];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool;
+  });
   const [vi, setVi] = useState(0);
 
   useEffect(() => {
@@ -312,9 +352,10 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
       false,
     );
     sweep.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, false);
-    const id = setInterval(() => setVi((n) => (n + 1) % voices.length), 700);
+    // 700ms was faster than anyone can read a full line.
+    const id = setInterval(() => setVi((n) => (n + 1) % lines.length), 1100);
     return () => clearInterval(id);
-  }, [reduce, pulse, sweep, voices.length]);
+  }, [reduce, pulse, sweep, lines.length]);
 
   const sweepStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -60 + sweep.value * 150 }] }));
 
@@ -325,7 +366,7 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <GhostLight size={34} boost={pulse} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
       <StageDirection className="mt-7" style={{ textAlign: 'center' }}>
-        {`(asking ${voices[vi]}…)`}
+        {`(${lines[vi]})`}
       </StageDirection>
       {/* a 150pt hairline the light sweeps along */}
       <View style={{ marginTop: 24, width: 150, height: 1, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
@@ -474,4 +515,50 @@ function keyExtractor(item: Monologue) {
 
 function tick() {
   Haptics.selectionAsync().catch(() => {});
+}
+
+/**
+ * The search broke — say so.
+ *
+ * This state did not exist before, which is exactly how the "I typed xxxx and
+ * got Hamlet" bug survived: a failed request fell through to the fixture list,
+ * so every failure looked like a successful search for something else. An
+ * honest dead end the actor can retry beats a confident wrong answer.
+ */
+function SearchFailedStage({
+  pal,
+  onRetry,
+}: {
+  pal: ReturnType<typeof mediumPalette>;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
+      <View style={{ opacity: 0.4 }}>
+        <GhostLight size={44} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
+      </View>
+      <Text
+        className="text-center text-foreground"
+        style={{ marginTop: 44, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
+      >
+        The house{'\n'}went dark.
+      </Text>
+      <StageDirection className="mt-5" style={{ textAlign: 'center' }}>
+        (couldn&apos;t reach the library.)
+      </StageDirection>
+      <Text
+        className="text-center"
+        style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: colors.dark.mutedForeground }}
+      >
+        Check your connection and try again.
+      </Text>
+      <Pressable onPress={onRetry} accessibilityRole="button" style={{ marginTop: 24, paddingVertical: 10, paddingHorizontal: 22 }}>
+        <Text
+          style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 13, letterSpacing: 3, textTransform: 'uppercase', color: pal.glow }}
+        >
+          Try again
+        </Text>
+      </Pressable>
+    </View>
+  );
 }

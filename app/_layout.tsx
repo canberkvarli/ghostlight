@@ -21,6 +21,7 @@ import '../src/global.css';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
 import { bootstrapSession } from '../src/lib/session';
+import { supabase } from '../src/lib/supabase';
 import { configurePurchases } from '../src/lib/purchases';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -66,6 +67,28 @@ export default function RootLayout() {
       // the ActorRise account. Inert until a RevenueCat key is set.
       void configurePurchases();
     });
+  }, []);
+
+  useEffect(() => {
+    // Signing out has to tear down entitlement state, and nothing did.
+    //
+    // `['read-wall']` is a plain cache entry, so a paid session's
+    // `{is_paid: true}` survived sign-out and the premium filters stayed
+    // unlocked. It survived the refetch too: with no session the request 401s,
+    // and `retry: false` makes React Query KEEP the last good data on error, so
+    // the failure preserved the paid state instead of clearing it.
+    //
+    // One subscription here rather than per-screen, so every route out of a
+    // session is covered — the sign-out button, account deletion, and a token
+    // that simply expires.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== 'SIGNED_OUT') return;
+      queryClient.clear();
+      // Without a fresh anonymous session every request 401s and the app looks
+      // broken rather than signed out.
+      void bootstrapSession();
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   if (!fontsLoaded && !fontError) return null;

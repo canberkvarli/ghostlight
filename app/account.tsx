@@ -86,14 +86,33 @@ export default function Account() {
     }
   };
 
-  const onSignOut = async () => {
-    setBusy('signout');
-    try {
-      await supabase.auth.signOut();
-      router.replace('/search');
-    } finally {
-      setBusy(null);
-    }
+  // Sign-out used to fire on the first tap and drop you on /search with no
+  // acknowledgement, so it read like a misfire. Confirm first, then say what
+  // happened — and reassure, because signing out of a library app looks like it
+  // might take your saves with it.
+  const onSignOut = () => {
+    Alert.alert(
+      'Sign out?',
+      'Your saved monologues stay on your account. Sign back in any time to pick them up.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy('signout');
+            try {
+              // The cache clear and the fresh anonymous session are handled
+              // centrally by the SIGNED_OUT listener in app/_layout.tsx.
+              await supabase.auth.signOut();
+              router.replace('/search');
+            } finally {
+              setBusy(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const onDelete = () => {

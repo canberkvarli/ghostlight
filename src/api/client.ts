@@ -83,6 +83,15 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
     headers: await authHeaders(),
     signal,
   });
+  // A 401 means there is no session — anonymous or otherwise — so the honest
+  // answer is "not paid", not an error. Throwing here was half of the
+  // filters-stay-unlocked-after-sign-out bug: the query is `retry: false`, and
+  // React Query keeps the last successful data when a refetch throws, so the
+  // signed-out 401 PRESERVED the previous account's `is_paid: true` instead of
+  // clearing it. Returning a locked state makes the failure fail closed.
+  if (res.status === 401 || res.status === 403) {
+    return { reads_used: 0, reads_limit: 3, is_paid: false, atWall: false };
+  }
   if (!res.ok) throw new ApiError(res.status, `usage failed (${res.status})`);
   const j = (await res.json()) as {
     monologue_reads_used?: number;
