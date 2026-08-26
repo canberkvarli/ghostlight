@@ -23,8 +23,8 @@ import { pickLaunchQuote } from '../data/launchQuotes';
  * glitch can never trap the app behind it (a hard timeout always removes it).
  *
  * Dead black is wrong for this app: the field is the warm stage. The filament
- * strikes eleven times, the wordmark's tracking eases 26 → 17, the tagline
- * arrives, then the whole thing lifts to reveal the app already up behind it.
+ * strikes eleven times, the wordmark fades up, the tagline arrives, then the
+ * whole thing lifts to reveal the app already up behind it.
  */
 
 // opacity strike: 0 → … → 1 over 1.4s, linear (handoff §7).
@@ -39,7 +39,6 @@ export function LaunchOverlay() {
 
   const cover = useSharedValue(1); // overlay opacity
   const lamp = useSharedValue(reduce ? 1 : 0); // the strike
-  const track = useSharedValue(reduce ? 17 : 26); // wordmark tracking
   const word = useSharedValue(reduce ? 1 : 0);
   const tag = useSharedValue(reduce ? 1 : 0);
   const tiltX = useSharedValue(0);
@@ -54,7 +53,6 @@ export function LaunchOverlay() {
     const strike = STRIKE.map((v) => withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }));
     lamp.value = withDelay(100, withSequence(...strike));
     word.value = withDelay(1200, withTiming(1, { duration: 500 }));
-    track.value = withDelay(1200, withTiming(17, { duration: 1100, easing: Easing.out(Easing.cubic) }));
     tag.value = withDelay(1700, withTiming(1, { duration: 500 }));
     // The lift used to start at 2200ms — the exact millisecond the tagline
     // finished fading in, so the finished frame was never actually seen. Hold it
@@ -63,11 +61,17 @@ export function LaunchOverlay() {
     cover.value = withDelay(3400, withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) }));
     const t = setTimeout(() => setGone(true), 4000);
     return () => clearTimeout(t);
-  }, [reduce, cover, lamp, word, track, tag]);
+  }, [reduce, cover, lamp, word, tag]);
 
   const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
   const lampStyle = useAnimatedStyle(() => ({ opacity: lamp.value }));
-  const wordStyle = useAnimatedStyle(() => ({ opacity: word.value, letterSpacing: track.value }));
+  // Opacity only. Animating letterSpacing still made the wordmark shimmer even
+  // once the box was pinned to full width — every frame re-lays-out the glyph
+  // run, and Montserrat's hinting lands differently at each sub-pixel tracking
+  // value, so the letters visibly crawl. Not worth it for a value that travels
+  // nine points. The tracking is fixed at its resting 17 and the word simply
+  // fades up, and the shared value that drove the tracking is gone with it.
+  const wordStyle = useAnimatedStyle(() => ({ opacity: word.value }));
   const tagStyle = useAnimatedStyle(() => ({ opacity: tag.value }));
 
   if (gone) return null;
@@ -77,23 +81,29 @@ export function LaunchOverlay() {
       pointerEvents={gone ? 'none' : 'auto'}
       style={[StyleSheet.absoluteFill, coverStyle, { zIndex: 100 }]}
     >
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      {/* The launch stage is ALWAYS dark, in both schemes.
+          StageBackdrop follows the theme, so in light mode this painted cream —
+          under text hardcoded to `colors.dark.foreground`, which is cream. The
+          wordmark and the quote were invisible on every light-mode launch.
+          Forcing the background rather than theming the text is the right way
+          round: the static iOS splash is #130b08 and cannot be themed, so a
+          light launch overlay would flash pale over a dark splash anyway. */}
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} background={colors.dark.background} />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <Animated.View style={lampStyle}>
           <GhostLight size={82} dress="full" />
         </Animated.View>
-        {/* The wordmark's tracking eases 26 → 17, and that animation is why the
-            title appeared one pixel wide and then stretched out on every launch.
-            An auto-sized Text re-measures its own width when letterSpacing
-            changes, and the native shadow node lags the animated value by a
-            frame or two, so the box was laid out at a stale width while the
-            glyphs drew at the new one.
+        {/* This animated its tracking 26 → 17, which is why the title appeared
+            one pixel wide and then stretched on every launch: an auto-sized Text
+            re-measures its own width when letterSpacing changes, and the native
+            shadow node lags the animated value, so the box was laid out at a
+            stale width while the glyphs drew at the new one.
 
-            The animation is fine; the auto-sizing was the problem. Pinning the
-            Text to the full width with textAlign centre means the box never
-            changes size, so there is nothing left to re-measure — the tracking
-            now only moves glyphs around inside a container that was already the
-            right shape. */}
+            Pinning it to full width fixed the stretch but not a finer shimmer —
+            each frame re-lays-out the glyph run and Montserrat hints differently
+            at every sub-pixel tracking value, so the letters crawled. Nine
+            points of travel was not worth either bug. Fixed tracking, plain
+            fade, both gone. */}
         <View style={{ width: '100%', marginTop: 12 }}>
           <Animated.Text
             numberOfLines={1}
@@ -104,6 +114,10 @@ export function LaunchOverlay() {
                 textAlign: 'center',
                 fontFamily: 'Montserrat_500Medium',
                 fontSize: 21,
+                letterSpacing: 17,
+                // Tracking is applied to the trailing edge too, so a centred
+                // line with 17pt of it sits 17pt right of true centre.
+                paddingLeft: 17,
                 textTransform: 'uppercase',
                 color: colors.dark.foreground,
               },

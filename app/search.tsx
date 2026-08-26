@@ -437,11 +437,11 @@ export default function Search() {
                 onSubmitEditing={submit}
                 onFocus={() => {
                   setFieldFocused(true);
-                  focus.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
+                  focus.value = withTiming(1, { duration: 130, easing: Easing.out(Easing.quad) });
                 }}
                 onBlur={() => {
                   setFieldFocused(false);
-                  focus.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.cubic) });
+                  focus.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) });
                 }}
                 returnKeyType="search"
                 placeholder="a grieving mother, something funny…"
@@ -570,13 +570,20 @@ export default function Search() {
               justifyContent: 'space-between',
             }}
           >
-            <StageDirection style={scolding ? { color: pal.glow } : undefined}>
-              {scolding
-                ? '(give the light something to find.)'
-                : activeCount > 0
-                  ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
-                  : '(the whole stage.)'}
-            </StageDirection>
+            {/* The row is space-between, so an unbounded line on the left simply
+                took the width it wanted and shoved Search off the right edge —
+                which happened exactly when you'd just been told to try again and
+                needed the button most. It shrinks and clips instead now, and the
+                scolding line is short enough not to need to. */}
+            <View style={{ flex: 1, marginRight: 14 }}>
+              <StageDirection numberOfLines={1} style={scolding ? { color: pal.glow } : undefined}>
+                {scolding
+                  ? '(give the light something.)'
+                  : activeCount > 0
+                    ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
+                    : '(the whole stage.)'}
+              </StageDirection>
+            </View>
             <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
           </View>
         </Pressable>

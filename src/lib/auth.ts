@@ -3,7 +3,15 @@ import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
-import { supabase } from './supabase';
+import { configMissing, supabase } from './supabase';
+
+/**
+ * A bundle with no environment cannot sign anybody in, and iOS reports it as a
+ * DNS failure against the placeholder host — which sends you looking at wifi,
+ * at Apple's Services ID, at anything except the build. Say it plainly instead.
+ */
+const CONFIG_ERROR =
+  'This build is missing its configuration, so sign-in cannot reach the server. Reinstall from TestFlight or wait for the next update.';
 
 /**
  * Auth, triggered by the first save — never by launch (spec §5). The user has
@@ -32,6 +40,7 @@ export function isAppleAuthAvailable(): Promise<boolean> {
 
 export async function signInWithApple(): Promise<AuthResult> {
   try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
     // Apple wants a hashed nonce; Supabase wants the raw one back to verify.
     const rawNonce = randomNonce();
     const hashedNonce = await Crypto.digestStringAsync(
@@ -72,6 +81,7 @@ export async function signInWithApple(): Promise<AuthResult> {
  */
 export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
   try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
@@ -85,6 +95,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
 export async function signInWithGoogle(): Promise<AuthResult> {
   try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
     // Anonymous users link so their saves and read count carry across the
     // upgrade; a fresh user just signs in.
     const { data: sessionData } = await supabase.auth.getSession();

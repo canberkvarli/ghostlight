@@ -25,7 +25,9 @@ import { useFavorites } from '../src/hooks/useFavorites';
 import type { ReadState } from '../src/api/client';
 import { useSession } from '../src/lib/useSession';
 import { useGoBack } from '../src/lib/nav';
-import { supabase } from '../src/lib/supabase';
+import { supabase, supabaseHost } from '../src/lib/supabase';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { deleteAccount } from '../src/api/client';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { restore } from '../src/lib/purchases';
@@ -234,6 +236,7 @@ export default function Account() {
           <View style={{ alignItems: 'center', marginTop: 34 }}>
             <GhostLight size={21} />
             <StageDirection className="mt-2">(ghost light.)</StageDirection>
+            <BuildLine />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -351,6 +354,41 @@ function PlanCard({
         </View>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Which bundle is actually running, and which server it will actually call.
+ *
+ * Added because two OTA updates shipped without their environment and every
+ * failure downstream — sign-in, search, purchases — surfaced as iOS's generic
+ * "a server with the specified hostname could not be found". From the outside
+ * there was no way to tell a broken update from a stale install from a genuine
+ * backend outage, and all three were guessed at in turn. Six characters of
+ * update id and the Supabase project ref settle it in one glance.
+ *
+ * `ppvqmbzuq` is right; `placeholder` means the update shipped without config.
+ * Deliberately quiet, and it costs a reviewer nothing to see.
+ */
+function BuildLine() {
+  const { colors: c } = useTheme();
+  const version = Constants.expoConfig?.version ?? '?';
+  const build = Constants.expoConfig?.ios?.buildNumber ?? '';
+  const update = Updates.updateId ? Updates.updateId.slice(0, 6) : 'embedded';
+
+  return (
+    <Text
+      style={{
+        marginTop: 10,
+        fontFamily: 'Montserrat_400Regular',
+        fontSize: 10,
+        letterSpacing: 0.8,
+        color: c.mutedForeground,
+        opacity: 0.5,
+      }}
+    >
+      {`${version}${build ? ` (${build})` : ''} · ${update} · ${supabaseHost}`}
+    </Text>
   );
 }
 

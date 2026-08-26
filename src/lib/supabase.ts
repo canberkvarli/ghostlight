@@ -30,6 +30,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+/**
+ * True when the bundle shipped without its environment.
+ *
+ * This is not hypothetical: two OTA updates went out built against the EAS
+ * remote environment, which does not read the local `.env`, so they carried the
+ * placeholder host. Every call then failed with iOS's DNS message — "a server
+ * with the specified hostname could not be found" — which reads like the user's
+ * network is down and says nothing about the actual cause. Surfacing it by name
+ * turns a day of guessing into one glance.
+ */
+export const configMissing = !supabaseUrl || !supabaseAnonKey;
+
+/** Host the running bundle will actually talk to. For the diagnostics row. */
+export const supabaseHost = (supabaseUrl || 'placeholder.supabase.co')
+  .replace(/^https?:\/\//, '')
+  .split('.')[0];
+
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-anon-key',
