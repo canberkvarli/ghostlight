@@ -22,6 +22,8 @@ import { WordArrow } from '../src/components/WordArrow';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
 import { useEntitlement } from '../src/hooks/useEntitlement';
+import { useSession } from '../src/lib/useSession';
+import { colors } from '../src/theme/tokens';
 import {
   FILTER_CHIPS,
   EMPTY_SELECTION,
@@ -48,10 +50,88 @@ import { useTheme } from '../src/theme/ThemeContext';
  * and the whole screen — bulb, spotlight, chips, floor — answers.
  */
 
+/**
+ * Three states, one chip: guest, free, subscribed.
+ *
+ * The lamp's dress (bare bulb vs standing lamp) already marks paid from unpaid,
+ * but it is deliberately quiet — you have to know to look — and it says nothing
+ * at all about whether there's a real account behind the session. This does both
+ * in words, and doubles as the door to Account.
+ */
+function StandingChip({
+  isPaid,
+  isAuthenticated,
+  loading,
+  onPress,
+}: {
+  isPaid: boolean;
+  isAuthenticated: boolean;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  const { colors: c } = useTheme();
+  // The session resolves a beat after mount, and until it does every signed-in
+  // actor is indistinguishable from a guest. Showing the chip early would mean
+  // telling a subscriber they're a guest on every single launch, so it waits.
+  if (loading) return null;
+
+  const label = isPaid ? 'in full' : isAuthenticated ? 'free' : 'guest';
+  const lit = isPaid;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={
+        isPaid ? 'Subscribed. Open account' : isAuthenticated ? 'Free account. Open account' : 'Not signed in. Open account'
+      }
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        paddingHorizontal: 11,
+        paddingVertical: 5,
+        borderColor: lit ? 'rgba(243, 130, 29, 0.45)' : c.cardBorder,
+        backgroundColor: lit ? 'rgba(243, 130, 29, 0.12)' : 'transparent',
+      }}
+    >
+      {/* a filament: lit for subscribers, cold otherwise */}
+      <View
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: lit ? colors.stageGlow : 'transparent',
+          borderWidth: lit ? 0 : 1,
+          borderColor: c.chevron,
+          shadowColor: colors.stageGlow,
+          shadowOpacity: lit ? 0.9 : 0,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 0 },
+        }}
+      />
+      <Text
+        style={{
+          fontFamily: 'CourierPrime_400Regular_Italic',
+          fontSize: 12,
+          letterSpacing: 0.4,
+          color: lit ? colors.stageGlow : c.mutedForeground,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function Search() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
+  const { isAuthenticated, loading: sessionLoading } = useSession();
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
@@ -223,18 +303,20 @@ export default function Search() {
     [medium, router],
   );
 
-  // The lamp is the one thing on this screen that always had an answer and no
-  // way to be asked. Tapping it skips the query entirely and walks straight out
-  // onto the lineup — the ghost light showing you what's on tonight.
+  // Tapping the lamp does not go anywhere. It's the ghost light: you touch it,
+  // it answers, that's all. Making it a shortcut into the lineup gave the one
+  // decorative thing on the screen a hidden destination, which is worse than
+  // leaving it decorative — nothing else here navigates without saying so.
   const onLampPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     bulbBoost.value = withSequence(
-      withTiming(0.2, { duration: 60 }),
-      withTiming(1, { duration: 130 }),
-      withTiming(0, { duration: 560 }),
+      withTiming(0.15, { duration: 70 }),
+      withTiming(0.95, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withTiming(0.35, { duration: 130 }),
+      withTiming(0.7, { duration: 90 }),
+      withTiming(0, { duration: 640, easing: Easing.out(Easing.cubic) }),
     );
-    router.push({ pathname: '/results', params: { medium } });
-  }, [bulbBoost, router, medium]);
+  }, [bulbBoost]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -243,7 +325,18 @@ export default function Search() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Tapping any empty area dismisses the keyboard; child buttons still win. */}
         <Pressable onPress={() => Keyboard.dismiss()} accessible={false} style={{ flex: 1, paddingHorizontal: 28 }}>
-          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 22 }}>
+          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 18 }}>
+            {/* Where you stand, in three words or fewer. There was no way to
+                tell a guest from a signed-in free account from a subscriber
+                without opening Account and reading two cards — and the guest
+                case is the one that matters, because an anonymous session looks
+                identical to a real one right up until you lose it. */}
+            <StandingChip
+              isPaid={isPaid}
+              isAuthenticated={isAuthenticated}
+              loading={sessionLoading}
+              onPress={() => router.push('/account')}
+            />
             <Pressable
               onPress={() => router.push('/saves')}
               hitSlop={12}
@@ -273,9 +366,8 @@ export default function Search() {
             <Pressable
               onPress={onLampPress}
               hitSlop={14}
-              accessibilityRole="button"
-              accessibilityLabel="What's on tonight"
-              accessibilityHint="Opens the lineup without a search"
+              accessibilityRole="image"
+              accessibilityLabel="The ghost light"
             >
               <GhostLight
                 size={isPaid ? 60 : 52}
@@ -463,7 +555,7 @@ export default function Search() {
                 ? '(give the light something to find.)'
                 : activeCount > 0
                   ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
-                  : '(tap the lamp for tonight.)'}
+                  : '(the whole stage.)'}
             </StageDirection>
             <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
           </View>

@@ -281,6 +281,31 @@ export function GhostLight({
           <RoundedRect x={cx - g.baseW / 2} y={g.baseTop} width={g.baseW} height={g.baseH} r={Math.max(1, 3 * scale)} color="#33261e" />
         )}
 
+        {/* dead glass — the bulb as an object rather than as light.
+            Always drawn, always underneath. The lit glass above is opaque at
+            rest so you never see this while the lamp is on; it only surfaces as
+            the light drops. Without it, dimming the glass faded the bulb toward
+            transparent and the lamp simply went missing — a hole in the stage
+            where the fixture should be, which reads as a rendering fault rather
+            than a lamp that's off. Now it dims toward its own cold silhouette,
+            which is what an unlit bulb actually looks like, and the idle flicker
+            gets better for free: it dips toward dark glass, not toward nothing. */}
+        <Path path={g.path}>
+          <LinearGradient
+            start={vec(0, g.glassTop)}
+            end={vec(0, g.glassTop + H)}
+            colors={['#2b211a', '#1c1411', '#120c0a']}
+            positions={[0, 0.55, 1]}
+          />
+        </Path>
+        {/* a thin rim, so the silhouette reads as glass and not a smudge */}
+        <Path
+          path={g.path}
+          style="stroke"
+          strokeWidth={Math.max(0.8, W * 0.016)}
+          color="rgba(126, 102, 80, 0.55)"
+        />
+
         {/* glass — the bulb, frontmost light */}
         <Group opacity={litGlass}>
           <Path path={g.path}>
