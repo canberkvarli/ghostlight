@@ -50,11 +50,55 @@ function greeting(): string {
   return 'Evening';
 }
 
-function firstName(email?: string | null): string | null {
-  if (!email) return null;
-  const local = email.split('@')[0].split(/[._+]/)[0];
-  if (!local) return null;
-  return local[0].toUpperCase() + local.slice(1);
+/**
+ * A first name, or nothing at all.
+ *
+ * This used to take whatever sat before the @ and capitalise it, which is fine
+ * for sarah@ and a small disaster for Sign in with Apple: Hide My Email hands
+ * back `k8j3n2p9qx@privaterelay.appleid.com`, so the screen opened with "Good
+ * afternoon, K8j3n2p9qx." Addresses are not names, and an address the user has
+ * never seen is certainly not their name.
+ *
+ * So we ask in order of how much the source actually knows:
+ *
+ *   1. `given_name`, which src/lib/auth.ts captures from Apple on the one
+ *      occasion Apple offers it.
+ *   2. The OAuth profile Supabase fills in for Google.
+ *   3. The address, and only if it genuinely looks like a name.
+ *
+ * "Good afternoon." on its own is a perfectly good greeting. Guessing wrong is
+ * worse than not guessing, because a stranger's name in your own app is the
+ * kind of small wrongness people don't forgive.
+ */
+function looksLikeAName(value: string): boolean {
+  // Letters only, and a plausible length. That rules out relay hashes, anything
+  // with digits, and the o.henry / no-vowel machine strings that aren't names.
+  return /^[\p{L}][\p{L}'’-]{1,15}$/u.test(value);
+}
+
+function titleCase(value: string): string {
+  return value[0].toUpperCase() + value.slice(1);
+}
+
+function firstName(session: Session | null): string | null {
+  if (!session) return null;
+  const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+
+  const given = typeof meta.given_name === 'string' ? meta.given_name.trim() : '';
+  if (given && looksLikeAName(given)) return titleCase(given);
+
+  const full =
+    (typeof meta.full_name === 'string' && meta.full_name) ||
+    (typeof meta.name === 'string' && meta.name) ||
+    '';
+  const firstToken = full.trim().split(/\s+/)[0] ?? '';
+  if (firstToken && looksLikeAName(firstToken)) return titleCase(firstToken);
+
+  const email = session.user.email ?? '';
+  // Never mine a relay address. There is no name in it by design.
+  if (!email || email.endsWith('@privaterelay.appleid.com')) return null;
+  const local = email.split('@')[0].split(/[._+]/)[0] ?? '';
+  return local && looksLikeAName(local) ? titleCase(local) : null;
 }
 
 export default function Account() {
@@ -72,7 +116,7 @@ export default function Account() {
   const { wall: readState, isPaid } = useEntitlement();
   const { data: saved } = useFavorites(isAuthenticated);
 
-  const name = firstName(session?.user.email);
+  const name = firstName(session);
   const keptCount = saved?.length ?? 0;
   const readCount = readState?.reads_used ?? 0;
 

@@ -68,6 +68,17 @@ export async function signInWithApple(): Promise<AuthResult> {
       nonce: rawNonce,
     });
     if (error) return { ok: false, message: error.message };
+
+    // Apple hands over the name exactly ONCE — on the very first authorization
+    // for this app, and never again, not even after a reinstall. The identity
+    // token never carries it. If we don't keep it here it is gone for good, and
+    // with Hide My Email the address is `k8j3n2p9qx@privaterelay.appleid.com`,
+    // so there is nothing left to derive a greeting from.
+    const given = credential.fullName?.givenName?.trim();
+    if (given) {
+      // Best effort. A failure here costs a first name, not a sign-in.
+      await supabase.auth.updateUser({ data: { given_name: given } }).catch(() => {});
+    }
     return { ok: true };
   } catch (e) {
     const err = e as { code?: string; message?: string };
