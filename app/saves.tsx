@@ -31,13 +31,7 @@ import { formatDuration, type Monologue } from '../src/data/monologues';
  */
 
 /** 0 = just read, 1 = off book. */
-function progressLabel(pct: number): string {
-  if (pct >= 1) return '(off book.)';
-  if (pct > 0) return '(learning.)';
-  return '(just read.)';
-}
-
-type Saved = Monologue & { pct?: number };
+type Saved = Monologue;
 
 export default function Saves() {
   const { colors: c } = useTheme();
@@ -55,9 +49,7 @@ export default function Saves() {
 
   const all = (data ?? []) as Saved[];
   const items = pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all;
-  const offBook = items.filter((m) => (m.pct ?? 0) >= 1).length;
-  const subhead =
-    offBook > 0 ? `(${items.length} kept. ${offBook} off book.)` : `(${items.length} kept.)`;
+  const subhead = `(${items.length} kept.)`;
 
   const onUnsave = useCallback((item: Saved) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -176,7 +168,6 @@ function SavedCard({
   onUnsave: () => void;
 }) {
   const { colors: c } = useTheme();
-  const pct = item.pct ?? 0;
   return (
     <Pressable
       onPress={onPress}
@@ -248,14 +239,11 @@ function SavedCard({
         {item.excerpt}
       </Text>
 
-      {/* progress rule */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 }}>
-        <View style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
-          <View style={{ width: `${Math.max(6, pct * 100)}%`, height: '100%', backgroundColor: colors.stageGlow }} />
-        </View>
-        <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: c.mutedForeground }}>
-          {progressLabel(pct)}
-        </Text>
+      {/* `pct` was never assigned anywhere in the codebase, so this was a bar
+          permanently stuck at its 6% minimum under a label permanently reading
+          "(not started.)" — an app promising memorisation tracking it does not
+          have. Memorize mode is v2 (spec §6). Just the running time until then. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
         <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 11, color: c.chevron }}>
           {formatDuration(item.duration)}
         </Text>

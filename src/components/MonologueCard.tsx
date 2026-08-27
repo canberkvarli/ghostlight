@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { CARD_HEIGHT, FALLOFF, FOCUS_POINT, cardTop } from '../theme/layout';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 import { OVERDONE_THRESHOLD, formatDuration, type Monologue } from '../data/monologues';
@@ -33,6 +34,8 @@ interface Props {
   reduceMotion: boolean;
   /** The glow colour, as hex — amber on the stage, violet in Film & TV. */
   accent?: string;
+  /** Already in their book — marked so a scan of the list shows it. */
+  saved?: boolean;
   /** rgba() lit-card border for the current medium. */
   litBorder?: string;
 }
@@ -53,6 +56,7 @@ function MonologueCardImpl({
   viewportHeight,
   reduceMotion,
   accent = colors.stageGlow,
+  saved = false,
   litBorder = 'rgba(243, 130, 29, 0.55)',
 }: Props) {
   const { colors: c } = useTheme();
@@ -111,13 +115,23 @@ function MonologueCardImpl({
 
       <View style={{ flex: 1, justifyContent: 'space-between', paddingHorizontal: hasPoster ? 16 : 20, paddingVertical: 16 }}>
         <View>
-          <Text
-            numberOfLines={1}
-            className="text-[19px] leading-[24px] text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold' }}
-          >
-            {hasPoster ? item.character : item.title}
-          </Text>
+          {/* The bookmark rides with the title rather than floating in a
+              corner, so scanning the list you see what you've already kept
+              without having to look for it. Coming back from saving something
+              and finding the list exactly as you left it made the save feel
+              like it hadn't happened. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+            <Text
+              numberOfLines={1}
+              className="text-[19px] leading-[24px] text-foreground"
+              style={{ flexShrink: 1, fontFamily: 'PlayfairDisplay_600SemiBold' }}
+            >
+              {hasPoster ? item.character : item.title}
+            </Text>
+            {saved ? (
+              <Ionicons name="bookmark" size={13} color={accent} style={{ marginTop: 2 }} />
+            ) : null}
+          </View>
           <Text
             numberOfLines={1}
             className="mt-1 text-[12px] uppercase tracking-[1.4px] text-muted-foreground"

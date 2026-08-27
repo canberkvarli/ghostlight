@@ -15,7 +15,9 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
+  FadeIn,
   FadeInDown,
+  FadeOut,
   FadeOutUp,
   LinearTransition,
   useAnimatedStyle,
@@ -55,6 +57,9 @@ export default function Auth() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // True while a field holds focus. React state, not a shared value, because
+  // it mounts and unmounts a subtree — twice per session, never per frame.
+  const [typing, setTyping] = useState(false);
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
@@ -128,35 +133,46 @@ export default function Auth() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-        <Animated.View
-          layout={LinearTransition.duration(220)}
-          style={{
-            flexGrow: 1,
-            flexShrink: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 36,
-            paddingVertical: emailOpen ? 8 : 20,
-          }}
-        >
-          <GhostLight size={emailOpen ? 30 : 66} />
-          <Text
-            className="text-center text-foreground"
+        {/* The hero leaves entirely once the keyboard is up. Shrinking it wasn't
+            enough — a 30pt lamp plus a 24pt headline is still ~90pt, which is
+            precisely the room ENTER and (back.) needed, so they sat jammed under
+            the keyboard with nothing between them and the fields. While you are
+            typing, the only things that matter are the two fields and the way
+            in; everything decorative gets out of the way and comes back when
+            you dismiss the keyboard. */}
+        {typing ? null : (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(140)}
+            layout={LinearTransition.duration(220)}
             style={{
-              marginTop: emailOpen ? 14 : 28,
-              fontFamily: 'PlayfairDisplay_600SemiBold',
-              fontSize: emailOpen ? 24 : 40,
-              lineHeight: emailOpen ? 30 : 46,
+              flexGrow: 1,
+              flexShrink: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 36,
+              paddingVertical: emailOpen ? 8 : 20,
             }}
           >
-            Keep this one.
-          </Text>
-          {emailOpen ? null : (
-            <StageDirection className="mt-3">
-              {'(sign in to save.\nnothing you did is lost.)'}
-            </StageDirection>
-          )}
-        </Animated.View>
+            <GhostLight size={emailOpen ? 34 : 66} />
+            <Text
+              className="text-center text-foreground"
+              style={{
+                marginTop: emailOpen ? 16 : 28,
+                fontFamily: 'PlayfairDisplay_600SemiBold',
+                fontSize: emailOpen ? 26 : 40,
+                lineHeight: emailOpen ? 32 : 46,
+              }}
+            >
+              Keep this one.
+            </Text>
+            {emailOpen ? null : (
+              <StageDirection className="mt-3">
+                {'(sign in to save.\nnothing you did is lost.)'}
+              </StageDirection>
+            )}
+          </Animated.View>
+        )}
 
         <Animated.View layout={LinearTransition.duration(220)} style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
           {/* The Apple slab — the one rectangle Apple's guidelines require. */}
@@ -202,6 +218,7 @@ export default function Auth() {
                 autoComplete="email"
                 autoFocus
                 returnKeyType="next"
+                onFocusChange={setTyping}
               />
               <UnderlineField
                 value={password}
@@ -211,6 +228,7 @@ export default function Auth() {
                 autoComplete="password"
                 returnKeyType="go"
                 onSubmitEditing={withEmail}
+                onFocusChange={setTyping}
                 style={{ marginTop: 14 }}
               />
               <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -313,15 +331,22 @@ function WayRow({
 /** An underlined field whose rule lights amber on focus. */
 function UnderlineField({
   style,
+  onFocusChange,
   ...props
-}: React.ComponentProps<typeof TextInput> & { style?: object }) {
+}: React.ComponentProps<typeof TextInput> & { style?: object; onFocusChange?: (v: boolean) => void }) {
   const { colors: c } = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <TextInput
       {...props}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={() => {
+        setFocused(true);
+        onFocusChange?.(true);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        onFocusChange?.(false);
+      }}
       placeholderTextColor={c.mutedForeground}
       selectionColor={colors.stageGlow}
       style={[

@@ -23,6 +23,7 @@ import { PaywallShroud } from '../../src/components/PaywallShroud';
 import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
+import { MonologueText } from '../../src/components/MonologueText';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
 import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
@@ -248,6 +249,10 @@ export default function Read() {
     await Clipboard.setStringAsync(monologue.fullText ?? monologue.excerpt);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setCopied(true);
+    // The icon swapping to a tick tells you something happened only if you knew
+    // what the icon was for. Say the word.
+    setSaveNote('Copied');
+    setTimeout(() => setSaveNote(null), 1500);
     setTimeout(() => setCopied(false), 1400);
   };
 
@@ -415,18 +420,12 @@ export default function Read() {
                 "56% of the window" placement was a guess that a tall phone got
                 wrong in one direction and a small one in the other. */}
             {wallKnown ? (
-              <Animated.Text
+              <Animated.View
                 onLayout={(e) => setTextTop(e.nativeEvent.layout.y)}
                 entering={FadeIn.duration(500)}
-                className="text-[16px]"
-                style={{
-                  fontFamily: 'CourierPrime_400Regular',
-                  color: colors.light.foreground,
-                  lineHeight: LINE_HEIGHT,
-                }}
               >
-                {gated ? monologue.excerpt : body}
-              </Animated.Text>
+                <MonologueText body={gated ? monologue.excerpt : body} lineHeight={LINE_HEIGHT} />
+              </Animated.View>
             ) : (
               // Holds the scroll steady while we find out, so the page doesn't
               // jump when the words arrive.
@@ -595,7 +594,13 @@ export default function Read() {
             }}
           >
             <Ionicons
-              name={saveNote === 'Saved' ? 'bookmark' : 'bookmark-outline'}
+              name={
+                saveNote === 'Copied'
+                  ? 'copy-outline'
+                  : saveNote === 'Saved'
+                    ? 'bookmark'
+                    : 'bookmark-outline'
+              }
               size={13}
               color={pal.glow}
             />

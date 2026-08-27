@@ -33,6 +33,8 @@ import { getDiscover, requestContent, type SearchParams } from '../src/api/clien
 import { apiToMonologue } from '../src/data/adapt';
 import { searchScreen } from '../src/lib/screen';
 import { useGoBack } from '../src/lib/nav';
+import { useSession } from '../src/lib/useSession';
+import { useFavorites } from '../src/hooks/useFavorites';
 import { colors } from '../src/theme/tokens';
 import { mediumPalette, type Medium, type MediumPalette } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -76,6 +78,12 @@ export default function Results() {
   const insets = useSafeAreaInsets();
   const { tiltX, tiltY, reduceMotion } = useStageMotion();
   const { colors: c } = useTheme();
+
+  // Which of these are already in their book. Same cache the saves screen and
+  // the read screen use, so a save made anywhere shows up here immediately.
+  const { isAuthenticated } = useSession();
+  const { data: savedRows } = useFavorites(isAuthenticated);
+  const savedIds = useMemo(() => new Set((savedRows ?? []).map((m) => m.id)), [savedRows]);
 
   const raw = useLocalSearchParams<{
     q?: string;
@@ -204,6 +212,7 @@ export default function Results() {
         reduceMotion={reduceMotion}
         accent={pal.glow}
         litBorder={pal.litBorder}
+        saved={savedIds.has(item.id)}
         // The house travels with the card. Without this the read screen had no
         // idea which toggle you came through and painted every Film & TV piece
         // in theatre amber, so tapping a violet result dropped you into an
@@ -211,7 +220,7 @@ export default function Results() {
         onPress={() => router.push({ pathname: '/read/[id]', params: { id: item.id, medium } })}
       />
     ),
-    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder, medium],
+    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder, medium, savedIds],
   );
 
   const header = useMemo(
@@ -537,6 +546,7 @@ function CardButton({
   reduceMotion,
   accent,
   litBorder,
+  saved,
   onPress,
 }: {
   item: Monologue;
@@ -546,6 +556,7 @@ function CardButton({
   reduceMotion: boolean;
   accent: string;
   litBorder: string;
+  saved: boolean;
   onPress: () => void;
 }) {
   const pressed = useSharedValue(0);
@@ -578,6 +589,7 @@ function CardButton({
         reduceMotion={reduceMotion}
         accent={accent}
         litBorder={litBorder}
+        saved={saved}
       />
     </AnimatedPressable>
   );
