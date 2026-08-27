@@ -147,21 +147,11 @@ export function FilterSheet({
                       );
                     })}
                   </View>
-                  {/* One clear upsell, under the first craft group — not a wall. */}
-                  {firstPremium && !isPaid ? (
-                    <Pressable
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                        onUnlock();
-                      }}
-                      accessibilityRole="button"
-                      style={{ marginTop: 14 }}
-                    >
-                      <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: glow }}>
-                        (tone, feeling, freshness — unlock the craft filters.)
-                      </Text>
-                    </Pressable>
-                  ) : null}
+                  {/* The upsell line here restated the group headings directly
+                      above it and then asked to be tapped, in the same italic
+                      the sheet uses for labels that do nothing. Two chances to
+                      buy in one sheet is one too many; the locked chips already
+                      route to the paywall. */}
                 </View>
               );
             })}
@@ -175,6 +165,17 @@ export function FilterSheet({
               }}
               hitSlop={10}
               accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              // "(clear.)" in the sheet's own italic read as another stage
+              // direction — a label, not a control — so nobody knew it did
+              // anything. Same voice, but inside a border it can be tapped.
+              style={{
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: glow,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
             >
               <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, letterSpacing: 0.5, color: glow }}>
                 (clear.)

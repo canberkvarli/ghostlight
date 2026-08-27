@@ -13,7 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
@@ -165,8 +173,19 @@ export default function Auth() {
           {/* The rest — hairline rows, nudging right on press. */}
           <WayRow label="Continue with Google" onPress={withGoogle} busy={busy === 'google'} />
 
+          {/* Email folds out in place. Entering/exiting rather than a hard swap,
+              because the block appearing instantly under your finger reads as a
+              mis-tap, and `layout` lets the rows beneath slide rather than jump.
+              Enter sits directly under the password field — it used to be below
+              the fold with two more rows after it, so signing in meant typing a
+              password and then hunting for the button. */}
           {emailOpen ? (
-            <View style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.dark.divider }}>
+            <Animated.View
+              entering={FadeInDown.duration(220).easing(Easing.out(Easing.cubic))}
+              exiting={FadeOutUp.duration(160)}
+              layout={LinearTransition.duration(200)}
+              style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.dark.divider }}
+            >
               <UnderlineField
                 value={email}
                 onChangeText={setEmail}
@@ -174,6 +193,8 @@ export default function Auth() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
+                autoFocus
+                returnKeyType="next"
               />
               <UnderlineField
                 value={password}
@@ -181,22 +202,36 @@ export default function Auth() {
                 placeholder="password"
                 secureTextEntry
                 autoComplete="password"
+                returnKeyType="go"
                 onSubmitEditing={withEmail}
                 style={{ marginTop: 14 }}
               />
-              <View style={{ marginTop: 16, alignItems: 'flex-end' }}>
+              <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Pressable onPress={() => setEmailOpen(false)} hitSlop={10} accessibilityRole="button">
+                  <Text
+                    style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: colors.dark.chevron }}
+                  >
+                    (back.)
+                  </Text>
+                </Pressable>
                 {busy === 'email' ? (
                   <ActivityIndicator color={colors.stageGlow} />
                 ) : (
                   <WordArrow label="Enter" onPress={withEmail} haptic="none" />
                 )}
               </View>
-            </View>
+            </Animated.View>
           ) : (
-            <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
+            <Animated.View layout={LinearTransition.duration(200)}>
+              <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
+            </Animated.View>
           )}
 
-          <WayRow label="(already on actorrise? connect it.)" quiet onPress={() => setEmailOpen(true)} last />
+          {/* Hidden while the fields are out: it opens the same fold, so leaving
+              it there just pushed Enter further down for no reason. */}
+          {emailOpen ? null : (
+            <WayRow label="(already on actorrise? connect it.)" quiet onPress={() => setEmailOpen(true)} last />
+          )}
 
           {busy === 'apple' ? (
             <View style={{ alignItems: 'center' }} className="mt-4">

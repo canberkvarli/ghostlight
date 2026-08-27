@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import Animated, {
   Easing,
   FadeIn,
+  FadeOut,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -129,11 +130,18 @@ export default function Read() {
     }, [fixture, fetched, refetch]),
   );
 
+  // Ungating the UI is only half of it: when the API decides a read is walled it
+  // doesn't send the words at all, so `fullText` is simply absent and lifting
+  // the shroud would reveal the same three lines. The moment entitlement turns
+  // true we have to go back and ask again, now that the server will answer.
+  const paidRef = useRef(false);
+
   const { isAuthenticated } = useSession();
   const favorited = useIsFavorited(id ?? '', isAuthenticated);
   const toggleFavorite = useToggleFavorite();
 
   const [copied, setCopied] = useState(false);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
 
   // Where the words start inside the card, and how tall the card is. Both are
   // measured rather than assumed, because the wall is placed relative to the
@@ -174,10 +182,13 @@ export default function Read() {
   // anon sign-ins still off — we don't gate: reading never breaks on a missing
   // counter, the wall just doesn't fire until the backend is live.
   const { isPaid, atWall, settled } = useEntitlement();
-  // Server-authoritative first: if the API withheld the text (paywalled), we're
-  // walled no matter what the client thinks. Fall back to the usage counter for
-  // fixtures and offline, which carry no server flag.
-  const gated = monologue?.paywalled === true || (settled && atWall);
+  // A subscriber is never walled. This used to lead with the server's
+  // `paywalled` flag, which sounds right — the API is the authority — but the
+  // API learns about a purchase from a webhook, and until that lands it keeps
+  // answering `paywalled: true` and withholding the text. So someone who had
+  // just paid was still reading three lines and a buy button. The receipt on the
+  // device is a real answer too, and in that window it's the only true one.
+  const gated = !isPaid && (monologue?.paywalled === true || (settled && atWall));
 
   // Do we yet KNOW whether this is walled? This gap is why the whole monologue
   // flashed up for a beat on the very first open: `atWall` is undefined until
@@ -186,6 +197,22 @@ export default function Read() {
   // ending of a piece you hadn't paid for by opening it and looking quickly.
   // Now the words wait until the answer is in.
   const wallKnown = monologue?.paywalled !== undefined || settled;
+
+  useEffect(() => {
+    // Only on the false → true edge, so this can't loop.
+    if (isPaid && !paidRef.current) {
+      paidRef.current = true;
+      if (!fixture) void refetch();
+    } else if (!isPaid) {
+      paidRef.current = false;
+    }
+  }, [isPaid, fixture, refetch]);
+
+  // Paid, but the server still withheld the words. That's the webhook not having
+  // landed yet, and it is a genuinely different state from "you need to buy
+  // this" — offering someone a buy button for something they just bought is the
+  // worst thing this screen can do. Say what's actually happening instead.
+  const syncing = isPaid && monologue?.paywalled === true && !monologue.fullText;
 
   const onSave = () => {
     if (!monologue) return;
@@ -199,6 +226,11 @@ export default function Read() {
     // Handing the row over lets the cache paint the save without waiting for the
     // POST, which is what made this button feel dead (see useToggleFavorite).
     toggleFavorite.mutate({ id: monologue.id, on: willSave, item: monologue });
+    // A bookmark filling in is easy to miss and easy to misread as a tap that
+    // didn't land — especially since the same button un-saves. One word, and it
+    // says which of the two just happened.
+    setSaveNote(willSave ? 'Saved' : 'Removed');
+    setTimeout(() => setSaveNote(null), 1500);
     // Mirror to the offline shelf so a saved piece reads without signal.
     if (willSave) void saveOffline(monologue);
     else void removeOffline(monologue.id);
@@ -378,6 +410,30 @@ export default function Read() {
               <View style={{ height: LINE_HEIGHT * FREE_LINES }} />
             )}
 
+            {syncing ? (
+              <Pressable
+                onPress={() => refetch()}
+                accessibilityRole="button"
+                style={{
+                  marginTop: 26,
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: ink.accent,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                }}
+              >
+                <Ionicons name="refresh" size={14} color={ink.accent} />
+                <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, color: ink.accent }}>
+                  Subscription still syncing. Tap to reload.
+                </Text>
+              </Pressable>
+            ) : null}
+
             {/* Kin at the foot of the page. Never behind the wall. */}
             {gated || !id ? null : <SimilarRow id={id} enabled />}
           </ScrollView>
@@ -391,12 +447,20 @@ export default function Read() {
               black and cover the bottom half of the screen whatever was there,
               which is the "too rigid" of it: a shutter, not a dimmer. */}
           {gated && textTop !== null ? (
-            <Animated.View
-              entering={FadeIn.delay(260).duration(600)}
+            <View
+              // No entering animation. It was FadeIn delayed 260ms over 600ms,
+              // which is precisely the "I can read the whole thing for a second
+              // and then it blurs" — nearly a second of unobstructed walled text
+              // on every open, which is both a worse wall and a worse tease. The
+              // shroud is part of the page now, not something that arrives.
               style={{ position: 'absolute', left: 0, right: 0, top: wallTop, bottom: 0 }}
               pointerEvents="box-none"
             >
-              <PaywallShroud width={width - 32} height={Math.max(0, height - wallTop)} />
+              <PaywallShroud
+                width={width - 32}
+                height={Math.max(0, (cardH || height) - wallTop)}
+                offerTop={Math.max(0, (cardH || height) - wallTop - OFFER_HEIGHT)}
+              />
               <View
                 style={{
                   position: 'absolute',
@@ -481,10 +545,43 @@ export default function Read() {
                   Saving stays free.
                 </Text>
               </View>
-            </Animated.View>
+            </View>
           ) : null}
         </Animated.View>
       </SafeAreaView>
+
+      {/* The save acknowledgement — a beat over the page, then gone. */}
+      {saveNote ? (
+        <Animated.View
+          entering={FadeIn.duration(140)}
+          exiting={FadeOut.duration(260)}
+          pointerEvents="none"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 44, alignItems: 'center' }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 7,
+              borderRadius: 999,
+              paddingHorizontal: 16,
+              paddingVertical: 9,
+              backgroundColor: 'rgba(19, 11, 8, 0.92)',
+              borderWidth: 1,
+              borderColor: pal.litBorder,
+            }}
+          >
+            <Ionicons
+              name={saveNote === 'Saved' ? 'bookmark' : 'bookmark-outline'}
+              size={13}
+              color={pal.glow}
+            />
+            <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, color: colors.dark.foreground }}>
+              {saveNote}
+            </Text>
+          </View>
+        </Animated.View>
+      ) : null}
 
       {/* Blur over the words when the app backgrounds or a screenshot is taken. */}
       <PrivacyShield />

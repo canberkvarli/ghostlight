@@ -107,7 +107,10 @@ export default function Account() {
               // The cache clear and the fresh anonymous session are handled
               // centrally by the SIGNED_OUT listener in app/_layout.tsx.
               await supabase.auth.signOut();
-              router.replace('/search');
+              // `replace` turned THIS screen into a second /search on top of the
+              // one already underneath, so swiping back from search landed on
+              // search. Pop back to the real one instead.
+              goBack();
             } finally {
               setBusy(null);
             }
@@ -131,7 +134,7 @@ export default function Account() {
             try {
               await deleteAccount();
               await supabase.auth.signOut();
-              router.replace('/search');
+              goBack();
             } catch {
               Alert.alert('Could not delete', 'Please try again, or contact support.');
             } finally {
