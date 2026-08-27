@@ -254,7 +254,7 @@ export default function Results() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} focus={{ x: 0.5, y: 0.12 }} />
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
 
       {/* The way back to search — anchored just below the notch, over the list.
           Absolute so it doesn't shift the list (the scroll spotlight is measured
