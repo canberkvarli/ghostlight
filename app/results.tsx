@@ -28,7 +28,7 @@ import { WordArrow } from '../src/components/WordArrow';
 import { MONOLOGUES, type Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
 import { apiToMonologue } from '../src/data/adapt';
 import { searchScreen } from '../src/lib/screen';
@@ -81,6 +81,7 @@ export default function Results() {
 
   // Which of these are already in their book. Same cache the saves screen and
   // the read screen use, so a save made anywhere shows up here immediately.
+  const qc = useQueryClient();
   const { isAuthenticated } = useSession();
   const { data: savedRows } = useFavorites(isAuthenticated);
   const savedIds = useMemo(() => new Set((savedRows ?? []).map((m) => m.id)), [savedRows]);
@@ -217,10 +218,16 @@ export default function Results() {
         // idea which toggle you came through and painted every Film & TV piece
         // in theatre amber, so tapping a violet result dropped you into an
         // orange room.
-        onPress={() => router.push({ pathname: '/read/[id]', params: { id: item.id, medium } })}
+        onPress={() => {
+          // Hand the row forward so the read screen can paint its heading at
+          // once instead of showing "(finding the page…)" while it fetches.
+          // Metadata only — see the read screen for why the words wait.
+          qc.setQueryData(['monologue-preview', item.id], item);
+          router.push({ pathname: '/read/[id]', params: { id: item.id, medium } });
+        }}
       />
     ),
-    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder, medium, savedIds],
+    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder, medium, savedIds, qc],
   );
 
   const header = useMemo(

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Animated, {
   Easing,
   FadeIn,
@@ -120,7 +120,17 @@ export default function Read() {
       }
     },
   });
+  // The row the list handed over on the tap. Enough to draw the heading — title,
+  // character, source, author, duration — and nothing else. Deliberately NOT
+  // used for the body: the list only carries a two-line excerpt, so seeding the
+  // words would start you reading and then swap them under you when the real
+  // text arrived. Reflow mid-read is worse than a second of waiting.
+  const qc = useQueryClient();
+  const preview = id ? qc.getQueryData<Monologue>(['monologue-preview', id]) : undefined;
+
   const monologue = fixture ?? fetched;
+  /** What the heading draws from — the real row once it lands, the preview until then. */
+  const head = monologue ?? preview;
 
   // Coming back from the sign-in sheet: if the page couldn't be reached before
   // (no session), try again now that there might be one — so the read opens
@@ -263,7 +273,7 @@ export default function Read() {
     if (monologue && wallKnown && !gated) void recordRead(monologue.id);
   }, [monologue, gated, wallKnown]);
 
-  if (isLoading && !monologue) {
+  if (isLoading && !monologue && !preview) {
     return (
       <StageShell onBack={goBack} pal={pal}>
         <GhostLight size={18} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
@@ -272,7 +282,7 @@ export default function Read() {
     );
   }
 
-  if (!monologue) {
+  if (!monologue && !preview) {
     return (
       <StageShell onBack={goBack} pal={pal}>
         <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
@@ -293,7 +303,11 @@ export default function Read() {
     );
   }
 
-  const body = monologue.fullText ?? monologue.excerpt;
+  // Past the guards `head` always exists — it's the real row, or the preview the
+  // list handed over. `monologue` may still be in flight, and everything that
+  // touches the WORDS has to wait for it.
+  const shown = head!;
+  const body = monologue ? (monologue.fullText ?? monologue.excerpt) : '';
 
   return (
     <View style={{ flex: 1, backgroundColor: pal.background ?? c.background }}>
@@ -362,7 +376,7 @@ export default function Read() {
               className="text-[13px] uppercase tracking-[1.6px]"
               style={{ fontFamily: 'Montserrat_600SemiBold', color: ink.accent }}
             >
-              {monologue.character}
+              {shown.character}
             </Text>
             <Animated.Text
               className="mt-2 text-[44px] leading-[50px]"
@@ -375,7 +389,7 @@ export default function Read() {
                 },
               ]}
             >
-              {monologue.title}
+              {shown.title}
             </Animated.Text>
             {/* The metadata was one 13px grey line running source · author ·
                 duration together, so the play's name — the thing you actually
@@ -386,7 +400,7 @@ export default function Read() {
               className="mt-3 text-[16px]"
               style={{ fontFamily: 'PlayfairDisplay_500Medium_Italic', color: colors.light.foreground }}
             >
-              {monologue.source}
+              {shown.source}
             </Text>
             <Text
               className="mt-1 text-[13px]"
@@ -396,14 +410,14 @@ export default function Read() {
                 color: colors.light.mutedForeground,
               }}
             >
-              {monologue.author}
+              {shown.author}
             </Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
-              <MetaPill tint={ink.accent}>{formatDuration(monologue.duration)}</MetaPill>
-              {monologue.ageRange ? <MetaPill tint={ink.accent}>{monologue.ageRange}</MetaPill> : null}
-              {monologue.gender && monologue.gender !== 'any' ? (
-                <MetaPill tint={ink.accent}>{monologue.gender}</MetaPill>
+              <MetaPill tint={ink.accent}>{formatDuration(shown.duration)}</MetaPill>
+              {shown.ageRange ? <MetaPill tint={ink.accent}>{shown.ageRange}</MetaPill> : null}
+              {shown.gender && shown.gender !== 'any' ? (
+                <MetaPill tint={ink.accent}>{shown.gender}</MetaPill>
               ) : null}
             </View>
 
@@ -419,7 +433,7 @@ export default function Read() {
                 pinned four line-boxes below it. Everything about the old fixed
                 "56% of the window" placement was a guess that a tall phone got
                 wrong in one direction and a small one in the other. */}
-            {wallKnown ? (
+            {wallKnown && monologue ? (
               <Animated.View
                 onLayout={(e) => setTextTop(e.nativeEvent.layout.y)}
                 entering={FadeIn.duration(500)}
@@ -434,8 +448,9 @@ export default function Read() {
                 />
               </Animated.View>
             ) : (
-              // Holds the scroll steady while we find out, so the page doesn't
-              // jump when the words arrive.
+              // Holds the scroll steady while the words are on their way — both
+              // while the wall resolves and while the fetch lands behind a
+              // preview heading. The page must not jump when they arrive.
               <View style={{ height: LINE_HEIGHT * FREE_LINES }} />
             )}
 
