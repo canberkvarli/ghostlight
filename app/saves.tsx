@@ -18,6 +18,7 @@ import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
 import { colors } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeContext';
+import { mediumPalette } from '../src/theme/medium';
 import { formatDuration, type Monologue } from '../src/data/monologues';
 
 /**
@@ -168,6 +169,9 @@ function SavedCard({
   onUnsave: () => void;
 }) {
   const { colors: c } = useTheme();
+  // The book holds both houses, and a violet piece turning amber the moment you
+  // save it makes the shelf look like it belongs to the theatre alone.
+  const pal = mediumPalette(item.posterUrl ? 'screen' : 'theatre', c.isLight);
   return (
     <Pressable
       onPress={onPress}
@@ -176,7 +180,7 @@ function SavedCard({
         marginBottom: 13,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: 'rgba(243, 130, 29, 0.3)',
+        borderColor: pal.litBorder,
         backgroundColor: c.card,
         padding: 18,
         overflow: 'hidden',
@@ -185,7 +189,7 @@ function SavedCard({
       {/* warm wash bleeding from the top-left (linear-gradient(150°) approximation) */}
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120, backgroundColor: 'rgba(243, 130, 29, 0.06)' }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120, backgroundColor: pal.chipFill }}
       />
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -221,7 +225,7 @@ function SavedCard({
           accessibilityRole="button"
           accessibilityLabel={`Remove ${item.title} from your book`}
         >
-          <Ionicons name="bookmark" size={20} color={colors.stageGlow} />
+          <Ionicons name="bookmark" size={20} color={pal.glow} />
         </Pressable>
       </View>
 

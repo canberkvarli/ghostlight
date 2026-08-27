@@ -424,7 +424,14 @@ export default function Read() {
                 onLayout={(e) => setTextTop(e.nativeEvent.layout.y)}
                 entering={FadeIn.duration(500)}
               >
-                <MonologueText body={gated ? monologue.excerpt : body} lineHeight={LINE_HEIGHT} />
+                <MonologueText
+                  body={gated ? monologue.excerpt : body}
+                  // Only when the whole speech is on show. The server's segments
+                  // cover the full text, so passing them behind the wall would
+                  // render the part the actor hasn't paid for.
+                  segments={gated ? undefined : monologue.segments}
+                  lineHeight={LINE_HEIGHT}
+                />
               </Animated.View>
             ) : (
               // Holds the scroll steady while we find out, so the page doesn't

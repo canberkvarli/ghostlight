@@ -101,7 +101,7 @@ export default function Auth() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} focus={{ x: 0.5, y: 0.34 }} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* The email fields live in the bottom block, which the keyboard covered

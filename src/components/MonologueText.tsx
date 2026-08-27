@@ -55,18 +55,62 @@ export function splitScript(source: string): Segment[] {
   return out.length ? out : [{ text: source, kind: 'speech' }];
 }
 
+/**
+ * The backend's own segmentation, which beats anything we can infer.
+ *
+ * Roughly a third of pieces carry stage directions as plain unbracketed prose —
+ * "Bane folds the papers. Looks out to the stunned crowd." — and no pattern
+ * match on the raw text will ever find those reliably. The server already knows;
+ * `text_segments` is typed `dialogue` / `direction` / `interjection` and is
+ * populated on 8,201 of 14,418 rows.
+ *
+ * `interjection` is deliberately rendered as speech. Upstream it's a mixed bag:
+ * on the Bane speech it covers both "Do you accept this man's resignation?"
+ * (his line) and "Individuals in the crowd start shouting" (not his line). Since
+ * greying a real line silently deletes it from the performance and leaving a
+ * direction black merely leaves it looking odd, the tie goes to speech. The
+ * mis-typing is a segmenter problem and worth fixing at the source, where it
+ * would also fix the web app.
+ */
+function fromSegments(segs: { text: string; type: string }[]): Segment[] {
+  const out: Segment[] = [];
+  segs.forEach((s, i) => {
+    const kind: Segment['kind'] = s.type === 'direction' ? 'direction' : 'speech';
+    // A blank line around a direction, a single break between spoken pieces.
+    // Segments carry no whitespace of their own, so without this the whole
+    // speech runs together as one paragraph — and a direction sitting inline
+    // mid-sentence is exactly as confusing as one that isn't styled at all.
+    if (i > 0) {
+      const prev = segs[i - 1];
+      const gap = kind === 'direction' || prev.type === 'direction' ? '\n\n' : '\n';
+      out.push({ text: gap, kind: 'speech' });
+    }
+    out.push({ text: s.text, kind });
+  });
+  return out;
+}
+
 export const MonologueText = memo(function MonologueText({
   body,
+  segments: given,
   fontSize = 16,
   lineHeight = 27,
   style,
 }: {
   body: string;
+  /** The server's typed segmentation, when it has one. */
+  segments?: { text: string; type: string }[];
   fontSize?: number;
   lineHeight?: number;
   style?: TextStyle;
 }) {
-  const segments = useMemo(() => splitScript(body), [body]);
+  // Segments describe the WHOLE speech, so the caller must not pass them when
+  // it's rendering the walled excerpt — that would hand over the rest of the
+  // monologue for free. See the read screen, which passes them only when open.
+  const segments = useMemo(
+    () => (given?.length ? fromSegments(given) : splitScript(body)),
+    [given, body],
+  );
 
   return (
     <Text

@@ -55,6 +55,7 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     // The API scores overdone-ness 0–1; the card and its badge think in 0–100.
     overdoneScore: Math.round((m.overdone_score ?? 0) * 100),
     excerpt: firstTwoLines(m.text),
+    segments: Array.isArray(m.text_segments) ? m.text_segments : undefined,
     fullText: m.text,
     // `paywalled` is newer than the committed OpenAPI snapshot; read defensively.
     paywalled: (m as { paywalled?: boolean }).paywalled ?? false,

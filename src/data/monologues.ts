@@ -30,6 +30,14 @@ export interface Monologue {
   /** The first two lines, in Courier. Actors judge a monologue by reading it. */
   excerpt: string;
   /**
+   * The speech already broken into typed pieces by the backend — dialogue,
+   * direction, interjection. Present on 8,201 of 14,418 rows. When it's here it
+   * beats parsing `text`, because roughly a third of pieces carry stage
+   * directions as plain unbracketed prose ("Bane folds the papers.") that no
+   * amount of client-side pattern matching could reliably find.
+   */
+  segments?: { text: string; type: string }[];
+  /**
    * The whole speech, for the Read screen. Optional in Step 0 — the list only
    * needs the excerpt, and the full text arrives from `GET /api/monologues/{id}`
    * in Step 3. Populated here only for the fixtures worth reading offline.

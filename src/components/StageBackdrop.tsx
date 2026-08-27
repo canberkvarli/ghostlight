@@ -26,8 +26,8 @@ import { useTheme } from '../theme/ThemeContext';
 
 /**
  * The stage the whole app stands on: warm near-black, a wash of glow spilling
- * from above the top edge, a scatter of drifting motes that answer the tilt, and
- * a dither so none of it bands on an OLED panel.
+ * from above the top edge, a few motes drifting at the lamp, and a dither so
+ * none of it bands on an OLED panel.
  *
  * Two canvases, deliberately. The mote canvas redraws as you tilt; the wash and
  * dither never change their props and so never redraw. Putting the noise in the
@@ -42,6 +42,8 @@ interface Props {
   glowColor?: string;
   /** Stage-floor override. Screen forces its violet near-black; theatre follows the theme. */
   background?: string;
+  /** Where the lamp hangs on THIS screen, so the motes gather at it. */
+  focus?: { x: number; y: number };
 }
 
 function rgbTriplet(hex: string): string {
@@ -92,26 +94,28 @@ function falloff(alpha: number, glow: (a: number) => string) {
 }
 
 /**
- * Nine motes, hand-placed rather than random.
+ * Six motes, gathered at the lamp.
  *
- * Random scatter clumps — you get three in one corner and a bare patch
- * elsewhere, and on a screen this size the eye finds both immediately. These are
- * spread over the field on purpose, with the larger, slower, more parallaxed
- * ones low and the small quick ones high, which is the way depth actually
- * reads. `x`/`y` are fractions of the viewport; `depth` scales both how far the
- * tilt moves them and how big they are, so near ones swing further.
+ * They were nine, spread over the whole field, and that was wrong for the same
+ * reason the old spotlight was wrong: anything distributed across the entire
+ * background is scenery, and scenery that moves is distracting. Light comes from
+ * somewhere. Clustering them at the bulb makes them read as motes IN the beam —
+ * the thing the lamp is doing — rather than as decoration applied to the screen.
+ *
+ * `dx`/`dy` are offsets from the focal point in fractions of the viewport, kept
+ * small and slightly wider than tall so the cluster hangs the way a glow does.
  */
 const MOTES = [
-  { x: 0.18, y: 0.16, r: 2.0, depth: 0.35, speed: 0.7, phase: 0.0, amp: 0.030 },
-  { x: 0.74, y: 0.11, r: 1.6, depth: 0.28, speed: 0.9, phase: 1.9, amp: 0.026 },
-  { x: 0.46, y: 0.27, r: 2.4, depth: 0.5, speed: 0.55, phase: 3.4, amp: 0.038 },
-  { x: 0.88, y: 0.38, r: 2.0, depth: 0.42, speed: 0.8, phase: 5.1, amp: 0.032 },
-  { x: 0.09, y: 0.47, r: 2.8, depth: 0.62, speed: 0.45, phase: 2.2, amp: 0.044 },
-  { x: 0.62, y: 0.58, r: 3.4, depth: 0.78, speed: 0.38, phase: 0.8, amp: 0.052 },
-  { x: 0.30, y: 0.71, r: 3.0, depth: 0.7, speed: 0.5, phase: 4.3, amp: 0.046 },
-  { x: 0.83, y: 0.79, r: 3.8, depth: 0.92, speed: 0.32, phase: 1.2, amp: 0.058 },
-  { x: 0.50, y: 0.90, r: 2.6, depth: 0.55, speed: 0.62, phase: 3.9, amp: 0.040 },
+  { dx: -0.14, dy: -0.055, r: 1.5, depth: 0.3, speed: 0.8, phase: 0.0, amp: 0.016 },
+  { dx: 0.13, dy: -0.085, r: 1.2, depth: 0.24, speed: 1.0, phase: 1.9, amp: 0.013 },
+  { dx: 0.19, dy: 0.045, r: 1.9, depth: 0.44, speed: 0.6, phase: 3.4, amp: 0.020 },
+  { dx: -0.20, dy: 0.075, r: 1.7, depth: 0.38, speed: 0.7, phase: 5.1, amp: 0.018 },
+  { dx: 0.04, dy: 0.115, r: 2.2, depth: 0.55, speed: 0.5, phase: 2.2, amp: 0.024 },
+  { dx: -0.06, dy: -0.12, r: 1.3, depth: 0.2, speed: 0.95, phase: 4.3, amp: 0.014 },
 ] as const;
+
+/** Where the lamp hangs, as a fraction of the viewport. Screens may override. */
+const DEFAULT_FOCUS = { x: 0.5, y: 0.26 } as const;
 
 type MoteSpec = (typeof MOTES)[number];
 
@@ -133,6 +137,7 @@ function Mote({
   height,
   rgb,
   isLight,
+  focus,
 }: {
   spec: MoteSpec;
   clock: SharedValue<number>;
@@ -142,6 +147,7 @@ function Mote({
   height: number;
   rgb: string;
   isLight: boolean;
+  focus: { x: number; y: number };
 }) {
   const haloR = spec.r * 8;
   const travel = 0.11;
@@ -149,8 +155,10 @@ function Mote({
   const centre = useDerivedValue(() => {
     const t = clock.value * TWO_PI * spec.speed + spec.phase;
     return vec(
-      width * spec.x + Math.cos(t) * width * spec.amp + tiltX.value * width * travel * spec.depth,
-      height * spec.y +
+      width * (focus.x + spec.dx) +
+        Math.cos(t) * width * spec.amp +
+        tiltX.value * width * travel * spec.depth,
+      height * (focus.y + spec.dy) +
         Math.sin(t * 0.8) * height * spec.amp * 0.7 +
         tiltY.value * height * travel * spec.depth,
     );
@@ -178,7 +186,7 @@ function Mote({
   );
 }
 
-function StageBackdropImpl({ tiltX, tiltY, glowColor, background }: Props) {
+function StageBackdropImpl({ tiltX, tiltY, glowColor, background, focus }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const { colors: c } = useTheme();
@@ -241,6 +249,7 @@ function StageBackdropImpl({ tiltX, tiltY, glowColor, background }: Props) {
             height={height}
             rgb={rgb}
             isLight={c.isLight}
+            focus={focus ?? DEFAULT_FOCUS}
           />
         ))}
       </Canvas>
