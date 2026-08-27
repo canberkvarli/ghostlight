@@ -83,11 +83,35 @@ export default function RootLayout() {
     // session is covered — the sign-out button, account deletion, and a token
     // that simply expires.
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== 'SIGNED_OUT') return;
-      queryClient.clear();
-      // Without a fresh anonymous session every request 401s and the app looks
-      // broken rather than signed out.
-      void bootstrapSession();
+      if (event === 'SIGNED_OUT') {
+        queryClient.clear();
+        // Without a fresh anonymous session every request 401s and the app looks
+        // broken rather than signed out.
+        void bootstrapSession();
+        return;
+      }
+
+      // Signing IN needed the same treatment and never got it.
+      //
+      // Every one of these queries is an answer about a particular identity, and
+      // signing in changes the identity. `['read-wall']` has a 15s staleTime, so
+      // after a subscriber signed in the search screen went on serving the
+      // anonymous session's `is_paid: false` — the marker read "free" until
+      // something else happened to force a refetch, which is why opening Account
+      // appeared to fix it. Nothing was broken except that nobody had asked
+      // again.
+      //
+      // Invalidate rather than clear: clearing empties the cache and every
+      // mounted screen flashes its loading state on the way back. Invalidating
+      // keeps what's on screen and quietly replaces it when the new answer
+      // lands.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        void queryClient.invalidateQueries({ queryKey: ['read-wall'] });
+        void queryClient.invalidateQueries({ queryKey: ['favorites'] });
+        // A walled monologue withholds its text, so the copy already fetched
+        // under the old identity is the wrong one to keep.
+        void queryClient.invalidateQueries({ queryKey: ['monologue'] });
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
