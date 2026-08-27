@@ -228,9 +228,19 @@ export default function Account() {
               affordances for the same act were stacked one on top of the other. */}
 
           {/* Four rows only. Everything else is one level down. */}
-          <View style={{ marginTop: 22, borderTopWidth: 1, borderTopColor: colors.dark.divider }}>
+          <View style={{ marginTop: 22, borderTopWidth: 1, borderTopColor: c.divider }}>
             <AppearanceRow />
-            <Row label="Subscription" onPress={onSubscription} busy={busy === 'restore'} />
+            {/* The plan card above says it in the app's voice, which is lovely
+                and apparently not enough — "am I subscribed?" was still hard to
+                answer at a glance. This says it in the plainest words there are,
+                on the row you'd tap to find out. */}
+            <Row
+              label="Subscription"
+              value={isPaid ? 'Subscribed' : 'Free'}
+              valueLit={isPaid}
+              onPress={onSubscription}
+              busy={busy === 'restore'}
+            />
             <Row label="Help & legal" onPress={onHelp} />
             {isAuthenticated ? <Row label="Sign out" onPress={onSignOut} busy={busy === 'signout'} last /> : null}
           </View>
@@ -341,7 +351,7 @@ function PlanCard({
               flex: 1,
               height: 4,
               borderRadius: 2,
-              backgroundColor: i < litBars ? colors.stageGlow : colors.dark.inactiveMeter,
+              backgroundColor: i < litBars ? colors.stageGlow : c.inactiveMeter,
               shadowColor: colors.stageGlow,
               shadowOpacity: i < litBars ? 0.8 : 0,
               shadowRadius: 5,
@@ -446,7 +456,7 @@ function IdentityCard({
       style={{
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: isAuthenticated ? colors.dark.cardBorder : 'rgba(243, 130, 29, 0.3)',
+        borderColor: isAuthenticated ? c.cardBorder : 'rgba(243, 130, 29, 0.3)',
         backgroundColor: c.card,
         paddingVertical: 16,
         paddingHorizontal: 18,
@@ -511,7 +521,7 @@ function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: (
         flex: 1,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: colors.dark.cardBorder,
+        borderColor: c.cardBorder,
         backgroundColor: c.card,
         paddingVertical: 20,
         paddingHorizontal: 18,
@@ -532,11 +542,17 @@ function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: (
 
 function Row({
   label,
+  value,
+  valueLit,
   onPress,
   busy,
   last,
 }: {
   label: string;
+  /** Current state, shown before the chevron. */
+  value?: string;
+  /** Draw the value in the stage glow — for states worth noticing. */
+  valueLit?: boolean;
   onPress: () => void;
   busy?: boolean;
   last?: boolean;
@@ -556,7 +572,7 @@ function Row({
         justifyContent: 'space-between',
         paddingVertical: 17,
         borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: colors.dark.divider,
+        borderBottomColor: c.divider,
       }}
     >
       <Text className="text-[16px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground }}>
@@ -565,7 +581,20 @@ function Row({
       {busy ? (
         <ActivityIndicator color={c.mutedForeground} />
       ) : (
-        <Ionicons name="chevron-forward" size={18} color={colors.dark.chevron} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          {value ? (
+            <Text
+              style={{
+                fontFamily: 'Montserrat_500Medium',
+                fontSize: 14,
+                color: valueLit ? colors.stageGlow : c.mutedForeground,
+              }}
+            >
+              {value}
+            </Text>
+          ) : null}
+          <Ionicons name="chevron-forward" size={18} color={c.chevron} />
+        </View>
       )}
     </Pressable>
   );
@@ -580,7 +609,7 @@ function AppearanceRow() {
     { k: 'light', label: 'Light' },
   ];
   return (
-    <View style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: colors.dark.divider }}>
+    <View style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: c.divider }}>
       <Text className="text-[16px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground, marginBottom: 12 }}>
         Appearance
       </Text>

@@ -13,7 +13,7 @@ import Animated, {
 
 import { GhostLight } from './GhostLight';
 import { StageBackdrop } from './StageBackdrop';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import { pickLaunchQuote } from '../data/launchQuotes';
 
 /**
@@ -32,6 +32,7 @@ const STRIKE = [0, 0.14, 0.02, 0.42, 0.06, 0.7, 0.2, 0.9, 0.48, 1, 0.66, 0.96, 1
 
 export function LaunchOverlay() {
   const reduce = useReducedMotion();
+  const { colors: c } = useTheme();
   const [gone, setGone] = useState(false);
   // Picked once per mount, not per render — a re-render mid-fade must not swap
   // the line out from under the reader.
@@ -81,14 +82,14 @@ export function LaunchOverlay() {
       pointerEvents={gone ? 'none' : 'auto'}
       style={[StyleSheet.absoluteFill, coverStyle, { zIndex: 100 }]}
     >
-      {/* The launch stage is ALWAYS dark, in both schemes.
-          StageBackdrop follows the theme, so in light mode this painted cream —
-          under text hardcoded to `colors.dark.foreground`, which is cream. The
-          wordmark and the quote were invisible on every light-mode launch.
-          Forcing the background rather than theming the text is the right way
-          round: the static iOS splash is #130b08 and cannot be themed, so a
-          light launch overlay would flash pale over a dark splash anyway. */}
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} background={colors.dark.background} />
+      {/* Follows the scheme now, background AND text together — the earlier bug
+          was theming one and not the other, which put cream text on cream.
+
+          One caveat that needs a build, not an update: the static iOS launch
+          image is #130b08 and can't be themed from JS, so a light-mode launch
+          shows a dark native splash for a beat before this fades up pale. Fixing
+          that means a `dark` splash variant in app.json and a new binary. */}
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} background={c.background} />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <Animated.View style={lampStyle}>
           <GhostLight size={82} dress="full" />
@@ -119,7 +120,7 @@ export function LaunchOverlay() {
                 // line with 17pt of it sits 17pt right of true centre.
                 paddingLeft: 17,
                 textTransform: 'uppercase',
-                color: colors.dark.foreground,
+                color: c.foreground,
               },
             ]}
           >
@@ -137,7 +138,7 @@ export function LaunchOverlay() {
               fontSize: 15,
               lineHeight: 22,
               letterSpacing: 0.5,
-              color: colors.dark.mutedForeground,
+              color: c.mutedForeground,
             }}
           >
             {quote.line}
@@ -151,7 +152,7 @@ export function LaunchOverlay() {
               fontSize: 10,
               letterSpacing: 2.4,
               textTransform: 'uppercase',
-              color: colors.dark.mutedForeground,
+              color: c.mutedForeground,
               opacity: 0.6,
             }}
           >

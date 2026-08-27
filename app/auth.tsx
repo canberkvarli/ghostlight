@@ -109,44 +109,44 @@ export default function Auth() {
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
             <Text
-              style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: colors.dark.mutedForeground }}
+              style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
             >
               Not now
             </Text>
           </Pressable>
         </View>
 
-        {/* Scrollable, and the hero shrinks once the email fields are out.
-            This was a fixed `flex: 1` hero above a fixed block, inside a
-            KeyboardAvoidingView on `padding`. The keyboard shrank the container,
-            the hero's contents could not shrink with it — a 66pt lamp and a 40pt
-            Playfair line have a floor — and nothing clipped the overflow, so the
-            Apple slab and the Google row rendered straight over the top of
-            "Keep this one." Scrolling gives the overflow somewhere to go;
-            compacting the hero means it rarely has to. */}
+        {/* The hero is a header that yields, not a half-screen that fights.
+            It was `flex: 1` centred, which on a small phone in landscape-ish
+            keyboard conditions left the sign-in rows with nowhere to be. Now it
+            takes the room that's spare and gives it all back the moment the
+            keyboard is up, so the ways in are always the thing you can see. */}
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-        <View
+        <Animated.View
+          layout={LinearTransition.duration(220)}
           style={{
             flexGrow: 1,
+            flexShrink: 1,
             alignItems: 'center',
             justifyContent: 'center',
             paddingHorizontal: 36,
-            paddingVertical: 20,
+            paddingVertical: emailOpen ? 8 : 20,
           }}
         >
-          <GhostLight size={emailOpen ? 34 : 66} />
+          <GhostLight size={emailOpen ? 30 : 66} />
           <Text
             className="text-center text-foreground"
             style={{
-              marginTop: emailOpen ? 16 : 28,
+              marginTop: emailOpen ? 14 : 28,
               fontFamily: 'PlayfairDisplay_600SemiBold',
-              fontSize: emailOpen ? 26 : 40,
-              lineHeight: emailOpen ? 32 : 46,
+              fontSize: emailOpen ? 24 : 40,
+              lineHeight: emailOpen ? 30 : 46,
             }}
           >
             Keep this one.
@@ -156,14 +156,21 @@ export default function Auth() {
               {'(sign in to save.\nnothing you did is lost.)'}
             </StageDirection>
           )}
-        </View>
+        </Animated.View>
 
-        <View style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
+        <Animated.View layout={LinearTransition.duration(220)} style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
           {/* The Apple slab — the one rectangle Apple's guidelines require. */}
           {Platform.OS === 'ios' && appleReady ? (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              // WHITE on the dark stage, BLACK on paper. A white slab on cream
+              // is a rectangle you have to hunt for, and this is the button
+              // Apple requires to be the prominent one.
+              buttonStyle={
+                c.isLight
+                  ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+              }
               cornerRadius={14}
               style={{ height: 54, width: '100%', marginBottom: 6 }}
               onPress={withApple}
@@ -184,7 +191,7 @@ export default function Auth() {
               entering={FadeInDown.duration(220).easing(Easing.out(Easing.cubic))}
               exiting={FadeOutUp.duration(160)}
               layout={LinearTransition.duration(200)}
-              style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.dark.divider }}
+              style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: c.divider }}
             >
               <UnderlineField
                 value={email}
@@ -209,7 +216,7 @@ export default function Auth() {
               <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Pressable onPress={() => setEmailOpen(false)} hitSlop={10} accessibilityRole="button">
                   <Text
-                    style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: colors.dark.chevron }}
+                    style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.chevron }}
                   >
                     (back.)
                   </Text>
@@ -244,7 +251,7 @@ export default function Auth() {
               {error}
             </Text>
           ) : null}
-        </View>
+        </Animated.View>
         </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -285,14 +292,14 @@ function WayRow({
         justifyContent: 'space-between',
         paddingVertical: 17,
         borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: colors.dark.divider,
+        borderBottomColor: c.divider,
       }}
     >
       <Animated.Text
         style={[
           style,
           quiet
-            ? { fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, color: colors.dark.chevron }
+            ? { fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, color: c.chevron }
             : { fontFamily: 'Montserrat_500Medium', fontSize: 15, color: c.foreground },
         ]}
       >

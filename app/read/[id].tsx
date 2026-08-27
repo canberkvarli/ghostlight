@@ -306,8 +306,8 @@ export default function Read() {
               accessibilityLabel="Back to results"
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
             >
-              <Ionicons name="chevron-back" size={22} color={colors.dark.chevron} />
-              <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.dark.chevron }}>
+              <Ionicons name="chevron-back" size={22} color={c.chevron} />
+              <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: c.chevron }}>
                 Results
               </Text>
             </Pressable>
@@ -360,7 +360,7 @@ export default function Read() {
               {monologue.character}
             </Text>
             <Animated.Text
-              className="mt-2 text-[38px] leading-[44px]"
+              className="mt-2 text-[44px] leading-[50px]"
               style={[
                 titleStyle,
                 {
@@ -372,12 +372,35 @@ export default function Read() {
             >
               {monologue.title}
             </Animated.Text>
+            {/* The metadata was one 13px grey line running source · author ·
+                duration together, so the play's name — the thing you actually
+                need — carried no more weight than the running time. Two lines
+                now: the work and who wrote it, then the durable facts as their
+                own quiet row. */}
             <Text
-              className="mt-2 text-[13px]"
-              style={{ fontFamily: 'Montserrat_400Regular', color: colors.light.mutedForeground }}
+              className="mt-3 text-[16px]"
+              style={{ fontFamily: 'PlayfairDisplay_500Medium_Italic', color: colors.light.foreground }}
             >
-              {monologue.source} · {monologue.author} · {formatDuration(monologue.duration)}
+              {monologue.source}
             </Text>
+            <Text
+              className="mt-1 text-[13px]"
+              style={{
+                fontFamily: 'Montserrat_400Regular',
+                letterSpacing: 0.2,
+                color: colors.light.mutedForeground,
+              }}
+            >
+              {monologue.author}
+            </Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
+              <MetaPill tint={ink.accent}>{formatDuration(monologue.duration)}</MetaPill>
+              {monologue.ageRange ? <MetaPill tint={ink.accent}>{monologue.ageRange}</MetaPill> : null}
+              {monologue.gender && monologue.gender !== 'any' ? (
+                <MetaPill tint={ink.accent}>{monologue.gender}</MetaPill>
+              ) : null}
+            </View>
 
             <View
               style={{ marginVertical: 24, height: 1, width: '100%', backgroundColor: colors.light.border }}
@@ -585,6 +608,33 @@ export default function Read() {
 
       {/* Blur over the words when the app backgrounds or a screenshot is taken. */}
       <PrivacyShield />
+    </View>
+  );
+}
+
+/** A durable fact about the piece — length, age, gender. Quiet, on paper. */
+function MetaPill({ children, tint }: { children: React.ReactNode; tint: string }) {
+  return (
+    <View
+      style={{
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: colors.light.border,
+        paddingHorizontal: 11,
+        paddingVertical: 5,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: 'Montserrat_500Medium',
+          fontSize: 11,
+          letterSpacing: 0.6,
+          textTransform: 'lowercase',
+          color: tint,
+        }}
+      >
+        {children}
+      </Text>
     </View>
   );
 }

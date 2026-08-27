@@ -17,6 +17,7 @@ import { UndoBar } from '../src/components/UndoBar';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
 import { colors } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeContext';
 import { formatDuration, type Monologue } from '../src/data/monologues';
 
 /**
@@ -39,6 +40,7 @@ function progressLabel(pct: number): string {
 type Saved = Monologue & { pct?: number };
 
 export default function Saves() {
+  const { colors: c } = useTheme();
   const router = useRouter();
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
@@ -117,7 +119,7 @@ export default function Saves() {
             </StageDirection>
             <Text
               className="text-center"
-              style={{ marginTop: 16, fontFamily: 'Montserrat_400Regular', fontSize: 13, color: colors.dark.mutedForeground }}
+              style={{ marginTop: 16, fontFamily: 'Montserrat_400Regular', fontSize: 13, color: c.mutedForeground }}
             >
               Your saves are safe. Check your{'\n'}connection and try again.
             </Text>
@@ -173,6 +175,7 @@ function SavedCard({
   onPress: () => void;
   onUnsave: () => void;
 }) {
+  const { colors: c } = useTheme();
   const pct = item.pct ?? 0;
   return (
     <Pressable
@@ -183,7 +186,7 @@ function SavedCard({
         borderRadius: 18,
         borderWidth: 1,
         borderColor: 'rgba(243, 130, 29, 0.3)',
-        backgroundColor: colors.dark.card,
+        backgroundColor: c.card,
         padding: 18,
         overflow: 'hidden',
       }}
@@ -210,7 +213,7 @@ function SavedCard({
               fontSize: 11,
               letterSpacing: 1,
               textTransform: 'uppercase',
-              color: colors.dark.mutedForeground,
+              color: c.mutedForeground,
               marginTop: 6,
             }}
           >
@@ -237,7 +240,8 @@ function SavedCard({
           fontFamily: 'CourierPrime_400Regular',
           fontSize: 13,
           lineHeight: 20,
-          color: 'rgba(243, 238, 230, 0.82)',
+          color: c.foreground,
+          opacity: 0.85,
           marginTop: 12,
         }}
       >
@@ -246,13 +250,13 @@ function SavedCard({
 
       {/* progress rule */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 }}>
-        <View style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
+        <View style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
           <View style={{ width: `${Math.max(6, pct * 100)}%`, height: '100%', backgroundColor: colors.stageGlow }} />
         </View>
-        <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: colors.dark.mutedForeground }}>
+        <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: c.mutedForeground }}>
           {progressLabel(pct)}
         </Text>
-        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 11, color: colors.dark.chevron }}>
+        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 11, color: c.chevron }}>
           {formatDuration(item.duration)}
         </Text>
       </View>

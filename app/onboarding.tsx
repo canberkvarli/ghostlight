@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { markOnboardingComplete } from '../src/lib/onboarding';
 import { colors } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeContext';
 
 /**
  * Onboarding (handoff §6). One lamp, three scenes: the lamp is pinned at 27% and
@@ -62,6 +63,7 @@ const GLASS_W = 85;
 const GLASS_OFFSET = 1.34 * GLASS_W;
 
 export default function Onboarding() {
+  const { colors: c } = useTheme();
   const { width, height } = useWindowDimensions();
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
@@ -121,7 +123,7 @@ export default function Onboarding() {
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
           <Pressable onPress={finish} hitSlop={12} accessibilityRole="button">
             <Text
-              style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: colors.dark.mutedForeground }}
+              style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
             >
               Skip
             </Text>

@@ -636,9 +636,15 @@ export default function Search() {
       <FilterSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
+        // Done applies, and applying means searching — that's what the sheet is
+        // for, and closing it back onto an unchanged screen would make the
+        // filters you just set look like they hadn't taken. The exception is
+        // Done with nothing chosen and nothing typed: that used to close the
+        // sheet and immediately blow the lamp out at you, which is a scolding
+        // for tapping the only button available. It just closes.
         onApply={() => {
           setSheetOpen(false);
-          submit();
+          if (query.trim() || Object.values(selected).some(Boolean)) submit();
         }}
         onClear={() => setSelected(EMPTY_SELECTION)}
         selected={selected}

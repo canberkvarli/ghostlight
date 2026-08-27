@@ -227,7 +227,7 @@ export default function Paywall() {
           </View>
 
           {/* Plans — hairline radio rows, not slabs. */}
-          <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: colors.dark.divider }}>
+          <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: c.divider }}>
             <PlanRow
               selected={plan === 'annual'}
               onPress={() => setPlan('annual')}
@@ -271,7 +271,7 @@ export default function Paywall() {
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />
             ) : (
-              <Text className="text-[13px]" style={{ fontFamily: 'Montserrat_500Medium', color: colors.dark.chevron }}>
+              <Text className="text-[13px]" style={{ fontFamily: 'Montserrat_500Medium', color: c.chevron }}>
                 Restore purchases
               </Text>
             )}
@@ -328,7 +328,7 @@ function PlanRow({
         alignItems: 'center',
         paddingVertical: 18,
         borderBottomWidth: 1,
-        borderBottomColor: colors.dark.divider,
+        borderBottomColor: c.divider,
       }}
     >
       {/* Radio ring — fills with the accent when selected. */}

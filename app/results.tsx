@@ -250,8 +250,8 @@ export default function Results() {
         accessibilityLabel="Back to search"
         style={{ position: 'absolute', top: insets.top + 8, left: 12, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 }}
       >
-        <Ionicons name="chevron-back" size={22} color={colors.dark.chevron} />
-        <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.dark.chevron }}>
+        <Ionicons name="chevron-back" size={22} color={c.chevron} />
+        <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: c.chevron }}>
           Search
         </Text>
       </Pressable>
@@ -362,6 +362,7 @@ const SCREEN_LINES = [
  * search — with a fast backend most people only ever read the first one or two.
  */
 function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }) {
+  const { colors: c } = useTheme();
   const reduce = useReducedMotion();
   const pulse = useSharedValue(0.6);
   const sweep = useSharedValue(0);
@@ -408,7 +409,7 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
         {`(${lines[vi]})`}
       </StageDirection>
       {/* a 150pt hairline the light sweeps along */}
-      <View style={{ marginTop: 24, width: 150, height: 1, backgroundColor: colors.dark.inactiveMeter, overflow: 'hidden' }}>
+      <View style={{ marginTop: 24, width: 150, height: 1, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
         <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.glow }]} />
       </View>
     </View>
@@ -420,6 +421,7 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
  * ask us to add the piece they're after (spec §4, content-request).
  */
 function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
+  const { colors: c } = useTheme();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -465,7 +467,7 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
           <StageDirection className="mt-5">{query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}</StageDirection>
           <Text
             className="text-center"
-            style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: colors.dark.mutedForeground }}
+            style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: c.mutedForeground }}
           >
             Ask for it and we go looking.{'\n'}Most requests are up inside a week.
           </Text>
@@ -484,9 +486,10 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
  * worth another tap.
  */
 function MoreRow({ more, pal, onPress }: { more: number; pal: MediumPalette; onPress: () => void }) {
+  const { colors: c } = useTheme();
   return (
     <View style={{ alignItems: 'center', paddingTop: 26, paddingBottom: 8 }}>
-      <View style={{ width: 44, height: 1, backgroundColor: colors.dark.inactiveMeter }} />
+      <View style={{ width: 44, height: 1, backgroundColor: c.inactiveMeter }} />
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -606,6 +609,7 @@ function SearchFailedStage({
   // The lamp sat too low and the stage direction sat right under the headline,
   // so the three read as one clump in the middle of an empty screen. The lamp
   // moves up out of the text's way and the direction gets room to be an aside.
+  const { colors: c } = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 64 }}>
       <View style={{ opacity: 0.4 }}>
@@ -622,7 +626,7 @@ function SearchFailedStage({
       </StageDirection>
       <Text
         className="text-center"
-        style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: colors.dark.mutedForeground }}
+        style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: c.mutedForeground }}
       >
         Check your connection and try again.
       </Text>
