@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight, ghostLightMetrics } from '../src/components/GhostLight';
-import { loadSearchHistory, pushSearchHistory } from '../src/lib/searchHistory';
+import { loadSearchHistory, pushSearchHistory, type RecentSearch } from '../src/lib/searchHistory';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,12 +60,16 @@ const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
 const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
 
 /**
- * Three states, one chip: guest, free, subscribed.
+ * Where you stand, in the corner that was empty.
  *
- * The lamp's dress (bare bulb vs standing lamp) already marks paid from unpaid,
- * but it is deliberately quiet — you have to know to look — and it says nothing
- * at all about whether there's a real account behind the session. This does both
- * in words, and doubles as the door to Account.
+ * This was a bordered pill with a lit filament, sitting top-right beside the
+ * bookmark and settings icons — three things crowded into one corner while the
+ * opposite one sat bare. It is status: read once, does nothing. It was styled
+ * like a control and placed like a priority. Bare text on the left balances the
+ * row and stops it competing with the two buttons that actually act.
+ *
+ * "sign in" is a verb because that state wants an action; the other two are
+ * facts. The words match Account's Subscription row, so nothing has two names.
  */
 function StandingChip({
   isPaid,
@@ -80,67 +84,33 @@ function StandingChip({
 }) {
   const { colors: c } = useTheme();
   // The session resolves a beat after mount, and until it does every signed-in
-  // actor is indistinguishable from a guest. Showing the chip early would mean
-  // telling a subscriber they're a guest on every single launch, so it waits.
+  // actor is indistinguishable from a guest. Showing this early would tell a
+  // subscriber they were a guest on every single launch, so it waits.
   if (loading) return null;
 
-  // "in full" was a costume reference nobody outside this codebase could read.
-  // These are the three words an actor would actually use about their own
-  // account, and the chevron says the chip is a door rather than a badge.
   const label = isPaid ? 'subscribed' : isAuthenticated ? 'free' : 'sign in';
-  const lit = isPaid;
 
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={10}
+      hitSlop={14}
       accessibilityRole="button"
       accessibilityLabel={
         isPaid ? 'Subscribed. Open account' : isAuthenticated ? 'Free account. Open account' : 'Sign in'
       }
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        borderRadius: 999,
-        borderWidth: 1,
-        paddingHorizontal: 11,
-        paddingVertical: 5,
-        borderColor: lit ? 'rgba(243, 130, 29, 0.45)' : c.cardBorder,
-        backgroundColor: lit ? 'rgba(243, 130, 29, 0.12)' : 'transparent',
-      }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 4 }}
     >
-      {/* a filament: lit for subscribers, cold otherwise */}
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: lit ? colors.stageGlow : 'transparent',
-          borderWidth: lit ? 0 : 1,
-          borderColor: c.chevron,
-          shadowColor: colors.stageGlow,
-          shadowOpacity: lit ? 0.9 : 0,
-          shadowRadius: 4,
-          shadowOffset: { width: 0, height: 0 },
-        }}
-      />
       <Text
         style={{
           fontFamily: 'CourierPrime_400Regular_Italic',
-          fontSize: 12,
+          fontSize: 13,
           letterSpacing: 0.4,
-          color: lit ? colors.stageGlow : c.mutedForeground,
+          color: isPaid ? colors.stageGlow : c.mutedForeground,
         }}
       >
         {label}
       </Text>
-      <Ionicons
-        name="chevron-forward"
-        size={11}
-        color={lit ? colors.stageGlow : c.chevron}
-        style={{ marginLeft: -1 }}
-      />
+      <Ionicons name="chevron-forward" size={11} color={isPaid ? colors.stageGlow : c.chevron} />
     </Pressable>
   );
 }
@@ -155,7 +125,7 @@ export default function Search() {
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
   const [medium, setMediumState] = useState<Medium>('theatre');
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
     void loadSearchHistory().then(setHistory);
@@ -308,7 +278,7 @@ export default function Search() {
     );
     // Local only, and only the text — see src/lib/searchHistory.ts on why the
     // filters deliberately don't come along for the ride.
-    void pushSearchHistory(query).then(setHistory);
+    void pushSearchHistory(query, medium).then(setHistory);
     const params = selectionToParams(selected);
     router.push({
       pathname: '/results',
@@ -323,11 +293,16 @@ export default function Search() {
   }, [query, selected, medium, router, bulbBoost, activeCount, blow]);
 
   const runRecent = useCallback(
-    (term: string) => {
+    (item: RecentSearch) => {
       Haptics.selectionAsync().catch(() => {});
-      setQuery(term);
-      void pushSearchHistory(term).then(setHistory);
-      router.push({ pathname: '/results', params: { q: term, medium } });
+      setQuery(item.q);
+      // Back to the house the search was made in, not the one you happen to be
+      // standing in. Tapping a remembered theatre search from inside Film & TV
+      // used to search the wrong catalogue in the wrong colour — you tapped
+      // something you had already seen and got something else.
+      if (item.medium !== medium) setMediumState(item.medium);
+      void pushSearchHistory(item.q, item.medium).then(setHistory);
+      router.push({ pathname: '/results', params: { q: item.q, medium: item.medium } });
     },
     [medium, router],
   );
@@ -354,21 +329,14 @@ export default function Search() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Tapping any empty area dismisses the keyboard; child buttons still win. */}
         <Pressable onPress={() => Keyboard.dismiss()} accessible={false} style={{ flex: 1, paddingHorizontal: 28 }}>
-          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 18 }}>
-            {/* Where you stand, in three words or fewer. There was no way to
-                tell a guest from a signed-in free account from a subscriber
-                without opening Account and reading two cards — and the guest
-                case is the one that matters, because an anonymous session looks
-                identical to a real one right up until you lose it. */}
+          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <StandingChip
               isPaid={isPaid}
               isAuthenticated={isAuthenticated}
               loading={sessionLoading}
-              // A chip reading "sign in" that opens a settings screen is a
-              // riddle. It goes where it says it goes; the other two states
-              // describe an account, so they open the account.
               onPress={() => router.push(isAuthenticated ? '/account' : '/auth')}
             />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22 }}>
             <Pressable
               onPress={() => router.push('/saves')}
               hitSlop={12}
@@ -385,6 +353,7 @@ export default function Search() {
             >
               <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
             </Pressable>
+            </View>
           </View>
 
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
@@ -493,12 +462,12 @@ export default function Search() {
                   { width: '100%', marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
                 ]}
               >
-                {history.slice(0, 4).map((term) => (
+                {history.slice(0, 4).map((item) => (
                   <Pressable
-                    key={term}
-                    onPress={() => runRecent(term)}
+                    key={`${item.medium}:${item.q}`}
+                    onPress={() => runRecent(item)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Search again for ${term}`}
+                    accessibilityLabel={`Search again for ${item.q} in ${item.medium === 'screen' ? 'film and TV' : 'theatre'}`}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -511,7 +480,11 @@ export default function Search() {
                       borderColor: c.cardBorder,
                     }}
                   >
-                    <Ionicons name="time-outline" size={12} color={c.chevron} />
+                    <Ionicons
+                      name={item.medium === 'screen' ? 'film-outline' : 'time-outline'}
+                      size={12}
+                      color={mediumPalette(item.medium, c.isLight).glow}
+                    />
                     <Text
                       numberOfLines={1}
                       style={{
@@ -521,7 +494,7 @@ export default function Search() {
                         color: c.mutedForeground,
                       }}
                     >
-                      {term}
+                      {item.q}
                     </Text>
                   </Pressable>
                 ))}

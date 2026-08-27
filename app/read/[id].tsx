@@ -572,8 +572,14 @@ export default function Read() {
                   })}
                 >
                   <Text
-                    className="text-[15px] uppercase tracking-[2px] text-white"
-                    style={{ fontFamily: 'Montserrat_600SemiBold' }}
+                    className="text-[15px] uppercase tracking-[2px]"
+                    // The only `text-white` in the app, and it wasn't landing —
+                    // so on light mode the label fell back to the default dark
+                    // ink and sat near-invisible on the deep accent fill. The
+                    // button is a coloured slab in both schemes, so its label is
+                    // white in both, and that is a fact about the button rather
+                    // than about the theme. Hard-coded, not a class.
+                    style={{ fontFamily: 'Montserrat_600SemiBold', color: '#ffffff' }}
                   >
                     Unlock every monologue
                   </Text>

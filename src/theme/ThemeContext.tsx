@@ -70,14 +70,19 @@ interface ThemeValue {
 const STORAGE_KEY = 'ghostlight.theme.v1';
 
 const ThemeContext = createContext<ThemeValue>({
-  mode: 'system',
+  mode: 'dark',
   scheme: 'dark',
   colors: resolve('dark'),
   setMode: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>('system');
+  // Dark until the actor says otherwise. 'system' meant a phone set to Light
+  // opened Ghost Light on cream paper, and the whole design — the warm near-black
+  // stage, the lamp, the spotlight on the cards — is built for the dark. Light is
+  // a supported choice, not a default anyone should arrive at by accident.
+  // 'system' is still selectable in Appearance for people who want it.
+  const [mode, setModeState] = useState<ThemeMode>('dark');
   const uniwind = useUniwind();
 
   // Load the saved preference once.
