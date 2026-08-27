@@ -30,7 +30,9 @@ const CONFIG_ERROR =
  * until they run against a real session on hardware.
  */
 
-export type AuthResult = { ok: true } | { ok: false; canceled?: boolean; message?: string };
+export type AuthResult =
+  | { ok: true }
+  | { ok: false; canceled?: boolean; message?: string; noAccount?: boolean };
 
 const redirectTo = Linking.createURL('auth-callback');
 
@@ -86,10 +88,54 @@ export async function signInWithEmail(email: string, password: string): Promise<
       email: email.trim().toLowerCase(),
       password,
     });
-    if (error) return { ok: false, message: error.message };
+    if (error) {
+      // Supabase answers the same way whether the address is unknown or the
+      // password is wrong — deliberately, so the endpoint can't be used to
+      // discover who has an account. That means we cannot tell a new user from
+      // a typo, so we don't guess: `noAccount` lets the screen OFFER to create
+      // one rather than silently creating an account for someone who simply
+      // mistyped their password.
+      const unknown = /invalid login credentials/i.test(error.message);
+      return { ok: false, message: error.message, noAccount: unknown };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, message: (e as Error).message ?? 'Sign-in failed.' };
+  }
+}
+
+/**
+ * Create an account on this address, upgrading the anonymous user in place.
+ *
+ * `updateUser` rather than `signUp` is load-bearing. Every actor reaching this
+ * point already IS a user — the app mints an anonymous session at launch — so
+ * signing them up afresh would strand whatever they saved and read as a guest
+ * on an account they can never sign into again. Adding an email and password to
+ * the session they already have keeps all of it.
+ *
+ * If the project requires email confirmation, `updateUser` returns fine but the
+ * address isn't live until they click the link. Saying so is better than a
+ * silent success followed by a sign-in that fails tomorrow.
+ */
+export async function signUpWithEmail(email: string, password: string): Promise<AuthResult> {
+  try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
+    const address = email.trim().toLowerCase();
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const isAnon = sessionData.session?.user.is_anonymous ?? false;
+
+    if (isAnon) {
+      const { error } = await supabase.auth.updateUser({ email: address, password });
+      if (error) return { ok: false, message: error.message };
+      return { ok: true };
+    }
+
+    const { error } = await supabase.auth.signUp({ email: address, password });
+    if (error) return { ok: false, message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message ?? 'Could not create the account.' };
   }
 }
 

@@ -35,6 +35,7 @@ import {
   signInWithApple,
   signInWithEmail,
   signInWithGoogle,
+  signUpWithEmail,
 } from '../src/lib/auth';
 import { useGoBack } from '../src/lib/nav';
 import { colors } from '../src/theme/tokens';
@@ -60,6 +61,10 @@ export default function Auth() {
   // True while a field holds focus. React state, not a shared value, because
   // it mounts and unmounts a subtree — twice per session, never per frame.
   const [typing, setTyping] = useState(false);
+  // Set when Supabase says the credentials match no user. We don't create the
+  // account off the back of that on our own — see signInWithEmail for why the
+  // same error also means "wrong password" — so this offers instead.
+  const [offerSignUp, setOfferSignUp] = useState(false);
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
@@ -93,10 +98,38 @@ export default function Auth() {
     if (!email.trim() || !password) return;
     setBusy('email');
     setError(null);
+    setOfferSignUp(false);
     const res = await signInWithEmail(email, password);
     setBusy(null);
-    if (res.ok) done();
-    else setError(res.message ?? 'Could not sign in.');
+    if (res.ok) {
+      done();
+      return;
+    }
+    if (res.noAccount) {
+      // Don't dead-end a new user on "Invalid login credentials" — which is
+      // what email did until now, with no signup path anywhere in the app.
+      setError('No account with that address, or the password is wrong.');
+      setOfferSignUp(true);
+      return;
+    }
+    setError(res.message ?? 'Could not sign in.');
+  };
+
+  const createAccount = async () => {
+    if (!email.trim() || password.length < 6) {
+      setError('Pick a password of at least six characters.');
+      return;
+    }
+    setBusy('email');
+    setError(null);
+    const res = await signUpWithEmail(email, password);
+    setBusy(null);
+    if (res.ok) {
+      setOfferSignUp(false);
+      done();
+      return;
+    }
+    setError(res.message ?? 'Could not create the account.');
   };
 
   return (
@@ -211,7 +244,7 @@ export default function Auth() {
             >
               <UnderlineField
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(t) => { setEmail(t); setOfferSignUp(false); }}
                 placeholder="email"
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -222,7 +255,7 @@ export default function Auth() {
               />
               <UnderlineField
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(t) => { setPassword(t); setOfferSignUp(false); }}
                 placeholder="password"
                 secureTextEntry
                 autoComplete="password"
@@ -268,6 +301,23 @@ export default function Auth() {
             <Text className="mt-4 text-center text-[13px]" style={{ fontFamily: 'Montserrat_400Regular', color: colors.primary }}>
               {error}
             </Text>
+          ) : null}
+
+          {offerSignUp ? (
+            <Animated.View entering={FadeInDown.duration(200)} style={{ marginTop: 14, alignItems: 'center' }}>
+              <WordArrow label="Create one" onPress={createAccount} haptic="none" />
+              <Text
+                style={{
+                  marginTop: 8,
+                  fontFamily: 'CourierPrime_400Regular_Italic',
+                  fontSize: 12,
+                  textAlign: 'center',
+                  color: c.mutedForeground,
+                }}
+              >
+                (this address, that password. your saves come with you.)
+              </Text>
+            </Animated.View>
           ) : null}
         </Animated.View>
         </ScrollView>
