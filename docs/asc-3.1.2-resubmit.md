@@ -1,40 +1,61 @@
 # Rejection 3.1.2 — Terms of Use link missing from metadata
 
 Submission `e3b85f4e-2856-4de2-ba8e-3e64ae63edfc`, build 1.0.0 (12), rejected 28 Aug 2026.
-Automated check. Metadata only. **The binary is fine. Do not upload a new build for this.**
+Automated check. Metadata only. **The binary is fine for this issue. Do not upload a new
+build to clear it.**
 
-Apple's rule: an app selling auto-renewable subscriptions must carry a working Terms of Use
-link in the metadata that renders on the App Store product page. The only free-text field
-that renders there is the App Description, so the link has to live in the description.
+Apple's rule: the four required subscription facts (title, length, price, and functional
+links to the privacy policy and Terms of Use) must appear **in the binary**, and the
+metadata must additionally carry the privacy policy in the ASC Privacy Policy field and
+the Terms of Use in the App Description or the EULA field. The only free-text field that
+renders on the product page is the Description, so the link goes there.
 
-## The fix (App Store Connect, 2 minutes)
+## Step 1 — legal pages (DONE, live 28 Aug 2026)
 
-App Store → 1.0.0 Prepare for Submission → **Description** → paste at the very bottom:
+`actorrise` commit `c4c0d1f0`, pushed to `main`, deployed, verified live:
+
+- Both docs now name Ghost Light: Monologues in scope, not just actorrise.com
+- Terms gained an Apple subsection: Apple as seller, the 24-hour auto-renew and charge
+  windows, cancel via Settings, deleting the app does not cancel, trial forfeiture,
+  refunds via reportaproblem.apple.com
+- Privacy splits web (Stripe) from iOS (Apple IAP) and discloses RevenueCat
+- Both redated August 2026
+
+This mattered because Terms §5 previously said Stripe took the payment and that you
+cancel in billing settings. Neither is true in the app. A reviewer following the Terms
+link from the product page landed on a checkout flow that does not exist.
+
+## Step 2 — App Description (do this)
+
+App Store → 1.0.0 Prepare for Submission → **Description** → blank line after your last
+paragraph, then exactly:
 
 ```
 Terms of Use: https://www.actorrise.com/terms
 Privacy Policy: https://www.actorrise.com/privacy
 ```
 
-Both verified live, HTTP 200, 28 Aug 2026.
+Keep the labels. Bare URLs are what the scanner misses. They render as plain text rather
+than tappable links on the product page; that is expected and accepted.
 
-If you would rather not touch the description, the alternative Apple offers is a **custom
-EULA**: App Store Connect → App Information → License Agreement → replace the standard
-Apple EULA with your own text. That is more work and more to maintain. The description
-link is what the automated check looks for and is what almost everyone ships.
+Do **not** add prices to the Description. Price belongs in the binary, and a price in the
+Description that drifts from App Store Connect is its own 3.1.2 violation.
 
-Then: **Resubmit to App Review**. The three subscription items are already Ready for
-Review and ride along.
+Save, reload the page to confirm the edit persisted, leave build 12 attached, then
+**Resubmit to App Review**. The three subscription items ride along.
 
-## Also fixed, for the next build
+## Known remaining risk
 
-The paywall screen had no Terms or Privacy links on it. Only Account did. The metadata
-half of 3.1.2 is what the bot caught; the in-app half is what a human reviewer checks,
-and it was a live risk of a second rejection on the same guideline.
+Build 12's paywall has title, length and price but **no legal links**, which is one of
+the four in-binary requirements. The bot caught the metadata half; a human checks this
+half.
 
-`app/paywall.tsx` now shows `Terms of Use · Privacy Policy` under Restore purchases.
+`ghostlight` commit `4048995` adds `Terms of Use · Privacy Policy` under Restore
+purchases. It is not in build 12 and cannot be OTA'd into it usefully: `app.json` sets
+`fallbackToCacheTimeout: 0`, so the app launches from its embedded bundle and applies an
+update only on the following launch. A reviewer's first launch would still show the old
+paywall.
 
-This does **not** need to ship before resubmitting. It is JS, so it can go out as an OTA
-later, or ride the next build. Do not publish an OTA while the app sits in review: the
-reviewer's copy fetches on launch and applies on the launch after, so they may well see
-the old bundle anyway, and a bad OTA mid-review tanks the whole submission for no gain.
+Resubmitting on metadata alone is therefore a gamble worth taking (free, fast, and the
+automated recheck may clear it), but if it comes back on the in-app links, build 13 is
+already written.
