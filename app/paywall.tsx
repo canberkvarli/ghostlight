@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import type { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
 
@@ -22,6 +23,11 @@ import {
 import { colors } from '../src/theme/tokens';
 import type { ReadState } from '../src/api/client';
 import { useSession } from '../src/lib/useSession';
+
+// Same pair the Account screen links to. Kept as literals rather than imported
+// from account.tsx so the paywall does not pull a screen module in.
+const TERMS_URL = 'https://actorrise.com/terms';
+const PRIVACY_URL = 'https://actorrise.com/privacy';
 
 /**
  * The paywall — a free trial (length set in App Store Connect; handoff §5). No
@@ -276,6 +282,26 @@ export default function Paywall() {
               </Text>
             )}
           </Pressable>
+
+          {/* Guideline 3.1.2 wants these on the screen that takes the money, not
+              only on the App Store page and not only buried in Account. Build 12
+              was rejected for the metadata half of the same rule; this is the
+              in-app half, which a human reviewer checks next. */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingTop: 2, paddingBottom: 4 }}>
+            <Pressable onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} hitSlop={8} accessibilityRole="link">
+              <Text className="text-[11px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}>
+                Terms of Use
+              </Text>
+            </Pressable>
+            <Text className="text-[11px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground, paddingHorizontal: 8 }}>
+              ·
+            </Text>
+            <Pressable onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)} hitSlop={8} accessibilityRole="link">
+              <Text className="text-[11px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}>
+                Privacy Policy
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     </View>
