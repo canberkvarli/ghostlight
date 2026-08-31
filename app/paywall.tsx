@@ -302,12 +302,18 @@ export default function Paywall() {
           ) : null}
 
           <Text
-            className="text-center text-[12px]"
+            className="text-[12px]"
             style={{
               fontFamily: 'Montserrat_400Regular',
               color: c.mutedForeground,
               marginTop: 12,
               lineHeight: 17,
+              // Left, deliberately, against a screen that centres everything
+              // else. This is five lines of fine print, and centring five lines
+              // gives both edges a ragged margin for a reader who is scanning
+              // for a number. The left edge lands on the same column as the plan
+              // rows above it, so it reads as considered rather than stray.
+              textAlign: 'left',
             }}
           >
             {trialLabel
