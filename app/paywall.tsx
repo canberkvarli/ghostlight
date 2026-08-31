@@ -103,11 +103,16 @@ export default function Paywall() {
   const selectedPkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
   const billed = plan === 'annual' ? annualBilled : monthlyBilled;
   const cadence = plan === 'annual' ? 'a year' : 'a month';
-  // Real trial from RevenueCat when live; else the 7-day trial set in App Store
+  // Real trial from RevenueCat when live; else the trial set in App Store
   // Connect. `trialLabel` gates the CTA/terms; `headlineTrial` always carries a
   // length for the headline copy.
-  const trialLabel = introTrialLabel(selectedPkg) ?? (offering ? null : '7 days');
-  const headlineTrial = trialLabel ?? '7 days';
+  //
+  // "1 week", not "7 days": App Store Connect stores the introductory period
+  // with a unit, and the reviewer's own screenshot of build 12 shows RevenueCat
+  // reporting WEEK/1. The fallback has to say what the store says, or the
+  // offline copy and the live copy disagree about the length of the same trial.
+  const trialLabel = introTrialLabel(selectedPkg) ?? (offering ? null : '1 week');
+  const headlineTrial = trialLabel ?? '1 week';
   const headlineWord = `${headlineTrial[0].toUpperCase()}${headlineTrial.slice(1)}`;
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/search'));
@@ -446,7 +451,15 @@ function PlanRow({
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-        <Text className="text-foreground" style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 28 }}>
+        {/* Playfair's dollar sign has almost no right sidebearing, so at 28px it
+            sits on top of the first digit — visible in the reviewer's own
+            screenshot of build 12, where "$2.50" reads as a struck-through 2.
+            A half point of tracking separates them without loosening the
+            numerals enough to notice. */}
+        <Text
+          className="text-foreground"
+          style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 28, letterSpacing: 0.5 }}
+        >
           {price}
         </Text>
         <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 12, color: c.mutedForeground, marginLeft: 2 }}>
