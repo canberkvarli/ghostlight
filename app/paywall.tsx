@@ -180,7 +180,14 @@ export default function Paywall() {
           </Pressable>
         </View>
 
+        {/* `flex: 1` on the ScrollView itself, not just `flexGrow` on its content.
+            Yoga defaults to `flexShrink: 0`, so without this the ScrollView sizes
+            to its content and pushes the footer off the bottom of a short screen.
+            The footer is where the CTA and the 3.1.2 disclosure live, so it has
+            to be the part that never moves. It grew by four lines of terms in
+            build 13, which is what made the old arrangement unsafe. */}
         <ScrollView
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 30, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' }}
           showsVerticalScrollIndicator={false}
         >
@@ -199,15 +206,20 @@ export default function Paywall() {
             >
               {trialLabel ? `${headlineWord}\non the house.` : 'The whole\nlibrary.'}
             </Text>
-            {/* The trial length is already the headline, so repeating it here
-                only bought a second line: Courier at 15px with 1.04 tracking
-                runs past the 30pt gutters on a 375pt screen. */}
             {/* Build 12 was rejected under 3.1.2(c) for offering a trial without
-                making the charge that follows it obvious. The price now travels
-                with the trial in the headline, not only in the footer. Courier
-                15px at ~9px/char: 27 chars clears the 30pt gutters on a 375pt
-                screen, so keep this line short if you edit it. */}
-            <StageDirection className="mt-3" numberOfLines={1}>
+                making the charge that follows it obvious, so the price now
+                travels with the trial in the headline and not only in the footer.
+                Courier 15px with 1.04 tracking runs about 10px a character, so
+                "(free, then $29.99 a year.)" needs 271 of the 315px a 375pt
+                screen leaves between the gutters. A longer currency string
+                ("CHF 29.90") would ellipsize mid-price, which is worse than
+                saying nothing — hence shrink-to-fit rather than truncate. */}
+            <StageDirection
+              className="mt-3"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {trialLabel ? `(free, then ${billed} ${cadence}.)` : '(cancel anytime.)'}
             </StageDirection>
           </View>
