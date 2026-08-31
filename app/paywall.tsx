@@ -115,7 +115,12 @@ export default function Paywall() {
   const buy = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     if (!isPurchasesConfigured() || !selectedPkg) {
-      setNote('Purchases aren’t configured yet in this build.');
+      // Reachable whenever RevenueCat cannot fetch products, which is every
+      // simulator run and any real device the App Store is having a bad day on.
+      // The old copy said "not configured yet in this build", which is true of
+      // a simulator and reads, to an App Reviewer, like an admission that the
+      // thing they were sent does not work. Same failure, no confession.
+      setNote('Couldn’t reach the App Store. Try again in a moment.');
       return;
     }
     setBusy(true);
