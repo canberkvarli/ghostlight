@@ -1,61 +1,83 @@
-# Rejection 3.1.2 — Terms of Use link missing from metadata
+# Guideline 3.1.2 — two rejections, two different halves
 
-Submission `e3b85f4e-2856-4de2-ba8e-3e64ae63edfc`, build 1.0.0 (12), rejected 28 Aug 2026.
-Automated check. Metadata only. **The binary is fine for this issue. Do not upload a new
-build to clear it.**
+Submission `e3b85f4e-2856-4de2-ba8e-3e64ae63edfc`, build 1.0.0 (12).
 
-Apple's rule: the four required subscription facts (title, length, price, and functional
-links to the privacy policy and Terms of Use) must appear **in the binary**, and the
-metadata must additionally carry the privacy policy in the ASC Privacy Policy field and
-the Terms of Use in the App Description or the EULA field. The only free-text field that
-renders on the product page is the Description, so the link goes there.
+| # | date | clause | what was wrong | where the fix lives |
+|---|---|---|---|---|
+| 1 | 28 Aug 2026 | 3.1.2 | No Terms of Use link on the product page | Metadata (App Description) |
+| 2 | 31 Aug 2026 | 3.1.2(c) | Trial offered without making the charge that follows it clear | The binary (paywall) |
 
-## Step 1 — legal pages (DONE, live 28 Aug 2026)
+Rejection 1 was automated. Rejection 2 came from a human on an iPad Air 11-inch (M3)
+and needs **build 13**. There is no metadata edit that clears it.
 
-`actorrise` commit `c4c0d1f0`, pushed to `main`, deployed, verified live:
+## Rejection 1 — cleared
 
-- Both docs now name Ghost Light: Monologues in scope, not just actorrise.com
+Legal pages, `actorrise` commit `c4c0d1f0`, live since 28 Aug:
+
+- Both docs name Ghost Light: Monologues in scope, not just actorrise.com
 - Terms gained an Apple subsection: Apple as seller, the 24-hour auto-renew and charge
   windows, cancel via Settings, deleting the app does not cancel, trial forfeiture,
   refunds via reportaproblem.apple.com
 - Privacy splits web (Stripe) from iOS (Apple IAP) and discloses RevenueCat
-- Both redated August 2026
 
-This mattered because Terms §5 previously said Stripe took the payment and that you
-cancel in billing settings. Neither is true in the app. A reviewer following the Terms
-link from the product page landed on a checkout flow that does not exist.
+Terms §5 previously said Stripe took the payment and that you cancel in billing
+settings. Neither is true in the app. A reviewer following the link from the product
+page landed on a checkout flow that does not exist.
 
-## Step 2 — App Description (do this)
-
-App Store → 1.0.0 Prepare for Submission → **Description** → blank line after your last
-paragraph, then exactly:
+App Description carries, on their own lines:
 
 ```
 Terms of Use: https://www.actorrise.com/terms
 Privacy Policy: https://www.actorrise.com/privacy
 ```
 
-Keep the labels. Bare URLs are what the scanner misses. They render as plain text rather
-than tappable links on the product page; that is expected and accepted.
+Keep the labels; bare URLs are what the scanner misses. Do not add prices to the
+Description: price belongs in the binary, and a Description price that drifts from
+App Store Connect is its own 3.1.2 violation.
 
-Do **not** add prices to the Description. Price belongs in the binary, and a price in the
-Description that drifts from App Store Connect is its own 3.1.2 violation.
+## Rejection 2 — what build 12's paywall actually said
 
-Save, reload the page to confirm the edit persisted, leave build 12 attached, then
-**Resubmit to App Review**. The three subscription items ride along.
+> The app offers a free trial or introductory period but does not make it clear that a
+> payment will be automatically initiated for the next subscription period.
 
-## Known remaining risk
+Build 12 was not silent about price. It was silent about **automatic renewal**, and it
+put the wrong number in the largest type:
 
-Build 12's paywall has title, length and price but **no legal links**, which is one of
-the four in-binary requirements. The bot caught the metadata half; a human checks this
-half.
+- Under the button: `Then $29.99 a year. Cancel any time in Settings.` States an amount.
+  Never says the charge happens on its own.
+- That line shared a fixed-height slot with the error note, so any store failure
+  replaced the terms with `Purchase failed.`
+- The plan rows printed `$2.50` in 28px Playfair and `billed $29.99 a year` in 12px
+  muted. The amount charged was the small number; a derived per-month figure was the
+  headline. That is the pricing-prominence pattern 3.1.2(c) exists for.
+- The subhead read `(free. cancel anytime.)` with no price attached to the trial.
 
-`ghostlight` commit `4048995` adds `Terms of Use · Privacy Policy` under Restore
-purchases. It is not in build 12 and cannot be OTA'd into it usefully: `app.json` sets
-`fallbackToCacheTimeout: 0`, so the app launches from its embedded bundle and applies an
-update only on the following launch. A reviewer's first launch would still show the old
-paywall.
+## What build 13 changes
 
-Resubmitting on metadata alone is therefore a gamble worth taking (free, fast, and the
-automated recheck may clear it), but if it comes back on the in-app links, build 13 is
-already written.
+`app/paywall.tsx`:
+
+1. Subhead now carries the money: `(free, then $29.99 a year.)`. Courier 15px,
+   `numberOfLines={1}` — roughly 27 characters clears the 30pt gutters on a 375pt
+   screen, so keep it short if you edit it.
+2. Plan rows show the billed amount as the big number with `/yr` or `/mo`; the
+   per-month equivalent is demoted to the note line.
+3. A permanent disclosure under the CTA, no longer sharing a slot with errors:
+   trial length, the amount charged after it, that it renews automatically at the same
+   price until cancelled, charged to the Apple Account, and the 24-hour cancel window.
+4. The Terms of Use / Privacy Policy pair added in `4048995` stays. That is the other
+   in-binary half of 3.1.2 and build 12 did not have it either — it was never cited,
+   but only because the reviewer stopped at the trial copy.
+
+Both trial and no-trial branches are written, because `trialLabel` is null whenever
+RevenueCat reports no introductory offer. Do not let the no-trial branch promise one.
+
+## Shipping it
+
+Build 13 is required; this cannot be OTA'd. `app.json` sets
+`fallbackToCacheTimeout: 0`, so the app launches from its embedded bundle and applies
+an update only on the *following* launch. A reviewer's first launch would still show
+build 12's paywall.
+
+When you reply in App Store Connect, say what changed rather than only that something
+did: the trial length and the post-trial price now appear together in the headline and
+again under the button, with an explicit automatic-renewal statement.

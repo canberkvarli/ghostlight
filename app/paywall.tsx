@@ -99,7 +99,6 @@ export default function Paywall() {
   const annualBilled = annualPkg?.product.priceString ?? '$29.99';
   const monthlyBilled = monthlyPkg?.product.priceString ?? '$4.99';
   const annualPerMonth = perMonthString(annualPkg?.product, 12) ?? '$2.50';
-  const monthlyPerMonth = perMonthString(monthlyPkg?.product, 1) ?? monthlyBilled;
 
   const selectedPkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
   const billed = plan === 'annual' ? annualBilled : monthlyBilled;
@@ -203,8 +202,13 @@ export default function Paywall() {
             {/* The trial length is already the headline, so repeating it here
                 only bought a second line: Courier at 15px with 1.04 tracking
                 runs past the 30pt gutters on a 375pt screen. */}
+            {/* Build 12 was rejected under 3.1.2(c) for offering a trial without
+                making the charge that follows it obvious. The price now travels
+                with the trial in the headline, not only in the footer. Courier
+                15px at ~9px/char: 27 chars clears the 30pt gutters on a 375pt
+                screen, so keep this line short if you edit it. */}
             <StageDirection className="mt-3" numberOfLines={1}>
-              {trialLabel ? '(free. cancel anytime.)' : '(cancel anytime.)'}
+              {trialLabel ? `(free, then ${billed} ${cadence}.)` : '(cancel anytime.)'}
             </StageDirection>
           </View>
 
@@ -232,22 +236,27 @@ export default function Paywall() {
             ))}
           </View>
 
-          {/* Plans — hairline radio rows, not slabs. */}
+          {/* Plans — hairline radio rows, not slabs. The big number is the amount
+              actually charged, not the per-month equivalent: a $2.50 in 28px
+              Playfair over a $29.99 in 12px muted is the pricing prominence
+              3.1.2(c) reads as misleading. Per-month stays, demoted to the note. */}
           <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: c.divider }}>
             <PlanRow
               selected={plan === 'annual'}
               onPress={() => setPlan('annual')}
               name="Yearly"
               badge="best."
-              note={`billed ${annualBilled} a year`}
-              price={annualPerMonth}
+              note={`${annualPerMonth} a month, billed yearly`}
+              price={annualBilled}
+              unit="/yr"
             />
             <PlanRow
               selected={plan === 'monthly'}
               onPress={() => setPlan('monthly')}
               name="Monthly"
-              note={`billed ${monthlyBilled} a month`}
-              price={monthlyPerMonth}
+              note="billed every month"
+              price={monthlyBilled}
+              unit="/mo"
             />
           </View>
         </ScrollView>
@@ -263,15 +272,36 @@ export default function Paywall() {
             />
           )}
 
-          {/* Fixed-height slot: error note, else the disclosure Apple checks for. */}
-          <View style={{ minHeight: 18, marginTop: 12, justifyContent: 'center' }}>
+          {/* The disclosure 3.1.2(c) is about, and it is never conditional. It
+              used to share a slot with the error note, so any store failure
+              replaced the terms with an error — and it only said "Then $X a
+              year", which states the amount but not that the charge happens by
+              itself. A reviewer on an iPad Air read that as a trial with no
+              stated renewal and rejected build 12. Trial length, the amount
+              charged after it, and the fact that it renews on its own now all
+              appear together, above the fold, under the button that starts it. */}
+          {note ? (
             <Text
               className="text-center text-[12px]"
-              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
+              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground, marginTop: 12 }}
             >
-              {note ?? `Then ${billed} ${cadence}. Cancel any time in Settings.`}
+              {note}
             </Text>
-          </View>
+          ) : null}
+
+          <Text
+            className="text-center text-[12px]"
+            style={{
+              fontFamily: 'Montserrat_400Regular',
+              color: c.mutedForeground,
+              marginTop: 12,
+              lineHeight: 17,
+            }}
+          >
+            {trialLabel
+              ? `Free for ${trialLabel}, then ${billed} ${cadence}. Payment is charged to your Apple Account at the end of the trial and the subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the trial ends.`
+              : `${billed} ${cadence}, charged to your Apple Account. The subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the period ends.`}
+          </Text>
 
           <Pressable onPress={onRestore} hitSlop={10} style={{ alignItems: 'center', paddingVertical: 8 }} accessibilityRole="button">
             {restoring ? (
@@ -332,13 +362,16 @@ function PlanRow({
   badge,
   note,
   price,
+  unit,
 }: {
   selected: boolean;
   onPress: () => void;
   name: string;
   badge?: string;
   note: string;
+  /** The amount actually charged, not a derived per-month figure. */
   price: string;
+  unit: string;
 }) {
   const { colors: c } = useTheme();
   return (
@@ -394,7 +427,7 @@ function PlanRow({
           {price}
         </Text>
         <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 12, color: c.mutedForeground, marginLeft: 2 }}>
-          /mo
+          {unit}
         </Text>
       </View>
     </Pressable>
