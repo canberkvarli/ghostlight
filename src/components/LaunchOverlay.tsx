@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   runOnJS,
@@ -13,6 +13,7 @@ import Animated, {
 
 import { GhostLight } from './GhostLight';
 import { StageBackdrop } from './StageBackdrop';
+import { WordArrow } from './WordArrow';
 import { useTheme } from '../theme/ThemeContext';
 import { pickLaunchQuote } from '../data/launchQuotes';
 
@@ -42,27 +43,50 @@ export function LaunchOverlay() {
   const lamp = useSharedValue(reduce ? 1 : 0); // the strike
   const word = useSharedValue(reduce ? 1 : 0);
   const tag = useSharedValue(reduce ? 1 : 0);
+  const enter = useSharedValue(reduce ? 1 : 0);
   const tiltX = useSharedValue(0);
   const tiltY = useSharedValue(0);
 
+  // The overlay used to lift on a timer: the quote landed at 2200ms and the
+  // cover started fading at 3400ms, so the line was legible for about a second
+  // — long enough to notice, not long enough to read. It now waits for you.
+  //
+  // Waiting is the whole point, so `lift` is the only way out and it is
+  // idempotent: a tap on the arrow and a tap on the field behind it both arrive,
+  // and the second must not restart the fade half way through the first.
+  const lifted = useRef(false);
+  const lift = useCallback(() => {
+    if (lifted.current) return;
+    lifted.current = true;
+    cover.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) }, (f) => {
+      if (f) runOnJS(setGone)(true);
+    });
+  }, [cover]);
+
   useEffect(() => {
-    if (reduce) {
-      // Hold the lit frame briefly, then lift.
-      cover.value = withDelay(1900, withTiming(0, { duration: 400 }, (f) => f && runOnJS(setGone)(true)));
-      return;
+    if (!reduce) {
+      const strike = STRIKE.map((v) => withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }));
+      lamp.value = withDelay(100, withSequence(...strike));
+      word.value = withDelay(1200, withTiming(1, { duration: 500 }));
+      tag.value = withDelay(1700, withTiming(1, { duration: 500 }));
+      // After the quote has settled, not with it. An arrow that arrives
+      // alongside the line is a second thing competing for the eye at the
+      // moment you wanted them reading.
+      enter.value = withDelay(2600, withTiming(1, { duration: 400 }));
     }
-    const strike = STRIKE.map((v) => withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }));
-    lamp.value = withDelay(100, withSequence(...strike));
-    word.value = withDelay(1200, withTiming(1, { duration: 500 }));
-    tag.value = withDelay(1700, withTiming(1, { duration: 500 }));
-    // The lift used to start at 2200ms — the exact millisecond the tagline
-    // finished fading in, so the finished frame was never actually seen. Hold it
-    // a beat now that there's a line worth reading. A hard fallback still
-    // removes the overlay no matter what happens above it.
-    cover.value = withDelay(3400, withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) }));
-    const t = setTimeout(() => setGone(true), 4000);
-    return () => clearTimeout(t);
-  }, [reduce, cover, lamp, word, tag]);
+
+    // Two nets, because this overlay sits on top of everything and a launch
+    // screen that will not lift is an app that will not open. The first lifts it
+    // properly if nobody ever taps; the second tears it out even if the
+    // animation callback never fires. Twelve seconds is far past anyone's
+    // patience and far short of a reviewer deciding the app is broken.
+    const idle = setTimeout(lift, 12000);
+    const hard = setTimeout(() => setGone(true), 13000);
+    return () => {
+      clearTimeout(idle);
+      clearTimeout(hard);
+    };
+  }, [reduce, lamp, word, tag, enter, lift]);
 
   const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
   const lampStyle = useAnimatedStyle(() => ({ opacity: lamp.value }));
@@ -74,6 +98,9 @@ export function LaunchOverlay() {
   // fades up, and the shared value that drove the tracking is gone with it.
   const wordStyle = useAnimatedStyle(() => ({ opacity: word.value }));
   const tagStyle = useAnimatedStyle(() => ({ opacity: tag.value }));
+  // pointerEvents follows the opacity: an invisible arrow must not be tappable,
+  // or the first 2.6 seconds contain a target nobody can see.
+  const enterStyle = useAnimatedStyle(() => ({ opacity: enter.value }));
 
   if (gone) return null;
 
@@ -90,7 +117,15 @@ export function LaunchOverlay() {
           shows a dark native splash for a beat before this fades up pale. Fixing
           that means a `dark` splash variant in app.json and a new binary. */}
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} background={c.background} />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Tap anywhere, not only the arrow. The arrow says what to do; the whole
+          field does it. `accessible={false}` keeps VoiceOver from swallowing the
+          quote into one giant button — the WordArrow below is the real control
+          and the only thing that should be announced as one. */}
+      <Pressable
+        onPress={lift}
+        accessible={false}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      >
         <Animated.View style={lampStyle}>
           <GhostLight size={82} dress="full" />
         </Animated.View>
@@ -159,7 +194,20 @@ export function LaunchOverlay() {
             {quote.source}
           </Text>
         </Animated.View>
-      </View>
+      </Pressable>
+
+      {/* Anchored to the bottom rather than stacked under the quote, so adding
+          it does not shove the lamp, wordmark and line off the centre they were
+          composed on. */}
+      <Animated.View
+        pointerEvents={gone ? 'none' : 'auto'}
+        style={[
+          enterStyle,
+          { position: 'absolute', left: 0, right: 0, bottom: 72, alignItems: 'center' },
+        ]}
+      >
+        <WordArrow label="Enter" onPress={lift} haptic="soft" />
+      </Animated.View>
     </Animated.View>
   );
 }
