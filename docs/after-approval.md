@@ -45,3 +45,4 @@ Open questions to settle when we build it, not now:
 | Paywall degrades badly if RevenueCat cannot fetch offerings | Shows prices and a CTA that answers "Couldn't reach the App Store". Should hide prices and the CTA, keep Restore |
 | `metro-cache/` is untracked and not in `.gitignore` | Noise in every `git status` |
 | `interjection` mis-typed in the backend segmenter | Fixes web and mobile with no app update |
+| Free reads: monthly or lifetime? | The count is now 3 on both sides, but `DESIGN.md` §93 specifies **lifetime** and argues a monthly reset teaches people to wait, while `backend/app/middleware/rate_limiting.py` resets **monthly** and argues a lifetime cap gives you one conversion moment per actor and then shuts the library forever. Both arguments are written down; neither has won. Settling it means changing `_period_start`, not just the number |
