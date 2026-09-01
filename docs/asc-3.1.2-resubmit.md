@@ -71,9 +71,30 @@ put the wrong number in the largest type:
 Both trial and no-trial branches are written, because `trialLabel` is null whenever
 RevenueCat reports no introductory offer. Do not let the no-trial branch promise one.
 
+## The build to attach is 1.0.0 (15)
+
+Not 13. Two `eas build` attempts died on the free-plan quota *after* uploading, and
+`autoIncrement` had already claimed 13 and 14 by then. The real build is
+`61ba6c7d-1b52-40b8-971e-a7e0b710701c`, commit `3dce974`, runtime
+`71aa894632…` (the same runtime as build 12, so the production OTA channel still
+matches both).
+
+## The reply to App Review
+
+Answer the clause they cited, not the guideline number:
+
+> The subscription purchase flow now states the free trial length and the exact
+> amount billed after it in three places: the headline, the plan selector, and a
+> permanent disclosure directly beneath the purchase button. That disclosure also
+> states that payment is charged to the user's Apple Account at the end of the trial,
+> that the subscription renews automatically at the same price until cancelled, and
+> how to cancel. The plan selector now shows the amount actually charged ($29.99 per
+> year, $4.99 per month) as the primary price rather than the per-month equivalent.
+> Terms of Use and Privacy Policy links are also now present on the purchase screen.
+
 ## Shipping it
 
-Build 13 is required; this cannot be OTA'd. `app.json` sets
+A new build was required; this could not be OTA'd. `app.json` sets
 `fallbackToCacheTimeout: 0`, so the app launches from its embedded bundle and applies
 an update only on the *following* launch. A reviewer's first launch would still show
 build 12's paywall.
