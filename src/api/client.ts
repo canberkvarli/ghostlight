@@ -28,6 +28,22 @@ export class ApiError extends Error {
 }
 
 /**
+ * Which product is asking. The API runs two separate free trials off the same
+ * database — the web gets 5 pieces a calendar month, Ghost Light gets 3 for
+ * life — and it tells them apart by this header alone. Anything it does not
+ * recognise counts as the web, deliberately, because guessing "ghostlight"
+ * would spend a stranger's lifetime trial on a request that was never theirs.
+ *
+ * So the cost of omitting this is not an error, it is Ghost Light quietly
+ * drinking from the web's monthly pool: reads in the app would burn the same
+ * allowance as reads in a browser, and the wall would say the wrong number.
+ * It belongs on every call, not just the ones that count reads today.
+ *
+ * Must stay exactly "ghostlight" — the server compares lowercased strings.
+ */
+const CLIENT = 'ghostlight';
+
+/**
  * Auth is a Supabase JWT in `Authorization: Bearer <token>` (spec §4). When
  * there is no session yet — anonymous sign-ins still disabled server-side — we
  * fall through with just the anon key so callers get a clean 401 to handle
@@ -36,7 +52,7 @@ export class ApiError extends Error {
 async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': CLIENT };
   if (ANON_KEY) headers.apikey = ANON_KEY;
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;

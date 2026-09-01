@@ -26,9 +26,14 @@ export async function recordRead(monologueId: string): Promise<void> {
     // no user to attribute the read to. Skip rather than send an orphan.
     if (!token) return;
 
+    // This endpoint already assumes ghostlight when the header is absent, since
+    // nothing on the web has ever called it. Sending it anyway so the two paths
+    // that count a read agree, and so that assumption can be dropped server-side
+    // without silently reclassifying every read this app has ever recorded.
     const headers: Record<string, string> = {
       Accept: 'application/json',
       Authorization: `Bearer ${token}`,
+      'X-Client': 'ghostlight',
     };
     if (ANON_KEY) headers.apikey = ANON_KEY;
 
