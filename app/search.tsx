@@ -586,14 +586,21 @@ export default function Search() {
                 Clipping it instead only traded one ugly failure for another, so
                 the copy is now short enough to fit beside the button on the
                 narrowest phone. `flex: 1` is the backstop, not the plan. */}
+            {/* Says nothing when there is nothing to say. The other two states
+                report something you cannot see anywhere else — that a search
+                came back empty, or how many filters are on. "(the whole stage.)"
+                reported the absence of filters, which is the default and is
+                already obvious from the filter row above being unlit, so it read
+                as decoration sitting where information goes. The wrapper keeps
+                its flex either way, so Search does not move when this appears. */}
             <View style={{ flex: 1, marginRight: 14 }}>
-              <StageDirection numberOfLines={1} style={scolding ? { color: pal.glow } : undefined}>
-                {scolding
-                  ? '(nothing to find.)'
-                  : activeCount > 0
-                    ? `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`
-                    : '(the whole stage.)'}
-              </StageDirection>
+              {scolding || activeCount > 0 ? (
+                <StageDirection numberOfLines={1} style={scolding ? { color: pal.glow } : undefined}>
+                  {scolding
+                    ? '(nothing to find.)'
+                    : `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`}
+                </StageDirection>
+              ) : null}
             </View>
             <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
           </View>
