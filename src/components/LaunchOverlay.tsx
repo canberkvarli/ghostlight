@@ -24,8 +24,9 @@ import { pickLaunchQuote } from '../data/launchQuotes';
  * glitch can never trap the app behind it (a hard timeout always removes it).
  *
  * Dead black is wrong for this app: the field is the warm stage. The filament
- * strikes eleven times, the wordmark fades up, the tagline arrives, then the
- * whole thing lifts to reveal the app already up behind it.
+ * strikes eleven times, the wordmark fades up and then withdraws, the quote
+ * arrives and stays, then the whole thing lifts to reveal the app already up
+ * behind it.
  */
 
 // opacity strike: 0 → … → 1 over 1.4s, linear (handoff §7).
@@ -67,7 +68,21 @@ export function LaunchOverlay() {
     if (!reduce) {
       const strike = STRIKE.map((v) => withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }));
       lamp.value = withDelay(100, withSequence(...strike));
-      word.value = withDelay(1200, withTiming(1, { duration: 500 }));
+      // In, held, out. The wordmark says the app's name and then gets out of the
+      // way, because the quote is the thing this screen exists to make you read
+      // and two pieces of centred type competing is one too many. It leaves at
+      // 2600, exactly as the Enter arrow arrives: the name steps aside and the
+      // invitation steps in, rather than both sitting there at once.
+      //
+      // The 900ms hold is the whole point of the sequence. Anything shorter and
+      // the name is a flicker you are not sure you saw.
+      word.value = withDelay(
+        1200,
+        withSequence(
+          withTiming(1, { duration: 500 }),
+          withDelay(900, withTiming(0, { duration: 700, easing: Easing.inOut(Easing.quad) })),
+        ),
+      );
       tag.value = withDelay(1700, withTiming(1, { duration: 500 }));
       // After the quote has settled, not with it. An arrow that arrives
       // alongside the line is a second thing competing for the eye at the
@@ -140,6 +155,10 @@ export function LaunchOverlay() {
             at every sub-pixel tracking value, so the letters crawled. Nine
             points of travel was not worth either bug. Fixed tracking, plain
             fade, both gone. */}
+        {/* The box keeps its height after the word fades out. Collapsing it would
+            slide the quote upward at the exact moment someone started reading it,
+            and stillness is what this screen is for. The ~50pt left behind reads
+            as air between the lamp and the line, not as a hole. */}
         <View style={{ width: '100%', marginTop: 12 }}>
           <Animated.Text
             numberOfLines={1}
