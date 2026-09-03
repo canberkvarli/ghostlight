@@ -44,6 +44,7 @@ import {
   signUpWithEmail,
 } from '../src/lib/auth';
 import { useGoBack } from '../src/lib/nav';
+import { track } from '../src/lib/analytics';
 import { colors } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeContext';
 
@@ -84,7 +85,8 @@ export default function Auth() {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
   }, []);
 
-  const done = () => {
+  const done = (method: 'apple' | 'google' | 'email') => {
+    track('signed_in', { method });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (router.canGoBack()) router.back();
     else router.replace('/search');
@@ -95,7 +97,7 @@ export default function Auth() {
     setError(null);
     const res = await signInWithApple();
     setBusy(null);
-    if (res.ok) done();
+    if (res.ok) done('apple');
     else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
   };
 
@@ -104,7 +106,7 @@ export default function Auth() {
     setError(null);
     const res = await signInWithGoogle();
     setBusy(null);
-    if (res.ok) done();
+    if (res.ok) done('google');
     else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
   };
 
@@ -116,7 +118,7 @@ export default function Auth() {
     const res = await signInWithEmail(email, password);
     setBusy(null);
     if (res.ok) {
-      done();
+      done('email');
       return;
     }
     if (res.noAccount) {
@@ -154,7 +156,7 @@ export default function Auth() {
     setBusy(null);
     if (res.ok) {
       setOfferSignUp(false);
-      done();
+      done('email');
       return;
     }
     setError(res.message ?? 'Could not create the account.');

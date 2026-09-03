@@ -24,8 +24,14 @@ import { bootstrapSession } from '../src/lib/session';
 import { supabase } from '../src/lib/supabase';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { configurePurchases } from '../src/lib/purchases';
+import { initAnalytics } from '../src/lib/analytics';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Before the first screen, so a launch is counted even if someone opens the app
+// and closes it again. Silently does nothing when EXPO_PUBLIC_POSTHOG_KEY is
+// absent, which is the whole of its behaviour in a dev build without the env.
+initAnalytics();
 
 // Known-benign dev noise — keep the stage clean. The RevenueCat notice is
 // expected on the Test Store key and vanishes with the production key; the

@@ -23,6 +23,7 @@ import {
 import { colors } from '../src/theme/tokens';
 import type { ReadState } from '../src/api/client';
 import { useSession } from '../src/lib/useSession';
+import { track } from '../src/lib/analytics';
 
 // Same pair the Account screen links to. Kept as literals rather than imported
 // from account.tsx so the paywall does not pull a screen module in.
@@ -95,6 +96,14 @@ export default function Paywall() {
   // prices it had invented while the CTA was inert.
   const [storeReachable, setStoreReachable] = useState<boolean | null>(null);
 
+  // The wall firing at all is the event; whether it converts is the two above.
+  // `reads_used` comes off the cached read state rather than a fresh fetch,
+  // because a paywall must not wait on telemetry to draw.
+  useEffect(() => {
+    const wall = queryClient.getQueryData<ReadState>(['read-wall']);
+    track('paywall_shown', { reads_used: wall?.reads_used ?? 0, from: 'read' });
+  }, [queryClient]);
+
   useEffect(() => {
     let alive = true;
     getCurrentOffering()
@@ -149,9 +158,14 @@ export default function Paywall() {
     }
     setBusy(true);
     setNote(null);
+    // Started and completed are separate events on purpose: the gap between
+    // them is the Apple sheet, and how many people die in that gap is the one
+    // number that tells you whether the paywall or the price is the problem.
+    track('purchase_started', { plan, trial: Boolean(trialLabel) });
     try {
       const entitled = await purchase(selectedPkg);
       if (entitled) {
+        track('purchase_completed', { plan, trial: Boolean(trialLabel) });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         refreshEntitlement();
         // Buying without an account is allowed, but the entitlement then hangs
