@@ -1,17 +1,29 @@
-import { supabase } from './supabase';
-import type { Gender, Monologue, SourceType, Tone } from '../data/monologues';
+import { searchMonologues, type Monologue as ApiMonologue } from '../api/client';
+import { apiToMonologue } from '../data/adapt';
+import type { Monologue, SourceType } from '../data/monologues';
 
 /**
- * The Screen house (Film & TV), read straight from Supabase.
+ * The Screen house (Film & TV).
  *
- * Stage pieces go through the FastAPI search; screen pieces come from here —
- * `monologues` joined to `plays` (for the medium) and `film_tv_references` (for
- * the poster, year and rating). This is the one place the app talks to the
- * database directly, by design (the toggle is a browse-by-poster experience and
- * the metadata isn't on the mobile API yet).
+ * This used to query Supabase directly — `monologues` joined to `plays` and
+ * `film_tv_references` — because the poster, year and rating were not on the
+ * mobile API. That was a hole, not a shortcut. The select included `text`, so
+ * every Film & TV search pulled the full words of sixty monologues with no
+ * entitlement check whatsoever, and it did it with the publishable key that
+ * ships inside the app. Anyone who pulled that key out of the binary could read
+ * the catalogue without an account, a read, or a subscription. The reading
+ * screen was never the leak; this list was.
  *
- * The full-text read still routes through the API by id, so the server paywall
- * and read-counter stay authoritative — this only feeds the browsing list.
+ * It now goes through the same FastAPI search the stage house uses, which
+ * withholds the words server-side when a free reader is out of reads. The last
+ * field keeping it on Supabase was the release year, and the API returns that
+ * now too.
+ *
+ * With this gone, nothing in the app reads a content table directly, which is
+ * what makes it safe to turn RLS on for `monologues`, `plays` and
+ * `film_tv_references`. Do not turn it on until this has shipped in a *binary*
+ * — an over-the-air update only reaches an installed app on its second launch,
+ * so anyone still running the old bundle would find Film & TV simply empty.
  */
 
 export interface ScreenFilters {
@@ -26,114 +38,60 @@ export interface ScreenFilters {
   max_overdone_score?: number | null;
 }
 
-function normGender(value: string | null): Gender {
-  const g = (value ?? '').toLowerCase();
-  if (g.includes('female') || g === 'f' || g === 'woman') return 'female';
-  if (g.includes('male') || g === 'm' || g === 'man') return 'male';
-  return 'any';
-}
+// normGender, normTone and firstTwoLines used to live here, duplicating what
+// adapt.ts already does for every other list in the app. They went with the
+// hand-rolled Supabase row mapping; apiToMonologue does all three now.
 
-function normTone(value: string | null): Tone {
-  const t = (value ?? '').toLowerCase();
-  if (t.includes('comed')) return 'comedic';
-  if (t.includes('serio') || t.includes('tragicomic')) return 'seriocomic';
-  return 'dramatic';
-}
-
-function firstTwoLines(text: string): string {
-  return text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('\n');
-}
-
-interface Row {
-  id: number;
-  title: string;
-  character_name: string;
-  character_gender: string | null;
-  character_age_range: string | null;
-  tone: string | null;
-  estimated_duration_seconds: number | null;
-  overdone_score: number | null;
-  text: string;
-  plays: {
-    source_type: string | null;
-    author: string | null;
-    film_tv_references: {
-      title: string | null;
-      year: number | null;
-      type: string | null;
-      imdb_rating: number | null;
-      poster_url: string | null;
-    } | null;
-  } | null;
+/**
+ * `year` is newer than the committed OpenAPI snapshot, so read it defensively —
+ * the same treatment `paywalled` gets in adapt.ts. Once `npm run api:types` has
+ * been run against a deployed backend this can become `m.year`.
+ */
+function releaseYear(m: ApiMonologue): number | undefined {
+  return (m as { year?: number | null }).year ?? undefined;
 }
 
 export async function searchScreen(
   filters: ScreenFilters = {},
   limit = 60,
+  signal?: AbortSignal,
 ): Promise<Monologue[]> {
-  let q = supabase
-    .from('monologues')
-    .select(
-      `id, title, character_name, character_gender, character_age_range, tone,
-       estimated_duration_seconds, overdone_score, text,
-       plays!inner ( source_type, author,
-         film_tv_references!inner ( title, year, type, imdb_rating, poster_url ) )`,
-    )
-    .in('plays.source_type', ['film', 'tv'])
-    .not('plays.film_tv_references.poster_url', 'is', null)
-    // Guard against a known film/TV ingest defect: a few dozen rows have a
-    // doubled-letter, paren-suffixed character_name ("Aallii )"). Hide them
-    // rather than show garbage — a clean row for the same piece usually exists.
-    // (Real fix is re-ingesting/cleaning those rows in the DB.)
-    .not('character_name', 'ilike', '%)%');
+  const res = await searchMonologues(
+    {
+      ...filters,
+      // The endpoint splits this on commas; the Screen house is both mediums.
+      source_type: 'film,tv',
+      // Freshness is a filter the reader chooses, not a default we impose. The
+      // stage list works the same way.
+      exclude_overdone: false,
+      limit,
+    },
+    signal,
+  );
 
-  if (filters.gender && filters.gender !== 'any') {
-    q = q.ilike('character_gender', `%${filters.gender}%`);
-  }
-  if (filters.age_range) q = q.ilike('character_age_range', `%${filters.age_range}%`);
-  if (filters.tone) q = q.ilike('tone', `%${filters.tone}%`);
-  if (filters.emotion) q = q.ilike('primary_emotion', `%${filters.emotion}%`);
-  if (filters.max_duration) q = q.lte('estimated_duration_seconds', filters.max_duration);
-  if (filters.max_overdone_score != null) q = q.lte('overdone_score', filters.max_overdone_score);
-  if (filters.q?.trim()) {
-    const term = filters.q.trim().replace(/[%,]/g, ' ');
-    q = q.or(`title.ilike.%${term}%,character_name.ilike.%${term}%,text.ilike.%${term}%`);
-  }
-
-  // Least-overdone first — the same instinct as the stage list.
-  q = q.order('overdone_score', { ascending: true, nullsFirst: false }).limit(limit);
-
-  const { data, error } = await q;
-  if (error) throw error;
-
-  const rows = (data ?? []) as unknown as Row[];
-  return rows
-    .filter((r) => r.plays?.film_tv_references?.poster_url)
-    .map((r) => {
-      const f = r.plays!.film_tv_references!;
-      const source: SourceType = r.plays!.source_type === 'film' ? 'film' : 'tv';
-      return {
-        id: String(r.id),
-        title: r.title,
-        source: f.title ?? '—',
-        author: f.year ? String(f.year) : (r.plays!.author ?? '—'),
-        character: r.character_name,
-        ageRange: r.character_age_range ?? '—',
-        gender: normGender(r.character_gender),
-        tone: normTone(r.tone),
-        sourceType: source,
-        duration: r.estimated_duration_seconds ?? 0,
-        overdoneScore: Math.round((r.overdone_score ?? 0) * 100),
-        excerpt: firstTwoLines(r.text),
-        fullText: r.text,
-        posterUrl: f.poster_url ?? undefined,
-        year: f.year ?? undefined,
-        imdbRating: f.imdb_rating ?? undefined,
-      } satisfies Monologue;
-    });
+  return res.results
+    // Browse-by-poster means a card without a poster is a hole in the grid, not
+    // a row with a missing image.
+    .filter((m) => m.poster_url)
+    // A known film/TV ingest defect: a few dozen rows carry a doubled-letter,
+    // paren-suffixed character_name ("Aallii )"). Hide them rather than show
+    // garbage — a clean row for the same piece usually exists. The real fix is
+    // cleaning those rows in the database.
+    .filter((m) => !(m.character_name ?? '').includes(')'))
+    .map((m) => ({
+      ...apiToMonologue(m),
+      // apiToMonologue derives sourceType from `category`, which is a stage
+      // notion. Here the medium is authoritative and comes from the play.
+      sourceType: (m.source_type === 'film' ? 'film' : 'tv') as SourceType,
+      // A film has a year where a play has a playwright, and the card shows
+      // whichever it has in the same slot.
+      author: releaseYear(m) ? String(releaseYear(m)) : m.author,
+      posterUrl: m.poster_url ?? undefined,
+      year: releaseYear(m),
+      imdbRating: m.imdb_rating ?? undefined,
+    }))
+    // Least-overdone first, the same instinct as the stage list. The old
+    // Supabase query ordered in the database; the API orders by relevance, so
+    // the sort moves here rather than disappearing. One page of sixty.
+    .sort((a, b) => a.overdoneScore - b.overdoneScore);
 }
