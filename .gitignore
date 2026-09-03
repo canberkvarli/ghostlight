@@ -20,6 +20,7 @@ expo-env.d.ts
 
 # Metro
 .metro-health-check*
+metro-cache/
 
 # debug
 npm-debug.*
@@ -56,3 +57,11 @@ yarn-error.*
 # so the build would silently ship with no certificate to verify against.
 /keys/
 !certs/certificate.pem
+
+# Google Play service account. A private key that can upload builds, edit the
+# store listing and read financial reports for com.actorrise.ghostlight. It is
+# read off local disk by `eas submit` (eas.json -> submit.production.android),
+# never bundled, so ignoring it costs nothing and committing it would hand
+# anyone who clones this repo publishing rights to the app.
+google-play-service-account.json
+metro-file-map-expo-*

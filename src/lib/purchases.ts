@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import Purchases, {
   LOG_LEVEL,
   type CustomerInfo,
@@ -9,10 +10,10 @@ import { supabase } from './supabase';
 
 /**
  * RevenueCat, wrapped (spec §2 payments, §5 Step 7). Everything here is guarded
- * on an API key: until `EXPO_PUBLIC_REVENUECAT_IOS_KEY` is set, the wrapper is
- * inert — no configure, no crash — so the rest of the app builds and runs
- * without a RevenueCat account. The paywall screen falls back to static offer
- * copy when there are no live offerings.
+ * on an API key: until the platform's key is set, the wrapper is inert — no
+ * configure, no crash — so the rest of the app builds and runs without a
+ * RevenueCat account. The paywall screen falls back to static offer copy when
+ * there are no live offerings.
  *
  * The entitlement of record lives on the ActorRise account: RevenueCat's
  * `app_user_id` is set to the Supabase user id at login, and a RevenueCat
@@ -20,7 +21,22 @@ import { supabase } from './supabase';
  * client reads entitlement to gate the UI; the server is the source of truth.
  */
 
-const IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+/**
+ * One RevenueCat project, two store keys. Passing an `appl_` key to the Android
+ * SDK is not a soft failure — it configures against the wrong store and every
+ * offering comes back empty, which reads exactly like "no products yet" and
+ * sends you looking in Play Console instead of at this line. Read both keys off
+ * the env by platform and let a missing one leave the wrapper inert, the same
+ * way iOS behaved before Android existed.
+ *
+ * `Platform.select` and not a ternary because web has neither key and must land
+ * on `undefined` rather than on iOS's.
+ */
+const API_KEY = Platform.select({
+  ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+  android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+  default: undefined,
+});
 const ENTITLEMENT_ID = 'monologues';
 
 let configured = false;
@@ -36,12 +52,12 @@ export function isPurchasesConfigured(): boolean {
  * the last word — see `identifyPurchasesUser`.
  */
 export async function configurePurchases(): Promise<void> {
-  if (configured || !IOS_KEY) return;
+  if (configured || !API_KEY) return;
   const { data } = await supabase.auth.getSession();
   const userId = data.session?.user.id;
 
   Purchases.setLogLevel(LOG_LEVEL.WARN);
-  Purchases.configure({ apiKey: IOS_KEY, appUserID: userId ?? null });
+  Purchases.configure({ apiKey: API_KEY, appUserID: userId ?? null });
   configured = true;
   lastIdentified = userId ?? null;
 }

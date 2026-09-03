@@ -5,6 +5,7 @@ import { addScreenshotListener } from 'expo-screen-capture';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { GhostLight } from './GhostLight';
+import { ANDROID_BLUR } from './PaywallShroud';
 import { useTheme } from '../theme/ThemeContext';
 
 /**
@@ -49,7 +50,12 @@ export function PrivacyShield() {
       style={StyleSheet.absoluteFill}
       pointerEvents="none"
     >
-      <BlurView intensity={backgrounded ? 60 : 40} tint={c.isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+      <BlurView
+        intensity={backgrounded ? 60 : 40}
+        tint={c.isLight ? 'light' : 'dark'}
+        experimentalBlurMethod={ANDROID_BLUR}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: c.isLight ? 'rgba(248,244,240,0.4)' : 'rgba(19,11,8,0.4)' }]} />
       {/* Only speak up for an actual screenshot; the app-switcher blur stays quiet. */}
       {shot && !backgrounded ? (
