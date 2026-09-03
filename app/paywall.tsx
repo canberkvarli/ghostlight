@@ -90,8 +90,27 @@ export default function Paywall() {
     }
   };
 
+  // `null` means "not answered yet", which is not the same as "answered, and
+  // there is nothing to sell". Conflating the two is what let this screen show
+  // prices it had invented while the CTA was inert.
+  const [storeReachable, setStoreReachable] = useState<boolean | null>(null);
+
   useEffect(() => {
-    getCurrentOffering().then(setOffering).catch(() => setOffering(null));
+    let alive = true;
+    getCurrentOffering()
+      .then((o) => {
+        if (!alive) return;
+        setOffering(o);
+        setStoreReachable(Boolean(o?.annual || o?.monthly));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setOffering(null);
+        setStoreReachable(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const annualPkg = offering?.annual ?? null;
@@ -234,6 +253,26 @@ export default function Paywall() {
             </StageDirection>
           </View>
 
+          {/* When the store cannot be reached, say so instead of quoting made-up
+              money. The fallback prices exist so the screen is never blank while
+              RevenueCat answers; they are not a claim about what anyone would be
+              charged. Showing them beside a button that then replies "Couldn't
+              reach the App Store" is the shape of a 2.1 rejection and, worse,
+              tells a paying customer a price we did not get from Apple.
+              Restore stays available below: someone who already subscribed
+              should not be held hostage by a failed product fetch. */}
+          {storeReachable === false ? (
+            <View style={{ marginTop: 28, alignSelf: 'center', paddingHorizontal: 8 }}>
+              <Text
+                className="text-center text-[14px]"
+                style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground, lineHeight: 21 }}
+              >
+                The App Store isn’t reachable right now, so we can’t show you the
+                subscription. Check your connection and try again in a moment.
+              </Text>
+            </View>
+          ) : null}
+
           {/* Perks — 5pt glowing dots, no loud bullets. */}
           <View style={{ marginTop: 28, alignSelf: 'center' }}>
             {PERKS.map((f) => (
@@ -262,7 +301,14 @@ export default function Paywall() {
               actually charged, not the per-month equivalent: a $2.50 in 28px
               Playfair over a $29.99 in 12px muted is the pricing prominence
               3.1.2(c) reads as misleading. Per-month stays, demoted to the note. */}
-          <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: c.divider }}>
+          <View
+            style={{
+              marginTop: 24,
+              borderTopWidth: storeReachable === false ? 0 : 1,
+              borderTopColor: c.divider,
+              display: storeReachable === false ? 'none' : 'flex',
+            }}
+          >
             <PlanRow
               selected={plan === 'annual'}
               onPress={() => setPlan('annual')}
@@ -286,6 +332,10 @@ export default function Paywall() {
         <View style={{ paddingHorizontal: 30, paddingBottom: 20, paddingTop: 10, alignItems: 'center' }}>
           {busy ? (
             <ActivityIndicator color={colors.stageGlow} style={{ height: 30 }} />
+          ) : storeReachable === false ? (
+            // No CTA at all rather than one that apologises when pressed. There
+            // is nothing to buy until the store answers.
+            <WordArrow label="Try again" onPress={() => router.replace('/paywall')} haptic="none" />
           ) : (
             <WordArrow
               label={trialLabel ? 'Start the trial' : 'Unlock everything'}
@@ -311,6 +361,9 @@ export default function Paywall() {
             </Text>
           ) : null}
 
+          {/* The 3.1.2 disclosure describes a purchase. With no purchase on
+              offer it would be describing terms for a price we are not showing,
+              which is worse than silence. */}
           <Text
             className="text-[12px]"
             style={{
@@ -318,6 +371,7 @@ export default function Paywall() {
               color: c.mutedForeground,
               marginTop: 12,
               lineHeight: 17,
+              display: storeReachable === false ? 'none' : 'flex',
               // Left, deliberately, against a screen that centres everything
               // else. This is five lines of fine print, and centring five lines
               // gives both edges a ragged margin for a reader who is scanning
