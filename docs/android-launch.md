@@ -32,15 +32,22 @@ but there is no work to schedule.
 Start the first two today; both have multi-day lead times that nothing else can
 overlap with.
 
-1. **Google Play Developer account**, $25 once. The type decides the launch date:
-   - *Personal*: cannot reach production until 12 testers have been opted in
-     continuously for 14 days, and since 2026 Google also checks they genuinely
-     opened the app. Recruiting 12 real people is the hard part; the clock resets
-     when someone drops out.
-   - *Organization*: exempt from the tester gate entirely. Needs a registered legal
-     entity and a D-U-N-S number (free, 1 to 2 weeks). **If ActorRise is already an
-     organization on the Apple Developer Program, the same D-U-N-S number works and
-     this is nearly instant.** Worth roughly three weeks. Answer this first.
+1. **Google Play Developer account**, $25 once. **Settled 3 Sep 2026: United States,
+   personal.** The App Store lists the seller as "Canberk Varli", so Apple holds an
+   individual account, there is no D-U-N-S number to reuse, and Canberk is US tax
+   resident for this app. Türkiye was considered and rejected: it is fully supported
+   and would have been legitimate, but payouts land in TRY (Türkiye is not on the
+   "paid in USD or EUR" footnote), the payments profile country can never be edited,
+   and a US tax resident owes the IRS on worldwide income anyway, so it adds Turkish
+   obligations and FX conversion without removing anything.
+
+   Forming an LLC to reach an organization account and skip the tester gate was also
+   rejected: entity formation plus a D-U-N-S number is 1 to 2 weeks, which is what
+   the closed test costs anyway, in exchange for money and permanent filing
+   obligations.
+
+   So the **12 testers, opted in continuously for 14 days** gate applies. Since 2026
+   Google also verifies they genuinely opened the app.
 2. **Google Cloud service account** with Play Developer API access, JSON key saved to
    the repo root as `google-play-service-account.json` (gitignored). Used by both
    `eas submit` and RevenueCat.
@@ -52,12 +59,19 @@ overlap with.
 
 ## The ordering trap
 
+Two constraints force the sequence.
+
 Play will not let you create subscription products until an AAB **containing the
 billing library** is already uploaded to a track. So billing cannot be set up first.
-The order is forced:
 
-1. Build an AAB and upload to the **internal** track (`eas.json` is already set to
-   `track: "internal"`, `releaseStatus: "draft"`).
+And the 14-day clock only counts a **closed** testing track. Internal testing does
+not qualify, so the first upload goes to closed (`eas.json` is set to
+`track: "alpha"`, which is Play's closed track). The build that starts the clock does
+**not** have to be finished; the closed track can be updated throughout, because the
+clock measures testers being opted in, not the build. Upload something early even
+with billing unwired, then do everything else while the 14 days run.
+
+1. Build an AAB and upload it by hand to the **closed** track.
 2. Create the monthly and annual subscriptions in Play Console, with the 1-week free
    trial as an offer on each. Match the iOS product structure.
 3. Connect RevenueCat: add the Play app, upload the service account JSON, map both
@@ -66,7 +80,12 @@ The order is forced:
 4. Rebuild, install from the internal track, and buy something with a licence tester
    account. A purchase that does not flip `monologues` is the failure to look for.
 5. Store listing, Data Safety, content rating.
-6. Closed testing if personal, then production.
+6. Day 15, apply for production access.
+
+Recruit the 12 testers via a **Google Group** rather than pasting addresses; it is
+far easier to manage, and the clock resets if people drop out. Twelve friends who
+install and never launch the app will fail the usage check, so ask them to actually
+search for a monologue.
 
 ## Still to verify on a real device
 
