@@ -5,21 +5,26 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type StyleProp,
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
   FadeOut,
-  FadeOutUp,
+  FadeOutDown,
   LinearTransition,
+  SlideInRight,
+  SlideOutLeft,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -32,6 +37,7 @@ import { WordArrow } from '../src/components/WordArrow';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import {
   isAppleAuthAvailable,
+  sendPasswordReset,
   signInWithApple,
   signInWithEmail,
   signInWithGoogle,
@@ -58,9 +64,17 @@ export default function Auth() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // True while a field holds focus. React state, not a shared value, because
-  // it mounts and unmounts a subtree — twice per session, never per frame.
+  // `typing` used to unmount the hero outright. That deleted the lamp, the
+  // headline and the line under it the instant a field took focus — every piece
+  // of identity on the screen gone at the exact moment someone is deciding
+  // whether to trust it with a password — and because the block below is
+  // bottom-anchored, the space it vacated stayed behind as a hole. The hero now
+  // collapses to a small header instead of leaving, so there is nothing to
+  // leave a hole. Kept as state, not a shared value: it changes twice a session.
   const [typing, setTyping] = useState(false);
+  const [reveal, setReveal] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
   // Set when Supabase says the credentials match no user. We don't create the
   // account off the back of that on our own — see signInWithEmail for why the
   // same error also means "wrong password" — so this offers instead.
@@ -113,6 +127,20 @@ export default function Auth() {
       return;
     }
     setError(res.message ?? 'Could not sign in.');
+  };
+
+  const forgotPassword = async () => {
+    if (resetting) return;
+    setResetting(true);
+    setError(null);
+    setNotice(null);
+    const res = await sendPasswordReset(email);
+    setResetting(false);
+    // Deliberately the same words whether or not that address has an account.
+    // See sendPasswordReset: this form must not answer "does this person use
+    // Ghost Light" for anyone who can type.
+    if (res.ok) setNotice('If that address is registered, a reset link is on its way.');
+    else setError(res.message ?? 'Could not send the reset link.');
   };
 
   const createAccount = async () => {
@@ -173,102 +201,157 @@ export default function Auth() {
             typing, the only things that matter are the two fields and the way
             in; everything decorative gets out of the way and comes back when
             you dismiss the keyboard. */}
-        {typing ? null : (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(140)}
-            layout={LinearTransition.duration(220)}
+        {/* Three sizes, not two states. Full when you are choosing a way in,
+            medium once the form is out, small while you are typing — and never
+            absent, so the screen keeps its name and its lamp the whole way
+            down. `flexGrow` goes to 0 while typing: that is what closes the
+            hole, because the hero stops claiming the spare height rather than
+            being deleted and leaving it behind. */}
+        <Animated.View
+          layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))}
+          style={{
+            flexGrow: typing ? 0 : 1,
+            flexShrink: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 36,
+            paddingTop: typing ? 4 : 0,
+            paddingVertical: emailOpen && !typing ? 8 : typing ? 0 : 20,
+          }}
+        >
+          <GhostLight size={typing ? 24 : emailOpen ? 34 : 66} />
+          <Text
+            className="text-center text-foreground"
             style={{
-              flexGrow: 1,
-              flexShrink: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 36,
-              paddingVertical: emailOpen ? 8 : 20,
+              marginTop: typing ? 8 : emailOpen ? 16 : 28,
+              fontFamily: 'PlayfairDisplay_600SemiBold',
+              fontSize: typing ? 20 : emailOpen ? 26 : 40,
+              lineHeight: typing ? 26 : emailOpen ? 32 : 46,
             }}
           >
-            <GhostLight size={emailOpen ? 34 : 66} />
-            <Text
-              className="text-center text-foreground"
-              style={{
-                marginTop: emailOpen ? 16 : 28,
-                fontFamily: 'PlayfairDisplay_600SemiBold',
-                fontSize: emailOpen ? 26 : 40,
-                lineHeight: emailOpen ? 32 : 46,
-              }}
+            Keep this one.
+          </Text>
+          {emailOpen ? null : (
+            <StageDirection className="mt-3">
+              {'(sign in to save.\nnothing you did is lost.)'}
+            </StageDirection>
+          )}
+        </Animated.View>
+
+        <Animated.View layout={LinearTransition.duration(260)} style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
+          {/* Two states, one stage. The ways in leave to the left and the form
+              arrives from the right, so the change reads as travel in a
+              direction rather than one block being swapped for another under
+              your finger. `(back.)` reverses it, which is why it is the only
+              thing on this screen that moves the other way. */}
+          {emailOpen ? null : (
+            <Animated.View
+              entering={SlideInRight.duration(260).easing(Easing.out(Easing.cubic))}
+              exiting={SlideOutLeft.duration(200)}
             >
-              Keep this one.
-            </Text>
-            {emailOpen ? null : (
-              <StageDirection className="mt-3">
-                {'(sign in to save.\nnothing you did is lost.)'}
-              </StageDirection>
-            )}
-          </Animated.View>
-        )}
+              {/* The Apple slab — the one rectangle Apple's guidelines require. */}
+              {Platform.OS === 'ios' && appleReady ? (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  // WHITE on the dark stage, BLACK on paper. A white slab on cream
+                  // is a rectangle you have to hunt for, and this is the button
+                  // Apple requires to be the prominent one.
+                  buttonStyle={
+                    c.isLight
+                      ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                      : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  }
+                  cornerRadius={14}
+                  style={{ height: 54, width: '100%', marginBottom: 10 }}
+                  onPress={withApple}
+                />
+              ) : null}
 
-        <Animated.View layout={LinearTransition.duration(220)} style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
-          {/* The Apple slab — the one rectangle Apple's guidelines require. */}
-          {Platform.OS === 'ios' && appleReady ? (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              // WHITE on the dark stage, BLACK on paper. A white slab on cream
-              // is a rectangle you have to hunt for, and this is the button
-              // Apple requires to be the prominent one.
-              buttonStyle={
-                c.isLight
-                  ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                  : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-              }
-              cornerRadius={14}
-              style={{ height: 54, width: '100%', marginBottom: 6 }}
-              onPress={withApple}
-            />
-          ) : null}
+              {/* Google was bare left-aligned text sitting directly under a
+                  black slab, so two things that are peers read as a button and
+                  a footnote. It is now the same height and radius, outlined
+                  rather than filled — which keeps Apple's the prominent one, as
+                  its guidelines require, without demoting Google to a caption. */}
+              <OutlineButton
+                label="Continue with Google"
+                icon="logo-google"
+                onPress={withGoogle}
+                busy={busy === 'google'}
+              />
 
-          {/* The rest — hairline rows, nudging right on press. */}
-          <WayRow label="Continue with Google" onPress={withGoogle} busy={busy === 'google'} />
+              <View style={{ height: 8 }} />
+              <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
+              <WayRow label="(already on actorrise? connect it.)" quiet onPress={() => setEmailOpen(true)} last />
+            </Animated.View>
+          )}
 
-          {/* Email folds out in place. Entering/exiting rather than a hard swap,
-              because the block appearing instantly under your finger reads as a
-              mis-tap, and `layout` lets the rows beneath slide rather than jump.
-              Enter sits directly under the password field — it used to be below
-              the fold with two more rows after it, so signing in meant typing a
-              password and then hunting for the button. */}
           {emailOpen ? (
             <Animated.View
-              entering={FadeInDown.duration(220).easing(Easing.out(Easing.cubic))}
-              exiting={FadeOutUp.duration(160)}
-              layout={LinearTransition.duration(200)}
-              style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: c.divider }}
+              entering={SlideInRight.duration(280).easing(Easing.out(Easing.cubic))}
+              exiting={FadeOutDown.duration(180)}
+              layout={LinearTransition.duration(220)}
             >
-              <UnderlineField
-                value={email}
-                onChangeText={(t) => { setEmail(t); setOfferSignUp(false); }}
-                placeholder="email"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-                autoFocus
-                returnKeyType="next"
-                onFocusChange={setTyping}
-              />
-              <UnderlineField
-                value={password}
-                onChangeText={(t) => { setPassword(t); setOfferSignUp(false); }}
-                placeholder="password"
-                secureTextEntry
-                autoComplete="password"
-                returnKeyType="go"
-                onSubmitEditing={withEmail}
-                onFocusChange={setTyping}
-                style={{ marginTop: 14 }}
-              />
-              <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Pressable onPress={() => setEmailOpen(false)} hitSlop={10} accessibilityRole="button">
-                  <Text
-                    style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.chevron }}
-                  >
+              {/* Staggered by 60ms so the two fields arrive in reading order
+                  rather than as one slab. Small enough that it registers as
+                  weight, not as waiting. */}
+              <Animated.View entering={FadeInDown.duration(240).delay(60)}>
+                <LabelledField
+                  label="Email"
+                  value={email}
+                  onChangeText={(t) => { setEmail(t); setOfferSignUp(false); setNotice(null); }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  textContentType="username"
+                  autoFocus
+                  returnKeyType="next"
+                  onFocusChange={setTyping}
+                />
+              </Animated.View>
+
+              <Animated.View entering={FadeInDown.duration(240).delay(120)}>
+                <LabelledField
+                  label="Password"
+                  value={password}
+                  onChangeText={(t) => { setPassword(t); setOfferSignUp(false); setNotice(null); }}
+                  secureTextEntry={!reveal}
+                  autoComplete="password"
+                  textContentType="password"
+                  returnKeyType="go"
+                  onSubmitEditing={withEmail}
+                  onFocusChange={setTyping}
+                  style={{ marginTop: 22 }}
+                  // A reveal toggle is not a luxury on a phone keyboard. Without
+                  // it the only way to check a typo is to clear the field and
+                  // start again, and the error you get for a wrong password is
+                  // the same one you get for no account.
+                  accessory={
+                    <Pressable
+                      onPress={() => setReveal((v) => !v)}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
+                    >
+                      <Ionicons
+                        name={reveal ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={c.mutedForeground}
+                      />
+                    </Pressable>
+                  }
+                />
+              </Animated.View>
+
+              <Animated.View
+                entering={FadeIn.duration(240).delay(180)}
+                style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Pressable
+                  onPress={() => { setEmailOpen(false); setNotice(null); setError(null); }}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                >
+                  <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.chevron }}>
                     (back.)
                   </Text>
                 </Pressable>
@@ -277,19 +360,38 @@ export default function Auth() {
                 ) : (
                   <WordArrow label="Enter" onPress={withEmail} haptic="none" />
                 )}
-              </View>
-            </Animated.View>
-          ) : (
-            <Animated.View layout={LinearTransition.duration(200)}>
-              <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
-            </Animated.View>
-          )}
+              </Animated.View>
 
-          {/* Hidden while the fields are out: it opens the same fold, so leaving
-              it there just pushed Enter further down for no reason. */}
-          {emailOpen ? null : (
-            <WayRow label="(already on actorrise? connect it.)" quiet onPress={() => setEmailOpen(true)} last />
-          )}
+              <Animated.View entering={FadeIn.duration(240).delay(240)} style={{ marginTop: 18, alignItems: 'center' }}>
+                <Pressable onPress={forgotPassword} hitSlop={10} accessibilityRole="button" disabled={resetting}>
+                  {resetting ? (
+                    <ActivityIndicator color={c.mutedForeground} />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: 'Montserrat_400Regular',
+                        fontSize: 12,
+                        color: c.mutedForeground,
+                        textDecorationLine: 'underline',
+                      }}
+                    >
+                      Forgot your password?
+                    </Text>
+                  )}
+                </Pressable>
+              </Animated.View>
+            </Animated.View>
+          ) : null}
+
+          {notice ? (
+            <Animated.Text
+              entering={FadeIn.duration(200)}
+              className="mt-4 text-center text-[13px]"
+              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
+            >
+              {notice}
+            </Animated.Text>
+          ) : null}
 
           {busy === 'apple' ? (
             <View style={{ alignItems: 'center' }} className="mt-4">
@@ -378,39 +480,153 @@ function WayRow({
   );
 }
 
-/** An underlined field whose rule lights amber on focus. */
-function UnderlineField({
+/**
+ * An outlined button the same size as the Apple slab. Apple's guidelines want
+ * their button to be the prominent one, which an outline satisfies — filled
+ * beats outlined — while still giving the alternative a real shape to press.
+ */
+function OutlineButton({
+  label,
+  icon,
+  onPress,
+  busy,
+}: {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+  busy?: boolean;
+}) {
+  const { colors: c } = useTheme();
+  const press = useSharedValue(0);
+  const style = useAnimatedStyle(() => ({ opacity: 1 - press.value * 0.35 }));
+  return (
+    <AnimatedPressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPressIn={() => (press.value = withTiming(1, { duration: 90 }))}
+      onPressOut={() => (press.value = withTiming(0, { duration: 200 }))}
+      style={[
+        style,
+        {
+          height: 54,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: c.border,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      ]}
+    >
+      {busy ? (
+        <ActivityIndicator color={c.mutedForeground} />
+      ) : (
+        <>
+          <Ionicons name={icon} size={17} color={c.foreground} style={{ marginRight: 10 }} />
+          <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 16, color: c.foreground }}>
+            {label}
+          </Text>
+        </>
+      )}
+    </AnimatedPressable>
+  );
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/**
+ * A field whose label rises out of the way instead of being erased by the first
+ * character you type. A placeholder is the label, right up until you need it:
+ * once both fields hold text, "email" and "password" are two indistinguishable
+ * lines and the only way to check which is which is to clear one.
+ *
+ * The rule still lights amber on focus. The label moves on the UI thread, so
+ * holding a key down never stutters it.
+ */
+function LabelledField({
+  label,
   style,
   onFocusChange,
+  accessory,
+  value,
   ...props
-}: React.ComponentProps<typeof TextInput> & { style?: object; onFocusChange?: (v: boolean) => void }) {
+  // `style` here dresses the wrapping View, not the input, so it has to be
+  // taken off TextInput's props before the intersection or it arrives typed as
+  // a TextStyle and lands on a View that cannot accept one.
+}: Omit<React.ComponentProps<typeof TextInput>, 'style'> & {
+  label: string;
+  style?: StyleProp<ViewStyle>;
+  onFocusChange?: (v: boolean) => void;
+  accessory?: React.ReactNode;
+}) {
   const { colors: c } = useTheme();
   const [focused, setFocused] = useState(false);
+  // Up when focused or filled; down only when empty and untouched, which is the
+  // one moment the label is standing in for a placeholder.
+  const up = useSharedValue(value ? 1 : 0);
+
+  useEffect(() => {
+    const shouldLift = focused || !!value;
+    up.value = withTiming(shouldLift ? 1 : 0, { duration: 180, easing: Easing.out(Easing.cubic) });
+  }, [focused, value, up]);
+
+  const labelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -up.value * 18 }],
+    fontSize: 16 - up.value * 5,
+    opacity: 0.55 + up.value * 0.45,
+  }));
+
   return (
-    <TextInput
-      {...props}
-      onFocus={() => {
-        setFocused(true);
-        onFocusChange?.(true);
-      }}
-      onBlur={() => {
-        setFocused(false);
-        onFocusChange?.(false);
-      }}
-      placeholderTextColor={c.mutedForeground}
-      selectionColor={colors.stageGlow}
-      style={[
-        {
-          height: 40,
-          borderBottomWidth: 1,
-          borderBottomColor: focused ? colors.stageGlow : c.border,
-          color: c.foreground,
-          fontFamily: 'Montserrat_400Regular',
-          fontSize: 16,
-          paddingHorizontal: 2,
-        },
-        style,
-      ]}
-    />
+    <View style={style}>
+      <View style={{ height: 20 }} />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+        <TextInput
+          {...props}
+          value={value}
+          onFocus={() => {
+            setFocused(true);
+            onFocusChange?.(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            onFocusChange?.(false);
+          }}
+          selectionColor={colors.stageGlow}
+          style={{
+            flex: 1,
+            height: 34,
+            color: c.foreground,
+            fontFamily: 'Montserrat_400Regular',
+            fontSize: 16,
+            paddingHorizontal: 2,
+            paddingBottom: 4,
+          }}
+        />
+        {accessory ? <View style={{ paddingBottom: 8, paddingLeft: 8 }}>{accessory}</View> : null}
+      </View>
+      <View style={{ height: 1, backgroundColor: focused ? colors.stageGlow : c.border }} />
+      {/* Absolute so it can travel over the input without pushing it. */}
+      <Animated.Text
+        pointerEvents="none"
+        style={[
+          labelStyle,
+          {
+            position: 'absolute',
+            left: 2,
+            bottom: 9,
+            fontFamily: 'Montserrat_400Regular',
+            letterSpacing: 0.4,
+            color: focused ? colors.stageGlow : c.mutedForeground,
+          },
+        ]}
+      >
+        {label}
+      </Animated.Text>
+    </View>
   );
 }

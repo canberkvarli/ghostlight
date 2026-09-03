@@ -150,6 +150,37 @@ export async function signUpWithEmail(email: string, password: string): Promise<
   }
 }
 
+/**
+ * Send a reset link. The app had no way back from a forgotten password at all,
+ * which for the one sign-in method that has a password is a dead end.
+ *
+ * Always resolves `ok` when the request itself went through, whether or not the
+ * address belongs to anyone. Reporting "no account with that email" here would
+ * turn this form into a way to ask whether a given person has a Ghost Light
+ * account, which is not a question a stranger gets to ask. Supabase behaves the
+ * same way for the same reason; the screen says "if that address is registered"
+ * and means it.
+ *
+ * The link lands on the web app, not here. A deep link back into a React Native
+ * screen that can set a new password is real work, and actorrise.com already has
+ * a reset page that ends in a session the app will pick up on next sign-in.
+ */
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
+  try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
+    const address = email.trim().toLowerCase();
+    if (!address) return { ok: false, message: 'Enter your email address first.' };
+
+    const { error } = await supabase.auth.resetPasswordForEmail(address, {
+      redirectTo: 'https://www.actorrise.com/reset-password',
+    });
+    if (error) return { ok: false, message: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message ?? 'Could not send the reset link.' };
+  }
+}
+
 export async function signInWithGoogle(): Promise<AuthResult> {
   try {
     if (configMissing) return { ok: false, message: CONFIG_ERROR };
