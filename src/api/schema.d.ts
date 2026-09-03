@@ -160,6 +160,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/feedback/impression": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log Impression
+         * @description Record that the results feedback prompt was SHOWN.
+         *
+         *     Pairs with submit_feedback to make a response rate computable: a prompt that
+         *     nobody answers and a prompt nobody sees are indistinguishable without this
+         *     (H-11). Fire-and-forget from the client, deduped there per result set, so
+         *     this only ever counts distinct times the prompt was seen. Silently ignores
+         *     an unknown context rather than 400ing — an impression is telemetry, never
+         *     something worth failing a user's page over.
+         */
+        post: operations["log_impression_api_feedback_impression_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -250,6 +277,31 @@ export interface paths {
         put?: never;
         /** Create Credit */
         post: operations["create_credit_api_resume_credits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resume/lane": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lane
+         * @description The actor's casting lane, read off their credits, plus picks in it.
+         *
+         *     Never errors and never 404s. Below the credit threshold, or if the model
+         *     declines or is unreachable, it returns `line: null` and the caller keeps
+         *     showing what it showed before. The point of this block is to reward filling
+         *     the résumé in, so it must not punish a half-filled one.
+         */
+        get: operations["get_lane_api_resume_lane_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -422,6 +474,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/monologues/first-rehearsal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get First Rehearsal Monologue
+         * @description The one piece a brand-new actor is handed to rehearse.
+         *
+         *     Replaces the old scene-library version of this flow, whose content was
+         *     deleted in the monologue-study pivot (purge_library_scenes.py) while the
+         *     endpoint and its redirect were left in place — so every eligible user got a
+         *     404 and a dead screen.
+         *
+         *     Profile matching is a preference, never a requirement: if the actor's range
+         *     narrows the pool to nothing we hand back an unfiltered pick rather than
+         *     repeating the original mistake and failing closed.
+         */
+        get: operations["get_first_rehearsal_monologue_api_monologues_first_rehearsal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/monologues/discover": {
         parameters: {
             query?: never;
@@ -471,7 +552,17 @@ export interface paths {
         };
         /**
          * Get Monologue
-         * @description Get detailed monologue information
+         * @description Get detailed monologue information.
+         *
+         *     Enforces the free-read wall server-side (spec §4/§7): a free user who has
+         *     spent the allowance receives only the opening lines and a `paywalled` flag
+         *     — the full text never leaves the server, so bypassing the client can't
+         *     unlock it. Pieces the user has already saved stay readable.
+         *
+         *     The allowance depends on who is asking: the web gets 5 a month, Ghost Light
+         *     gets 3 for life, and the two are counted separately. The client says which
+         *     it is via `X-Client`; anything else is treated as the web, which is both the
+         *     likelier caller and the larger allowance.
          */
         get: operations["get_monologue_api_monologues__monologue_id__get"];
         put?: never;
@@ -643,6 +734,38 @@ export interface paths {
          *     memorize for a non-collection piece doesn't silently add it).
          */
         post: operations["mark_studied_api_monologues__monologue_id__studied_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/monologues/{monologue_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Read
+         * @description Spend one full monologue read (Ghost Light iOS, spec §4 #2).
+         *
+         *     The free tier gets three reads for their lifetime, then the paywall. The
+         *     count is server-side on purpose so it survives a reinstall — a device-local
+         *     tally would be trivially reset, and the whole business model is where the
+         *     wall sits. This records the read and reports the running lifetime total plus
+         *     the wall state; the client paints the paywall, the server owns the count.
+         *
+         *     Unlike the detail endpoint, this one defaults to `ghostlight` when `X-Client`
+         *     is absent. Nothing on the web has ever called it — it is the app's path, by
+         *     spec and in the logs — so treating an unlabelled call as web would file the
+         *     app's own reads under the web's allowance and leave the lifetime trial stuck
+         *     at zero. The header still wins if it says otherwise.
+         */
+        post: operations["record_read_api_monologues__monologue_id__read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1490,6 +1613,49 @@ export interface paths {
         patch: operations["set_script_shared_api_scripts__script_id__share_patch"];
         trace?: never;
     };
+    "/api/scripts/{script_id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Script Tags
+         * @description Replace the tags on your own script (owner only, max 8).
+         *
+         *     Votes on tags that survive the edit are preserved — retagging shouldn't
+         *     silently discard the community's signal. Votes on removed tags go with them.
+         */
+        put: operations["set_script_tags_api_scripts__script_id__tags_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scripts/{script_id}/tags/{tag_id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Toggle Tag Vote
+         * @description Toggle your upvote on a tag. Only on scripts shared with the community.
+         */
+        post: operations["toggle_tag_vote_api_scripts__script_id__tags__tag_id__vote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scripts/{script_id}/scenes/{scene_id}": {
         parameters: {
             query?: never;
@@ -1653,6 +1819,35 @@ export interface paths {
          *     Body format: one line per row, each as "CHARACTER: dialogue text".
          */
         post: operations["add_scene_to_script_api_scripts__script_id__scenes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scripts/{script_id}/reextract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reextract Script
+         * @description Have another go at the scenes.
+         *
+         *     Scene division is the part of extraction that varies run to run, so an actor
+         *     who gets a bad split has somewhere to go other than emailing us. This works
+         *     from the stored text — the original upload isn't kept — so it re-cuts the
+         *     scenes but can't re-read the PDF. A file that came out wrong at the page
+         *     level needs re-uploading, which the parser-versioned cache now allows.
+         *
+         *     Deliberately free: charging an upload for our bad extraction is the wrong
+         *     signal, and the scenes it replaces were already paid for.
+         */
+        post: operations["reextract_script_api_scripts__script_id__reextract_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2337,76 +2532,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/moderation/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Moderation Queue
-         * @description Get submissions pending moderation.
-         *
-         *     Args:
-         *         status: Filter by status (default: 'manual_review')
-         *         limit: Max results to return (default: 50)
-         *         offset: Pagination offset (default: 0)
-         *
-         *     Returns:
-         *         List of pending submissions
-         */
-        get: operations["get_moderation_queue_api_admin_moderation_queue_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/moderation/{submission_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update Submission
-         * @description Update submission content (title, text, character, play, author, notes).
-         *     Only allowed when status is pending, ai_review, or manual_review.
-         */
-        patch: operations["update_submission_api_admin_moderation__submission_id__patch"];
-        trace?: never;
-    };
-    "/api/admin/moderation/queue/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Queue Stats
-         * @description Get statistics about the moderation queue.
-         */
-        get: operations["get_queue_stats_api_admin_moderation_queue_stats_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/moderation/{submission_id}/approve": {
+    "/api/webhooks/revenuecat": {
         parameters: {
             query?: never;
             header?: never;
@@ -2416,60 +2542,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Approve Submission
-         * @description Approve a submission and create the monologue.
+         * Revenuecat Webhook
+         * @description Grant/revoke the mobile Monologues tier from RevenueCat events.
          *
-         *     Creates:
-         *     1. Play record (if doesn't exist)
-         *     2. Monologue record
-         *     3. Moderation log entry
-         *     4. Email notification (TODO: implement in Phase 4)
+         *     RevenueCat authenticates with a static bearer set in its dashboard; we check
+         *     it against REVENUECAT_WEBHOOK_AUTH. INITIAL_PURCHASE/RENEWAL grant the tier;
+         *     EXPIRATION revokes to free. CANCELLATION only flags auto-renew off — access
+         *     is kept until the purchase actually EXPIRES, so a user who cancels still gets
+         *     what they paid for (this is the one place we read the spec's 'revoke on
+         *     cancellation' as 'stop renewing', not 'cut off now').
          */
-        post: operations["approve_submission_api_admin_moderation__submission_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/moderation/{submission_id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reject Submission
-         * @description Reject a submission with reason.
-         *
-         *     Creates:
-         *     1. Moderation log entry
-         *     2. Email notification (TODO: implement in Phase 4)
-         */
-        post: operations["reject_submission_api_admin_moderation__submission_id__reject_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/moderation/{submission_id}/logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Submission Logs
-         * @description Get moderation history for a submission.
-         */
-        get: operations["get_submission_logs_api_admin_moderation__submission_id__logs_get"];
-        put?: never;
-        post?: never;
+        post: operations["revenuecat_webhook_api_webhooks_revenuecat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2870,7 +2953,7 @@ export interface paths {
         patch: operations["patch_admin_user_roles_api_admin_users__user_id__roles_patch"];
         trace?: never;
     };
-    "/api/admin/emails/founder-offer-on-signup": {
+    "/api/admin/feedback": {
         parameters: {
             query?: never;
             header?: never;
@@ -2878,15 +2961,94 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Founder Offer On Signup
-         * @description Whether new signups currently receive the FOUNDER3 offer email.
+         * List Feedback
+         * @description Paginated feedback, newest first. Defaults to the actionable slice:
+         *     negative feedback that carries a written note.
          */
-        get: operations["get_founder_offer_on_signup_api_admin_emails_founder_offer_on_signup_get"];
+        get: operations["list_feedback_api_admin_feedback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
-         * Set Founder Offer On Signup
-         * @description Turn the FOUNDER3-on-signup email on/off (e.g. when founding spots close).
+         * Feedback Summary
+         * @description Counts for the badge + header. `unread` = negative, has-comment, never read.
          */
-        put: operations["set_founder_offer_on_signup_api_admin_emails_founder_offer_on_signup_put"];
+        get: operations["feedback_summary_api_admin_feedback_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback/{feedback_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Read */
+        post: operations["mark_read_api_admin_feedback__feedback_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feedback/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark All Read
+         * @description Clear the badge: mark every unread negative-with-comment row as read.
+         */
+        post: operations["mark_all_read_api_admin_feedback_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/emails/saved-piece-reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Saved Piece Reminder
+         * @description Whether the hourly day-1 'you saved a piece' re-engagement email is sending.
+         */
+        get: operations["get_saved_piece_reminder_api_admin_emails_saved_piece_reminder_get"];
+        /**
+         * Set Saved Piece Reminder
+         * @description Pause/resume the day-1 saved-piece reminder at runtime (takes effect within
+         *     the hour). The scheduler re-reads this every run, so no redeploy is needed.
+         */
+        put: operations["set_saved_piece_reminder_api_admin_emails_saved_piece_reminder_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3254,6 +3416,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/searches/by-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Searches By User
+         * @description Per-actor search behaviour, busiest first.
+         *
+         *     One row per user with how much they searched and how often it failed, so a
+         *     struggling user is visible as a person rather than as scattered log rows.
+         */
+        get: operations["get_searches_by_user_api_admin_searches_by_user_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/searches/{log_id}/results": {
         parameters: {
             query?: never;
@@ -3283,11 +3468,18 @@ export interface paths {
         };
         /**
          * Get Content Requests
-         * @description All content requests sorted by most requested.
+         * @description All content requests, most-demanded first, freshest breaking the tie.
          */
         get: operations["get_content_requests_api_admin_content_requests_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Content Request
+         * @description Add a request by hand — used by the 'track this' action on a failed
+         *     search, so a content gap spotted in the logs becomes a tracked row without
+         *     retyping it. Reuses the same (title, author) dedupe as the user-facing path,
+         *     so tracking a query users already requested bumps the existing row.
+         */
+        post: operations["create_content_request_api_admin_content_requests_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3304,14 +3496,39 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Content Request
+         * @description Drop a request outright — for junk entries like a stray keyboard mash.
+         */
+        delete: operations["delete_content_request_api_admin_content_requests__request_id__delete"];
         options?: never;
         head?: never;
         /**
-         * Update Content Request Status
-         * @description Update a content request's status.
+         * Update Content Request
+         * @description Edit a content request: retitle it, fix the author, set a character, or
+         *     move its status. Fields left out of the body are untouched.
          */
-        patch: operations["update_content_request_status_api_admin_content_requests__request_id__patch"];
+        patch: operations["update_content_request_api_admin_content_requests__request_id__patch"];
+        trace?: never;
+    };
+    "/api/admin/stripe-revenue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stripe Revenue
+         * @description Live Stripe revenue. Cached 15 min; pass ?refresh=true to force.
+         */
+        get: operations["stripe_revenue_api_admin_stripe_revenue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/sessions": {
@@ -4100,14 +4317,6 @@ export interface components {
             monologue_id?: number | null;
         };
         /**
-         * ApprovalRequest
-         * @description Request to approve a submission.
-         */
-        ApprovalRequest: {
-            /** Notes */
-            notes?: string | null;
-        };
-        /**
          * AuditionFeedbackResponse
          * @description AI casting director feedback response.
          */
@@ -4459,10 +4668,31 @@ export interface components {
             /** Query */
             query?: string | null;
         };
-        /** ContentRequestStatusUpdate */
-        ContentRequestStatusUpdate: {
+        /** ContentRequestCreate */
+        ContentRequestCreate: {
+            /** Play Title */
+            play_title: string;
+            /** Author */
+            author?: string | null;
+            /** Character Name */
+            character_name?: string | null;
             /** Status */
-            status: string;
+            status?: string | null;
+        };
+        /**
+         * ContentRequestUpdate
+         * @description Every field optional — a status-only PATCH stays valid, which is what the
+         *     old status dropdown sends.
+         */
+        ContentRequestUpdate: {
+            /** Play Title */
+            play_title?: string | null;
+            /** Author */
+            author?: string | null;
+            /** Character Name */
+            character_name?: string | null;
+            /** Status */
+            status?: string | null;
         };
         /**
          * CreateCheckoutSessionRequest
@@ -4820,6 +5050,22 @@ export interface components {
             query_invalid_reason?: string | null;
         };
         /**
+         * FirstPieceResponse
+         * @description One monologue to rehearse on the very first run.
+         */
+        FirstPieceResponse: {
+            /** Monologue Id */
+            monologue_id: number;
+            /** Character Name */
+            character_name: string;
+            /** Play Title */
+            play_title?: string | null;
+            /** Author */
+            author?: string | null;
+            /** Estimated Duration Seconds */
+            estimated_duration_seconds?: number | null;
+        };
+        /**
          * FirstRehearsalSceneResponse
          * @description The scene to drop a brand-new user into, pre-cast.
          */
@@ -4834,11 +5080,6 @@ export interface components {
             title: string;
             /** Play Title */
             play_title?: string | null;
-        };
-        /** FounderOfferToggle */
-        FounderOfferToggle: {
-            /** Enabled */
-            enabled: boolean;
         };
         /** FoundingActorCreate */
         FoundingActorCreate: {
@@ -4969,6 +5210,52 @@ export interface components {
             /** Headshot Url */
             headshot_url: string;
         };
+        /** ImpressionRequest */
+        ImpressionRequest: {
+            /**
+             * Context
+             * @description e.g. search
+             */
+            context: string;
+        };
+        /** LanePiece */
+        LanePiece: {
+            /** Id */
+            id: number;
+            /** Character Name */
+            character_name: string;
+            /** Play Title */
+            play_title?: string | null;
+            /** Tone */
+            tone?: string | null;
+            /** Estimated Duration Seconds */
+            estimated_duration_seconds?: number | null;
+        };
+        /**
+         * LaneResponse
+         * @description Null `line` means "not enough to read yet" — show the recruiting state.
+         */
+        LaneResponse: {
+            /** Line */
+            line?: string | null;
+            /** Blurb */
+            blurb?: string | null;
+            /**
+             * Credits Counted
+             * @default 0
+             */
+            credits_counted: number;
+            /**
+             * Needed
+             * @default 0
+             */
+            needed: number;
+            /**
+             * Pieces
+             * @default []
+             */
+            pieces: components["schemas"]["LanePiece"][];
+        };
         /**
          * LeadMagnetItem
          * @description Minimal monologue info for lead-magnet / 5-monologues page. No auth required.
@@ -5094,6 +5381,11 @@ export interface components {
             imdb_id?: string | null;
             /** Director */
             director?: string | null;
+            /**
+             * Paywalled
+             * @default false
+             */
+            paywalled: boolean;
         };
         /**
          * MonologueSubmissionRequest
@@ -5211,22 +5503,6 @@ export interface components {
             profile_bias_enabled: boolean;
         };
         /**
-         * QueueStatsResponse
-         * @description Statistics about the moderation queue.
-         */
-        QueueStatsResponse: {
-            /** Pending */
-            pending: number;
-            /** Ai Review */
-            ai_review: number;
-            /** Manual Review */
-            manual_review: number;
-            /** Approved Today */
-            approved_today: number;
-            /** Rejected Today */
-            rejected_today: number;
-        };
-        /**
          * RehearsalSessionResponse
          * @description Rehearsal session data
          */
@@ -5263,16 +5539,6 @@ export interface components {
             first_line_for_user?: string | null;
             /** Current Line For User */
             current_line_for_user?: string | null;
-        };
-        /**
-         * RejectionRequest
-         * @description Request to reject a submission.
-         */
-        RejectionRequest: {
-            /** Reason */
-            reason: string;
-            /** Details */
-            details: string;
         };
         /** ReorderRequest */
         ReorderRequest: {
@@ -5361,6 +5627,11 @@ export interface components {
             line_count: number;
             /** Lines */
             lines: components["schemas"]["RoomLine"][];
+        };
+        /** SavedPieceReminderToggle */
+        SavedPieceReminderToggle: {
+            /** Enabled */
+            enabled: boolean;
         };
         /**
          * SceneDetailResponse
@@ -5671,6 +5942,20 @@ export interface components {
             /** Estimated Full Seconds */
             estimated_full_seconds: number;
         };
+        /** ScriptTagResponse */
+        ScriptTagResponse: {
+            /** Id */
+            id: number;
+            /** Tag */
+            tag: string;
+            /** Votes */
+            votes: number;
+            /**
+             * Voted By Me
+             * @default false
+             */
+            voted_by_me: boolean;
+        };
         /**
          * SearchResponse
          * @description Standardized search response with pagination metadata.
@@ -5787,6 +6072,11 @@ export interface components {
             /** Index */
             index: number;
         };
+        /** SetTagsRequest */
+        SetTagsRequest: {
+            /** Tags */
+            tags: string[];
+        };
         /** ShareScriptRequest */
         ShareScriptRequest: {
             /** Shared */
@@ -5846,63 +6136,6 @@ export interface components {
         StudentDiscountEligibleResponse: {
             /** Eligible */
             eligible: boolean;
-        };
-        /**
-         * SubmissionResponse
-         * @description Response model for submission details.
-         */
-        SubmissionResponse: {
-            /** Id */
-            id: number;
-            /** User Id */
-            user_id: number;
-            /** Submitter Email */
-            submitter_email: string;
-            /** Submitter Name */
-            submitter_name: string | null;
-            /** Submitted Title */
-            submitted_title: string;
-            /** Submitted Text */
-            submitted_text: string;
-            /** Submitted Character */
-            submitted_character: string;
-            /** Submitted Play Title */
-            submitted_play_title: string;
-            /** Submitted Author */
-            submitted_author: string;
-            /** User Notes */
-            user_notes: string | null;
-            /** Status */
-            status: string;
-            /**
-             * Submitted At
-             * Format: date-time
-             */
-            submitted_at: string;
-            /** Processed At */
-            processed_at: string | null;
-            /** Ai Quality Score */
-            ai_quality_score: number | null;
-            /** Ai Copyright Risk */
-            ai_copyright_risk: string | null;
-            /** Ai Flags */
-            ai_flags: {
-                [key: string]: unknown;
-            } | null;
-            /** Ai Moderation Notes */
-            ai_moderation_notes: string | null;
-            /** Reviewer Id */
-            reviewer_id: number | null;
-            /** Reviewer Email */
-            reviewer_email: string | null;
-            /** Reviewer Notes */
-            reviewer_notes: string | null;
-            /** Reviewed At */
-            reviewed_at: string | null;
-            /** Rejection Reason */
-            rejection_reason: string | null;
-            /** Rejection Details */
-            rejection_details: string | null;
         };
         /**
          * SubmissionStatusResponse
@@ -6071,26 +6304,10 @@ export interface components {
             has_seen_first_rehearsal?: boolean | null;
             /** Referral Source */
             referral_source?: string | null;
+            /** Referral Detail */
+            referral_detail?: string | null;
             /** Last Seen Feature Id */
             last_seen_feature_id?: string | null;
-        };
-        /**
-         * UpdateSubmissionRequest
-         * @description Request to update submission content (admin edit before approve).
-         */
-        UpdateSubmissionRequest: {
-            /** Submitted Title */
-            submitted_title?: string | null;
-            /** Submitted Text */
-            submitted_text?: string | null;
-            /** Submitted Character */
-            submitted_character?: string | null;
-            /** Submitted Play Title */
-            submitted_play_title?: string | null;
-            /** Submitted Author */
-            submitted_author?: string | null;
-            /** User Notes */
-            user_notes?: string | null;
         };
         /**
          * UsageLimitsResponse
@@ -6113,6 +6330,16 @@ export interface components {
             scripts_used: number;
             /** Scripts Limit */
             scripts_limit: number;
+            /**
+             * Monologue Reads Used
+             * @default 0
+             */
+            monologue_reads_used: number;
+            /**
+             * Monologue Reads Limit
+             * @default 3
+             */
+            monologue_reads_limit: number;
         };
         /**
          * UserScriptDetailResponse
@@ -6529,6 +6756,41 @@ export interface operations {
             };
         };
     };
+    log_impression_api_feedback_impression_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpressionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_feedback_api_feedback_post: {
         parameters: {
             query?: never;
@@ -6752,6 +7014,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lane_api_resume_lane_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaneResponse"];
                 };
             };
         };
@@ -7055,6 +7337,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_first_rehearsal_monologue_api_monologues_first_rehearsal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirstPieceResponse"];
                 };
             };
         };
@@ -7394,6 +7696,37 @@ export interface operations {
         };
     };
     mark_studied_api_monologues__monologue_id__studied_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                monologue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_read_api_monologues__monologue_id__read_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8674,6 +9007,73 @@ export interface operations {
             };
         };
     };
+    set_script_tags_api_scripts__script_id__tags_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptTagResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_tag_vote_api_scripts__script_id__tags__tag_id__vote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+                tag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptTagResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_scene_api_scripts__script_id__scenes__scene_id__delete: {
         parameters: {
             query?: never;
@@ -9008,6 +9408,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SceneInScriptResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reextract_script_api_scripts__script_id__reextract_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScriptDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9948,75 +10379,7 @@ export interface operations {
             };
         };
     };
-    get_moderation_queue_api_admin_moderation_queue_get: {
-        parameters: {
-            query?: {
-                status?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubmissionResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_submission_api_admin_moderation__submission_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSubmissionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_queue_stats_api_admin_moderation_queue_stats_get: {
+    revenuecat_webhook_api_webhooks_revenuecat_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -10031,108 +10394,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["QueueStatsResponse"];
-                };
-            };
-        };
-    };
-    approve_submission_api_admin_moderation__submission_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApprovalRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reject_submission_api_admin_moderation__submission_id__reject_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RejectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_submission_logs_api_admin_moderation__submission_id__logs_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10825,7 +11087,48 @@ export interface operations {
             };
         };
     };
-    get_founder_offer_on_signup_api_admin_emails_founder_offer_on_signup_get: {
+    list_feedback_api_admin_feedback_get: {
+        parameters: {
+            query?: {
+                /** @description negative | positive | all */
+                rating?: string;
+                /** @description Filter by context */
+                context?: string | null;
+                unread_only?: boolean;
+                /** @description Only rows that have free-text */
+                with_comment?: boolean;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feedback_summary_api_admin_feedback_summary_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -10840,12 +11143,91 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FounderOfferToggle"];
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
     };
-    set_founder_offer_on_signup_api_admin_emails_founder_offer_on_signup_put: {
+    mark_read_api_admin_feedback__feedback_id__read_post: {
+        parameters: {
+            query?: {
+                read?: boolean;
+            };
+            header?: never;
+            path: {
+                feedback_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_read_api_admin_feedback_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_saved_piece_reminder_api_admin_emails_saved_piece_reminder_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedPieceReminderToggle"];
+                };
+            };
+        };
+    };
+    set_saved_piece_reminder_api_admin_emails_saved_piece_reminder_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -10854,7 +11236,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FounderOfferToggle"];
+                "application/json": components["schemas"]["SavedPieceReminderToggle"];
             };
         };
         responses: {
@@ -10864,7 +11246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FounderOfferToggle"];
+                    "application/json": components["schemas"]["SavedPieceReminderToggle"];
                 };
             };
             /** @description Validation Error */
@@ -11386,6 +11768,10 @@ export interface operations {
                 to?: string | null;
                 /** @description Only show zero-result searches */
                 zero_only?: boolean;
+                /** @description Only failures of one kind: zero | weak | gap | repeat | any */
+                problem?: string | null;
+                /** @description Filter by user email (substring) */
+                user?: string | null;
                 /** @description Filter by source: search or demo */
                 source?: string | null;
                 /** @description Filter by query text */
@@ -11424,6 +11810,41 @@ export interface operations {
             query?: {
                 from?: string | null;
                 to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_searches_by_user_api_admin_searches_by_user_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -11508,7 +11929,42 @@ export interface operations {
             };
         };
     };
-    update_content_request_status_api_admin_content_requests__request_id__patch: {
+    create_content_request_api_admin_content_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_content_request_api_admin_content_requests__request_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -11517,11 +11973,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ContentRequestStatusUpdate"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -11545,6 +11997,76 @@ export interface operations {
             };
         };
     };
+    update_content_request_api_admin_content_requests__request_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentRequestUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stripe_revenue_api_admin_stripe_revenue_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_rehearsal_sessions_api_admin_sessions_get: {
         parameters: {
             query?: {
@@ -11552,7 +12074,7 @@ export interface operations {
                 limit?: number;
                 from?: string | null;
                 to?: string | null;
-                /** @description Filter by status: in_progress, completed, abandoned */
+                /** @description Filter by status: in_progress, completed, abandoned, timed_out, or 'unfinished' for abandoned+timed_out together */
                 status?: string | null;
                 /** @description Filter by user email or scene title */
                 q?: string | null;
