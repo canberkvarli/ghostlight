@@ -1,0 +1,440 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - region "Ghost Light iOS app announcement" [ref=f1e3]:
+      - paragraph [ref=f1e5]:
+        - text: Ghost Light is out on the App Store.
+        - link "Get it free" [ref=f1e6] [cursor=pointer]:
+          - /url: https://apps.apple.com/us/app/ghost-light-monologues/id6804278673
+      - button "Dismiss announcement" [ref=f1e7] [cursor=pointer]
+    - banner [ref=f1e11]:
+      - generic [ref=f1e14]:
+        - link "ActorRise home" [ref=f1e15] [cursor=pointer]:
+          - /url: /
+          - img "ActorRise" [ref=f1e16]
+        - navigation [ref=f1e18]:
+          - link "Pricing" [ref=f1e19] [cursor=pointer]:
+            - /url: "#pricing"
+          - link "Students" [ref=f1e21] [cursor=pointer]:
+            - /url: /for-students
+          - link "Teachers" [ref=f1e23] [cursor=pointer]:
+            - /url: /for-teachers
+          - button "Contact" [ref=f1e25] [cursor=pointer]
+        - generic [ref=f1e27]:
+          - button "Sign in" [ref=f1e28] [cursor=pointer]
+          - button "Get started" [ref=f1e29] [cursor=pointer]
+    - main [ref=f1e31]:
+      - generic [ref=f1e32]:
+        - region "ActorRise introduction" [ref=f1e33]:
+          - generic [ref=f1e36]:
+            - paragraph [ref=f1e42]: (a bare stage. one light. you.)
+            - heading [level=1] [ref=f1e43]:
+              - generic [ref=f1e45]:
+                - text: Find your
+                - emphasis [ref=f1e46]: monologue
+                - text: in seconds.
+              - generic [ref=f1e48]:
+                - text: Spend your time
+                - emphasis [ref=f1e49]: rehearsing
+                - text: .
+            - paragraph [ref=f1e50]: AI search across 13,000+ monologues from plays, film, and TV. Then run your lines with a scene partner that never cancels on you.
+            - generic [ref=f1e51]:
+              - button "Start rehearsing" [ref=f1e53] [cursor=pointer]
+              - generic [ref=f1e54]:
+                - link "(or watch how it works)" [ref=f1e55] [cursor=pointer]:
+                  - /url: "#watch"
+                - generic [ref=f1e56]: ·
+                - link "(on iOS)" [ref=f1e57] [cursor=pointer]:
+                  - /url: https://apps.apple.com/us/app/ghost-light-monologues/id6804278673
+            - generic "Monologues found so far" [ref=f1e59]:
+              - generic [ref=f1e61]:
+                - generic [ref=f1e62]:
+                  - paragraph [ref=f1e63]: So far
+                  - paragraph [ref=f1e64]:
+                    - generic [ref=f1e65]: "600"
+                  - paragraph [ref=f1e66]: monologues found by actors
+                - generic [ref=f1e67]:
+                  - paragraph [ref=f1e68]: Library
+                  - paragraph [ref=f1e69]:
+                    - generic [ref=f1e70]: 13,000 monologues
+                  - paragraph [ref=f1e71]: from plays, films, and TV
+                - generic [ref=f1e72]:
+                  - paragraph [ref=f1e73]: Community
+                  - paragraph [ref=f1e74]: 200+ actors
+                  - paragraph [ref=f1e80]: are using ActorRise
+        - img [ref=f1e82]:
+          - generic [ref=f1e84]: We need new forms. New forms are needed, and if we can't have them we had better have nothing. — konstantin, the seagull. ✳ We need new forms. New forms are needed, and if we can't have them we had better have nothing. — konstantin, the seagull. ✳ We need new forms. New forms are needed, and if we can't have them we had better have nothing. — konstantin, the seagull. ✳ We need new forms. New forms are needed, and if we can't have them we had better have nothing. — konstantin, the seagull. ✳ We need new forms. New forms are needed, and if we can't have them we had better have nothing. — konstantin, the seagull. ✳ We need new forms. New forms are needed, and if we can't have them we had better have nothing. — konstantin, the seagull. ✳
+        - region "A few of the plays in the library" [ref=f1e88]:
+          - paragraph [ref=f1e89]: (13,000+ pieces. plays, film, and tv. these are a few of the plays.)
+          - generic [ref=f1e90]:
+            - generic [ref=f1e92]:
+              - generic [ref=f1e93]:
+                - text: Hamlet
+                - generic [ref=f1e94]: ✳
+              - generic [ref=f1e95]:
+                - text: A Doll's House
+                - generic [ref=f1e96]: ✳
+              - generic [ref=f1e97]:
+                - text: Twelfth Night
+                - generic [ref=f1e98]: ✳
+              - generic [ref=f1e99]:
+                - text: The Seagull
+                - generic [ref=f1e100]: ✳
+              - generic [ref=f1e101]:
+                - text: Miss Julie
+                - generic [ref=f1e102]: ✳
+              - generic [ref=f1e103]:
+                - text: Macbeth
+                - generic [ref=f1e104]: ✳
+              - generic [ref=f1e105]:
+                - text: Hedda Gabler
+                - generic [ref=f1e106]: ✳
+              - generic [ref=f1e107]:
+                - text: Much Ado About Nothing
+                - generic [ref=f1e108]: ✳
+              - generic [ref=f1e109]:
+                - text: Uncle Vanya
+                - generic [ref=f1e110]: ✳
+              - generic [ref=f1e111]:
+                - text: The Importance of Being Earnest
+                - generic [ref=f1e112]: ✳
+              - generic [ref=f1e113]:
+                - text: Hamlet
+                - generic [ref=f1e114]: ✳
+              - generic [ref=f1e115]:
+                - text: A Doll's House
+                - generic [ref=f1e116]: ✳
+              - generic [ref=f1e117]:
+                - text: Twelfth Night
+                - generic [ref=f1e118]: ✳
+              - generic [ref=f1e119]:
+                - text: The Seagull
+                - generic [ref=f1e120]: ✳
+              - generic [ref=f1e121]:
+                - text: Miss Julie
+                - generic [ref=f1e122]: ✳
+              - generic [ref=f1e123]:
+                - text: Macbeth
+                - generic [ref=f1e124]: ✳
+              - generic [ref=f1e125]:
+                - text: Hedda Gabler
+                - generic [ref=f1e126]: ✳
+              - generic [ref=f1e127]:
+                - text: Much Ado About Nothing
+                - generic [ref=f1e128]: ✳
+              - generic [ref=f1e129]:
+                - text: Uncle Vanya
+                - generic [ref=f1e130]: ✳
+              - generic [ref=f1e131]:
+                - text: The Importance of Being Earnest
+                - generic [ref=f1e132]: ✳
+            - generic [ref=f1e134]:
+              - generic [ref=f1e135]:
+                - text: Romeo and Juliet
+                - generic [ref=f1e136]: ✳
+              - generic [ref=f1e137]:
+                - text: Three Sisters
+                - generic [ref=f1e138]: ✳
+              - generic [ref=f1e139]:
+                - text: Othello
+                - generic [ref=f1e140]: ✳
+              - generic [ref=f1e141]:
+                - text: The Cherry Orchard
+                - generic [ref=f1e142]: ✳
+              - generic [ref=f1e143]:
+                - text: A Midsummer Night's Dream
+                - generic [ref=f1e144]: ✳
+              - generic [ref=f1e145]:
+                - text: Ghosts
+                - generic [ref=f1e146]: ✳
+              - generic [ref=f1e147]:
+                - text: King Lear
+                - generic [ref=f1e148]: ✳
+              - generic [ref=f1e149]:
+                - text: The Master Builder
+                - generic [ref=f1e150]: ✳
+              - generic [ref=f1e151]:
+                - text: As You Like It
+                - generic [ref=f1e152]: ✳
+              - generic [ref=f1e153]:
+                - text: An Enemy of the People
+                - generic [ref=f1e154]: ✳
+              - generic [ref=f1e155]:
+                - text: Romeo and Juliet
+                - generic [ref=f1e156]: ✳
+              - generic [ref=f1e157]:
+                - text: Three Sisters
+                - generic [ref=f1e158]: ✳
+              - generic [ref=f1e159]:
+                - text: Othello
+                - generic [ref=f1e160]: ✳
+              - generic [ref=f1e161]:
+                - text: The Cherry Orchard
+                - generic [ref=f1e162]: ✳
+              - generic [ref=f1e163]:
+                - text: A Midsummer Night's Dream
+                - generic [ref=f1e164]: ✳
+              - generic [ref=f1e165]:
+                - text: Ghosts
+                - generic [ref=f1e166]: ✳
+              - generic [ref=f1e167]:
+                - text: King Lear
+                - generic [ref=f1e168]: ✳
+              - generic [ref=f1e169]:
+                - text: The Master Builder
+                - generic [ref=f1e170]: ✳
+              - generic [ref=f1e171]:
+                - text: As You Like It
+                - generic [ref=f1e172]: ✳
+              - generic [ref=f1e173]:
+                - text: An Enemy of the People
+                - generic [ref=f1e174]: ✳
+        - region "How ActorRise works" [ref=f1e175]:
+          - paragraph [ref=f1e176]: (how it works, in three acts.)
+          - generic [ref=f1e177]:
+            - article [ref=f1e178]:
+              - generic [ref=f1e179]: I
+              - paragraph [ref=f1e186]: (the search.)
+              - heading "Describe it. Don't dig for it." [level=3] [ref=f1e187]
+              - paragraph [ref=f1e188]: Plain English is enough. Funny piece for drama school, two minutes, male. The AI reads the whole library and hands you pieces that actually fit you, with overdone warnings so you never bring the piece everyone else brought.
+            - article [ref=f1e189]:
+              - generic [ref=f1e190]: II
+              - paragraph [ref=f1e198]: (the rehearsal.)
+              - heading "Run lines at 2am if you want." [level=3] [ref=f1e199]
+              - paragraph [ref=f1e200]: Your AI scene partner reads every other role, holds the script, and waits for your cue. No scheduling, no favors to repay, no one getting tired on take twelve.
+            - article [ref=f1e201]:
+              - generic [ref=f1e202]: III
+              - paragraph [ref=f1e208]: (the room.)
+              - heading "Walk in off book." [level=3] [ref=f1e209]
+              - paragraph [ref=f1e210]: You arrive with a piece chosen for you, rehearsed until it sits in your body. The work is done before you open the door. Now go book the room.
+      - generic [ref=f1e212]:
+        - paragraph [ref=f1e213]: (house lights up.)
+        - generic [ref=f1e216]:
+          - generic [ref=f1e217]:
+            - heading "Watch how it works." [level=2] [ref=f1e219]
+            - paragraph [ref=f1e220]: Rehearse with your scene partner, anytime.
+          - button "Play ScenePartner demo video" [ref=f1e226] [cursor=pointer]:
+            - img "ScenePartner demo thumbnail" [ref=f1e227]
+            - generic [ref=f1e237]: 1:30
+      - generic [ref=f1e239]:
+        - paragraph [ref=f1e240]: (now you try.)
+        - generic [ref=f1e244]:
+          - heading "Find your piece in seconds." [level=2] [ref=f1e245]
+          - paragraph [ref=f1e246]: Describe what you need in plain English. Filter by tone, age, genre, source, and overdone status.
+          - link "Try it free" [ref=f1e248] [cursor=pointer]:
+            - /url: /monologues
+      - region "Why it matters" [ref=f1e253]:
+        - paragraph [ref=f1e254]: (the point.)
+        - paragraph [ref=f1e255]:
+          - generic [ref=f1e256]: The
+          - generic [ref=f1e257]: right
+          - generic [ref=f1e258]: piece,
+          - generic [ref=f1e259]: in
+          - generic [ref=f1e260]: your
+          - generic [ref=f1e261]: body,
+          - generic [ref=f1e262]: before
+          - generic [ref=f1e263]: you
+          - generic [ref=f1e264]: open
+          - generic [ref=f1e265]: the
+          - generic [ref=f1e266]: door.
+      - generic [ref=f1e267]:
+        - paragraph [ref=f1e268]: (the notices.)
+        - region "What actors are saying" [ref=f1e269]:
+          - generic [ref=f1e271]:
+            - generic [ref=f1e272]:
+              - paragraph [ref=f1e273]: What actors are saying
+              - paragraph [ref=f1e274]: Real actors. Real feedback.
+            - generic [ref=f1e279]:
+              - generic: “
+              - generic [ref=f1e280]:
+                - paragraph [ref=f1e281]: I have spent a lot of time searching through books and databases for the right audition piece. That work matters, but rehearsal matters more. ActorRise helps me find material quickly so I can spend more time repeating, refining, and doing the work.
+                - generic [ref=f1e282]:
+                  - paragraph [ref=f1e283]: Canberk Varli
+                  - paragraph [ref=f1e284]: Founder · Actor
+                  - link "Learn more about Canberk →" [ref=f1e285] [cursor=pointer]:
+                    - /url: /actors/canberk-varli
+            - generic [ref=f1e286]:
+              - button "Previous testimonial" [ref=f1e287] [cursor=pointer]
+              - generic [ref=f1e290]:
+                - button "View testimonial from Canberk Varli" [ref=f1e291] [cursor=pointer]
+                - button "View testimonial from Timothy Miller" [ref=f1e292] [cursor=pointer]
+                - button "View testimonial from Isha Chhabra" [ref=f1e293] [cursor=pointer]
+                - button "View testimonial from Jeannille Ettinoffe" [ref=f1e294] [cursor=pointer]
+                - button "View testimonial from Ayush Nana" [ref=f1e295] [cursor=pointer]
+                - button "View Limited founding member spots." [ref=f1e296] [cursor=pointer]
+              - button "Next testimonial" [ref=f1e301] [cursor=pointer]
+      - generic [ref=f1e304]:
+        - paragraph [ref=f1e305]: (the ticket.)
+        - generic [ref=f1e307]:
+          - generic [ref=f1e308]:
+            - heading "Your craft, your plan." [level=2] [ref=f1e309]
+            - paragraph [ref=f1e310]: (new here? plus starts with a 2-week free trial. $0 today, cancel anytime.)
+            - paragraph [ref=f1e311]: (students & educators rehearse free. just email me.)
+          - generic [ref=f1e312]:
+            - generic [ref=f1e313]:
+              - generic [ref=f1e314]:
+                - heading "Free" [level=3] [ref=f1e315]
+                - paragraph [ref=f1e316]: $0/mo
+              - link "Get started free" [ref=f1e317] [cursor=pointer]:
+                - /url: /signup
+              - list [ref=f1e318]:
+                - listitem [ref=f1e319]:
+                  - generic [ref=f1e320]: ✓
+                  - generic [ref=f1e321]: 3 free rehearsals, then 2 weeks of Plus free
+                - listitem [ref=f1e322]:
+                  - generic [ref=f1e323]: ✓
+                  - generic [ref=f1e324]: 10 AI searches/mo
+                - listitem [ref=f1e325]:
+                  - generic [ref=f1e326]: ✓
+                  - generic [ref=f1e327]: 1 ScenePartner trial
+                - listitem [ref=f1e328]:
+                  - generic [ref=f1e329]: ✓
+                  - generic [ref=f1e330]: 1 script upload
+            - generic [ref=f1e331]:
+              - generic [ref=f1e332]:
+                - heading "Solo" [level=3] [ref=f1e333]
+                - paragraph [ref=f1e334]: $7/mo
+              - link "Subscribe" [ref=f1e335] [cursor=pointer]:
+                - /url: /pricing
+              - list [ref=f1e336]:
+                - listitem [ref=f1e337]:
+                  - generic [ref=f1e338]: ✓
+                  - generic [ref=f1e339]: Unlimited monologue rehearsals
+                - listitem [ref=f1e340]:
+                  - generic [ref=f1e341]: ✓
+                  - generic [ref=f1e342]: 25 AI searches/mo
+                - listitem [ref=f1e343]:
+                  - generic [ref=f1e344]: ✓
+                  - generic [ref=f1e345]: 3 ScenePartner scenes/mo
+                - listitem [ref=f1e346]:
+                  - generic [ref=f1e347]: ✓
+                  - generic [ref=f1e348]: 1 script upload
+                - listitem [ref=f1e349]:
+                  - generic [ref=f1e350]: ✓
+                  - generic [ref=f1e351]: Overdone filter
+            - generic [ref=f1e352]:
+              - paragraph [ref=f1e353]: (most popular.)
+              - generic [ref=f1e354]:
+                - heading "Plus" [level=3] [ref=f1e355]
+                - paragraph [ref=f1e356]: $12/mo
+              - link "Subscribe" [ref=f1e357] [cursor=pointer]:
+                - /url: /pricing
+              - list [ref=f1e358]:
+                - listitem [ref=f1e359]:
+                  - generic [ref=f1e360]: ✓
+                  - generic [ref=f1e361]: Unlimited monologue rehearsals
+                - listitem [ref=f1e362]:
+                  - generic [ref=f1e363]: ✓
+                  - generic [ref=f1e364]: Unlimited AI searches
+                - listitem [ref=f1e365]:
+                  - generic [ref=f1e366]: ✓
+                  - generic [ref=f1e367]: 30 ScenePartner scenes/mo
+                - listitem [ref=f1e368]:
+                  - generic [ref=f1e369]: ✓
+                  - generic [ref=f1e370]: 5 script uploads
+                - listitem [ref=f1e371]:
+                  - generic [ref=f1e372]: ✓
+                  - generic [ref=f1e373]: Overdone filter
+            - generic [ref=f1e374]:
+              - generic [ref=f1e375]:
+                - heading "Pro" [level=3] [ref=f1e376]
+                - paragraph [ref=f1e377]: $24/mo
+              - link "Subscribe" [ref=f1e378] [cursor=pointer]:
+                - /url: /pricing
+              - list [ref=f1e379]:
+                - listitem [ref=f1e380]:
+                  - generic [ref=f1e381]: ✓
+                  - generic [ref=f1e382]: Unlimited monologue rehearsals
+                - listitem [ref=f1e383]:
+                  - generic [ref=f1e384]: ✓
+                  - generic [ref=f1e385]: Unlimited AI searches
+                - listitem [ref=f1e386]:
+                  - generic [ref=f1e387]: ✓
+                  - generic [ref=f1e388]: Unlimited ScenePartner scenes
+                - listitem [ref=f1e389]:
+                  - generic [ref=f1e390]: ✓
+                  - generic [ref=f1e391]: Unlimited script uploads
+                - listitem [ref=f1e392]:
+                  - generic [ref=f1e393]: ✓
+                  - generic [ref=f1e394]: Overdone filter
+          - paragraph [ref=f1e395]:
+            - link "(compare all plans & faq →)" [ref=f1e396] [cursor=pointer]:
+              - /url: /pricing
+      - generic [ref=f1e397]:
+        - paragraph [ref=f1e398]: (questions from the house.)
+        - region "FAQ" [ref=f1e399]:
+          - generic [ref=f1e401]:
+            - heading "Frequently asked questions" [level=2] [ref=f1e402]
+            - list [ref=f1e403]:
+              - listitem [ref=f1e404]:
+                - button "Are the monologues AI-written?" [ref=f1e405] [cursor=pointer]
+              - listitem [ref=f1e409]:
+                - button "How does the search actually work?" [ref=f1e410] [cursor=pointer]
+              - listitem [ref=f1e414]:
+                - button "Where do the monologues come from?" [ref=f1e415] [cursor=pointer]
+              - listitem [ref=f1e419]:
+                - button "Can other people see what I search for?" [ref=f1e420] [cursor=pointer]
+              - listitem [ref=f1e424]:
+                - button "Will everyone in the room be doing the same piece?" [ref=f1e425] [cursor=pointer]
+              - listitem [ref=f1e429]:
+                - button "What is ScenePartner?" [ref=f1e430] [cursor=pointer]
+              - listitem [ref=f1e434]:
+                - button "Do I have to pay to try it?" [ref=f1e435] [cursor=pointer]
+              - listitem [ref=f1e439]:
+                - button "How do I cancel?" [ref=f1e440] [cursor=pointer]
+      - generic [ref=f1e445]:
+        - region "Ghost Light iOS app on the App Store" [ref=f1e446]:
+          - generic [ref=f1e447]:
+            - paragraph [ref=f1e448]: (the ghost light goes home with you.)
+            - heading [level=2] [ref=f1e449]:
+              - text: The stage,
+              - emphasis [ref=f1e450]: in your pocket
+              - text: .
+            - paragraph [ref=f1e451]: Ghost Light, the iOS app. The whole library, tone filters, overdone warnings, and a reading light built for dark wings and long train rides. Your saved pieces come with you, offline.
+            - link "Download on the App Store" [ref=f1e452] [cursor=pointer]:
+              - /url: https://apps.apple.com/us/app/ghost-light-monologues/id6804278673
+          - generic [ref=f1e457]:
+            - 'img "Ghost Light reading view: Nora''s doll-wife speech from A Doll''s House on a warm paper background" [ref=f1e460]'
+            - 'img "Ghost Light search: describe the character, find the speech" [ref=f1e463]'
+            - 'img "Ghost Light saved pieces: your book, offline, with off-book progress" [ref=f1e466]'
+        - region "Get started" [ref=f1e467]:
+          - generic [ref=f1e469]:
+            - paragraph [ref=f1e478]: (the ghost light stays on. the stage is never empty.)
+            - heading [level=2] [ref=f1e479]:
+              - text: Your
+              - emphasis [ref=f1e480]: scene partner
+              - text: is already waiting.
+            - paragraph [ref=f1e481]: Free to start. Five searches a month, no card. I built this because I needed it, and I think you might too.
+            - button "Start rehearsing" [ref=f1e484] [cursor=pointer]
+    - contentinfo [ref=f1e485]:
+      - generic [ref=f1e486]:
+        - paragraph [ref=f1e487]: (curtain call.)
+        - generic [ref=f1e488]:
+          - generic [ref=f1e489]:
+            - paragraph [ref=f1e490]: © 2026 ActorRise
+            - generic [ref=f1e491]: ·
+            - paragraph [ref=f1e492]: Built by an actor, for actors.
+          - generic [ref=f1e493]:
+            - link "About" [ref=f1e494] [cursor=pointer]:
+              - /url: /about
+            - link "Pricing" [ref=f1e495] [cursor=pointer]:
+              - /url: /pricing
+            - link "Privacy" [ref=f1e496] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=f1e497] [cursor=pointer]:
+              - /url: /terms
+            - button "Contact" [ref=f1e498] [cursor=pointer]
+        - generic [ref=f1e499]:
+          - link "Monologue finder" [ref=f1e500] [cursor=pointer]:
+            - /url: /monologue-finder
+          - link "Audition monologues" [ref=f1e501] [cursor=pointer]:
+            - /url: /audition-monologues
+          - link "Audition AI" [ref=f1e502] [cursor=pointer]:
+            - /url: /audition-ai
+          - link "Sources & copyright" [ref=f1e503] [cursor=pointer]:
+            - /url: /sources
+          - link "For students" [ref=f1e504] [cursor=pointer]:
+            - /url: /for-students
+          - link "For teachers" [ref=f1e505] [cursor=pointer]:
+            - /url: /for-teachers
+  - region "Notifications alt+T"
+  - alert [ref=f1e506]

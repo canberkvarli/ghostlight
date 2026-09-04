@@ -32,6 +32,7 @@ import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
+import { MonologueTextSkeleton } from '../../src/components/MonologueTextSkeleton';
 import { track } from '../../src/lib/analytics';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -479,7 +480,16 @@ export default function Read() {
               // Holds the scroll steady while the words are on their way — both
               // while the wall resolves and while the fetch lands behind a
               // preview heading. The page must not jump when they arrive.
-              <View style={{ height: LINE_HEIGHT * FREE_LINES }} />
+              //
+              // This was a bare spacer, which kept that promise and nothing else:
+              // opening a piece from the results list hands this screen a preview,
+              // so the heading paints at once and the loading screen never shows,
+              // leaving several seconds of blank paper where a speech should be.
+              // Empty white reads as broken; lines that breathe read as coming.
+              // Same height to the pixel, so the page still cannot jump.
+              <Animated.View exiting={FadeOut.duration(220)}>
+                <MonologueTextSkeleton lines={FREE_LINES} lineHeight={LINE_HEIGHT} />
+              </Animated.View>
             )}
 
             {syncing ? (
