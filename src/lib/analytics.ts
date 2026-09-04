@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as Application from 'expo-application';
 import PostHog from 'posthog-react-native';
 
 /**
@@ -39,7 +40,22 @@ export function initAnalytics(): void {
     // every question wrong. `client` is the same word the API already uses in
     // `X-Client` and in `monologue_views.client`, so the split means the same
     // thing on both sides of the wire.
-    client.register({ platform: Platform.OS, client: 'ghostlight' });
+    //
+    // `app_version` and `build` are here because their absence cost an afternoon:
+    // events were missing and there was no way to tell whether the app was not
+    // sending them or the phone was simply still on an older binary that had
+    // never contained PostHog. With these, one glance at any event answers it.
+    // `build` is the number that actually moves per binary; the version string
+    // repeats across builds 15, 16 and 17.
+    //
+    // `void` because register() returns a promise. Awaiting it would make init
+    // async for no gain, and letting it float unhandled is a warning in waiting.
+    void client.register({
+      platform: Platform.OS,
+      client: 'ghostlight',
+      app_version: Application.nativeApplicationVersion ?? 'unknown',
+      build: Application.nativeBuildVersion ?? 'unknown',
+    });
   } catch {
     client = null;
   }
