@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import PostHog from 'posthog-react-native';
 
 /**
@@ -32,6 +33,13 @@ export function initAnalytics(): void {
       flushAt: 20,
       flushInterval: 30_000,
     });
+    // Stamped onto every event from here on. The web app is about to report into
+    // this same project, and without this the two are indistinguishable: a funnel
+    // would silently blend an actor on a phone with one on a laptop and answer
+    // every question wrong. `client` is the same word the API already uses in
+    // `X-Client` and in `monologue_views.client`, so the split means the same
+    // thing on both sides of the wire.
+    client.register({ platform: Platform.OS, client: 'ghostlight' });
   } catch {
     client = null;
   }
@@ -73,9 +81,12 @@ export function resetIdentity(): void {
  */
 export type Event =
   /** Did they search at all, and with what shape of query? */
-  | { name: 'search_performed'; props: { medium: 'stage' | 'screen'; filters: number; has_query: boolean; results: number } }
+  // `theatre`, not `stage`: it is what `Medium` in src/theme/medium.ts calls it
+  // and what the toggle says. A private vocabulary for the analytics layer would
+  // mean translating at every call site and eventually mistranslating at one.
+  | { name: 'search_performed'; props: { medium: 'theatre' | 'screen'; filters: number; has_query: boolean; results: number } }
   /** Which result did they open, and how far down was it? */
-  | { name: 'monologue_opened'; props: { id: string; position: number; medium: 'stage' | 'screen' } }
+  | { name: 'monologue_opened'; props: { id: string; position: number; medium: 'theatre' | 'screen' } }
   /** Did they read it, or bounce off the first two lines? */
   | { name: 'monologue_read'; props: { id: string; seconds: number } }
   /** The wall. How many reads had they spent, and where did it fire? */
