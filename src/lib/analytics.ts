@@ -69,10 +69,31 @@ export function initAnalytics(): void {
  * Deliberately does not send the email address. We know who user 4471 is if we
  * ever genuinely need to; the analytics project does not need a mailing list,
  * and the privacy policy promises we do not build one.
+ *
+ * `INTERNAL_PEOPLE` is the one exception and it is deliberately not a general
+ * mechanism. PostHog shows a person as a raw uuid unless it finds a `name`,
+ * which makes your own test traffic indistinguishable from a stranger's, and
+ * every chart something you have to mentally subtract yourself from.
+ *
+ * The lookup happens HERE, on the phone, against a fixed list. A matched
+ * address becomes a first name; an unmatched one is discarded and never leaves
+ * the device. So this labels the three or four accounts we already know by name
+ * and cannot become "send everyone's email" by a later edit that looked
+ * harmless. `is_internal` rides along so PostHog's own internal-users filter can
+ * key on a property rather than a pasted list of uuids.
  */
-export function identify(userId: string, isPaid: boolean): void {
+const INTERNAL_PEOPLE: Record<string, string> = {
+  'canberkvarli@gmail.com': 'Canberk',
+  'appreview@actorrise.com': 'App Review',
+};
+
+/** A display name, but only for us. Undefined for everyone else, always. */
+export function internalName(email: string | undefined): string | undefined {
+  return email ? INTERNAL_PEOPLE[email.trim().toLowerCase()] : undefined;
+}
+export function identify(userId: string, props?: Record<string, string | number | boolean>): void {
   try {
-    client?.identify(userId, { is_paid: isPaid });
+    client?.identify(userId, props);
   } catch {
     /* analytics must never break a sign-in */
   }

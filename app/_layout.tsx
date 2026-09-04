@@ -24,7 +24,7 @@ import { bootstrapSession } from '../src/lib/session';
 import { supabase } from '../src/lib/supabase';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { configurePurchases } from '../src/lib/purchases';
-import { flushAnalytics, identify, initAnalytics, resetIdentity } from '../src/lib/analytics';
+import { flushAnalytics, identify, initAnalytics, internalName, resetIdentity } from '../src/lib/analytics';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -122,8 +122,16 @@ export default function RootLayout() {
         //
         // Anonymous readers stay anonymous. `is_anonymous` is exactly the line
         // the privacy policy draws, so it is the line drawn here.
+        //
+        // `is_paid` used to be sent from here as a hardcoded false, which was
+        // simply untrue for every subscriber who signed in. Entitlement is not
+        // known at this point and guessing it is worse than omitting it — the
+        // purchase events already say who pays.
         const user = session?.user;
-        if (user && !user.is_anonymous) identify(user.id, false);
+        if (user && !user.is_anonymous) {
+          const name = internalName(user.email);
+          identify(user.id, name ? { name, is_internal: true } : undefined);
+        }
         void queryClient.invalidateQueries({ queryKey: ['read-wall'] });
         void queryClient.invalidateQueries({ queryKey: ['favorites'] });
         // A walled monologue withholds its text, so the copy already fetched
