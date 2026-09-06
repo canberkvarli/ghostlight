@@ -52,6 +52,15 @@
           "backgroundColor": "#130b08",
           "dark": {
             "backgroundColor": "#130b08"
+          },
+          "android": {
+            "image": "./assets/splash-android.png",
+            "imageWidth": 180,
+            "backgroundColor": "#130b08",
+            "dark": {
+              "image": "./assets/splash-android.png",
+              "backgroundColor": "#130b08"
+            }
           }
         }
       ],
