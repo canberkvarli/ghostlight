@@ -52,10 +52,22 @@ import { useTheme } from '../src/theme/ThemeContext';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// One place, because these numbers are used twice: once to measure the lamps up
+// front and once to draw them. When they were written inline at the call site
+// they could drift from the metrics computed here, and the glass-alignment maths
+// below silently depends on the two agreeing.
+//
+// Down from 60/52. At that size the lamp was the loudest thing on a screen whose
+// job is a search field, and on a small phone it pushed the field itself toward
+// the fold. The ratio between dressed and bare is kept so the paid lamp still
+// reads as the same object wheeled on properly, not a different one.
+const LAMP_SIZE_PAID = 42;
+const LAMP_SIZE_FREE = 36;
+
 // Both lamps measured up front, so the layout can hold the taller one's room
 // and keep the glass at a fixed height whichever is showing.
-const LAMP_PAID = ghostLightMetrics(60, 'full');
-const LAMP_FREE = ghostLightMetrics(52, 'bare');
+const LAMP_PAID = ghostLightMetrics(LAMP_SIZE_PAID, 'full');
+const LAMP_FREE = ghostLightMetrics(LAMP_SIZE_FREE, 'bare');
 const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
 const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
 
@@ -379,7 +391,7 @@ export default function Search() {
                 style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}
               >
                 <GhostLight
-                  size={isPaid ? 60 : 52}
+                  size={isPaid ? LAMP_SIZE_PAID : LAMP_SIZE_FREE}
                   dress={isPaid ? 'full' : 'bare'}
                   boost={bulbBoost}
                   glow={pal.glow}
