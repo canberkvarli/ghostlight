@@ -65,3 +65,8 @@ yarn-error.*
 # anyone who clones this repo publishing rights to the app.
 google-play-service-account.json
 metro-file-map-expo-*
+
+# EAS Build scratch dir. Left behind when a build is interrupted, and on the
+# next run its presence breaks the upload: eas tries to copy the project into
+# a subdirectory of itself.
+eas-cli-nodejs/
