@@ -1,0 +1,27 @@
+--- adb starting (pid 12389) ---
+09-07 10:36:24.982 12389 4722978 I adb     : main.cpp:66 Android Debug Bridge version 1.0.41
+09-07 10:36:24.982 12389 4722978 I adb     : main.cpp:66 Version 36.0.0-13206524
+09-07 10:36:24.982 12389 4722978 I adb     : main.cpp:66 Installed as /Users/canberkvarli/Library/Android/sdk/platform-tools/adb
+09-07 10:36:24.982 12389 4722978 I adb     : main.cpp:66 Running on Darwin 25.6.0 (arm64)
+09-07 10:36:24.982 12389 4722978 I adb     : main.cpp:66 
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:170 AdbUdpSocket fd=10
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:170 AdbUdpSocket fd=11
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:274 SetMulticastOutboundInterface for index=14
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:533 bind endpoint=0.0.0.0:5353
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:274 SetMulticastOutboundInterface for index=14
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:558 bind endpoint=[0000:0000:0000:0000:0000:0000:0000:0000]:5353 scope_id=0
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:170 AdbUdpSocket fd=9
+09-07 10:36:24.986 12389 4722978 I adb     : udp_socket.cpp:274 SetMulticastOutboundInterface for index=16
+09-07 10:36:24.987 12389 4722978 I adb     : udp_socket.cpp:558 bind endpoint=[0000:0000:0000:0000:0000:0000:0000:0000]:5353 scope_id=0
+09-07 10:36:29.878 12389 4723167 I adb     : transport.cpp:344 emulator-5554: read thread spawning
+09-07 10:36:29.878 12389 4723168 I adb     : transport.cpp:315 emulator-5554: write thread spawning
+09-07 10:36:38.430 12389 4722978 I adb     : transport.cpp:1720 fetching keys for transport emulator-5554
+09-07 10:40:29.903 12389 4723167 I adb     : transport.cpp:348 emulator-5554: read failed: Connection reset by peer
+09-07 10:40:29.904 12389 4723167 I adb     : transport.cpp:1165 emulator-5554: connection terminated: read failed
+09-07 10:40:29.904 12389 4722978 I adb     : transport.cpp:416 BlockingConnectionAdapter(emulator-5554): stopping
+09-07 10:40:29.904 12389 4722978 I adb     : transport.cpp:434 BlockingConnectionAdapter(emulator-5554): stopped
+09-07 10:40:30.159 12389 4722978 I adb     : transport.cpp:302 BlockingConnectionAdapter(emulator-5554): destructing
+09-07 10:40:30.159 12389 4722978 I adb     : transport.cpp:409 BlockingConnectionAdapter(emulator-5554): already stopped
+09-07 10:44:57.969 12389 4740733 I adb     : transport.cpp:315 emulator-5554: write thread spawning
+09-07 10:44:57.969 12389 4740732 I adb     : transport.cpp:344 emulator-5554: read thread spawning
+09-07 10:45:06.538 12389 4722978 I adb     : transport.cpp:1720 fetching keys for transport emulator-5554

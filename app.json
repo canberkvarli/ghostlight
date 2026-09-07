@@ -3,7 +3,7 @@
     "name": "Ghost Light",
     "slug": "ghostlight",
     "scheme": "ghostlight",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -67,7 +67,8 @@
       "expo-web-browser",
       "expo-sqlite",
       "expo-apple-authentication",
-      "expo-localization"
+      "expo-localization",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
