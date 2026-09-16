@@ -150,8 +150,14 @@ export function PieceCover({
         >
           {device}
         </Text>
+        {/* A cover is 38pt of usable width, which is eleven characters a line.
+            Most plays fit in two; "The Importance of Being Earnest" does not,
+            and a cover reading "The Importance of Bein…" is a printing error,
+            not a design. It sets smaller instead. */}
         <Text
           numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.62}
           style={{
             textAlign: 'center',
             fontFamily: 'InstrumentSerif_400Regular',

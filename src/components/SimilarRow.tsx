@@ -74,8 +74,15 @@ export function SimilarRow({ id, enabled }: { id: string; enabled: boolean }) {
               transform: [{ rotate: i === 0 ? '-1deg' : '1deg' }],
             }}
           >
+            {/* These cards are half a page wide — about fourteen characters of
+                14pt Courier — and "Lalo Salamanca" is exactly fourteen. The
+                name shrinks rather than ellipsing, and the source under it gets
+                a third line; both cards stretch to the taller of the two, so an
+                uneven pair still reads as a pair. */}
             <Text
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
               style={{
                 fontFamily: 'CourierPrime_700Bold',
                 fontSize: 14,
@@ -86,7 +93,7 @@ export function SimilarRow({ id, enabled }: { id: string; enabled: boolean }) {
               {m.character}
             </Text>
             <Text
-              numberOfLines={2}
+              numberOfLines={3}
               style={{
                 marginTop: 3,
                 fontFamily: 'CourierPrime_400Regular',

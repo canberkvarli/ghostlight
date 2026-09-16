@@ -508,10 +508,14 @@ export default function Read() {
 
               <View style={{ marginTop: 22, height: 1.5, width: '100%', backgroundColor: c.ink }} />
 
-              {/* Where it happens, before the words. */}
+              {/* Where it happens, before the words.
+
+                  Unclamped on purpose: scene descriptions run from six words to
+                  a short paragraph, the page scrolls, and a setting cut off at
+                  "she has just been told that—" is worse than three extra lines
+                  before the speech. */}
               {shown.sceneNote ? (
                 <Text
-                  numberOfLines={3}
                   style={{
                     marginTop: 18,
                     fontFamily: 'CourierPrime_400Regular_Italic',

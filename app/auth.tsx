@@ -611,7 +611,7 @@ function LabelledField({
         />
         {accessory ? <View style={{ paddingBottom: 8, paddingLeft: 8 }}>{accessory}</View> : null}
       </View>
-      <View style={{ height: 1, backgroundColor: focused ? colors.stageGlow : c.border }} />
+      <View style={{ height: 1, backgroundColor: focused ? c.accentText : c.border }} />
       {/* Absolute so it can travel over the input without pushing it. */}
       <Animated.Text
         pointerEvents="none"
@@ -623,7 +623,7 @@ function LabelledField({
             bottom: 9,
             fontFamily: 'BricolageGrotesque_500Medium',
             letterSpacing: 0.4,
-            color: focused ? colors.stageGlow : c.mutedForeground,
+            color: focused ? c.accentText : c.mutedForeground,
           },
         ]}
       >

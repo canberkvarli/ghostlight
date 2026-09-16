@@ -19,6 +19,18 @@ export interface MediumPalette {
   glowRgb: [number, number, number];
   /** Accent / primary — badges, the paid slab, destructive echoes. */
   accent: string;
+  /**
+   * The house colour as TEXT on the current stage, and the one to reach for
+   * whenever the answer would otherwise be "the glow".
+   *
+   * The glow is tuned to be a light — it has to read against warm near-black, so
+   * it is bright, and #e0731f on the cream stage comes out at 2.9:1. That is
+   * under the floor for a 40pt headline and nowhere near it for a 14pt row
+   * value, which is how "the italic word is orange" quietly became "the italic
+   * word is unreadable in light mode". Resolved per scheme: the glow on the dark
+   * stage, the deep accent on the paper one.
+   */
+  accentText: string;
   /** The stand under the bulb. */
   line: string;
   /**
@@ -72,6 +84,8 @@ export const MEDIA: Record<Medium, MediumPalette> = {
     neck: '#e0821f',
     hardShadow: '#f2e22b',
     tagInk: '#a8400c',
+    // Overwritten per scheme by mediumPalette; this is the dark-stage value.
+    accentText: '#e0731f',
   },
   screen: {
     glow: '#a15cff',
@@ -86,6 +100,7 @@ export const MEDIA: Record<Medium, MediumPalette> = {
     neck: '#8f52e0',
     hardShadow: '#8451c9',
     tagInk: '#65389f',
+    accentText: '#a15cff',
   },
 };
 
@@ -114,7 +129,14 @@ export function mediumPalette(medium: Medium | undefined, isLight = false): Medi
   const base = MEDIA[key];
   if (!isLight) return base;
   const over = LIGHT_OVERRIDES[key];
-  return over ? { ...base, ...over } : base;
+  const resolved = over ? { ...base, ...over } : base;
+  // On paper the house colour has to be the deep one to be readable, and that is
+  // true of the theatre as well as the cinema — the theatre simply had no
+  // LIGHT_OVERRIDES entry to hang it on, because its `accent` never needed to
+  // change for anything else. Its `accent` is also a hair under the small-text
+  // floor on cream (4.14:1 against 4.5), so it takes `tagInk` — the deeper
+  // orange these tags already print in — rather than a fourth orange.
+  return { ...resolved, accentText: key === 'theatre' ? resolved.tagInk : resolved.accent };
 }
 
 /** rgba() from a palette's glow at a given alpha — for Skia gradients. */

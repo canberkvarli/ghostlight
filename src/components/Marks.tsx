@@ -81,7 +81,7 @@ export function Mark({ spec }: { spec: MarkSpec }) {
 
   const skin =
     kind === 'best'
-      ? { bg: colors.primary, fg: '#fbf7ef', bd: colors.primary }
+      ? { bg: colors.primaryDeep, fg: '#fbf7ef', bd: colors.primaryDeep }
       : kind === 'lane'
         ? { bg: colors.yellow, fg: colors.ink, bd: colors.ink }
         : kind === 'over'

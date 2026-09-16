@@ -508,7 +508,7 @@ function PlanRow({
             {name}
           </Text>
           {badge ? (
-            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: colors.stageGlow }}>
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.accentText }}>
               ({badge})
             </Text>
           ) : null}

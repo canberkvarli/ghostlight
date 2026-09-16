@@ -51,6 +51,14 @@ export interface ThemeColors {
   stageLine: string;
   primary: string;
   primaryHover: string;
+  /**
+   * The brand orange as TEXT on the current stage. `stageGlow` is a light and is
+   * tuned to read against warm near-black; on the cream stage it comes out at
+   * 2.9:1, which is under the floor for a headline and far under it for a 14pt
+   * value. Use this for any orange WORD; keep `stageGlow` for lamps, halos and
+   * anything that is actually emitting.
+   */
+  accentText: string;
   /** Gel yellow. A fill behind ink, never text. */
   yellow: string;
   ink: string;
@@ -82,6 +90,7 @@ function resolve(scheme: Scheme): ThemeColors {
     stageLine: tokens.stageLine,
     primary: tokens.primary,
     primaryHover: tokens.primaryHover,
+    accentText: scheme === 'light' ? tokens.primaryDeep : tokens.stageGlow,
     yellow: tokens.yellow,
     ink: tokens.ink,
     isLight: scheme === 'light',

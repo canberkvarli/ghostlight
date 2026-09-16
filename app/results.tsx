@@ -236,7 +236,6 @@ export default function Results() {
         scrollY={scrollY}
         viewportHeight={height}
         reduceMotion={reduceMotion}
-        accent={pal.glow}
         blockColor={pal.hardShadow}
         saved={savedIds.has(item.id)}
         // The house travels with the card. Without this the read screen had no
@@ -252,7 +251,7 @@ export default function Results() {
         }}
       />
     ),
-    [scrollY, height, reduceMotion, router, pal.glow, pal.hardShadow, medium, savedIds, qc],
+    [scrollY, height, reduceMotion, router, pal.hardShadow, medium, savedIds, qc],
   );
 
   const header = useMemo(
@@ -431,7 +430,7 @@ function StageHeader({
         }}
       >
         {count}{' '}
-        <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.glow }}>
+        <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.accentText }}>
           {noun}
         </Text>
       </Text>
@@ -536,7 +535,7 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
       <View
         style={{ marginTop: 10, width: 150, height: 1, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}
       >
-        <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.glow }]} />
+        <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.accentText }]} />
       </View>
     </View>
   );
@@ -573,15 +572,19 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
 
       {sent ? (
         <>
-          <Headline lines={['Sent to', 'the booth.']} em={1} tint={pal.glow} />
+          <Headline lines={['Sent to', 'the booth.']} em={1} tint={pal.accentText} />
           <StageDirection style={{ marginTop: 18, textAlign: 'center' }}>
             (we&apos;ll go looking.)
           </StageDirection>
         </>
       ) : (
         <>
-          <Headline lines={['Not in the', 'library yet.']} em={1} tint={pal.glow} />
-          <StageDirection numberOfLines={2} style={{ marginTop: 18, textAlign: 'center' }}>
+          <Headline lines={['Not in the', 'library yet.']} em={1} tint={pal.accentText} />
+          {/* Three lines: this echoes back whatever the actor typed, and a
+              natural-language query ("a monologue about a woman who has just
+              realised her husband is lying") runs well past two. Nothing is
+              under it that a third line would push off the screen. */}
+          <StageDirection numberOfLines={3} style={{ marginTop: 18, textAlign: 'center' }}>
             {query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}
           </StageDirection>
           <Text
@@ -626,7 +629,7 @@ function SearchFailedStage({ onRetry }: { onRetry: () => void }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
       <Sketch name="footlights" size={104} stroke={c.mutedForeground} />
-      <Headline lines={['The house', 'went dark.']} em={1} tint={colors.primary} />
+      <Headline lines={['The house', 'went dark.']} em={1} tint={c.accentText} />
       <StageDirection style={{ marginTop: 18, textAlign: 'center' }}>
         (couldn&apos;t reach the library.)
       </StageDirection>
@@ -722,7 +725,7 @@ function MoreRow({ more, pal, onPress }: { more: number; pal: MediumPalette; onP
             fontFamily: 'BricolageGrotesque_700Bold',
             fontSize: 14,
             letterSpacing: 0.4,
-            color: pal.glow,
+            color: pal.accentText,
           }}
         >
           See more
@@ -757,7 +760,6 @@ function CardButton({
   scrollY,
   viewportHeight,
   reduceMotion,
-  accent,
   blockColor,
   saved,
   onPress,
@@ -767,7 +769,6 @@ function CardButton({
   scrollY: SharedValue<number>;
   viewportHeight: number;
   reduceMotion: boolean;
-  accent: string;
   blockColor: string;
   saved: boolean;
   onPress: () => void;
@@ -796,7 +797,6 @@ function CardButton({
         scrollY={scrollY}
         viewportHeight={viewportHeight}
         reduceMotion={reduceMotion}
-        accent={accent}
         blockColor={blockColor}
         saved={saved}
         pressed={pressed}

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Canvas, RadialGradient, Rect, vec } from '@shopify/react-native-skia';
 import Animated, {
   Easing,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useReducedMotion,
   useSharedValue,
   withDelay,
@@ -13,27 +15,46 @@ import Animated, {
 
 import { GhostLight } from './GhostLight';
 import { StageBackdrop } from './StageBackdrop';
-import { WordArrow } from './WordArrow';
+import { PrimaryPill } from './PrimaryPill';
 import { useTheme } from '../theme/ThemeContext';
 import { pickLaunchQuote } from '../data/launchQuotes';
 
 /**
- * The launch sequence (handoff §7), drawn as the first thing over the app. iOS
- * can't animate a launch screen, so the static splash image is the held *lit*
- * frame and this runs on top of the booted app, then fades and unmounts — so a
- * glitch can never trap the app behind it (a hard timeout always removes it).
+ * The launch sequence, drawn as the first thing over the app. iOS can't animate
+ * a launch screen, so the static splash image is the held *lit* frame and this
+ * runs on top of the booted app, then fades and unmounts — a glitch can never
+ * trap the app behind it (a hard timeout always removes it).
  *
  * Dead black is wrong for this app: the field is the warm stage. The filament
- * strikes eleven times, the wordmark fades up, the tagline arrives, then the
- * whole thing lifts to reveal the app already up behind it.
+ * strikes eleven times, the wordmark fades up, the line arrives, then the whole
+ * thing lifts to reveal the app already up behind it.
+ *
+ * ## What v2 changed, and what it deliberately did not
+ *
+ * The mechanism is untouched: the eleven-step ramp over 1.4s, the wordmark at
+ * 1.2s, the quote at 1.7s, Enter at 2.6s, `lift` idempotent, tap-anywhere, and
+ * both safety nets. Every one of those is load-bearing and none of them is a
+ * style decision.
+ *
+ * What changed is the dressing. The lamp is the full standing fixture at 110
+ * rather than 82, because this is the one screen where the ghost light is the
+ * subject rather than a mark — and it is still the Skia `GhostLight`, never
+ * `assets/icon.png`, which is an opaque raster with its own dark field and
+ * shows as a lightened square on the stage. The line becomes Instrument Serif
+ * italic, because it is the words of a play and the serif is what this system
+ * sets those in. And Enter becomes the primary pill.
  */
 
-// opacity strike: 0 → … → 1 over 1.4s, linear (handoff §7).
+// opacity strike: 0 → … → 1 over 1.4s, linear.
 const STRIKE = [0, 0.14, 0.02, 0.42, 0.06, 0.7, 0.2, 0.9, 0.48, 1, 0.66, 0.96, 1];
+
+/** The standing lamp, at the size that reads as a fixture rather than a bulb. */
+const LAMP_SIZE = 110;
 
 export function LaunchOverlay() {
   const reduce = useReducedMotion();
   const { colors: c } = useTheme();
+  const { width, height } = useWindowDimensions();
   const [gone, setGone] = useState(false);
   // Picked once per mount, not per render — a re-render mid-fade must not swap
   // the line out from under the reader.
@@ -52,7 +73,7 @@ export function LaunchOverlay() {
   // — long enough to notice, not long enough to read. It now waits for you.
   //
   // Waiting is the whole point, so `lift` is the only way out and it is
-  // idempotent: a tap on the arrow and a tap on the field behind it both arrive,
+  // idempotent: a tap on the pill and a tap on the field behind it both arrive,
   // and the second must not restart the fade half way through the first.
   const lifted = useRef(false);
   const lift = useCallback(() => {
@@ -65,11 +86,13 @@ export function LaunchOverlay() {
 
   useEffect(() => {
     if (!reduce) {
-      const strike = STRIKE.map((v) => withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }));
+      const strike = STRIKE.map((v) =>
+        withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }),
+      );
       lamp.value = withDelay(100, withSequence(...strike));
       word.value = withDelay(1200, withTiming(1, { duration: 500 }));
       tag.value = withDelay(1700, withTiming(1, { duration: 500 }));
-      // After the quote has settled, not with it. An arrow that arrives
+      // After the quote has settled, not with it. A button that arrives
       // alongside the line is a second thing competing for the eye at the
       // moment you wanted them reading.
       enter.value = withDelay(2600, withTiming(1, { duration: 400 }));
@@ -90,17 +113,27 @@ export function LaunchOverlay() {
 
   const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
   const lampStyle = useAnimatedStyle(() => ({ opacity: lamp.value }));
-  // Opacity only. Animating letterSpacing still made the wordmark shimmer even
-  // once the box was pinned to full width — every frame re-lays-out the glyph
-  // run, and Montserrat's hinting lands differently at each sub-pixel tracking
-  // value, so the letters visibly crawl. Not worth it for a value that travels
-  // nine points. The tracking is fixed at its resting 17 and the word simply
-  // fades up, and the shared value that drove the tracking is gone with it.
+  // Opacity only. Animating letterSpacing made the wordmark shimmer even once
+  // the box was pinned to full width — every frame re-lays-out the glyph run and
+  // the hinting lands differently at each sub-pixel tracking value, so the
+  // letters visibly crawl. The tracking is fixed at its resting 17 and the word
+  // simply fades up.
   const wordStyle = useAnimatedStyle(() => ({ opacity: word.value }));
   const tagStyle = useAnimatedStyle(() => ({ opacity: tag.value }));
-  // pointerEvents follows the opacity: an invisible arrow must not be tappable,
+  // pointerEvents follows the opacity: an invisible button must not be tappable,
   // or the first 2.6 seconds contain a target nobody can see.
   const enterStyle = useAnimatedStyle(() => ({ opacity: enter.value }));
+
+  /**
+   * The wash behind the lamp — a wide warm field that comes up WITH the strike,
+   * 0.06 while the filament is fighting and 0.20 once it holds. It is what stops
+   * the 110pt fixture looking pasted onto a flat rectangle; the halo lights the
+   * lamp, this lights the room.
+   *
+   * Skia rather than a View because it is a radial gradient, which React Native
+   * has no way to draw, and it reads the strike value straight off the UI thread.
+   */
+  const washOpacity = useDerivedValue(() => 0.06 + lamp.value * 0.14);
 
   if (gone) return null;
 
@@ -109,17 +142,28 @@ export function LaunchOverlay() {
       pointerEvents={gone ? 'none' : 'auto'}
       style={[StyleSheet.absoluteFill, coverStyle, { zIndex: 100 }]}
     >
-      {/* Follows the scheme now, background AND text together — the earlier bug
-          was theming one and not the other, which put cream text on cream.
+      {/* Follows the scheme, background AND text together — the earlier bug was
+          theming one and not the other, which put cream text on cream.
 
           One caveat that needs a build, not an update: the static iOS launch
           image is #130b08 and can't be themed from JS, so a light-mode launch
-          shows a dark native splash for a beat before this fades up pale. Fixing
-          that means a `dark` splash variant in app.json and a new binary. */}
+          shows a dark native splash for a beat before this fades up pale. */}
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} background={c.background} />
-      {/* Tap anywhere, not only the arrow. The arrow says what to do; the whole
+
+      <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Rect x={0} y={0} width={width} height={height} opacity={washOpacity}>
+          <RadialGradient
+            c={vec(width * 0.5, height * 0.38)}
+            r={width * 0.56}
+            colors={['#e0731f', 'rgba(224, 115, 31, 0)']}
+            positions={[0, 1]}
+          />
+        </Rect>
+      </Canvas>
+
+      {/* Tap anywhere, not only the pill. The pill says what to do; the whole
           field does it. `accessible={false}` keeps VoiceOver from swallowing the
-          quote into one giant button — the WordArrow below is the real control
+          quote into one giant button — the PrimaryPill below is the real control
           and the only thing that should be announced as one. */}
       <Pressable
         onPress={lift}
@@ -127,20 +171,10 @@ export function LaunchOverlay() {
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
       >
         <Animated.View style={lampStyle}>
-          <GhostLight size={82} dress="full" />
+          <GhostLight size={LAMP_SIZE} dress="full" />
         </Animated.View>
-        {/* This animated its tracking 26 → 17, which is why the title appeared
-            one pixel wide and then stretched on every launch: an auto-sized Text
-            re-measures its own width when letterSpacing changes, and the native
-            shadow node lags the animated value, so the box was laid out at a
-            stale width while the glyphs drew at the new one.
 
-            Pinning it to full width fixed the stretch but not a finer shimmer —
-            each frame re-lays-out the glyph run and Montserrat hints differently
-            at every sub-pixel tracking value, so the letters crawled. Nine
-            points of travel was not worth either bug. Fixed tracking, plain
-            fade, both gone. */}
-        <View style={{ width: '100%', marginTop: 12 }}>
+        <View style={{ width: '100%', marginTop: 10 }}>
           <Animated.Text
             numberOfLines={1}
             style={[
@@ -148,8 +182,8 @@ export function LaunchOverlay() {
               {
                 width: '100%',
                 textAlign: 'center',
-                fontFamily: 'BricolageGrotesque_500Medium',
-                fontSize: 21,
+                fontFamily: 'BricolageGrotesque_600SemiBold',
+                fontSize: 17,
                 letterSpacing: 17,
                 // Tracking is applied to the trailing edge too, so a centred
                 // line with 17pt of it sits 17pt right of true centre.
@@ -162,37 +196,56 @@ export function LaunchOverlay() {
             Ghost Light
           </Animated.Text>
         </View>
-        {/* The line is words of the play, so it's Courier; the attribution is
-            the app speaking, so it's Montserrat (AGENTS.md, the type rule). */}
-        <Animated.View style={[tagStyle, { marginTop: 14, paddingHorizontal: 40 }]}>
+
+        {/* The line is the words of a play, so it takes the serif and the curly
+            quotes; the attribution is the app speaking, so it stays Courier,
+            tracked, between two hairlines.
+
+            The block's height is fixed at three lines' worth. The quotes run
+            from four words to ten, and without this the lamp above it would sit
+            at a different height on every launch. */}
+        <Animated.View
+          style={[tagStyle, { marginTop: 24, height: 124, paddingHorizontal: 36, alignItems: 'center' }]}
+        >
           <Text
-            numberOfLines={2}
+            numberOfLines={3}
             style={{
+              maxWidth: 300,
               textAlign: 'center',
-              fontFamily: 'CourierPrime_400Regular_Italic',
-              fontSize: 15,
-              lineHeight: 22,
-              letterSpacing: 0.5,
-              color: c.mutedForeground,
+              fontFamily: 'InstrumentSerif_400Regular_Italic',
+              fontSize: 26,
+              lineHeight: 31,
+              letterSpacing: -0.3,
+              color: c.foreground,
             }}
           >
-            {quote.line}
+            {`“${quote.line}”`}
           </Text>
-          <Text
-            numberOfLines={1}
-            style={{
-              marginTop: 10,
-              textAlign: 'center',
-              fontFamily: 'BricolageGrotesque_500Medium',
-              fontSize: 10,
-              letterSpacing: 2.4,
-              textTransform: 'uppercase',
-              color: c.mutedForeground,
-              opacity: 0.6,
-            }}
-          >
-            {quote.source}
-          </Text>
+          <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 18, height: 1, backgroundColor: c.stageLine }} />
+            {/* "The Importance of Being Earnest" is 31 characters, and at 11pt
+                Courier tracked to 2.2 that is 273pt against the 247 a 375pt
+                phone leaves once the two hairlines and the gutters have taken
+                theirs. It shrinks rather than losing the end of the title —
+                safe here because it is one line, so there is no second line to
+                end up a different size from. */}
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.78}
+              style={{
+                flexShrink: 1,
+                fontFamily: 'CourierPrime_400Regular',
+                fontSize: 11,
+                letterSpacing: 2.2,
+                textTransform: 'uppercase',
+                color: c.mutedForeground,
+              }}
+            >
+              {quote.source}
+            </Text>
+            <View style={{ width: 18, height: 1, backgroundColor: c.stageLine }} />
+          </View>
         </Animated.View>
       </Pressable>
 
@@ -201,13 +254,31 @@ export function LaunchOverlay() {
           composed on. */}
       <Animated.View
         pointerEvents={gone ? 'none' : 'auto'}
+        style={[enterStyle, { position: 'absolute', left: 0, right: 0, bottom: 64, alignItems: 'center' }]}
+      >
+        <PrimaryPill label="Enter" onPress={lift} haptic="soft" height={56} />
+      </Animated.View>
+
+      {/* Said quietly, because the pill already says it loudly. */}
+      <Animated.Text
+        pointerEvents="none"
         style={[
           enterStyle,
-          { position: 'absolute', left: 0, right: 0, bottom: 72, alignItems: 'center' },
+          {
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 26,
+            textAlign: 'center',
+            fontFamily: 'CourierPrime_400Regular_Italic',
+            fontSize: 12,
+            letterSpacing: 0.8,
+            color: c.chevron,
+          },
         ]}
       >
-        <WordArrow label="Enter" onPress={lift} haptic="soft" />
-      </Animated.View>
+        (tap anywhere.)
+      </Animated.Text>
     </Animated.View>
   );
 }

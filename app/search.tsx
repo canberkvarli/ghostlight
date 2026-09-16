@@ -113,12 +113,12 @@ function StandingChip({
           fontFamily: 'CourierPrime_400Regular_Italic',
           fontSize: 13,
           letterSpacing: 0.4,
-          color: isPaid ? colors.stageGlow : c.mutedForeground,
+          color: isPaid ? c.accentText : c.mutedForeground,
         }}
       >
         {label}
       </Text>
-      <Ionicons name="chevron-forward" size={11} color={isPaid ? colors.stageGlow : c.chevron} />
+      <Ionicons name="chevron-forward" size={11} color={isPaid ? c.accentText : c.chevron} />
     </Pressable>
   );
 }
@@ -482,7 +482,7 @@ export default function Search() {
                     piece.em ? (
                       <Text
                         key={pi}
-                        style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.glow }}
+                        style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.accentText }}
                       >
                         {piece.t}
                       </Text>
@@ -691,12 +691,18 @@ export default function Search() {
                       borderBottomColor: c.divider,
                     }}
                   >
+                    {/* Two lines, because a remembered search is a whole
+                        sentence: "angry woman in her twenties, under two
+                        minutes, not shakespeare" is a real query and one line
+                        of it ends at "under two". The row grows; the list is
+                        three rows long, so it can afford to. */}
                     <Text
-                      numberOfLines={1}
+                      numberOfLines={2}
                       style={{
                         flex: 1,
                         fontFamily: 'BricolageGrotesque_500Medium',
                         fontSize: 14,
+                        lineHeight: 19,
                         color: c.foreground,
                       }}
                     >
@@ -763,7 +769,7 @@ export default function Search() {
           router.push('/paywall');
         }}
         isPaid={isPaid}
-        glow={pal.glow}
+        glow={pal.accentText}
         chipFill={pal.chipFill}
       />
     </View>

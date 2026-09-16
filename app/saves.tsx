@@ -161,7 +161,7 @@ export default function Saves() {
                   <Text
                     style={{
                       fontFamily: 'InstrumentSerif_400Regular_Italic',
-                      color: c.stageGlow,
+                      color: c.accentText,
                     }}
                   >
                     book.
@@ -227,8 +227,14 @@ function SavedCard({
           <PieceCover item={item} width={46} height={66} />
 
           <View style={{ flex: 1, minWidth: 0 }}>
+            {/* Two lines each, and for the same reason: the text column here is
+                about 240pt wide once the cover and the bookmark have taken
+                theirs, which is 27 characters of 22pt serif — "The Importance
+                of Being Earnest" is 31. The Saves card has no fixed height (it
+                is not under the scroll spotlight), so it can simply be taller
+                for the pieces that need it. */}
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
               style={{
                 fontFamily: 'InstrumentSerif_400Regular',
                 fontSize: 22,
@@ -240,7 +246,7 @@ function SavedCard({
               {item.title}
             </Text>
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
               style={{
                 marginTop: 4,
                 fontFamily: 'CourierPrime_400Regular',

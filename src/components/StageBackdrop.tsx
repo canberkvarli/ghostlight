@@ -96,7 +96,7 @@ function StageBackdropImpl({ tiltX, tiltY, glowColor, background }: Props) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const { colors: c } = useTheme();
-  const rgb = glowColor ? rgbTriplet(glowColor) : '243, 130, 29';
+  const rgb = glowColor ? rgbTriplet(glowColor) : '224, 115, 31';
   const glow = (alpha: number) => `rgba(${rgb}, ${alpha})`;
   const bg = background ?? c.background;
   // On a light stage the glow reads as a wash, not a hole — dim it, and let the

@@ -6,10 +6,17 @@ import * as Haptics from 'expo-haptics';
 import { colors } from '../theme/tokens';
 
 /**
- * The primary action, everywhere (handoff §3): not a filled slab — a word and an
- * arrow whose gap opens on press (12 → 18px). Montserrat 600 / uppercase / 2.5px
- * in the house accent. Used for Search, Request it, Begin, Enter, Done, Stay on,
- * Start the trial. The only real rectangle in the app is Sign in with Apple.
+ * A word and an arrow whose gap opens on press (12 → 18pt).
+ *
+ * This WAS the primary action everywhere. In v2 `PrimaryPill` is — an ink fill
+ * with a gel arrow disc — and this survives as the quieter secondary it always
+ * really was, still in use on Auth and Paywall. Its motion is the one thing that
+ * carried forward: the pill translates its disc on press for exactly the same
+ * reason, because a gap opening under a thumb reads as the button leaving.
+ *
+ * The uppercase-and-2.5pt-tracking treatment went with Montserrat. Bricolage has
+ * enough voice at 14pt that shouting a secondary action makes it louder than the
+ * primary one sitting next to it.
  */
 export function WordArrow({
   label,
@@ -49,10 +56,9 @@ export function WordArrow({
     >
       <Text
         style={{
-          fontFamily: 'BricolageGrotesque_600SemiBold',
-          fontSize: size,
-          letterSpacing: 2.5,
-          textTransform: 'uppercase',
+          fontFamily: 'BricolageGrotesque_700Bold',
+          fontSize: size + 1,
+          letterSpacing: 0.2,
           color: tintC,
         }}
       >

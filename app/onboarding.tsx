@@ -151,6 +151,7 @@ function PanelView({
   height: number;
   scrollX: SharedValue<number>;
 }) {
+  const { colors: c } = useTheme();
   // A gentle fade as each panel reaches centre — the words arrive, they don't
   // just slide by. The lamp above stays lit and still.
   const contentStyle = useAnimatedStyle(() => {
@@ -188,13 +189,13 @@ function PanelView({
                 style={{
                   borderRadius: 999,
                   borderWidth: 1,
-                  borderColor: 'rgba(243, 130, 29, 0.35)',
-                  backgroundColor: 'rgba(243, 130, 29, 0.05)',
+                  borderColor: 'rgba(224, 115, 31, 0.35)',
+                  backgroundColor: 'rgba(224, 115, 31, 0.06)',
                   paddingHorizontal: 16,
                   paddingVertical: 9,
                 }}
               >
-                <Text className="text-[13px] lowercase" style={{ fontFamily: 'CourierPrime_400Regular_Italic', color: colors.stageGlow }}>
+                <Text className="text-[13px] lowercase" style={{ fontFamily: 'CourierPrime_400Regular_Italic', color: c.accentText }}>
                   {chip}
                 </Text>
               </View>
@@ -217,6 +218,7 @@ function Footer({
   scrollX: SharedValue<number>;
   onAdvance: (current: number) => void;
 }) {
+  const { colors: c } = useTheme();
   const press = () => onAdvance(Math.round(scrollX.value / width));
 
   return (
@@ -243,13 +245,16 @@ function Footer({
         style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}
       >
         <ButtonLabel count={count} width={width} scrollX={scrollX} />
-        <Ionicons name="arrow-forward" size={20} color={colors.stageGlow} />
+        <Ionicons name="arrow-forward" size={20} color={c.accentText} />
       </Pressable>
     </View>
   );
 }
 
 function ButtonLabel({ count, width, scrollX }: { count: number; width: number; scrollX: SharedValue<number> }) {
+  // LABEL_STYLE is a module constant, so the one colour that has to follow the
+  // scheme is applied here rather than baked into it.
+  const { colors: c } = useTheme();
   const nextStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollX.value, [(count - 2) * width, (count - 1) * width], [1, 0], Extrapolation.CLAMP),
   }));
@@ -258,10 +263,10 @@ function ButtonLabel({ count, width, scrollX }: { count: number; width: number; 
   }));
   return (
     <View>
-      <Animated.Text numberOfLines={1} style={[beginStyle, LABEL_STYLE]}>
+      <Animated.Text numberOfLines={1} style={[beginStyle, LABEL_STYLE, { color: c.accentText }]}>
         Begin
       </Animated.Text>
-      <Animated.Text numberOfLines={1} style={[nextStyle, LABEL_STYLE, { position: 'absolute', left: 0, right: 0 }]}>
+      <Animated.Text numberOfLines={1} style={[nextStyle, LABEL_STYLE, { position: 'absolute', left: 0, right: 0, color: c.accentText }]}>
         Next
       </Animated.Text>
     </View>

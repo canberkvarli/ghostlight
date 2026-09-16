@@ -47,8 +47,6 @@ interface Props {
   scrollY: SharedValue<number>;
   viewportHeight: number;
   reduceMotion: boolean;
-  /** The glow colour, as hex — amber on the stage, violet in Film & TV. */
-  accent?: string;
   /** Already in their book — marked so a scan of the list shows it. */
   saved?: boolean;
   /** The gel block's colour for this house. Yellow on stage, violet on screen. */
@@ -103,7 +101,6 @@ function MonologueCardImpl({
   scrollY,
   viewportHeight,
   reduceMotion,
-  accent = colors.stageGlow,
   saved = false,
   blockColor,
   pressed,

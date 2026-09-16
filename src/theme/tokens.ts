@@ -25,6 +25,20 @@ export const colors = {
   primary: '#c24e10',
   primaryHover: '#a63f08',
   /**
+   * The same orange, one step down, for the two places `primary` is a hair under
+   * the line:
+   *
+   *  - as 13–14pt TEXT on the cream stage, where #c24e10 measures 4.14:1 against
+   *    the 4.5 small text needs;
+   *  - as the fill behind the cream "best pick" mark, where it measures 4.48:1.
+   *
+   * Both are rounding-error misses rather than design mistakes, and both are
+   * fixed by the same value — which is also the ink the source tags already
+   * print in, so the marks on a card now share one orange instead of two that
+   * are almost the same.
+   */
+  primaryDeep: '#a8400c',
+  /**
    * Gel yellow. ONLY ever a fill behind ink — chips, hard shadows, the arrow
    * disc. Never yellow text on paper: at this chroma it sits at roughly 1.2:1
    * against cream, which is not a contrast ratio, it is a rumour.
