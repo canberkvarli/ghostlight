@@ -3,56 +3,113 @@
  * shaders, Reanimated interpolations, native bars.
  *
  * Mirror of src/global.css. Change one, change the other.
+ *
+ * The v2 system has two surfaces rather than one theme:
+ *
+ *   - the STAGE, which flips with the scheme (warm near-black, or warm paper);
+ *   - the PAPER a card is made of, which does NOT. A card is a page of sides in
+ *     both schemes, so its ink, its rule and its hairline are constants and live
+ *     under `paper` below rather than under `dark` / `light`.
+ *
+ * That split is the whole reason the scheme's `card` is paper on both sides now:
+ * reaching for a dark card colour to draw a card was correct when cards were
+ * dark-on-dark and would now be precisely the bug — stage-black behind ink.
  */
 
 export const colors = {
-  /** oklch(0.72 0.17 55) — the warm orange bulb */
-  stageGlow: '#f3821d',
-  /** oklch(0.30 0.02 55) — the stand below the bulb */
-  stageLine: '#362b24',
-  /** oklch(0.58 0.18 45) — brand orange */
-  primary: '#cb4b00',
-  primaryHover: '#b03000',
+  /** Glow orange — every halo, every lit accent, the bulb itself. */
+  stageGlow: '#e0731f',
+  /** The stand below the bulb; also the outline on the stage. */
+  stageLine: '#4a4038',
+  /** Brand orange, deeper than the glow: headline italics, source tags, marks. */
+  primary: '#c24e10',
+  primaryHover: '#a63f08',
+  /**
+   * Gel yellow. ONLY ever a fill behind ink — chips, hard shadows, the arrow
+   * disc. Never yellow text on paper: at this chroma it sits at roughly 1.2:1
+   * against cream, which is not a contrast ratio, it is a rumour.
+   */
+  yellow: '#f2e22b',
+  /** Near-black ink. The pill fill, the card border, every mark drawn on paper. */
+  ink: '#15110f',
+
+  /**
+   * The page a card is printed on. Constant across schemes — see the note above.
+   */
+  paper: {
+    /** Card face on the dark stage. */
+    background: '#f3eee6',
+    /** Card face on the paper stage, a shade brighter so it still lifts off it. */
+    backgroundLight: '#fdfbf7',
+    /** Body ink — titles, the words of the play. */
+    ink: '#15110f',
+    /** The speech in an excerpt: a touch softer than a title, still full contrast. */
+    body: '#221c19',
+    /** Meta, source lines, stage directions on paper. */
+    muted: '#5a5450',
+    /** The quietest thing on a card — roman numerals, a year on a cover. */
+    faint: '#897e74',
+    /** Hairline INSIDE a card (the margin rule, a meta pill's edge). */
+    rule: '#dad3c8',
+  },
 
   dark: {
-    /** oklch(0.16 0.015 50) — warm near-black. Never flat black. */
+    /** Warm near-black. Never flat black. */
     background: '#130b08',
-    card: '#1d140f',
-    /** Warm, but near-white. Cards dim their contents, so body text needs the
-     *  headroom — #f3eee6 was already faint before the unlit multiplier. */
-    foreground: '#fbf8f3',
-    mutedForeground: '#c2bab1',
-    /** Field / input border. */
-    border: '#302721',
-    /** Card border — quieter than the field border. */
-    cardBorder: '#2b211b',
-    /** Hairline dividers between rows. */
-    divider: '#241b16',
+    /** Cards are paper on both schemes. */
+    card: '#f3eee6',
+    foreground: '#f7f3ec',
+    mutedForeground: '#b5ada3',
+    /** Field / chip / outline border on the stage. */
+    border: '#4a4038',
+    /** A card is drawn, not tinted, so its border is ink in both schemes. */
+    cardBorder: '#15110f',
+    /** Hairline dividers between rows on the stage. */
+    divider: '#31281f',
     /** The unlit segment of a progress / filament meter. */
     inactiveMeter: '#3a2c24',
-    /** Chevrons and fine print — dimmer than mutedForeground. */
-    chevron: '#8a8078',
+    /** Chevrons and fine print. */
+    chevron: '#b5ada3',
+    /** Panels that are stage, not paper — stat tiles, the identity card. */
+    panel: '#1b1310',
   },
 
   light: {
-    /** oklch(0.97 0.007 70) — the reading page */
-    background: '#f8f4f0',
-    card: '#fefbf8',
+    /** The paper stage. */
+    background: '#f3eee6',
+    card: '#fdfbf7',
     foreground: '#15110f',
     mutedForeground: '#5a5450',
-    border: '#dbd6d2',
-    /** Light needs these too. Every `colors.dark.*` call site was theme-blind
-     *  by construction while they were missing, which put dark-mode hairlines
-     *  and chevrons on paper. */
-    cardBorder: '#e4dfda',
-    divider: '#ece7e2',
-    inactiveMeter: '#dbd6d2',
-    chevron: '#8a8480',
+    border: '#dad3c8',
+    cardBorder: '#15110f',
+    divider: '#e2dbd0',
+    inactiveMeter: '#dad3c8',
+    chevron: '#7d746b',
+    panel: '#faf6ef',
   },
 } as const;
 
 export const radius = {
-  stage: 16,
+  /** Paper is cut, not rounded. The v2 card radius. */
+  card: 6,
+  /** Pills and discs. */
+  pill: 999,
+  /** The search field — the one generous curve on the stage. */
+  field: 32,
+} as const;
+
+/**
+ * The hard offset shadow that marks the lit card: a yellow block sitting behind
+ * the paper with no blur at all, the way a two-colour print misregisters.
+ *
+ * RN's `shadow*` props cannot draw this — `shadowRadius: 0` still renders a soft
+ * alpha edge on iOS and nothing at all on Android — so it is drawn as a real
+ * offset View behind the card. See `PaperCard`.
+ */
+export const hardShadow = {
+  offset: 8,
+  /** The field and the undo bar sit a little lighter on the page. */
+  offsetSmall: 6,
 } as const;
 
 /**

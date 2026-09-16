@@ -29,7 +29,11 @@ import { colors } from '../theme/tokens';
  * across the line beneath it. Stepping them lets the gradient swallow the first
  * edge before the strong blur starts.
  */
-const PAPER = colors.light.background;
+// The card's own cream, not the light scheme's page. Those were the same colour
+// until v2 split the stage from the paper, and the shroud has to match the sheet
+// it is sitting on — a wash two shades off reads as a panel, which is precisely
+// the "modal that failed to open" this component was rewritten to stop being.
+const PAPER = colors.paper.background;
 
 function paperAlpha(a: number): string {
   const h = PAPER.replace('#', '');

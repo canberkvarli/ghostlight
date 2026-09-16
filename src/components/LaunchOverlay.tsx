@@ -148,7 +148,7 @@ export function LaunchOverlay() {
               {
                 width: '100%',
                 textAlign: 'center',
-                fontFamily: 'Montserrat_500Medium',
+                fontFamily: 'BricolageGrotesque_500Medium',
                 fontSize: 21,
                 letterSpacing: 17,
                 // Tracking is applied to the trailing edge too, so a centred
@@ -183,7 +183,7 @@ export function LaunchOverlay() {
             style={{
               marginTop: 10,
               textAlign: 'center',
-              fontFamily: 'Montserrat_400Regular',
+              fontFamily: 'BricolageGrotesque_500Medium',
               fontSize: 10,
               letterSpacing: 2.4,
               textTransform: 'uppercase',

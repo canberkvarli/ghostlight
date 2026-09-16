@@ -21,6 +21,11 @@ export type Scheme = 'dark' | 'light';
 
 export interface ThemeColors {
   background: string;
+  /**
+   * The card face. Paper on BOTH schemes in v2 — a card is a page of sides, not
+   * a tinted panel, so this is cream even on the dark stage. Anything drawn
+   * inside one must therefore use `paperInk` / `paperMuted`, never `foreground`.
+   */
   card: string;
   foreground: string;
   mutedForeground: string;
@@ -32,11 +37,23 @@ export interface ThemeColors {
   divider: string;
   inactiveMeter: string;
   chevron: string;
+  /** A surface that is stage, not paper — stat tiles, the identity card. */
+  panel: string;
+  // The paper a card is printed on. Constant across schemes; see tokens.ts.
+  paper: string;
+  paperInk: string;
+  paperBody: string;
+  paperMuted: string;
+  paperFaint: string;
+  paperRule: string;
   // Fixed across schemes — the light itself.
   stageGlow: string;
   stageLine: string;
   primary: string;
   primaryHover: string;
+  /** Gel yellow. A fill behind ink, never text. */
+  yellow: string;
+  ink: string;
   isLight: boolean;
 }
 
@@ -52,10 +69,21 @@ function resolve(scheme: Scheme): ThemeColors {
     divider: p.divider,
     inactiveMeter: p.inactiveMeter,
     chevron: p.chevron,
+    panel: p.panel,
+    // The light scheme's card is the brighter cream, so the paper token follows
+    // the scheme here even though everything printed ON it does not.
+    paper: scheme === 'light' ? tokens.paper.backgroundLight : tokens.paper.background,
+    paperInk: tokens.paper.ink,
+    paperBody: tokens.paper.body,
+    paperMuted: tokens.paper.muted,
+    paperFaint: tokens.paper.faint,
+    paperRule: tokens.paper.rule,
     stageGlow: tokens.stageGlow,
     stageLine: tokens.stageLine,
     primary: tokens.primary,
     primaryHover: tokens.primaryHover,
+    yellow: tokens.yellow,
+    ink: tokens.ink,
     isLight: scheme === 'light',
   };
 }

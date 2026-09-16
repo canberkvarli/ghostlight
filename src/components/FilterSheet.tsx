@@ -98,7 +98,7 @@ export function FilterSheet({
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 }}>
                     <Text
                       style={{
-                        fontFamily: 'Montserrat_600SemiBold',
+                        fontFamily: 'BricolageGrotesque_600SemiBold',
                         fontSize: 11,
                         letterSpacing: 2.6,
                         textTransform: 'uppercase',

@@ -51,6 +51,12 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     gender: normalizeGender(m.character_gender),
     tone: normalizeTone(m.tone),
     sourceType: normalizeSourceType(m.category),
+    // Kept raw as well as normalised: the source tag needs to know classical
+    // from contemporary, and `sourceType` has already thrown that away.
+    category: m.category ?? undefined,
+    // The setting, for the line above the speech. `scene_description` is the
+    // richer of the two when it exists; `stage_directions` is the fallback.
+    sceneNote: m.scene_description ?? m.stage_directions ?? undefined,
     duration: m.estimated_duration_seconds,
     // The API scores overdone-ness 0–1; the card and its badge think in 0–100.
     overdoneScore: Math.round((m.overdone_score ?? 0) * 100),

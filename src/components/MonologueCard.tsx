@@ -1,26 +1,41 @@
 import { memo } from 'react';
 import { Image, Text, View } from 'react-native';
-import Animated, {
+import {
   Extrapolation,
   interpolate,
-  interpolateColor,
-  useAnimatedStyle,
   useDerivedValue,
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { CARD_HEIGHT, FALLOFF, FOCUS_POINT, cardTop } from '../theme/layout';
+import {
+  CARD_HEIGHT,
+  FALLOFF,
+  FOCUS_POINT,
+  MARGIN_COL,
+  MARGIN_COL_POSTER,
+  cardTop,
+} from '../theme/layout';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
-import { OVERDONE_THRESHOLD, formatDuration, type Monologue } from '../data/monologues';
+import { PaperCard } from './PaperCard';
+import { MarkRow, marksFor } from './Marks';
+import { formatDuration, type Monologue } from '../data/monologues';
 
 /**
- * One monologue under the scroll spotlight.
+ * One monologue, printed on a page of sides, under the scroll spotlight.
  *
  * `lit` is derived from scroll offset alone — no measurement, no state, no JS
  * per frame. The card knows where it sits because every row is the same height
  * (see theme/layout.ts), so its distance from the light is arithmetic.
+ *
+ * ## What the light does now
+ *
+ * It used to be a coloured glow bleeding off the card's edges. In v2 it is a
+ * hard block of gel yellow sliding out from behind the paper, plus the card
+ * squaring up out of its tilt — a print effect rather than a lighting effect,
+ * which is the whole move of this system. PaperCard owns all three (block,
+ * rotation, dim); this component only decides where the light is.
  *
  * The card is never fully dark. Actors judge a monologue by reading it, so even
  * an unlit card keeps its text legible; the light is emphasis, not a gate.
@@ -36,8 +51,10 @@ interface Props {
   accent?: string;
   /** Already in their book — marked so a scan of the list shows it. */
   saved?: boolean;
-  /** rgba() lit-card border for the current medium. */
-  litBorder?: string;
+  /** The gel block's colour for this house. Yellow on stage, violet on screen. */
+  blockColor?: string;
+  /** Press value from the wrapping Pressable; squares the tilt under a thumb. */
+  pressed?: SharedValue<number>;
 }
 
 /**
@@ -49,6 +66,37 @@ interface Props {
  */
 const DARK = 0.66;
 
+/** Alternating tilt, so a column of these reads as paper rather than a table. */
+const TILTS = [-0.6, 0.5, -0.4];
+
+const ROMAN: [number, string][] = [
+  [10, 'x'],
+  [9, 'ix'],
+  [5, 'v'],
+  [4, 'iv'],
+  [1, 'i'],
+];
+
+/**
+ * The numeral in the margin, lowercase, the way a script numbers its sides.
+ *
+ * Only to 39 — past that the numeral is wider than the margin column and stops
+ * being a glance-able position, so the list falls back to arabic. Nobody is
+ * scrolling to result forty and counting in roman anyway.
+ */
+export function roman(n: number): string {
+  if (n > 39 || n < 1) return String(n);
+  let rest = n;
+  let out = '';
+  for (const [value, glyph] of ROMAN) {
+    while (rest >= value) {
+      out += glyph;
+      rest -= value;
+    }
+  }
+  return out;
+}
+
 function MonologueCardImpl({
   item,
   index,
@@ -57,7 +105,8 @@ function MonologueCardImpl({
   reduceMotion,
   accent = colors.stageGlow,
   saved = false,
-  litBorder = 'rgba(243, 130, 29, 0.55)',
+  blockColor,
+  pressed,
 }: Props) {
   const { colors: c } = useTheme();
   const hasPoster = Boolean(item.posterUrl);
@@ -65,136 +114,149 @@ function MonologueCardImpl({
     if (reduceMotion) return 1;
     const centre = cardTop(index) + CARD_HEIGHT / 2 - scrollY.value;
     const distance = Math.abs(centre - viewportHeight * FOCUS_POINT);
-    return interpolate(
-      distance,
-      [0, viewportHeight * FALLOFF],
-      [1, 0],
-      Extrapolation.CLAMP,
-    );
+    return interpolate(distance, [0, viewportHeight * FALLOFF], [1, 0], Extrapolation.CLAMP);
   });
 
-  // `colors.dark.cardBorder` was hardcoded here, so a dark-stage hairline was
-  // drawn around cards sitting on paper. Follow the theme instead.
-  const unlitBorder = c.cardBorder;
-  const containerStyle = useAnimatedStyle(() => ({
-    opacity: DARK + lit.value * (1 - DARK),
-    transform: [{ scale: 0.968 + lit.value * 0.032 }],
-    borderColor: interpolateColor(lit.value, [0, 1], [unlitBorder, litBorder]),
-    shadowOpacity: lit.value * 0.5,
-  }));
-
-  const overdone = item.overdoneScore >= OVERDONE_THRESHOLD;
+  const marks = marksFor(item, { first: index === 0 });
+  const marginWidth = hasPoster ? MARGIN_COL_POSTER : MARGIN_COL;
 
   return (
-    <Animated.View
-      style={[
-        containerStyle,
-        {
-          height: CARD_HEIGHT,
-          borderRadius: 18,
-          borderWidth: 1,
-          backgroundColor: c.card,
-          shadowColor: accent,
-          shadowRadius: 24,
-          shadowOffset: { width: 0, height: 0 },
-          flexDirection: 'row',
-          overflow: 'hidden',
-        },
-      ]}
+    <PaperCard
+      lit={lit}
+      pressed={pressed}
+      rotate={TILTS[index % TILTS.length]}
+      shadow={8}
+      shadowColor={blockColor}
+      dimTo={DARK}
+      style={{
+        height: CARD_HEIGHT,
+        flexDirection: 'row',
+        paddingTop: 16,
+        paddingBottom: 14,
+        paddingLeft: 12,
+        paddingRight: 16,
+        overflow: 'hidden',
+      }}
     >
-      {/* Film & TV: the poster stands the piece up in the aisle. */}
-      {hasPoster ? (
-        <View style={{ width: 108, height: '100%', backgroundColor: '#000' }}>
-          <Image
-            source={{ uri: item.posterUrl }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        </View>
-      ) : null}
+      {/* The margin: what a reader writes in. A poster stands in the same
+          column for Film & TV, with the numeral under it. */}
+      <View
+        style={{
+          width: marginWidth,
+          alignItems: hasPoster ? 'flex-start' : 'flex-end',
+          paddingRight: 10,
+          marginRight: 12,
+          borderRightWidth: 1,
+          borderRightColor: c.paperRule,
+        }}
+      >
+        {hasPoster ? (
+          <View
+            style={{
+              width: MARGIN_COL_POSTER - 10,
+              height: Math.round((MARGIN_COL_POSTER - 10) * 1.5),
+              borderRadius: 3,
+              borderWidth: 1.5,
+              borderColor: c.ink,
+              backgroundColor: '#1f1332',
+              overflow: 'hidden',
+              marginBottom: 8,
+            }}
+          >
+            <Image
+              source={{ uri: item.posterUrl }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+        ) : null}
 
-      <View style={{ flex: 1, justifyContent: 'space-between', paddingHorizontal: hasPoster ? 16 : 20, paddingVertical: 16 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            alignSelf: hasPoster ? 'flex-start' : 'flex-end',
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: 'InstrumentSerif_400Regular_Italic',
+              fontSize: 22,
+              lineHeight: 24,
+              color: c.paperFaint,
+            }}
+          >
+            {roman(index + 1)}
+          </Text>
+          {/* The bookmark rides in the margin beside the numeral rather than
+              floating in a corner, so scanning the list you see what you have
+              already kept without having to look for it. */}
+          {saved ? <Ionicons name="bookmark" size={12} color={colors.primary} /> : null}
+        </View>
+      </View>
+
+      {/* `space-between` is what absorbs the slack when the marks take one row
+          instead of two — see the note on CARD_HEIGHT in theme/layout.ts. */}
+      <View style={{ flex: 1, justifyContent: 'space-between' }}>
         <View>
-          {/* The bookmark rides with the title rather than floating in a
-              corner, so scanning the list you see what you've already kept
-              without having to look for it. Coming back from saving something
-              and finding the list exactly as you left it made the save feel
-              like it hadn't happened. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Text
               numberOfLines={1}
-              className="text-[19px] leading-[24px] text-foreground"
-              style={{ flexShrink: 1, fontFamily: 'PlayfairDisplay_600SemiBold' }}
+              style={{
+                flex: 1,
+                fontFamily: 'CourierPrime_700Bold',
+                fontSize: 19,
+                lineHeight: 21,
+                color: c.paperInk,
+              }}
             >
-              {hasPoster ? item.character : item.title}
+              {item.character}
             </Text>
-            {saved ? (
-              <Ionicons name="bookmark" size={13} color={accent} style={{ marginTop: 2 }} />
-            ) : null}
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: 'BricolageGrotesque_600SemiBold',
+                fontSize: 11,
+                color: c.paperMuted,
+              }}
+            >
+              {formatDuration(item.duration)}
+            </Text>
           </View>
           <Text
             numberOfLines={1}
-            className="mt-1 text-[12px] uppercase tracking-[1.4px] text-muted-foreground"
-            style={{ fontFamily: 'Montserrat_500Medium' }}
+            style={{
+              marginTop: 2,
+              fontFamily: 'CourierPrime_400Regular',
+              fontSize: 12,
+              lineHeight: 17,
+              color: c.paperMuted,
+            }}
           >
-            {hasPoster
-              ? `${item.source}${item.year ? ` · ${item.year}` : ''}`
-              : `${item.character} · ${item.source}`}
+            {item.source}
+            {item.year ? ` · ${item.year}` : item.author ? ` · ${item.author}` : ''}
           </Text>
         </View>
 
         {/* The first two lines. This is what an actor actually reads. */}
         <Text
           numberOfLines={2}
-          className="text-[13px] leading-[19px] text-foreground/90"
-          style={{ fontFamily: 'CourierPrime_400Regular' }}
+          style={{
+            fontFamily: 'CourierPrime_400Regular',
+            fontSize: 13,
+            lineHeight: 20,
+            color: c.paperBody,
+          }}
         >
-          {item.excerpt}
+          {`“${item.excerpt}”`}
         </Text>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 8 }}>
-          <Meta>{item.ageRange}</Meta>
-          <Dot />
-          <Meta>{item.gender === 'any' ? 'any' : item.gender}</Meta>
-          <Dot />
-          <Meta>{formatDuration(item.duration)}</Meta>
-          {overdone ? (
-            <View
-              style={{
-                marginLeft: 'auto',
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                backgroundColor: 'rgba(203, 75, 0, 0.18)',
-              }}
-            >
-              <Text
-                className="text-[10px] uppercase tracking-[1.2px]"
-                style={{ fontFamily: 'Montserrat_600SemiBold', color: accent }}
-              >
-                overdone
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        <MarkRow marks={marks} />
       </View>
-    </Animated.View>
+    </PaperCard>
   );
-}
-
-function Meta({ children }: { children: React.ReactNode }) {
-  return (
-    <Text
-      className="text-[11px] text-muted-foreground"
-      style={{ fontFamily: 'Montserrat_400Regular' }}
-    >
-      {children}
-    </Text>
-  );
-}
-
-function Dot() {
-  return <Text className="text-[11px] text-muted-foreground/50">·</Text>;
 }
 
 export const MonologueCard = memo(MonologueCardImpl);

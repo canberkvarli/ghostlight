@@ -23,6 +23,21 @@ export interface Monologue {
   gender: Gender;
   tone: Tone;
   sourceType: SourceType;
+  /**
+   * The catalogue's raw `category` string, kept verbatim alongside the derived
+   * `sourceType`. `sourceType` collapses it to play / film / tv, which throws
+   * away the one thing the source tag needs: whether a play is classical or
+   * contemporary. Absent on the fixtures below that predate it, and the tag
+   * simply doesn't print when it's missing (see `sourceTag` in Marks.tsx).
+   */
+  category?: string;
+  /**
+   * Where the speech happens, in one sentence — the server's `scene_description`,
+   * falling back to its `stage_directions`. The read screen sets it as a stage
+   * direction above the first line, which is the one piece of context an actor
+   * needs before the words and could not get anywhere in the app before.
+   */
+  sceneNote?: string;
   /** Seconds. The `max_duration` filter reads this. */
   duration: number;
   /** 0–100. Anything over 70 gets the badge; casting directors have heard it. */

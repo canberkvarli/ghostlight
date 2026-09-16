@@ -42,30 +42,50 @@ export interface MediumPalette {
   glassStops: [string, string, string, string, string];
   /** The top of the tapered neck gradient (full dress only). */
   neck: string;
+  /**
+   * The colour of the hard offset block behind a lit card.
+   *
+   * Gel yellow in the theatre and violet in the cinema, which is the one place
+   * the two houses disagree about the gel: yellow on a violet floor reads as a
+   * third colour that belongs to neither, so Film & TV prints in its own ink.
+   */
+  hardShadow: string;
+  /**
+   * Source-tag / mark ink for something drawn ON PAPER. `accent` is tuned to
+   * glow on the stage; this is the same idea at a value that survives cream.
+   */
+  tagInk: string;
 }
 
 export const MEDIA: Record<Medium, MediumPalette> = {
   theatre: {
-    glow: '#f3821d',
-    glowRgb: [243, 130, 29],
-    accent: '#cb4b00',
-    line: '#362b24',
-    litBorder: 'rgba(243, 130, 29, 0.55)',
-    chipFill: 'rgba(243, 130, 29, 0.14)',
+    glow: '#e0731f',
+    glowRgb: [224, 115, 31],
+    accent: '#c24e10',
+    line: '#4a4038',
+    litBorder: 'rgba(224, 115, 31, 0.55)',
+    chipFill: 'rgba(224, 115, 31, 0.14)',
+    // The glass keeps its own five stops. The bulb is the mark and the mark did
+    // not change — only the light it throws did, and 4° of hue between the two
+    // is not a thing the eye finds on a 22pt lamp.
     glassStops: ['#fff6e4', '#ffd08c', '#f9a441', '#f3821d', '#f3821d'],
     neck: '#e0821f',
+    hardShadow: '#f2e22b',
+    tagInk: '#a8400c',
   },
   screen: {
     glow: '#a15cff',
     glowRgb: [161, 92, 255],
     // Deep accent 120,52,214 — badges, the paid slab, destructive echoes.
     accent: '#7834d6',
-    line: '#2e2440',
+    line: '#3a3050',
     background: '#0f0a16',
     litBorder: 'rgba(161, 92, 255, 0.55)',
     chipFill: 'rgba(161, 92, 255, 0.16)',
     glassStops: ['#fbf7ff', '#e2ccff', '#bd8bff', '#a15cff', '#a15cff'],
     neck: '#8f52e0',
+    hardShadow: '#8451c9',
+    tagInk: '#65389f',
   },
 };
 
@@ -80,6 +100,7 @@ const LIGHT_OVERRIDES: Partial<Record<Medium, Partial<MediumPalette>>> = {
     accent: '#5b21b6',
     litBorder: 'rgba(91, 33, 182, 0.45)',
     chipFill: 'rgba(91, 33, 182, 0.12)',
+    tagInk: '#5b21b6',
   },
 };
 

@@ -77,7 +77,7 @@ export function StageButton({
       {children ?? (
         <Text
           style={{
-            fontFamily: 'Montserrat_600SemiBold',
+            fontFamily: 'BricolageGrotesque_600SemiBold',
             fontSize: 14,
             letterSpacing: 2.5,
             textTransform: 'uppercase',

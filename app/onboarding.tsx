@@ -123,7 +123,7 @@ export default function Onboarding() {
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
           <Pressable onPress={finish} hitSlop={12} accessibilityRole="button">
             <Text
-              style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
+              style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
             >
               Skip
             </Text>
@@ -168,14 +168,14 @@ function PanelView({
 
         <Text
           className="text-center text-foreground"
-          style={{ fontFamily: 'PlayfairDisplay_600SemiBold', marginTop: 16, fontSize: 44, lineHeight: 52 }}
+          style={{ fontFamily: 'InstrumentSerif_400Regular', marginTop: 16, fontSize: 44, lineHeight: 52 }}
         >
           {panel.headline}
         </Text>
 
         <Text
           className="text-center text-[15px] leading-[23px] text-muted-foreground"
-          style={{ fontFamily: 'Montserrat_400Regular', marginTop: 28 }}
+          style={{ fontFamily: 'BricolageGrotesque_500Medium', marginTop: 28 }}
         >
           {panel.line}
         </Text>
@@ -269,7 +269,7 @@ function ButtonLabel({ count, width, scrollX }: { count: number; width: number; 
 }
 
 const LABEL_STYLE = {
-  fontFamily: 'Montserrat_600SemiBold',
+  fontFamily: 'BricolageGrotesque_600SemiBold',
   fontSize: 14,
   letterSpacing: 2.5,
   color: colors.stageGlow,

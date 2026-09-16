@@ -49,7 +49,7 @@ export function WordArrow({
     >
       <Text
         style={{
-          fontFamily: 'Montserrat_600SemiBold',
+          fontFamily: 'BricolageGrotesque_600SemiBold',
           fontSize: size,
           letterSpacing: 2.5,
           textTransform: 'uppercase',

@@ -233,7 +233,7 @@ export default function Account() {
         >
           <Text
             className="text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 34, lineHeight: 40 }}
+            style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 34, lineHeight: 40 }}
           >
             {name ? `${greeting()}, ${name}.` : `${greeting()}.`}
           </Text>
@@ -376,10 +376,10 @@ function PlanCard({
           },
         ]}
       />
-      <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase', color: colors.stageGlow }}>
+      <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase', color: colors.stageGlow }}>
         {eyebrow}
       </Text>
-      <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 28, lineHeight: 34, color: c.foreground, marginTop: 8 }}>
+      <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 28, lineHeight: 34, color: c.foreground, marginTop: 8 }}>
         {headline}
       </Text>
 
@@ -479,7 +479,7 @@ function IdentityCard({
       <View style={{ flex: 1 }}>
         <Text
           numberOfLines={1}
-          style={{ fontFamily: 'Montserrat_500Medium', fontSize: 14, color: c.foreground }}
+          style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, color: c.foreground }}
         >
           {isAuthenticated ? (email ?? 'Signed in') : 'Not signed in'}
         </Text>
@@ -533,7 +533,7 @@ function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: (
         paddingHorizontal: 18,
       }}
     >
-      <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, color: c.foreground }}>{n}</Text>
+      <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, color: c.foreground }}>{n}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
         <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.mutedForeground }}>
           {label}
@@ -581,7 +581,7 @@ function Row({
         borderBottomColor: c.divider,
       }}
     >
-      <Text className="text-[16px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground }}>
+      <Text className="text-[16px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.foreground }}>
         {label}
       </Text>
       {busy ? (
@@ -591,7 +591,7 @@ function Row({
           {value ? (
             <Text
               style={{
-                fontFamily: 'Montserrat_500Medium',
+                fontFamily: 'BricolageGrotesque_500Medium',
                 fontSize: 14,
                 color: valueLit ? colors.stageGlow : c.mutedForeground,
               }}
@@ -616,7 +616,7 @@ function AppearanceRow() {
   ];
   return (
     <View style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Text className="text-[16px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground, marginBottom: 12 }}>
+      <Text className="text-[16px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.foreground, marginBottom: 12 }}>
         Appearance
       </Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -641,7 +641,7 @@ function AppearanceRow() {
                 backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, color: active ? colors.stageGlow : c.mutedForeground }}>
+              <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, color: active ? colors.stageGlow : c.mutedForeground }}>
                 {o.label}
               </Text>
             </Pressable>
