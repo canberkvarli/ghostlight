@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { LogBox } from 'react-native';
+import { AppState, LogBox } from 'react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -30,7 +30,7 @@ import { bootstrapSession } from '../src/lib/session';
 import { supabase } from '../src/lib/supabase';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { configurePurchases } from '../src/lib/purchases';
-import { initAnalytics } from '../src/lib/analytics';
+import { flushAnalytics, identify, initAnalytics, internalName, resetIdentity } from '../src/lib/analytics';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -94,9 +94,12 @@ export default function RootLayout() {
     // One subscription here rather than per-screen, so every route out of a
     // session is covered — the sign-out button, account deletion, and a token
     // that simply expires.
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
+        // Or the next anonymous session inherits the last account's identity and
+        // every event it sends is filed under someone who has left the building.
+        resetIdentity();
         // Without a fresh anonymous session every request 401s and the app looks
         // broken rather than signed out.
         void bootstrapSession();
@@ -118,6 +121,23 @@ export default function RootLayout() {
       // keeps what's on screen and quietly replaces it when the new answer
       // lands.
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        // The join key, and the reason `signed_in` looked like it never fired:
+        // identify() existed and nothing called it, so every event landed on
+        // PostHog's own anonymous id and none of them could be tied to an
+        // account — or, once the web reports in, to the same person on a laptop.
+        //
+        // Anonymous readers stay anonymous. `is_anonymous` is exactly the line
+        // the privacy policy draws, so it is the line drawn here.
+        //
+        // `is_paid` used to be sent from here as a hardcoded false, which was
+        // simply untrue for every subscriber who signed in. Entitlement is not
+        // known at this point and guessing it is worse than omitting it — the
+        // purchase events already say who pays.
+        const user = session?.user;
+        if (user && !user.is_anonymous) {
+          const name = internalName(user.email);
+          identify(user.id, name ? { name, is_internal: true } : undefined);
+        }
         void queryClient.invalidateQueries({ queryKey: ['read-wall'] });
         void queryClient.invalidateQueries({ queryKey: ['favorites'] });
         // A walled monologue withholds its text, so the copy already fetched
@@ -126,6 +146,22 @@ export default function RootLayout() {
       }
     });
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Send what is queued the moment the app leaves the foreground.
+    //
+    // Without this, `flushAt: 20` and a 30s interval mean a single event — a
+    // sign-in, a purchase — sits in the buffer until nineteen more join it or
+    // half a minute passes. Anyone who signs in and immediately switches apps
+    // outruns both. The events are not lost (the SDK persists them and sends on
+    // a later launch) but they arrive so late they read as missing, which is
+    // exactly how this was found: `Application Opened` from old sessions
+    // showing up while a sign-in from thirty seconds ago had not.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') flushAnalytics();
+    });
+    return () => sub.remove();
   }, []);
 
   if (!fontsLoaded && !fontError) return null;

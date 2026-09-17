@@ -1,8 +1,20 @@
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
 import { colors } from '../theme/tokens';
+
+/**
+ * Android has no system blur. Without this prop `expo-blur` falls back to a flat
+ * translucent rectangle, and the whole effect — words going gently out of focus —
+ * becomes a grey sheet laid over legible text. Nothing paid leaks (the API sends
+ * only the opening lines behind `paywalled: true`), so this is the look and not
+ * the lock, but the look is the entire argument the wall makes.
+ *
+ * `dimezisBlurView` is still flagged experimental upstream and is the reason this
+ * needs eyes on a real device rather than a simulator.
+ */
+export const ANDROID_BLUR = Platform.OS === 'android' ? ('dimezisBlurView' as const) : undefined;
 
 /**
  * The wall (spec §5, Step 7) — the page going soft, not a shutter coming down.
@@ -57,10 +69,16 @@ export function PaywallShroud({
 
   return (
     <View style={[StyleSheet.absoluteFill, { width, height }]} pointerEvents="none">
-      <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+      <BlurView
+        intensity={20}
+        tint="light"
+        experimentalBlurMethod={ANDROID_BLUR}
+        style={StyleSheet.absoluteFill}
+      />
       <BlurView
         intensity={62}
         tint="light"
+        experimentalBlurMethod={ANDROID_BLUR}
         style={{ position: 'absolute', top: 30, left: 0, right: 0, bottom: 0 }}
       />
       <Canvas style={[StyleSheet.absoluteFill, { width, height }]} pointerEvents="none">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +31,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
 import { apiToMonologue } from '../src/data/adapt';
 import { searchScreen } from '../src/lib/screen';
+import { track } from '../src/lib/analytics';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
 import { useFavorites } from '../src/hooks/useFavorites';
@@ -204,6 +205,30 @@ export default function Results() {
       : '#0d0705'
     : pal.background;
 
+  // One event per distinct search that actually came back. Keyed on the params
+  // signature and held in a ref because this component re-renders constantly and
+  // an unguarded effect would report the same search over and over.
+  //
+  // Failures are deliberately not counted. `results: 0` from a dead network is a
+  // different fact from "nothing matched", and folding them together makes the
+  // one number this event exists to carry into a lie. The search text never
+  // travels, only whether there was any (see the note on `Event`).
+  const searchReported = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hasIntent || searching || searchFailed) return;
+    const signature = `${medium}:${JSON.stringify(params)}`;
+    if (searchReported.current === signature) return;
+    searchReported.current = signature;
+    track('search_performed', {
+      medium,
+      // The same count the header's "filters · N" pill reads, so the number in
+      // the analytics and the number on the screen cannot drift apart.
+      filters: filterCount,
+      has_query: Boolean(params.q),
+      results: count,
+    });
+  }, [hasIntent, searching, searchFailed, medium, params, count, filterCount]);
+
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -243,6 +268,10 @@ export default function Results() {
         // in theatre amber, so tapping a violet result dropped you into an
         // orange room.
         onPress={() => {
+          // `position` is the whole point of this event: if everyone only ever
+          // opens the first three rows, the ranking is doing the choosing and
+          // the other fifty-seven results are furniture.
+          track('monologue_opened', { id: String(item.id), position: index, medium });
           // Hand the row forward so the read screen can paint its heading at
           // once instead of showing "(finding the page…)" while it fetches.
           // Metadata only — see the read screen for why the words wait.

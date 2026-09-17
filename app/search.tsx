@@ -64,12 +64,34 @@ import { useTheme } from '../src/theme/ThemeContext';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// The lamp is small here: 22pt of glass over a drawn stand, not the standing
-// fixture from the launch screen. It stays for two reasons — it is the thing the
-// empty-handed search blows out, and a search screen with no ghost light on it
-// is a search screen that could belong to anything.
-const LAMP_GLASS_W = 22;
-const LAMP_BOX = ghostLightMetrics(LAMP_GLASS_W, 'bare');
+/**
+ * The lamp, small, over a drawn stand — not the standing fixture from the launch
+ * screen. It stays on this screen for two reasons: it is the thing the
+ * empty-handed search blows out, and a search screen with no ghost light on it
+ * is a search screen that could belong to anything.
+ *
+ * Two sizes, because a subscriber's lamp should be visibly a little more lamp.
+ * That distinction predates the redesign and the redesign nearly deleted it by
+ * accident; it is a deliberate signal that paying changed something you can see
+ * on the first screen.
+ *
+ * What it is NOT any more is a change of dress. `full` draws a threaded brass
+ * base, and GhostLight is explicit that below ~60pt the threads stop reading and
+ * turn to smudge — so at v2's scale the dressed lamp would have been a worse
+ * drawing, not a richer one. The signal is carried by size and by the light it
+ * throws instead, and both lamps are bare on the same stand.
+ */
+const LAMP_GLASS_PAID = 26;
+const LAMP_GLASS_FREE = 22;
+
+// Both measured up front, so the layout holds the taller one's room and keeps
+// the glass at a fixed height whichever is showing. Without this, entitlement
+// resolving a beat after mount swaps one lamp for the other and shoves the whole
+// screen down — which is exactly the bug this arithmetic was written to fix.
+const LAMP_PAID = ghostLightMetrics(LAMP_GLASS_PAID, 'bare');
+const LAMP_FREE = ghostLightMetrics(LAMP_GLASS_FREE, 'bare');
+const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
+const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
 
 /**
  * Where you stand, in the corner that was empty.
@@ -441,17 +463,23 @@ export default function Search() {
               accessibilityLabel="The ghost light"
               style={{ marginTop: 10, alignItems: 'center' }}
             >
-              <View style={{ height: LAMP_BOX.canvasH }}>
-                <GhostLight
-                  size={LAMP_GLASS_W}
-                  dress="bare"
-                  boost={bulbBoost}
-                  glow={pal.glow}
-                  glassStops={pal.glassStops}
-                  neck={pal.neck}
-                />
+              {/* The taller lamp's room is reserved always, and the shorter one
+                  is nudged down so its glass lands at the same height — so the
+                  bulb does not slide when entitlement resolves a beat after the
+                  screen has already settled. */}
+              <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
+                <View style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}>
+                  <GhostLight
+                    size={isPaid ? LAMP_GLASS_PAID : LAMP_GLASS_FREE}
+                    dress="bare"
+                    boost={bulbBoost}
+                    glow={pal.glow}
+                    glassStops={pal.glassStops}
+                    neck={pal.neck}
+                  />
+                </View>
               </View>
-              <LampStand glow={pal.glow} width={34} />
+              <LampStand glow={pal.glow} width={isPaid ? 38 : 34} />
             </Pressable>
 
             {/* The greeting. Two lines, each held to one line on purpose, in a

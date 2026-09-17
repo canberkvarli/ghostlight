@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import * as Application from 'expo-application';
 import PostHog from 'posthog-react-native';
 
 /**
@@ -32,6 +34,28 @@ export function initAnalytics(): void {
       flushAt: 20,
       flushInterval: 30_000,
     });
+    // Stamped onto every event from here on. The web app is about to report into
+    // this same project, and without this the two are indistinguishable: a funnel
+    // would silently blend an actor on a phone with one on a laptop and answer
+    // every question wrong. `client` is the same word the API already uses in
+    // `X-Client` and in `monologue_views.client`, so the split means the same
+    // thing on both sides of the wire.
+    //
+    // `app_version` and `build` are here because their absence cost an afternoon:
+    // events were missing and there was no way to tell whether the app was not
+    // sending them or the phone was simply still on an older binary that had
+    // never contained PostHog. With these, one glance at any event answers it.
+    // `build` is the number that actually moves per binary; the version string
+    // repeats across builds 15, 16 and 17.
+    //
+    // `void` because register() returns a promise. Awaiting it would make init
+    // async for no gain, and letting it float unhandled is a warning in waiting.
+    void client.register({
+      platform: Platform.OS,
+      client: 'ghostlight',
+      app_version: Application.nativeApplicationVersion ?? 'unknown',
+      build: Application.nativeBuildVersion ?? 'unknown',
+    });
   } catch {
     client = null;
   }
@@ -45,10 +69,31 @@ export function initAnalytics(): void {
  * Deliberately does not send the email address. We know who user 4471 is if we
  * ever genuinely need to; the analytics project does not need a mailing list,
  * and the privacy policy promises we do not build one.
+ *
+ * `INTERNAL_PEOPLE` is the one exception and it is deliberately not a general
+ * mechanism. PostHog shows a person as a raw uuid unless it finds a `name`,
+ * which makes your own test traffic indistinguishable from a stranger's, and
+ * every chart something you have to mentally subtract yourself from.
+ *
+ * The lookup happens HERE, on the phone, against a fixed list. A matched
+ * address becomes a first name; an unmatched one is discarded and never leaves
+ * the device. So this labels the three or four accounts we already know by name
+ * and cannot become "send everyone's email" by a later edit that looked
+ * harmless. `is_internal` rides along so PostHog's own internal-users filter can
+ * key on a property rather than a pasted list of uuids.
  */
-export function identify(userId: string, isPaid: boolean): void {
+const INTERNAL_PEOPLE: Record<string, string> = {
+  'canberkvarli@gmail.com': 'Canberk',
+  'appreview@actorrise.com': 'App Review',
+};
+
+/** A display name, but only for us. Undefined for everyone else, always. */
+export function internalName(email: string | undefined): string | undefined {
+  return email ? INTERNAL_PEOPLE[email.trim().toLowerCase()] : undefined;
+}
+export function identify(userId: string, props?: Record<string, string | number | boolean>): void {
   try {
-    client?.identify(userId, { is_paid: isPaid });
+    client?.identify(userId, props);
   } catch {
     /* analytics must never break a sign-in */
   }
@@ -73,9 +118,12 @@ export function resetIdentity(): void {
  */
 export type Event =
   /** Did they search at all, and with what shape of query? */
-  | { name: 'search_performed'; props: { medium: 'stage' | 'screen'; filters: number; has_query: boolean; results: number } }
+  // `theatre`, not `stage`: it is what `Medium` in src/theme/medium.ts calls it
+  // and what the toggle says. A private vocabulary for the analytics layer would
+  // mean translating at every call site and eventually mistranslating at one.
+  | { name: 'search_performed'; props: { medium: 'theatre' | 'screen'; filters: number; has_query: boolean; results: number } }
   /** Which result did they open, and how far down was it? */
-  | { name: 'monologue_opened'; props: { id: string; position: number; medium: 'stage' | 'screen' } }
+  | { name: 'monologue_opened'; props: { id: string; position: number; medium: 'theatre' | 'screen' } }
   /** Did they read it, or bounce off the first two lines? */
   | { name: 'monologue_read'; props: { id: string; seconds: number } }
   /** The wall. How many reads had they spent, and where did it fire? */

@@ -1,3 +1,4 @@
+import { deviceId } from './device';
 import { supabase } from './supabase';
 
 /**
@@ -36,6 +37,12 @@ export async function recordRead(monologueId: string): Promise<void> {
       'X-Client': 'ghostlight',
     };
     if (ANON_KEY) headers.apikey = ANON_KEY;
+    // The read this spends has to be attributable to the install and not only to
+    // the account, or signing out wipes the tally. This endpoint is where a read
+    // is actually spent, so of the two places that send the header, this is the
+    // one that matters.
+    const device = await deviceId();
+    if (device) headers['X-Device-Id'] = device;
 
     await fetch(`${API_URL}/api/monologues/${monologueId}/read`, {
       method: 'POST',

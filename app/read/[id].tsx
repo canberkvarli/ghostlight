@@ -33,6 +33,8 @@ import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
+import { MonologueTextSkeleton } from '../../src/components/MonologueTextSkeleton';
+import { track } from '../../src/lib/analytics';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { usePreventCaptureWhileFocused } from '../../src/hooks/usePreventCaptureWhileFocused';
@@ -249,6 +251,10 @@ export default function Read() {
       return;
     }
     const willSave = !favorited;
+    // Saves only, not un-saves. This event exists as the retention signal — the
+    // piece someone is building a book around — and counting removals in the same
+    // bucket would net them against each other into a number meaning nothing.
+    if (willSave) track('monologue_saved', { id: String(monologue.id) });
     // Handing the row over lets the cache paint the save without waiting for the
     // POST, which is what made this button feel dead (see useToggleFavorite).
     toggleFavorite.mutate({ id: monologue.id, on: willSave, item: monologue });
@@ -287,6 +293,29 @@ export default function Read() {
     // first open of a walled piece spent a read it then refused to show.
     if (monologue && wallKnown && !gated) void recordRead(monologue.id);
   }, [monologue, gated, wallKnown]);
+
+  // A read is dwell, not an open. Bouncing off the first two lines is the most
+  // common thing that happens on this screen, and counting it as a read would
+  // make the number flattering and useless.
+  //
+  // Measured on the way out rather than fired by a 20s timer, so `seconds` carries
+  // a real distribution instead of every read landing on exactly 20. Under the
+  // threshold nothing is sent. An app killed mid-read reports nothing, which is
+  // the price of not running a timer that would have to survive backgrounding.
+  //
+  // Keyed on the id, not the row: `monologue` is a query result whose identity
+  // changes on refetch, and depending on the object would restart the clock every
+  // time the cache settled.
+  const readId = monologue?.id;
+  useEffect(() => {
+    if (readId == null || gated || !wallKnown) return;
+    const MINIMUM_SECONDS = 20;
+    const startedAt = Date.now();
+    return () => {
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      if (seconds >= MINIMUM_SECONDS) track('monologue_read', { id: String(readId), seconds });
+    };
+  }, [readId, gated, wallKnown]);
 
   if (isLoading && !monologue && !preview) {
     return (
@@ -555,7 +584,16 @@ export default function Read() {
                 // Holds the scroll steady while the words are on their way — both
                 // while the wall resolves and while the fetch lands behind a
                 // preview heading. The page must not jump when they arrive.
-                <View style={{ height: LINE_HEIGHT * FREE_LINES }} />
+                //
+                // This was a bare spacer, which kept that promise and nothing else:
+                // opening a piece from the results list hands this screen a preview,
+                // so the heading paints at once and the loading screen never shows,
+                // leaving several seconds of blank paper where a speech should be.
+                // Empty cream reads as broken; lines that breathe read as coming.
+                // Same height to the pixel, so the page still cannot jump.
+                <Animated.View style={{ marginTop: 16 }} exiting={FadeOut.duration(220)}>
+                  <MonologueTextSkeleton lines={FREE_LINES} lineHeight={LINE_HEIGHT} />
+                </Animated.View>
               )}
 
               {syncing ? (

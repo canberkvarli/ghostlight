@@ -26,15 +26,16 @@ import { pickLaunchQuote } from '../data/launchQuotes';
  * trap the app behind it (a hard timeout always removes it).
  *
  * Dead black is wrong for this app: the field is the warm stage. The filament
- * strikes eleven times, the wordmark fades up, the line arrives, then the whole
- * thing lifts to reveal the app already up behind it.
+ * strikes eleven times, the wordmark fades up and then withdraws, the quote
+ * arrives and stays, then the whole thing lifts to reveal the app already up
+ * behind it.
  *
  * ## What v2 changed, and what it deliberately did not
  *
- * The mechanism is untouched: the eleven-step ramp over 1.4s, the wordmark at
- * 1.2s, the quote at 1.7s, Enter at 2.6s, `lift` idempotent, tap-anywhere, and
- * both safety nets. Every one of those is load-bearing and none of them is a
- * style decision.
+ * The mechanism is untouched: the eleven-step ramp over 1.4s, the wordmark in at
+ * 1.2s and out at 2.6s, the quote at 1.7s, Enter at 2.6s, `lift` idempotent,
+ * tap-anywhere, and both safety nets. Every one of those is load-bearing and
+ * none of them is a style decision.
  *
  * What changed is the dressing. The lamp is the full standing fixture at 110
  * rather than 82, because this is the one screen where the ghost light is the
@@ -90,7 +91,21 @@ export function LaunchOverlay() {
         withTiming(v, { duration: 1400 / STRIKE.length, easing: Easing.linear }),
       );
       lamp.value = withDelay(100, withSequence(...strike));
-      word.value = withDelay(1200, withTiming(1, { duration: 500 }));
+      // In, held, out. The wordmark says the app's name and then gets out of the
+      // way, because the quote is the thing this screen exists to make you read
+      // and two pieces of centred type competing is one too many. It leaves at
+      // 2600, exactly as the Enter arrow arrives: the name steps aside and the
+      // invitation steps in, rather than both sitting there at once.
+      //
+      // The 900ms hold is the whole point of the sequence. Anything shorter and
+      // the name is a flicker you are not sure you saw.
+      word.value = withDelay(
+        1200,
+        withSequence(
+          withTiming(1, { duration: 500 }),
+          withDelay(900, withTiming(0, { duration: 700, easing: Easing.inOut(Easing.quad) })),
+        ),
+      );
       tag.value = withDelay(1700, withTiming(1, { duration: 500 }));
       // After the quote has settled, not with it. A button that arrives
       // alongside the line is a second thing competing for the eye at the
@@ -174,6 +189,10 @@ export function LaunchOverlay() {
           <GhostLight size={LAMP_SIZE} dress="full" />
         </Animated.View>
 
+        {/* The box keeps its height after the word fades out. Collapsing it would
+            slide the quote upward at the exact moment someone started reading it,
+            and stillness is what this screen is for. The ~50pt left behind reads
+            as air between the lamp and the line, not as a hole. */}
         <View style={{ width: '100%', marginTop: 10 }}>
           <Animated.Text
             numberOfLines={1}

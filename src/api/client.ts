@@ -1,4 +1,5 @@
 import type { components, paths } from './schema';
+import { deviceId } from '../lib/device';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -55,6 +56,11 @@ async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': CLIENT };
   if (ANON_KEY) headers.apikey = ANON_KEY;
   if (token) headers.Authorization = `Bearer ${token}`;
+  // Survives sign-out, which `user_id` does not — see src/lib/device.ts. Inert
+  // until the backend counts against it; sending it early means the server-side
+  // half lands on its own without waiting for another binary to reach everyone.
+  const device = await deviceId();
+  if (device) headers['X-Device-Id'] = device;
   return headers;
 }
 
