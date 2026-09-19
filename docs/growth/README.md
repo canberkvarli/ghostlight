@@ -118,6 +118,18 @@ Rules it enforces, because they are not obvious:
 That last point is a **data bug, not just a rendering concern** — the app is showing that same
 cruft on the reading screen. Worth a separate fix upstream.
 
+### The weekly job
+
+A Claude Code Routine (`trig_01LJdvGcLCHQQ8AQPdFEjb69`, "Ghost Light — weekly monologue cards")
+fires Mondays at 15:07 UTC — 08:07 Berkeley, 18:07 Istanbul. It generates the batch, sanity-reads
+a few renders, commits the SVGs and sends the PNGs.
+
+**It needs one setting before it can work:** `ppvqmbzuqvzpiuqaiqfy.supabase.co` must be on the
+network egress allowlist for the Claude Code environment it runs in (claude.ai → Claude Code →
+Environments → network settings). Without it the script gets a 403 from the proxy and the run
+has no route to the corpus — fired Routines carry no MCP connectors, so there is no fallback.
+The Routine is written to report that clearly and stop rather than invent a batch.
+
 ---
 
 ## Cadence
