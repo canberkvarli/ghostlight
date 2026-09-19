@@ -245,7 +245,7 @@ export default function Paywall() {
                 between an honest paywall and a surprise charge. */}
             <Text
               className="mt-6 text-center text-foreground"
-              style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 38, lineHeight: 44 }}
+              style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 38, lineHeight: 44 }}
             >
               {trialLabel ? `${headlineWord}\non the house.` : 'The whole\nlibrary.'}
             </Text>
@@ -279,7 +279,7 @@ export default function Paywall() {
             <View style={{ marginTop: 28, alignSelf: 'center', paddingHorizontal: 8 }}>
               <Text
                 className="text-center text-[14px]"
-                style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground, lineHeight: 21 }}
+                style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground, lineHeight: 21 }}
               >
                 The App Store isn’t reachable right now, so we can’t show you the
                 subscription. Check your connection and try again in a moment.
@@ -304,7 +304,7 @@ export default function Paywall() {
                     shadowOffset: { width: 0, height: 0 },
                   }}
                 />
-                <Text className="text-[15px] text-foreground" style={{ fontFamily: 'Montserrat_400Regular' }}>
+                <Text className="text-[15px] text-foreground" style={{ fontFamily: 'BricolageGrotesque_500Medium' }}>
                   {f}
                 </Text>
               </View>
@@ -369,7 +369,7 @@ export default function Paywall() {
           {note ? (
             <Text
               className="text-center text-[12px]"
-              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground, marginTop: 12 }}
+              style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground, marginTop: 12 }}
             >
               {note}
             </Text>
@@ -381,7 +381,7 @@ export default function Paywall() {
           <Text
             className="text-[12px]"
             style={{
-              fontFamily: 'Montserrat_400Regular',
+              fontFamily: 'BricolageGrotesque_500Medium',
               color: c.mutedForeground,
               marginTop: 12,
               lineHeight: 17,
@@ -403,7 +403,7 @@ export default function Paywall() {
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />
             ) : (
-              <Text className="text-[13px]" style={{ fontFamily: 'Montserrat_500Medium', color: c.chevron }}>
+              <Text className="text-[13px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.chevron }}>
                 Restore purchases
               </Text>
             )}
@@ -415,15 +415,15 @@ export default function Paywall() {
               in-app half, which a human reviewer checks next. */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingTop: 2, paddingBottom: 4 }}>
             <Pressable onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} hitSlop={8} accessibilityRole="link">
-              <Text className="text-[11px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}>
+              <Text className="text-[11px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}>
                 Terms of Use
               </Text>
             </Pressable>
-            <Text className="text-[11px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground, paddingHorizontal: 8 }}>
+            <Text className="text-[11px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground, paddingHorizontal: 8 }}>
               ·
             </Text>
             <Pressable onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)} hitSlop={8} accessibilityRole="link">
-              <Text className="text-[11px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}>
+              <Text className="text-[11px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}>
                 Privacy Policy
               </Text>
             </Pressable>
@@ -504,16 +504,16 @@ function PlanRow({
 
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text className="text-[17px] text-foreground" style={{ fontFamily: 'Montserrat_600SemiBold' }}>
+          <Text className="text-[17px] text-foreground" style={{ fontFamily: 'BricolageGrotesque_600SemiBold' }}>
             {name}
           </Text>
           {badge ? (
-            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: colors.stageGlow }}>
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.accentText }}>
               ({badge})
             </Text>
           ) : null}
         </View>
-        <Text className="mt-0.5 text-[12px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}>
+        <Text className="mt-0.5 text-[12px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}>
           {note}
         </Text>
       </View>
@@ -526,11 +526,11 @@ function PlanRow({
             numerals enough to notice. */}
         <Text
           className="text-foreground"
-          style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 28, letterSpacing: 0.5 }}
+          style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 28, letterSpacing: 0.5 }}
         >
           {price}
         </Text>
-        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 12, color: c.mutedForeground, marginLeft: 2 }}>
+        <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 12, color: c.mutedForeground, marginLeft: 2 }}>
           {unit}
         </Text>
       </View>

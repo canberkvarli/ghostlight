@@ -2,75 +2,91 @@
 @import 'uniwind';
 
 /*
- * Ghost Light design tokens.
- * Ported from actorrise/app/globals.css. The canonical values are oklch (kept in
- * comments); React Native gets the sRGB hex equivalents. If you change one, change
+ * Ghost Light design tokens — the ActorRise v2 system.
+ * The canonical values are hex; React Native has no oklch parser, so the oklch
+ * the design was authored in is kept in comments only. If you change one, change
  * both — and mirror the change in src/theme/tokens.ts, which Skia reads directly.
+ *
+ * Two surfaces, not one theme: the STAGE flips with the scheme, the PAPER a card
+ * is printed on does not. That is why --color-card is cream on BOTH sides and
+ * why the paper ink/rule variables have no per-theme block.
  */
 
 @theme {
-  /* The words of the play get the typewriter. The app itself speaks in sans. */
-  --font-brand: 'PlayfairDisplay_600SemiBold';
-  --font-brand-italic: 'PlayfairDisplay_500Medium_Italic';
+  /* Display and numerals get the serif; the app speaks in Bricolage; the words
+     of the play keep the typewriter. */
+  --font-brand: 'InstrumentSerif_400Regular';
+  --font-brand-italic: 'InstrumentSerif_400Regular_Italic';
   --font-typewriter: 'CourierPrime_400Regular';
   --font-typewriter-italic: 'CourierPrime_400Regular_Italic';
   --font-typewriter-bold: 'CourierPrime_700Bold';
-  --font-sans: 'Montserrat_400Regular';
-  --font-sans-medium: 'Montserrat_500Medium';
-  --font-sans-semibold: 'Montserrat_600SemiBold';
+  --font-sans: 'BricolageGrotesque_500Medium';
+  --font-sans-medium: 'BricolageGrotesque_500Medium';
+  --font-sans-semibold: 'BricolageGrotesque_600SemiBold';
+  --font-sans-bold: 'BricolageGrotesque_700Bold';
 
-  --radius-stage: 16px;
+  --radius-stage: 6px;
 
-  /* Fixed across themes — the bulb is the bulb. */
-  --color-stage-glow: #f3821d; /* oklch(0.72 0.17 55) */
-  --color-stage-line: #362b24; /* oklch(0.30 0.02 55) */
-  --color-primary: #cb4b00; /* oklch(0.58 0.18 45) */
-  --color-primary-hover: #b03000;
+  /* Fixed across themes — the light, the ink and the gel. */
+  --color-stage-glow: #e0731f; /* oklch(0.70 0.18 48) */
+  --color-stage-line: #4a4038;
+  --color-primary: #c24e10; /* oklch(0.58 0.18 45) */
+  --color-primary-hover: #a63f08;
+  --color-yellow: #f2e22b; /* oklch(0.92 0.18 100) — a fill behind ink, never text */
+  --color-ink: #15110f; /* oklch(0.16 0.01 45) */
+
+  /* The page a card is printed on. No per-theme override, by design. */
+  --color-paper: #f3eee6; /* oklch(0.96 0.02 85) */
+  --color-paper-light: #fdfbf7;
+  --color-paper-ink: #15110f;
+  --color-paper-body: #221c19;
+  --color-paper-muted: #5a5450;
+  --color-paper-faint: #897e74;
+  --color-paper-rule: #dad3c8;
 
   /* Declared here so the utilities (bg-background, text-foreground/90, …) exist
      at all; the per-theme values below override them. Defaults are the dark
      stage, because that is what the app is unless it is deliberately the
      reading page. */
   --color-background: #130b08;
-  --color-card: #1d140f;
-  --color-foreground: #fbf8f3;
-  --color-muted-foreground: #c2bab1;
-  --color-border: #302721;
-  /* Chrome accents. */
-  --color-card-border: #2b211b;
-  --color-divider: #241b16;
+  --color-card: #f3eee6;
+  --color-foreground: #f7f3ec;
+  --color-muted-foreground: #b5ada3;
+  --color-border: #4a4038;
+  --color-card-border: #15110f;
+  --color-divider: #31281f;
   --color-meter: #3a2c24;
-  --color-chevron: #8a8078;
+  --color-chevron: #b5ada3;
+  --color-panel: #1b1310;
 }
 
 @layer theme {
   :root {
     @variant dark {
-      --color-background: #130b08; /* oklch(0.16 0.015 50) — warm near-black, never flat black */
-      --color-card: #1d140f; /* oklch(0.20 0.018 52) */
-      /* Near-white: cards dim their own contents, so body text needs headroom. */
-      --color-foreground: #fbf8f3;
-      --color-muted-foreground: #c2bab1;
-      --color-border: #302721;
-      --color-card-border: #2b211b;
-      --color-divider: #241b16;
+      --color-background: #130b08; /* oklch(0.13 0.015 50) — warm near-black, never flat black */
+      --color-card: #f3eee6; /* paper. A card is a page of sides on either scheme. */
+      --color-foreground: #f7f3ec;
+      --color-muted-foreground: #b5ada3;
+      --color-border: #4a4038;
+      --color-card-border: #15110f;
+      --color-divider: #31281f;
       --color-meter: #3a2c24;
-      --color-chevron: #8a8078;
+      --color-chevron: #b5ada3;
+      --color-panel: #1b1310;
     }
 
     @variant light {
-      /* The reading page: warm paper inside a dark shell. */
-      --color-background: #f8f4f0; /* oklch(0.97 0.007 70) */
-      --color-card: #fefbf8;
-      --color-foreground: #15110f; /* oklch(0.18 0.008 45) */
+      /* The house lights up: the stage itself becomes the paper. */
+      --color-background: #f3eee6;
+      --color-card: #fdfbf7; /* a shade brighter, so a card still lifts off the page */
+      --color-foreground: #15110f;
       --color-muted-foreground: #5a5450;
-      --color-border: #dbd6d2;
-      /* Paper equivalents, so the chrome utilities stop emitting dark-stage
-         hairlines onto a light background. */
-      --color-card-border: #e4dfda;
-      --color-divider: #ece7e2;
-      --color-meter: #dbd6d2;
-      --color-chevron: #8a8480;
+      --color-border: #dad3c8;
+      --color-card-border: #15110f;
+      --color-divider: #e2dbd0;
+      --color-meter: #dad3c8;
+      --color-chevron: #7d746b;
+      --color-panel: #faf6ef;
     }
   }
 }

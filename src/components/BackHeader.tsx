@@ -29,16 +29,17 @@ export function BackHeader({
         hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={`Back to ${label}`}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingRight: 10 }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 6, paddingRight: 10 }}
       >
-        <Ionicons name="chevron-back" size={22} color={c.chevron} />
+        <Ionicons name="chevron-back" size={20} color={c.mutedForeground} />
+        {/* Sentence case, untracked. The uppercase-and-spaced version was
+            Montserrat's idea of a back label; Bricolage has enough character at
+            13pt that shouting the destination just makes the corner loud. */}
         <Text
           style={{
-            fontFamily: 'Montserrat_500Medium',
+            fontFamily: 'BricolageGrotesque_600SemiBold',
             fontSize: 13,
-            letterSpacing: 1.2,
-            textTransform: 'uppercase',
-            color: c.chevron,
+            color: c.mutedForeground,
           }}
         >
           {label}

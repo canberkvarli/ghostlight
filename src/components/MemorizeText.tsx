@@ -84,7 +84,10 @@ function MemorizeLine({
           hidden
             ? {
                 borderBottomWidth: 1,
-                borderBottomColor: colors.light.border,
+                // A blank on the page, so it takes the paper's rule rather than
+                // the light scheme's border — those stopped being one colour
+                // when v2 split the stage from the paper.
+                borderBottomColor: colors.paper.rule,
                 borderStyle: 'dashed',
               }
             : undefined

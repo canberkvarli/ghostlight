@@ -112,12 +112,16 @@ export const MonologueText = memo(function MonologueText({
     [given, body],
   );
 
+  // The words are always on paper, on both schemes — so they take the paper ink
+  // rather than the theme's foreground. Reaching for `colors.light.*` did the
+  // same thing by accident and stopped being true the moment the light scheme's
+  // page and a card's page became different creams.
   return (
     <Text
       style={[
         {
           fontFamily: 'CourierPrime_400Regular',
-          color: colors.light.foreground,
+          color: colors.paper.ink,
           fontSize,
           lineHeight,
         },
@@ -132,7 +136,7 @@ export const MonologueText = memo(function MonologueText({
               key={i}
               style={{
                 fontFamily: 'CourierPrime_400Regular_Italic',
-                color: colors.light.mutedForeground,
+                color: colors.paper.muted,
               }}
             >
               {seg.text}
@@ -144,7 +148,7 @@ export const MonologueText = memo(function MonologueText({
             key={i}
             style={{
               fontFamily: 'CourierPrime_700Bold',
-              color: colors.light.mutedForeground,
+              color: colors.paper.muted,
               letterSpacing: 0.6,
             }}
           >

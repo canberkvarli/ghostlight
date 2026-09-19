@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
-  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -18,12 +25,12 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { WordArrow } from '../src/components/WordArrow';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useSession } from '../src/lib/useSession';
-import { colors } from '../src/theme/tokens';
+import { colors, radius } from '../src/theme/tokens';
+import { pickPromptIndex, promptAt } from '../src/data/prompts';
 import {
   FILTER_CHIPS,
   EMPTY_SELECTION,
@@ -40,48 +47,60 @@ import { useTheme } from '../src/theme/ThemeContext';
 /**
  * Step 2 — Search is home.
  *
- * No dashboard, no tab bar landing elsewhere. The dark stage, the flickering
- * bulb, one line of Playfair, and the search field as the hero. Filters are a
- * row of lit/unlit stage-direction chips, not dropdowns. Submitting carries the
- * query and the chosen filters to the results list.
+ * No dashboard, no tab bar landing elsewhere. In v2 the screen opens on a
+ * question rather than on its own name: the wordmark and the "(every monologue.
+ * one stage.)" line are gone, and the brand lives on the launch screen, where
+ * you have just seen it. What is left is a greeting, the two houses, the field
+ * and the filters — which is the order you would actually think in.
+ *
+ * The field is a sheet of paper on a block of gel with the ghost light standing
+ * over it, and its ink disc is the ONLY submit. The footer button is gone: two
+ * buttons for one action, a thumb-width apart, was a choice nobody wanted.
  *
  * Two houses: Theatre (the amber stage, plays) and Film & TV (a violet cinema
  * house, posters). The toggle flashes the house lights over to the new colour
- * and the whole screen — bulb, spotlight, chips, floor — answers.
+ * and the whole screen — bulb, wash, chips, floor — answers.
  */
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// One place, because these numbers are used twice: once to measure the lamps up
-// front and once to draw them. When they were written inline at the call site
-// they could drift from the metrics computed here, and the glass-alignment maths
-// below silently depends on the two agreeing.
-//
-// Down from 60/52. At that size the lamp was the loudest thing on a screen whose
-// job is a search field, and on a small phone it pushed the field itself toward
-// the fold. The ratio between dressed and bare is kept so the paid lamp still
-// reads as the same object wheeled on properly, not a different one.
-const LAMP_SIZE_PAID = 42;
-const LAMP_SIZE_FREE = 36;
+/**
+ * The lamp, small — not the standing fixture from the launch screen. It stays on
+ * this screen for two reasons: it is the thing the empty-handed search blows
+ * out, and a search screen with no ghost light on it is a search screen that
+ * could belong to anything.
+ *
+ * Two sizes, because a subscriber's lamp should be visibly a little more lamp.
+ * That distinction predates the redesign and the redesign nearly deleted it by
+ * accident; it is a deliberate signal that paying changed something you can see
+ * on the first screen.
+ *
+ * What it is NOT any more is a change of dress. `full` draws a threaded brass
+ * base, and GhostLight is explicit that below ~60pt the threads stop reading and
+ * turn to smudge — so at v2's scale the dressed lamp would have been a worse
+ * drawing, not a richer one. The signal is carried by size and by the light it
+ * throws instead. Both dressings are `bare`, which already includes the pole and
+ * the foot.
+ */
+const LAMP_GLASS_PAID = 26;
+const LAMP_GLASS_FREE = 22;
 
-// Both lamps measured up front, so the layout can hold the taller one's room
-// and keep the glass at a fixed height whichever is showing.
-const LAMP_PAID = ghostLightMetrics(LAMP_SIZE_PAID, 'full');
-const LAMP_FREE = ghostLightMetrics(LAMP_SIZE_FREE, 'bare');
+// Both measured up front, so the layout holds the taller one's room and keeps
+// the glass at a fixed height whichever is showing. Without this, entitlement
+// resolving a beat after mount swaps one lamp for the other and shoves the whole
+// screen down — which is exactly the bug this arithmetic was written to fix.
+const LAMP_PAID = ghostLightMetrics(LAMP_GLASS_PAID, 'bare');
+const LAMP_FREE = ghostLightMetrics(LAMP_GLASS_FREE, 'bare');
 const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
 const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
 
 /**
  * Where you stand, in the corner that was empty.
  *
- * This was a bordered pill with a lit filament, sitting top-right beside the
- * bookmark and settings icons — three things crowded into one corner while the
- * opposite one sat bare. It is status: read once, does nothing. It was styled
- * like a control and placed like a priority. Bare text on the left balances the
- * row and stops it competing with the two buttons that actually act.
- *
- * "sign in" is a verb because that state wants an action; the other two are
- * facts. The words match Account's Subscription row, so nothing has two names.
+ * Status: read once, does nothing. Bare text on the left balances the row and
+ * stops it competing with the two buttons that actually act. "sign in" is a verb
+ * because that state wants an action; the other two are facts. The words match
+ * Account's Subscription row, so nothing has two names.
  */
 function StandingChip({
   isPaid,
@@ -117,20 +136,29 @@ function StandingChip({
           fontFamily: 'CourierPrime_400Regular_Italic',
           fontSize: 13,
           letterSpacing: 0.4,
-          color: isPaid ? colors.stageGlow : c.mutedForeground,
+          color: isPaid ? c.accentText : c.mutedForeground,
         }}
       >
         {label}
       </Text>
-      <Ionicons name="chevron-forward" size={11} color={isPaid ? colors.stageGlow : c.chevron} />
+      <Ionicons name="chevron-forward" size={11} color={isPaid ? c.accentText : c.chevron} />
     </Pressable>
   );
 }
+
+/*
+ * There was a `LampStand` here — a dashed stem and an ellipse of floor drawn
+ * under the bulb. It was a mistake born of reading the handoff without reading
+ * the component: `GhostLight` in `bare` dress ALREADY draws a pole and a foot,
+ * so the screen had two stands under one lamp, the real one and a sketch of one
+ * hanging off its bottom. Removed. The bulb stands on its own.
+ */
 
 export default function Search() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
+  const { width } = useWindowDimensions();
   const { isAuthenticated, loading: sessionLoading } = useSession();
 
   const [query, setQuery] = useState('');
@@ -139,10 +167,47 @@ export default function Search() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [history, setHistory] = useState<RecentSearch[]>([]);
 
+  // One greeting per open, rolled in the initialiser — not an interval, not an
+  // effect (see src/data/prompts.ts). Switching house re-reads the same index
+  // out of the other list, so Film & TV changes the words without re-rolling.
+  const [promptIndex] = useState(pickPromptIndex);
+  const prompt = promptAt(medium, promptIndex);
+
   useEffect(() => {
     void loadSearchHistory().then(setHistory);
   }, []);
   const pal = mediumPalette(medium, c.isLight);
+
+  /**
+   * The headline is sized from the window rather than fixed at 42.
+   *
+   * Both of its lines are one-line by design — the italic word has to stay on
+   * the line it was written for — so a fixed size means the longest prompt
+   * ("Say it the way / you would say it.") clips on a small phone. Scaling one
+   * number keeps BOTH lines matched, where `adjustsFontSizeToFit` shrinks them
+   * independently and leaves line two visibly smaller than line one.
+   *
+   * 8.2 is Instrument Serif's rough advance per character at 1pt, taken off the
+   * longest prompt with the gutters removed.
+   */
+  const headline = Math.max(30, Math.min(40, Math.floor((width - 56) / 8.2)));
+
+  /**
+   * And the line box has to be TALLER than the type, not shorter.
+   *
+   * The design calls for 0.95 leading and that is what CSS does happily: the
+   * glyphs simply overflow a short line box and nothing is lost. React Native
+   * clips to the line box instead, so `lineHeight: fontSize * 0.98` cut the
+   * descenders off "Say it the way / you would say it." and the ascenders off
+   * the line beneath — the same thing that was wrong with the marquee on the
+   * site, arrived at the same way.
+   *
+   * Instrument Serif is a high-contrast display face with long descenders, so it
+   * wants about 1.12. The headline is a touch smaller to pay for the extra
+   * leading, and the block reserves two full line boxes so a short second line
+   * still cannot let the field slide up the screen.
+   */
+  const headlineLine = Math.round(headline * 1.12);
 
   // Everyone can open the sheet and use the free identity/length filters; the
   // craft filters inside (tone, emotion, freshness) route to the paywall for
@@ -171,10 +236,7 @@ export default function Search() {
       if (next === medium) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
       setMediumState(next);
-      flash.value = withSequence(
-        withTiming(1, { duration: 140 }),
-        withTiming(0, { duration: 520 }),
-      );
+      flash.value = withSequence(withTiming(1, { duration: 140 }), withTiming(0, { duration: 520 }));
       // Changing house is a lighting change, so the lamp restrikes: a hard dip,
       // two stutters, then settle. The colour wash alone read as a repaint.
       bulbBoost.value = withSequence(
@@ -188,41 +250,44 @@ export default function Search() {
     [medium, flash, bulbBoost],
   );
 
-  const onChangeQuery = useCallback((text: string) => {
-    setQuery(text);
-    bulbBoost.value = withSequence(
-      withTiming(0.5, { duration: 70 }),
-      withTiming(text.trim() ? 0.18 : 0, { duration: 420 }),
-    );
-  }, [bulbBoost]);
+  const onChangeQuery = useCallback(
+    (text: string) => {
+      setQuery(text);
+      bulbBoost.value = withSequence(
+        withTiming(0.5, { duration: 70 }),
+        withTiming(text.trim() ? 0.18 : 0, { duration: 420 }),
+      );
+    },
+    [bulbBoost],
+  );
 
-  // The search field catches the light when you touch it — the border warms to
-  // the house colour and a soft glow rises, like stepping into the spot.
+  /**
+   * Focus, in one value.
+   *
+   * The paper lifts: the gel block behind it grows from 6 to 10 and the sheet
+   * straightens out of its −0.6° tilt over 180ms, which reads as picking the
+   * page up rather than as a border changing colour. The field itself never
+   * MOVES — that is the one moment on this screen that has to be dead steady —
+   * so what clears is everything below it: the chips and the recents fade and
+   * drop away rather than sit half-covered by a keyboard. They come straight
+   * back on blur with the choices intact.
+   */
   const focus = useSharedValue(0);
   // React state only because pointerEvents can't be animated; twice per focus
   // cycle, never per frame.
   const [fieldFocused, setFieldFocused] = useState(false);
 
-  // Focus used to collapse the block ABOVE the field, which slid the field up
-  // the screen the instant you touched it — the one moment here that has to be
-  // dead steady. So the field itself never moves now. What clears instead is
-  // everything BELOW it: the chips and the refine link fade and drop away, since
-  // half a row of filters disappearing under a keyboard is worse than no row at
-  // all. They come straight back on blur with the choices intact.
-  // Opacity alone at 130ms was too subtle to register as a transition at all —
-  // things simply weren't there any more. A short drop and a slight shrink read
-  // as the row stepping back out of the light, and stay quick.
   const belowStyle = useAnimatedStyle(() => ({
     opacity: 1 - focus.value,
     transform: [{ translateY: 18 * focus.value }, { scale: 1 - 0.04 * focus.value }],
   }));
   const fieldStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(focus.value, [0, 1], [c.border, pal.glow]),
-    shadowColor: pal.glow,
-    shadowOpacity: focus.value * 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
+    transform: [{ rotate: `${-0.6 * (1 - focus.value)}deg` }],
   }));
+  const fieldBlockStyle = useAnimatedStyle(() => {
+    const d = 6 + 4 * focus.value;
+    return { transform: [{ translateX: d }, { translateY: d }] };
+  });
 
   const toggle = useCallback((chip: FilterChip) => {
     Haptics.selectionAsync().catch(() => {});
@@ -273,10 +338,7 @@ export default function Search() {
     setTimeout(() => setScolding(false), 3200);
   }, [shake, bulbBoost]);
 
-  const activeCount = useMemo(
-    () => Object.values(selected).filter(Boolean).length,
-    [selected],
-  );
+  const activeCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
 
   const submit = useCallback(() => {
     if (!query.trim() && activeCount === 0) {
@@ -297,9 +359,7 @@ export default function Search() {
       params: {
         q: query.trim(),
         medium,
-        ...Object.fromEntries(
-          Object.entries(params).map(([k, v]) => [k, String(v)]),
-        ),
+        ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
       },
     });
   }, [query, selected, medium, router, bulbBoost, activeCount, blow]);
@@ -334,14 +394,33 @@ export default function Search() {
     );
   }, [bulbBoost]);
 
+  /**
+   * The gel is a fill behind ink and never type — so "more", which the design
+   * draws in yellow, cannot stay yellow once the stage itself becomes paper. It
+   * takes the house's deep accent there instead: same job, same dashed outline,
+   * a colour that can be read on cream.
+   */
+  const dashedInk = c.isLight ? pal.accent : c.yellow;
+
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Tapping any empty area dismisses the keyboard; child buttons still win. */}
-        <Pressable onPress={() => Keyboard.dismiss()} accessible={false} style={{ flex: 1, paddingHorizontal: 28 }}>
-          <View style={{ height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Pressable
+          onPress={() => Keyboard.dismiss()}
+          accessible={false}
+          style={{ flex: 1, paddingHorizontal: 24 }}
+        >
+          <View
+            style={{
+              height: 40,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
             <StandingChip
               isPaid={isPaid}
               isAuthenticated={isAuthenticated}
@@ -349,177 +428,184 @@ export default function Search() {
               onPress={() => router.push(isAuthenticated ? '/account' : '/auth')}
             />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22 }}>
-            <Pressable
-              onPress={() => router.push('/saves')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Saved monologues"
-            >
-              <Ionicons name="bookmark-outline" size={22} color={c.mutedForeground} />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/account')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Account"
-            >
-              <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
-            </Pressable>
+              <Pressable
+                onPress={() => router.push('/saves')}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Saved monologues"
+              >
+                <Ionicons name="bookmark-outline" size={22} color={c.mutedForeground} />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push('/account')}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Account"
+              >
+                <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
+              </Pressable>
             </View>
           </View>
 
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
-            {/* Subscribers get the lamp in full dress — the standing ghost
-                light with its neck, base and floor pool — where free actors get
-                the bare bulb. Same silhouette, same ratios, so nothing shouts;
-                it just reads as the real thing having been wheeled onto the
-                stage. Reuses the dressing the brand already has rather than
-                inventing a badge, and it's the first thing you see, so paying
-                visibly changed something. */}
-            {/* The taller of the two lamps is reserved always, and the shorter
-                one is nudged down so its glass lands at the same height. Without
-                this, entitlement resolving swapped a 52pt bare bulb for a 60pt
-                standing lamp — 39.5pt taller, glass 10.7pt lower — so signing in
-                or out shoved the whole screen down and slid the bulb with it,
-                a beat or two after the screen had already settled. */}
-            <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
-              <Pressable
-                onPress={onLampPress}
-                hitSlop={14}
-                accessibilityRole="image"
-                accessibilityLabel="The ghost light"
-                style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}
-              >
-                <GhostLight
-                  size={isPaid ? LAMP_SIZE_PAID : LAMP_SIZE_FREE}
-                  dress={isPaid ? 'full' : 'bare'}
-                  boost={bulbBoost}
-                  glow={pal.glow}
-                  glassStops={pal.glassStops}
-                  neck={pal.neck}
-                />
-              </Pressable>
-            </View>
-
-            {/* Everything between the lamp and the field clears out of the way
-                when the field takes focus, so typing happens on a bare stage.
-                Height is measured once on layout and then driven from the same
-                `focus` shared value as the field itself — the collapse runs on
-                the UI thread with no JS per frame, and no re-render. */}
-            <View style={{ width: '100%', alignItems: 'center' }}>
-              <Text
-                className="mt-8 text-center text-foreground"
-                style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 15, letterSpacing: 7, textTransform: 'uppercase' }}
-              >
-                Ghost Light
-              </Text>
-              {/* Kept short on purpose: both variants must hold one line at the
-                  widest letter-spacing, and a count here would only ever describe
-                  the toggle you're standing in, never the whole library. */}
-              <StageDirection className="mt-8" numberOfLines={1}>
-                {medium === 'screen' ? '(film & tv, off the page.)' : '(every monologue. one stage.)'}
-              </StageDirection>
-
-              <View style={{ marginTop: 24 }}>
-                <MediumToggle medium={medium} onChange={setMedium} />
-              </View>
-            </View>
-
-            <Animated.View
-              style={[
-                fieldStyle,
-                shakeStyle,
-                {
-                  marginTop: 22,
-                  width: '100%',
-                  height: 60,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  borderRadius: 17,
-                  borderWidth: 1,
-                  paddingHorizontal: 18,
-                  backgroundColor: c.card,
-                },
-              ]}
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start' }}>
+            {/* The ghost light, small, standing over the question. */}
+            <Pressable
+              onPress={onLampPress}
+              hitSlop={16}
+              accessibilityRole="image"
+              accessibilityLabel="The ghost light"
+              style={{ marginTop: 10, alignItems: 'center' }}
             >
-              <Ionicons name="search-outline" size={18} color={c.mutedForeground} style={{ marginRight: 12 }} />
-              <TextInput
-                value={query}
-                onChangeText={onChangeQuery}
-                onSubmitEditing={submit}
-                onFocus={() => {
-                  setFieldFocused(true);
-                  focus.value = withTiming(1, { duration: 130, easing: Easing.out(Easing.quad) });
-                }}
-                onBlur={() => {
-                  setFieldFocused(false);
-                  focus.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) });
-                }}
-                returnKeyType="search"
-                placeholder="a grieving mother, something funny…"
-                placeholderTextColor={c.mutedForeground}
-                selectionColor={pal.glow}
-                className="text-[16px] text-foreground"
-                style={{ flex: 1, paddingVertical: 0, textAlignVertical: 'center', fontFamily: 'Montserrat_400Regular' }}
-              />
-            </Animated.View>
+              {/* The taller lamp's room is reserved always, and the shorter one
+                  is nudged down so its glass lands at the same height — so the
+                  bulb does not slide when entitlement resolves a beat after the
+                  screen has already settled. */}
+              <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
+                <View style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}>
+                  <GhostLight
+                    size={isPaid ? LAMP_GLASS_PAID : LAMP_GLASS_FREE}
+                    dress="bare"
+                    boost={bulbBoost}
+                    glow={pal.glow}
+                    glassStops={pal.glassStops}
+                    neck={pal.neck}
+                  />
+                </View>
+              </View>
+            </Pressable>
 
-            {/* Recent searches. On device, free, text only. Hidden once there's
-                a query, since re-running what you're already typing is noise. */}
-            {history.length > 0 && !query.trim() ? (
-              <Animated.View
-                pointerEvents={fieldFocused ? 'none' : 'auto'}
-                style={[
-                  belowStyle,
-                  { width: '100%', marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-                ]}
-              >
-                {history.slice(0, 4).map((item) => (
-                  <Pressable
-                    key={`${item.medium}:${item.q}`}
-                    onPress={() => runRecent(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Search again for ${item.q} in ${item.medium === 'screen' ? 'film and TV' : 'theatre'}`}
+            {/* The greeting. Two lines, each held to one line on purpose, in a
+                box tall enough for both — so a prompt whose second line is
+                shorter cannot let the field slide up the screen. */}
+            <View
+              style={{
+                width: '100%',
+                marginTop: 20,
+                minHeight: headlineLine * 2,
+                justifyContent: 'center',
+              }}
+            >
+              {prompt.map((line, li) => (
+                <Text
+                  key={li}
+                  numberOfLines={1}
+                  style={{
+                    textAlign: 'center',
+                    fontFamily: 'InstrumentSerif_400Regular',
+                    fontSize: headline,
+                    lineHeight: headlineLine,
+                    letterSpacing: -0.6,
+                    color: c.foreground,
+                  }}
+                >
+                  {line.map((piece, pi) =>
+                    piece.em ? (
+                      <Text
+                        key={pi}
+                        style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.accentText }}
+                      >
+                        {piece.t}
+                      </Text>
+                    ) : (
+                      piece.t
+                    ),
+                  )}
+                </Text>
+              ))}
+            </View>
+
+            <View style={{ marginTop: 18 }}>
+              <MediumToggle medium={medium} onChange={setMedium} />
+            </View>
+
+            {/* The field: paper on a block of gel, tilted off square until you
+                touch it. Its ink disc is the only submit on the screen. */}
+            <Animated.View style={[shakeStyle, { width: '100%', marginTop: 24 }]}>
+              <Animated.View style={fieldStyle}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    fieldBlockStyle,
+                    {
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      borderRadius: radius.field,
+                      backgroundColor: c.yellow,
+                    },
+                  ]}
+                />
+                <View
+                  style={{
+                    height: 62,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderRadius: radius.field,
+                    borderWidth: 1.5,
+                    borderColor: c.ink,
+                    backgroundColor: c.paper,
+                    paddingLeft: 18,
+                    paddingRight: 10,
+                  }}
+                >
+                  <Ionicons name="search-outline" size={19} color={c.paperMuted} />
+                  <TextInput
+                    value={query}
+                    onChangeText={onChangeQuery}
+                    onSubmitEditing={submit}
+                    onFocus={() => {
+                      setFieldFocused(true);
+                      focus.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.quad) });
+                    }}
+                    onBlur={() => {
+                      setFieldFocused(false);
+                      focus.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.quad) });
+                    }}
+                    returnKeyType="search"
+                    // Short on purpose: it has to sit inside the field at 15pt on
+                    // the narrowest phone without ever reaching the ellipsis.
+                    placeholder="a grieving mother…"
+                    placeholderTextColor={c.paperMuted}
+                    selectionColor={pal.accent}
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
+                      flex: 1,
+                      marginLeft: 12,
+                      paddingVertical: 0,
+                      fontSize: 15,
+                      color: c.paperInk,
+                      textAlignVertical: 'center',
+                      fontFamily: 'BricolageGrotesque_500Medium',
+                    }}
+                  />
+                  <Pressable
+                    onPress={submit}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Search"
+                    style={{
+                      width: 42,
+                      height: 42,
                       borderRadius: 999,
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      backgroundColor: c.card,
-                      borderWidth: 1,
-                      borderColor: c.cardBorder,
+                      backgroundColor: colors.ink,
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    <Ionicons
-                      name={item.medium === 'screen' ? 'film-outline' : 'time-outline'}
-                      size={12}
-                      color={mediumPalette(item.medium, c.isLight).glow}
-                    />
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        maxWidth: 150,
-                        fontFamily: 'Montserrat_400Regular',
-                        fontSize: 12,
-                        color: c.mutedForeground,
-                      }}
-                    >
-                      {item.q}
-                    </Text>
+                    <Ionicons name="arrow-forward" size={17} color={c.yellow} />
                   </Pressable>
-                ))}
+                </View>
               </Animated.View>
-            ) : null}
+            </Animated.View>
 
-            {/* Filters: a row of stage-direction chips. Lit = active, in the house colour. */}
+            {/* Filters: a row of stage-direction chips. Lit = gel behind ink. */}
             <Animated.View
               pointerEvents={fieldFocused ? 'none' : 'auto'}
               style={[
                 belowStyle,
                 {
-                  marginTop: 24,
+                  marginTop: 22,
                   width: '100%',
                   flexDirection: 'row',
                   flexWrap: 'wrap',
@@ -538,21 +624,23 @@ export default function Search() {
                     accessibilityState={{ selected: active }}
                     style={{
                       flexShrink: 0,
+                      height: 36,
+                      justifyContent: 'center',
                       borderRadius: 999,
-                      borderWidth: 1,
+                      borderWidth: 1.5,
                       paddingHorizontal: 14,
-                      paddingVertical: 8,
-                      borderColor: active ? pal.glow : c.border,
-                      backgroundColor: active ? pal.chipFill : 'transparent',
+                      borderColor: active ? c.ink : c.border,
+                      backgroundColor: active ? c.yellow : 'transparent',
                     }}
                   >
                     <Text
                       numberOfLines={1}
-                      className="text-[13px] lowercase"
                       style={{
                         fontFamily: 'CourierPrime_400Regular_Italic',
+                        fontSize: 13,
                         letterSpacing: 0.5,
-                        color: active ? pal.glow : c.mutedForeground,
+                        textTransform: 'lowercase',
+                        color: active ? c.ink : c.mutedForeground,
                       }}
                     >
                       {chipText(chip.label)}
@@ -560,61 +648,116 @@ export default function Search() {
                   </Pressable>
                 );
               })}
+
+              {/* The premium refinement sheet — dashed, because it opens
+                  something rather than setting something. */}
+              <AnimatedPressable
+                onPress={openMoreFilters}
+                accessibilityRole="button"
+                accessibilityLabel="More filters"
+                style={{
+                  flexShrink: 0,
+                  height: 36,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  borderRadius: 999,
+                  borderWidth: 1.5,
+                  borderStyle: 'dashed',
+                  borderColor: c.border,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Ionicons name="options-outline" size={13} color={dashedInk} />
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'CourierPrime_400Regular_Italic',
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                    color: dashedInk,
+                  }}
+                >
+                  {advanced > 0 ? `${advanced} more` : 'more'}
+                </Text>
+              </AnimatedPressable>
             </Animated.View>
 
-            {/* The premium refinement sheet — locked for free actors. */}
-            <AnimatedPressable
-              onPress={openMoreFilters}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="More filters"
-              pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[
-                belowStyle,
-                { marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 },
-              ]}
-            >
-              <Ionicons name="options-outline" size={14} color={pal.glow} />
-              <Text
-                style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, letterSpacing: 0.5, color: pal.glow }}
+            {/* Recent searches: hairline rows, the query on the left and the
+                house it was made in on the right. They used to be pills, which
+                made four of them look like four more filters. Hidden once
+                there's a query, since re-running what you're typing is noise. */}
+            {history.length > 0 && !query.trim() ? (
+              <Animated.View
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 26 }]}
               >
-                {advanced > 0 ? `(${advanced} more.)` : '(more filters.)'}
-              </Text>
-            </AnimatedPressable>
+                <StageDirection style={{ marginBottom: 6 }}>(last time.)</StageDirection>
+                {history.slice(0, 3).map((item) => (
+                  <Pressable
+                    key={`${item.medium}:${item.q}`}
+                    onPress={() => runRecent(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search again for ${item.q} in ${
+                      item.medium === 'screen' ? 'film and TV' : 'theatre'
+                    }`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 14,
+                      paddingVertical: 10,
+                      borderBottomWidth: 1,
+                      borderBottomColor: c.divider,
+                    }}
+                  >
+                    {/* Two lines, because a remembered search is a whole
+                        sentence: "angry woman in her twenties, under two
+                        minutes, not shakespeare" is a real query and one line
+                        of it ends at "under two". The row grows; the list is
+                        three rows long, so it can afford to. */}
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        flex: 1,
+                        fontFamily: 'BricolageGrotesque_500Medium',
+                        fontSize: 14,
+                        lineHeight: 19,
+                        color: c.foreground,
+                      }}
+                    >
+                      {item.q}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: 'CourierPrime_400Regular',
+                        fontSize: 11,
+                        letterSpacing: 0.6,
+                        color: mediumPalette(item.medium, c.isLight).accent,
+                      }}
+                    >
+                      {item.medium === 'screen' ? 'film & tv' : 'plays'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </Animated.View>
+            ) : null}
           </View>
 
-          {/* Footer: the state on the left, the action on the right. No slab. */}
+          {/* The foot says one thing, centred: how many filters are lit, or that
+              you have asked for nothing at all. There is no Search button here
+              any more — the field's disc is the only one. */}
           <View
-            style={{
-              paddingBottom: 22,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
+            style={{ paddingBottom: 22, minHeight: 26, alignItems: 'center', justifyContent: 'center' }}
           >
-            {/* The row is space-between, so an unbounded line on the left took
-                the width it wanted and shoved Search off the right edge —
-                exactly when you'd been told to try again and needed the button.
-                Clipping it instead only traded one ugly failure for another, so
-                the copy is now short enough to fit beside the button on the
-                narrowest phone. `flex: 1` is the backstop, not the plan. */}
-            {/* Says nothing when there is nothing to say. The other two states
-                report something you cannot see anywhere else — that a search
-                came back empty, or how many filters are on. "(the whole stage.)"
-                reported the absence of filters, which is the default and is
-                already obvious from the filter row above being unlit, so it read
-                as decoration sitting where information goes. The wrapper keeps
-                its flex either way, so Search does not move when this appears. */}
-            <View style={{ flex: 1, marginRight: 14 }}>
-              {scolding || activeCount > 0 ? (
-                <StageDirection numberOfLines={1} style={scolding ? { color: pal.glow } : undefined}>
-                  {scolding
-                    ? '(nothing to find.)'
-                    : `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`}
-                </StageDirection>
-              ) : null}
-            </View>
-            <WordArrow label="Search" onPress={submit} tint={pal.glow} haptic="none" />
+            {scolding || activeCount > 0 ? (
+              <StageDirection numberOfLines={1} style={scolding ? { color: pal.accent } : undefined}>
+                {scolding
+                  ? '(nothing to find.)'
+                  : `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`}
+              </StageDirection>
+            ) : null}
           </View>
         </Pressable>
       </SafeAreaView>
@@ -646,7 +789,7 @@ export default function Search() {
           router.push('/paywall');
         }}
         isPaid={isPaid}
-        glow={pal.glow}
+        glow={pal.accentText}
         chipFill={pal.chipFill}
       />
     </View>

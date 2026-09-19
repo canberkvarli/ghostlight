@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { WordArrow } from './WordArrow';
+import { PrimaryPill } from './PrimaryPill';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { SHEET_GROUPS, chipKey, chipText, type FilterChip, type Selection } from '../data/filters';
@@ -53,10 +53,14 @@ export function FilterSheet({
           right: 0,
           bottom: 0,
           height: '85%',
-          backgroundColor: c.card,
+          // The stage rising, not a page of sides. `c.card` was right when a
+          // card was a dark panel and became a cream sheet under cream text the
+          // moment v2 made every card paper — the sheet is chrome, so it takes
+          // the floor colour.
+          backgroundColor: c.background,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          borderWidth: 1,
+          borderWidth: 1.5,
           borderColor: c.border,
           overflow: 'hidden',
         }}
@@ -98,7 +102,7 @@ export function FilterSheet({
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 }}>
                     <Text
                       style={{
-                        fontFamily: 'Montserrat_600SemiBold',
+                        fontFamily: 'BricolageGrotesque_600SemiBold',
                         fontSize: 11,
                         letterSpacing: 2.6,
                         textTransform: 'uppercase',
@@ -123,22 +127,26 @@ export function FilterSheet({
                           accessibilityRole="button"
                           accessibilityState={{ selected: active }}
                           accessibilityHint={locked ? 'Part of the subscription' : undefined}
+                          // The same chip as the one on Search home, because it
+                          // is the same control: gel behind ink when it's lit.
                           style={{
                             opacity: locked ? 0.55 : 1,
+                            height: 36,
+                            justifyContent: 'center',
                             borderRadius: 999,
-                            borderWidth: 1,
+                            borderWidth: 1.5,
                             paddingHorizontal: 14,
-                            paddingVertical: 8,
-                            borderColor: active ? glow : c.border,
-                            backgroundColor: active ? chipFill : 'transparent',
+                            borderColor: active ? c.ink : c.border,
+                            backgroundColor: active ? c.yellow : 'transparent',
                           }}
                         >
                           <Text
+                            numberOfLines={1}
                             className="text-[13px] lowercase"
                             style={{
                               fontFamily: 'CourierPrime_400Regular_Italic',
                               letterSpacing: 0.5,
-                              color: active ? glow : c.mutedForeground,
+                              color: active ? c.ink : c.mutedForeground,
                             }}
                           >
                             {chipText(chip.label)}
@@ -170,18 +178,26 @@ export function FilterSheet({
               // direction — a label, not a control — so nobody knew it did
               // anything. Same voice, but inside a border it can be tapped.
               style={{
+                height: 40,
+                justifyContent: 'center',
                 borderRadius: 999,
-                borderWidth: 1,
-                borderColor: glow,
+                borderWidth: 1.5,
+                borderColor: c.border,
                 paddingHorizontal: 16,
-                paddingVertical: 8,
               }}
             >
-              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, letterSpacing: 0.5, color: glow }}>
+              <Text
+                style={{
+                  fontFamily: 'CourierPrime_400Regular_Italic',
+                  fontSize: 14,
+                  letterSpacing: 0.5,
+                  color: c.mutedForeground,
+                }}
+              >
                 (clear.)
               </Text>
             </Pressable>
-            <WordArrow label="Done" onPress={onApply} tint={glow} />
+            <PrimaryPill label="Done" onPress={onApply} height={48} haptic="selection" />
           </View>
         </SafeAreaView>
       </Animated.View>

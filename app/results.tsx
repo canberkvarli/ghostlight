@@ -15,16 +15,15 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { GhostLight } from '../src/components/GhostLight';
 import { MonologueCard } from '../src/components/MonologueCard';
+import { Sketch } from '../src/components/Sketches';
+import { PrimaryPill } from '../src/components/PrimaryPill';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
-import { WordArrow } from '../src/components/WordArrow';
 import { MONOLOGUES, type Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
@@ -60,6 +59,14 @@ import {
  *
  * Whatever the source, the list keeps the two invariants the scroll spotlight
  * needs: fixed row heights and no JavaScript per frame.
+ *
+ * ## The in-between states
+ *
+ * Searching, nothing-found and failed each get a line sketch that draws itself
+ * in, not the ghost light. The lamp was on all three and on Search and on the
+ * launch screen, which made it mean "a thing is happening" rather than meaning
+ * anything. It is now the brand's own object, kept to the two screens that are
+ * standing still; a screen that is DOING something gets a drawing of the doing.
  */
 
 // Reanimated's own animated wrapper, not FlashList's exported `AnimatedFlashList`
@@ -119,6 +126,12 @@ export default function Results() {
     return p;
   }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.emotion, raw.max_duration, raw.max_overdone_score]);
 
+  /** Everything the search was narrowed by, not counting the words themselves. */
+  const filterCount = useMemo(
+    () => Object.keys(params).filter((k) => k !== 'q').length,
+    [params],
+  );
+
   const hasIntent = Object.keys(params).length > 0;
   const { data: live, isLoading, isError, refetch } = useMonologueSearch(params, hasIntent && !screenMode);
 
@@ -132,8 +145,8 @@ export default function Results() {
     queryFn: async ({ signal }) => (await getDiscover(30, signal)).map(apiToMonologue),
   });
 
-  // Film & TV: the browse-by-poster lineup, read straight from Supabase. Always
-  // fetches (query or not) — no query is just the top of the marquee.
+  // Film & TV: the browse-by-poster lineup. Always fetches (query or not) — no
+  // query is just the top of the marquee.
   const {
     data: screenData,
     isLoading: screenLoading,
@@ -180,6 +193,18 @@ export default function Results() {
     ? !screenLoading && !screenError && (screenData?.length ?? 0) === 0
     : hasIntent && !isLoading && !isError && live?.monologues.length === 0;
 
+  /**
+   * The house goes one step darker when the search fails — the only place in the
+   * app that drops below its own background, and it comes back up on a
+   * successful retry. On paper it steps down rather than up, for the same
+   * reason: the room dims, whichever room it is.
+   */
+  const floor = searchFailed
+    ? c.isLight
+      ? '#e7e0d5'
+      : '#0d0705'
+    : pal.background;
+
   // One event per distinct search that actually came back. Keyed on the params
   // signature and held in a ref because this component re-renders constantly and
   // an unguarded effect would report the same search over and over.
@@ -196,11 +221,13 @@ export default function Results() {
     searchReported.current = signature;
     track('search_performed', {
       medium,
-      filters: Object.keys(params).filter((k) => k !== 'q').length,
+      // The same count the header's "filters · N" pill reads, so the number in
+      // the analytics and the number on the screen cannot drift apart.
+      filters: filterCount,
       has_query: Boolean(params.q),
       results: count,
     });
-  }, [hasIntent, searching, searchFailed, medium, params, count]);
+  }, [hasIntent, searching, searchFailed, medium, params, count, filterCount]);
 
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -234,8 +261,7 @@ export default function Results() {
         scrollY={scrollY}
         viewportHeight={height}
         reduceMotion={reduceMotion}
-        accent={pal.glow}
-        litBorder={pal.litBorder}
+        blockColor={pal.hardShadow}
         saved={savedIds.has(item.id)}
         // The house travels with the card. Without this the read screen had no
         // idea which toggle you came through and painted every Film & TV piece
@@ -254,13 +280,11 @@ export default function Results() {
         }}
       />
     ),
-    [scrollY, height, reduceMotion, router, pal.glow, pal.litBorder, medium, savedIds, qc],
+    [scrollY, height, reduceMotion, router, pal.hardShadow, medium, savedIds, qc],
   );
 
   const header = useMemo(
-    () => (
-      <StageHeader count={count} query={params.q ?? null} medium={medium} />
-    ),
+    () => <StageHeader count={count} query={params.q ?? null} medium={medium} />,
     [count, params.q, medium],
   );
 
@@ -281,56 +305,124 @@ export default function Results() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
+      <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={floor} />
 
-      {/* The way back to search — anchored just below the notch, over the list.
-          Absolute so it doesn't shift the list (the scroll spotlight is measured
-          against the full window). */}
-      <Pressable
-        onPress={goBack}
-        hitSlop={16}
-        accessibilityRole="button"
-        accessibilityLabel="Back to search"
-        style={{ position: 'absolute', top: insets.top + 8, left: 12, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 }}
+      {/* The way back and the filter readout — anchored just below the notch,
+          OVER the list. Absolute so they don't shift the list: the scroll
+          spotlight is measured against the list viewport, and putting a row
+          above it would move every card 40pt out of the arithmetic. */}
+      <View
+        style={{
+          position: 'absolute',
+          top: insets.top + 8,
+          left: 12,
+          right: 18,
+          zIndex: 10,
+          height: 34,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
       >
-        <Ionicons name="chevron-back" size={22} color={c.chevron} />
-        <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: c.chevron }}>
-          Search
-        </Text>
-      </Pressable>
+        <Pressable
+          onPress={goBack}
+          hitSlop={16}
+          accessibilityRole="button"
+          accessibilityLabel="Back to search"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 2, padding: 6 }}
+        >
+          <Ionicons name="chevron-back" size={20} color={c.mutedForeground} />
+          <Text
+            style={{
+              fontFamily: 'BricolageGrotesque_600SemiBold',
+              fontSize: 13,
+              color: c.mutedForeground,
+            }}
+          >
+            Search
+          </Text>
+        </Pressable>
+
+        {/* A readout, and a door back to where filters are actually set. The
+            sheet lives on Search; opening it here would mean a second place
+            that owns the selection, and two owners is how they drift. */}
+        <Pressable
+          onPress={goBack}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={
+            filterCount > 0 ? `${filterCount} filters. Change them` : 'Change filters'
+          }
+          style={{
+            height: 30,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            paddingHorizontal: 12,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderColor: c.border,
+          }}
+        >
+          <Ionicons name="options-outline" size={12} color={c.mutedForeground} />
+          <Text
+            style={{
+              fontFamily: 'CourierPrime_400Regular',
+              fontSize: 12,
+              letterSpacing: 0.5,
+              color: c.mutedForeground,
+            }}
+          >
+            {filterCount > 0 ? `filters · ${filterCount}` : 'filters'}
+          </Text>
+        </Pressable>
+      </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ flex: 1 }}>
-        {searching ? (
-          <SearchingStage pal={pal} screen={screenMode} />
-        ) : searchFailed ? (
-          <SearchFailedStage pal={pal} onRetry={() => (screenMode ? refetchScreen() : refetch())} />
-        ) : noResults ? (
-          <RequestStage query={params.q ?? ''} pal={pal} />
-        ) : (
-          <AnimatedFlashList
-            data={data}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            onScroll={scrollHandler}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 18,
-              paddingTop: LIST_PADDING_TOP,
-              paddingBottom: 96,
-            }}
-            ListHeaderComponent={header}
-            ListFooterComponent={footer}
-            ListEmptyComponent={EmptyStage}
-          />
-        )}
+          {searching ? (
+            <SearchingStage pal={pal} screen={screenMode} />
+          ) : searchFailed ? (
+            <SearchFailedStage onRetry={() => (screenMode ? refetchScreen() : refetch())} />
+          ) : noResults ? (
+            <RequestStage query={params.q ?? ''} pal={pal} />
+          ) : (
+            <AnimatedFlashList
+              data={data}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              onScroll={scrollHandler}
+              scrollEventThrottle={16}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 18,
+                paddingTop: LIST_PADDING_TOP,
+                paddingBottom: 96,
+              }}
+              ListHeaderComponent={header}
+              ListFooterComponent={footer}
+              ListEmptyComponent={EmptyStage}
+            />
+          )}
         </View>
       </SafeAreaView>
     </View>
   );
 }
 
+/**
+ * The head of the page: what the lights are doing, how many came back, and —
+ * new in v2 — the words you actually said, echoed underneath.
+ *
+ * The echo matters more than it looks. Search results that only say "18
+ * monologues" leave you unsure the app heard you, especially after a long
+ * natural-language query; quoting it back is the app repeating the order.
+ *
+ * Its height is fixed (HEADER_HEIGHT) because the scroll spotlight offsets every
+ * card by it. Both the direction and the echo reserve two lines, so a long query
+ * or a narrow phone wraps into space that was already there instead of pushing
+ * the first card out of the arithmetic.
+ */
 function StageHeader({
   count,
   query,
@@ -343,28 +435,51 @@ function StageHeader({
   const { colors: c } = useTheme();
   const pal = mediumPalette(medium, c.isLight);
   const screen = medium === 'screen';
-  const noun = screen ? 'on screen' : 'monologues';
-  // The old `fellBack` branch said "(sign in to search. the stage stands.)"
-  // whenever the request errored — while the fixture fallback rendered rows
-  // behind it. So the screen showed results and claimed you weren't signed in,
-  // at the same time. Failures now own the whole screen (SearchFailedStage) and
-  // the header only ever describes what's actually on it.
-  // The lamp sits high and the block breathes: it used to be bottom-aligned with
-  // a 28pt tail, which pinned the stage direction to the first card and pushed
-  // the lamp down into the count. Now the lamp hangs near the top, where a ghost
-  // light actually hangs, and there is real air under the direction line.
+  // "on screen" doesn't inflect, which is half the reason Film & TV gets its own
+  // noun rather than borrowing "monologues" and sounding like a stage list.
+  const noun = screen ? 'on screen.' : count === 1 ? 'monologue.' : 'monologues.';
+
   return (
-    <View style={{ height: HEADER_HEIGHT, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 14 }}>
-      <GhostLight size={28} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
-      <Text
-        className="text-foreground"
-        style={{ marginTop: 26, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 36 }}
-      >
-        {count} {count === 1 ? 'monologue' : 'monologues'}
-      </Text>
-      <StageDirection style={{ marginTop: 14 }} numberOfLines={1}>
-        {query ? `(for “${query}”.)` : `(${count} ${noun}. lights up.)`}
+    <View style={{ height: HEADER_HEIGHT, paddingTop: 48, paddingHorizontal: 6 }}>
+      <StageDirection numberOfLines={2}>
+        {screen ? '(rolling. here’s what came back.)' : '(lights to half. here’s what came back.)'}
       </StageDirection>
+
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={{
+          marginTop: 8,
+          fontFamily: 'InstrumentSerif_400Regular',
+          fontSize: 40,
+          lineHeight: 45,
+          letterSpacing: -0.8,
+          color: c.foreground,
+        }}
+      >
+        {count}{' '}
+        <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.accentText }}>
+          {noun}
+        </Text>
+      </Text>
+
+      <View style={{ marginTop: 10, height: 38 }}>
+        {query ? (
+          <Text
+            numberOfLines={2}
+            style={{
+              fontFamily: 'CourierPrime_400Regular',
+              fontSize: 13,
+              lineHeight: 19,
+              color: c.foreground,
+            }}
+          >
+            <Text style={{ color: c.mutedForeground }}>(you said:) </Text>
+            {`“${query}”`}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -397,17 +512,16 @@ const SCREEN_LINES = [
 ];
 
 /**
- * Hunting (handoff §5): the bulb and halo pulse on a loop, an amber gradient
- * sweeps a hairline, and the line below cycles through what we're asking.
- * Reads as the app going and looking, not a dead spinner.
+ * Hunting: the script pages draw themselves in, stroke by stroke, while the line
+ * below cycles through what we're asking. A hairline sweeps under it.
  *
- * The list is shuffled per mount so you don't see the same opening line every
- * search — with a fast backend most people only ever read the first one or two.
+ * No lamp here — the app is reading, not standing still. The list is shuffled
+ * per mount so you don't see the same opening line every search; with a fast
+ * backend most people only ever read the first one or two.
  */
 function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
-  const pulse = useSharedValue(0.6);
   const sweep = useSharedValue(0);
   const [lines] = useState(() => {
     const pool = [...(screen ? SCREEN_LINES : STAGE_LINES)];
@@ -420,40 +534,37 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
   const [vi, setVi] = useState(0);
 
   useEffect(() => {
-    if (reduce) {
-      pulse.value = 0.6;
-      return;
-    }
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(0.25, { duration: 90, easing: Easing.linear }),
-        withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) }),
-        withTiming(0.3, { duration: 240, easing: Easing.linear }),
-        withTiming(0.9, { duration: 350, easing: Easing.inOut(Easing.quad) }),
-      ),
+    if (reduce) return;
+    sweep.value = withRepeat(
+      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
       -1,
       false,
     );
-    sweep.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, false);
     // 700ms was faster than anyone can read a full line.
     const id = setInterval(() => setVi((n) => (n + 1) % lines.length), 1100);
     return () => clearInterval(id);
-  }, [reduce, pulse, sweep, lines.length]);
+  }, [reduce, sweep, lines.length]);
 
   const sweepStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -60 + sweep.value * 150 }] }));
 
   // Centring lives in `style`, not `className` — Uniwind drops layout
   // utilities (AGENTS.md), so items-center/justify-center silently did nothing
-  // here and the lamp sat in the top-left through every search.
+  // here and the sketch would sit in the top-left through every search.
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <GhostLight size={34} boost={pulse} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
-      <StageDirection className="mt-7" style={{ textAlign: 'center' }}>
-        {`(${lines[vi]})`}
-      </StageDirection>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
+      <Sketch name="scriptPages" size={112} stroke={c.yellow} accent={c.yellow} />
+      {/* Two lines reserved: "turning the house lights down…" is 31 characters
+          and will not hold one line of 16pt Courier on a narrow phone. */}
+      <View style={{ height: 52, marginTop: 30, justifyContent: 'flex-start' }}>
+        <StageDirection numberOfLines={2} style={{ fontSize: 16, lineHeight: 24, textAlign: 'center' }}>
+          {`(${lines[vi]})`}
+        </StageDirection>
+      </View>
       {/* a 150pt hairline the light sweeps along */}
-      <View style={{ marginTop: 24, width: 150, height: 1, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
-        <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.glow }]} />
+      <View
+        style={{ marginTop: 10, width: 150, height: 1, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}
+      >
+        <Animated.View style={[sweepStyle, { width: 60, height: 1, backgroundColor: pal.accentText }]} />
       </View>
     </View>
   );
@@ -462,6 +573,9 @@ function SearchingStage({ pal, screen }: { pal: MediumPalette; screen: boolean }
 /**
  * A search that found nothing isn't a dead end — it's a request. The actor can
  * ask us to add the piece they're after (spec §4, content-request).
+ *
+ * The stage door, ajar, with the light spilling through it: the one sketch in
+ * the set that is an invitation rather than a report.
  */
 function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
   const { colors: c } = useTheme();
@@ -469,7 +583,6 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
   const [sending, setSending] = useState(false);
 
   const ask = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
     setSending(true);
     try {
       await requestContent({ query });
@@ -483,42 +596,139 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
   };
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
-      {/* the lamp drops to a coal */}
-      <View style={{ opacity: 0.5 }}>
-        <GhostLight size={44} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
-      </View>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
+      <Sketch name="stageDoor" size={104} stroke={c.mutedForeground} accent={c.yellow} />
 
       {sent ? (
         <>
-          <Text
-            className="text-center text-foreground"
-            style={{ marginTop: 44, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
-          >
-            Sent to{'\n'}the booth.
-          </Text>
-          <StageDirection className="mt-5">(we'll go looking.)</StageDirection>
+          <Headline lines={['Sent to', 'the booth.']} em={1} tint={pal.accentText} />
+          <StageDirection style={{ marginTop: 18, textAlign: 'center' }}>
+            (we&apos;ll go looking.)
+          </StageDirection>
         </>
       ) : (
         <>
+          <Headline lines={['Not in the', 'library yet.']} em={1} tint={pal.accentText} />
+          {/* Three lines: this echoes back whatever the actor typed, and a
+              natural-language query ("a monologue about a woman who has just
+              realised her husband is lying") runs well past two. Nothing is
+              under it that a third line would push off the screen. */}
+          <StageDirection numberOfLines={3} style={{ marginTop: 18, textAlign: 'center' }}>
+            {query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}
+          </StageDirection>
           <Text
-            className="text-center text-foreground"
-            style={{ marginTop: 44, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
-          >
-            Not in the{'\n'}library yet.
-          </Text>
-          <StageDirection className="mt-5">{query ? `(nothing for “${query}”.)` : '(nothing here yet.)'}</StageDirection>
-          <Text
-            className="text-center"
-            style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: c.mutedForeground }}
+            style={{
+              marginTop: 20,
+              maxWidth: 280,
+              textAlign: 'center',
+              fontFamily: 'BricolageGrotesque_500Medium',
+              fontSize: 14,
+              lineHeight: 22,
+              color: c.mutedForeground,
+            }}
           >
             Ask for it and we go looking.{'\n'}Most requests are up inside a week.
           </Text>
-          <View style={{ marginTop: 34 }}>
-            <WordArrow label="Request it" onPress={ask} disabled={sending} tint={pal.glow} haptic="none" />
-          </View>
+          <PrimaryPill
+            label="Request it"
+            onPress={ask}
+            disabled={sending}
+            style={{ marginTop: 28, alignSelf: 'center' }}
+          />
         </>
       )}
+    </View>
+  );
+}
+
+/**
+ * The search broke — say so.
+ *
+ * This state did not exist before, which is exactly how the "I typed xxxx and
+ * got Hamlet" bug survived: a failed request fell through to the fixture list,
+ * so every failure looked like a successful search for something else. An
+ * honest dead end the actor can retry beats a confident wrong answer.
+ *
+ * Footlights with the beams gone out, in grey rather than the house colour, and
+ * the floor one step darker (handled by the caller). Nothing on this screen is
+ * lit, because nothing is.
+ */
+function SearchFailedStage({ onRetry }: { onRetry: () => void }) {
+  const { colors: c } = useTheme();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
+      <Sketch name="footlights" size={104} stroke={c.mutedForeground} />
+      <Headline lines={['The house', 'went dark.']} em={1} tint={c.accentText} />
+      <StageDirection style={{ marginTop: 18, textAlign: 'center' }}>
+        (couldn&apos;t reach the library.)
+      </StageDirection>
+      <Text
+        style={{
+          marginTop: 20,
+          maxWidth: 260,
+          textAlign: 'center',
+          fontFamily: 'BricolageGrotesque_500Medium',
+          fontSize: 14,
+          lineHeight: 22,
+          color: c.mutedForeground,
+        }}
+      >
+        Check your connection and try again.
+      </Text>
+      <PrimaryPill
+        label="Try again"
+        variant="outline"
+        height={48}
+        onPress={onRetry}
+        haptic="selection"
+        style={{ marginTop: 26, alignSelf: 'center' }}
+      />
+      <Text
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 56,
+          textAlign: 'center',
+          fontFamily: 'CourierPrime_400Regular_Italic',
+          fontSize: 13,
+          letterSpacing: 1.04,
+          color: c.chevron,
+        }}
+      >
+        (your saves are safe.)
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * The two-line serif headline every dead-end state wears, with one line in
+ * italic house colour. Shared so the three states cannot drift apart, and sized
+ * off nothing — these strings are short enough to hold at 38 on any phone.
+ */
+function Headline({ lines, em, tint }: { lines: string[]; em: number; tint: string }) {
+  const { colors: c } = useTheme();
+  return (
+    <View style={{ marginTop: 32 }}>
+      {lines.map((l, i) => (
+        <Text
+          key={i}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          style={{
+            textAlign: 'center',
+            fontFamily: i === em ? 'InstrumentSerif_400Regular_Italic' : 'InstrumentSerif_400Regular',
+            fontSize: 38,
+            lineHeight: 43,
+            letterSpacing: -0.6,
+            color: i === em ? tint : c.foreground,
+          }}
+        >
+          {l}
+        </Text>
+      ))}
     </View>
   );
 }
@@ -537,15 +747,14 @@ function MoreRow({ more, pal, onPress }: { more: number; pal: MediumPalette; onP
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`Show ${more} more`}
-        style={{ marginTop: 22, paddingVertical: 10, paddingHorizontal: 24 }}
+        style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 24 }}
       >
         <Text
           style={{
-            fontFamily: 'Montserrat_600SemiBold',
-            fontSize: 13,
-            letterSpacing: 3,
-            textTransform: 'uppercase',
-            color: pal.glow,
+            fontFamily: 'BricolageGrotesque_700Bold',
+            fontSize: 14,
+            letterSpacing: 0.4,
+            color: pal.accentText,
           }}
         >
           See more
@@ -557,10 +766,11 @@ function MoreRow({ more, pal, onPress }: { more: number; pal: MediumPalette; onP
 }
 
 function EmptyStage() {
+  const { colors: c } = useTheme();
   return (
-    <View style={{ alignItems: 'center' }} className="pt-24">
-      <GhostLight size={44} />
-      <StageDirection className="mt-6">(nothing here yet.)</StageDirection>
+    <View style={{ alignItems: 'center', paddingTop: 48 }}>
+      <Sketch name="stageDoor" size={88} stroke={c.mutedForeground} accent={c.yellow} />
+      <StageDirection style={{ marginTop: 20 }}>(nothing here yet.)</StageDirection>
     </View>
   );
 }
@@ -568,9 +778,10 @@ function EmptyStage() {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
- * A result card that snaps into the spotlight when you press it: a quick lift
- * and a flash of the orange glow, like the light finding you a beat before the
- * page turns. Reduced motion keeps the tap but drops the flourish.
+ * A result card under your thumb: it squares up out of its tilt and swells 3%,
+ * 110ms in and 280ms out. The old version flashed an orange glow, which is the
+ * one thing the v2 card has no vocabulary for — paper does not glow, it moves.
+ * The card itself reads `pressed` (see PaperCard); this owns only the value.
  */
 function CardButton({
   item,
@@ -578,8 +789,7 @@ function CardButton({
   scrollY,
   viewportHeight,
   reduceMotion,
-  accent,
-  litBorder,
+  blockColor,
   saved,
   onPress,
 }: {
@@ -588,8 +798,7 @@ function CardButton({
   scrollY: SharedValue<number>;
   viewportHeight: number;
   reduceMotion: boolean;
-  accent: string;
-  litBorder: string;
+  blockColor: string;
   saved: boolean;
   onPress: () => void;
 }) {
@@ -597,10 +806,6 @@ function CardButton({
   const style = useAnimatedStyle(() => ({
     marginBottom: CARD_GAP,
     transform: [{ scale: 1 + pressed.value * 0.03 }],
-    shadowColor: accent,
-    shadowOpacity: pressed.value * 0.6,
-    shadowRadius: 26,
-    shadowOffset: { width: 0, height: 0 },
   }));
 
   return (
@@ -621,9 +826,9 @@ function CardButton({
         scrollY={scrollY}
         viewportHeight={viewportHeight}
         reduceMotion={reduceMotion}
-        accent={accent}
-        litBorder={litBorder}
+        blockColor={blockColor}
         saved={saved}
+        pressed={pressed}
       />
     </AnimatedPressable>
   );
@@ -635,54 +840,4 @@ function keyExtractor(item: Monologue) {
 
 function tick() {
   Haptics.selectionAsync().catch(() => {});
-}
-
-/**
- * The search broke — say so.
- *
- * This state did not exist before, which is exactly how the "I typed xxxx and
- * got Hamlet" bug survived: a failed request fell through to the fixture list,
- * so every failure looked like a successful search for something else. An
- * honest dead end the actor can retry beats a confident wrong answer.
- */
-function SearchFailedStage({
-  pal,
-  onRetry,
-}: {
-  pal: ReturnType<typeof mediumPalette>;
-  onRetry: () => void;
-}) {
-  // The lamp sat too low and the stage direction sat right under the headline,
-  // so the three read as one clump in the middle of an empty screen. The lamp
-  // moves up out of the text's way and the direction gets room to be an aside.
-  const { colors: c } = useTheme();
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 64 }}>
-      <View style={{ opacity: 0.4 }}>
-        <GhostLight size={44} glow={pal.glow} glassStops={pal.glassStops} neck={pal.neck} />
-      </View>
-      <Text
-        className="text-center text-foreground"
-        style={{ marginTop: 56, fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, lineHeight: 38 }}
-      >
-        The house{'\n'}went dark.
-      </Text>
-      <StageDirection style={{ marginTop: 22, textAlign: 'center' }}>
-        (couldn&apos;t reach the library.)
-      </StageDirection>
-      <Text
-        className="text-center"
-        style={{ marginTop: 28, fontFamily: 'Montserrat_400Regular', fontSize: 14, lineHeight: 22, color: c.mutedForeground }}
-      >
-        Check your connection and try again.
-      </Text>
-      <Pressable onPress={onRetry} accessibilityRole="button" style={{ marginTop: 24, paddingVertical: 10, paddingHorizontal: 22 }}>
-        <Text
-          style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 13, letterSpacing: 3, textTransform: 'uppercase', color: pal.glow }}
-        >
-          Try again
-        </Text>
-      </Pressable>
-    </View>
-  );
 }

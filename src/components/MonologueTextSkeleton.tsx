@@ -10,6 +10,8 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import { colors } from '../theme/tokens';
+
 /**
  * The words, on their way.
  *
@@ -72,8 +74,10 @@ function SkeletonLine({
             width: `${width * 100}%`,
             borderRadius: 3,
             // Ink on paper. The read card is always the warm light page, whatever
-            // the app's scheme, so this is deliberately not a themed colour.
-            backgroundColor: '#2b2019',
+            // the app's scheme, so this is deliberately not a themed colour — but
+            // it is now the system's ink rather than its own near-miss of it, so
+            // the bars and the words that replace them are the same black.
+            backgroundColor: colors.paper.ink,
           },
         ]}
       />

@@ -6,33 +6,41 @@ import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 
-import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { BackHeader } from '../src/components/BackHeader';
-import { WordArrow } from '../src/components/WordArrow';
+import { PrimaryPill } from '../src/components/PrimaryPill';
+import { PaperCard } from '../src/components/PaperCard';
+import { PieceCover } from '../src/components/PieceCover';
+import { Sketch } from '../src/components/Sketches';
+import { Mark, sourceTag } from '../src/components/Marks';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites, useToggleFavorite } from '../src/hooks/useFavorites';
 import { UndoBar } from '../src/components/UndoBar';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
-import { colors } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeContext';
 import { mediumPalette } from '../src/theme/medium';
 import { formatDuration, type Monologue } from '../src/data/monologues';
 
 /**
- * Saved — "Your book" (handoff §5). The result card, warmed up: an amber-tinted
- * border and fill, a filled bookmark, and a progress rule. Every card sits lit —
- * there's no light to chase here. The subhead is derived from the data, never a
- * hardcoded string.
+ * Saved — "Your book."
  *
- * Progress (off book / learning / just read) is server-owned prep state; until
- * that's wired per-save it rests at "just read", and the rule fills when it lands.
+ * Every card sits lit here; there is no light to chase on a shelf you made
+ * yourself. So the v2 card drops the spotlight machinery entirely and becomes
+ * what it always wanted to be: a page with the work's cover clipped to it.
+ *
+ * The covers are the change that makes this a shelf rather than a list. Film and
+ * TV show their real poster; a play gets a drawn cloth binding keyed to the
+ * work, so the same play looks the same everywhere in the app (see PieceCover).
+ *
+ * The subhead is derived from the data, never a hardcoded string.
  */
 
-/** 0 = just read, 1 = off book. */
 type Saved = Monologue;
+
+/** Alternating tilt, so the shelf reads as paper rather than as rows. */
+const TILTS = [-0.5, 0.4, -0.3];
 
 export default function Saves() {
   const { colors: c } = useTheme();
@@ -72,9 +80,10 @@ export default function Saves() {
   }, [toggleFavorite]);
 
   const renderItem = useCallback(
-    ({ item }: { item: Saved }) => (
+    ({ item, index }: { item: Saved; index: number }) => (
       <SavedCard
         item={item}
+        index={index}
         onPress={() => router.push(`/read/${item.id}`)}
         onUnsave={() => onUnsave(item)}
       />
@@ -90,29 +99,41 @@ export default function Saves() {
 
         {!isAuthenticated ? (
           <Center>
-            <GhostLight size={44} />
-            <StageDirection className="mt-6">(sign in to keep monologues.)</StageDirection>
-            <View style={{ marginTop: 18 }}>
-              <WordArrow label="Sign in" onPress={() => router.push('/auth')} />
-            </View>
+            <Sketch name="stageDoor" size={96} stroke={c.mutedForeground} accent={c.yellow} />
+            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
+              (sign in to keep monologues.)
+            </StageDirection>
+            <PrimaryPill
+              label="Sign in"
+              onPress={() => router.push('/auth')}
+              style={{ marginTop: 22, alignSelf: 'center' }}
+            />
           </Center>
         ) : isLoading ? (
           <Center>
-            <GhostLight size={28} />
-            <StageDirection className="mt-6">(gathering your saves…)</StageDirection>
+            <Sketch name="scriptPages" size={88} stroke={c.yellow} accent={c.yellow} />
+            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
+              (gathering your saves…)
+            </StageDirection>
           </Center>
         ) : isError ? (
           // Not the same as an empty book. Free actors have no offline shelf to
           // fall back on, so a dropped signal used to render "(nothing saved
           // yet.)" — telling someone their saves are gone when they are fine.
           <Center>
-            <GhostLight size={44} />
-            <StageDirection className="mt-6" style={{ textAlign: 'center' }}>
+            <Sketch name="footlights" size={96} stroke={c.mutedForeground} />
+            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
               (couldn&apos;t reach your book.)
             </StageDirection>
             <Text
-              className="text-center"
-              style={{ marginTop: 16, fontFamily: 'Montserrat_400Regular', fontSize: 13, color: c.mutedForeground }}
+              style={{
+                marginTop: 16,
+                textAlign: 'center',
+                fontFamily: 'BricolageGrotesque_500Medium',
+                fontSize: 13,
+                lineHeight: 20,
+                color: c.mutedForeground,
+              }}
             >
               Your saves are safe. Check your{'\n'}connection and try again.
             </Text>
@@ -123,22 +144,36 @@ export default function Saves() {
             renderItem={renderItem}
             keyExtractor={(m) => m.id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 96 }}
+            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 110 }}
             ListHeaderComponent={
-              <View style={{ paddingTop: 6, paddingBottom: 18 }}>
+              <View style={{ paddingTop: 8, paddingBottom: 20, paddingHorizontal: 6 }}>
                 <Text
-                  className="text-foreground"
-                  style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 34 }}
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'InstrumentSerif_400Regular',
+                    fontSize: 44,
+                    lineHeight: 49,
+                    letterSpacing: -0.8,
+                    color: c.foreground,
+                  }}
                 >
-                  Your book
+                  Your{' '}
+                  <Text
+                    style={{
+                      fontFamily: 'InstrumentSerif_400Regular_Italic',
+                      color: c.accentText,
+                    }}
+                  >
+                    book.
+                  </Text>
                 </Text>
-                <StageDirection className="mt-1">{subhead}</StageDirection>
+                <StageDirection style={{ marginTop: 6 }}>{subhead}</StageDirection>
               </View>
             }
             ListEmptyComponent={
               <Center>
-                <GhostLight size={44} />
-                <StageDirection className="mt-6">(nothing saved yet.)</StageDirection>
+                <Sketch name="stageDoor" size={96} stroke={c.mutedForeground} accent={c.yellow} />
+                <StageDirection style={{ marginTop: 24 }}>(nothing saved yet.)</StageDirection>
               </Center>
             }
           />
@@ -161,104 +196,138 @@ export default function Saves() {
 
 function SavedCard({
   item,
+  index,
   onPress,
   onUnsave,
 }: {
   item: Saved;
+  index: number;
   onPress: () => void;
   onUnsave: () => void;
 }) {
   const { colors: c } = useTheme();
   // The book holds both houses, and a violet piece turning amber the moment you
   // save it makes the shelf look like it belongs to the theatre alone.
-  const pal = mediumPalette(item.posterUrl ? 'screen' : 'theatre', c.isLight);
+  const screen = item.sourceType === 'film' || item.sourceType === 'tv';
+  const pal = mediumPalette(screen ? 'screen' : 'theatre', c.isLight);
+  const tag = sourceTag(item);
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={{
-        marginBottom: 13,
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: pal.litBorder,
-        backgroundColor: c.card,
-        padding: 18,
-        overflow: 'hidden',
-      }}
+      accessibilityLabel={`${item.title}, ${item.character}`}
+      style={{ marginBottom: 14 }}
     >
-      {/* warm wash bleeding from the top-left (linear-gradient(150°) approximation) */}
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120, backgroundColor: pal.chipFill }}
-      />
+      <PaperCard
+        rotate={TILTS[index % TILTS.length]}
+        style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 14 }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
+          <PieceCover item={item} width={46} height={66} />
 
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text
-            className="text-foreground"
-            numberOfLines={1}
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 20 }}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {/* Two lines each, and for the same reason: the text column here is
+                about 240pt wide once the cover and the bookmark have taken
+                theirs, which is 27 characters of 22pt serif — "The Importance
+                of Being Earnest" is 31. The Saves card has no fixed height (it
+                is not under the scroll spotlight), so it can simply be taller
+                for the pieces that need it. */}
+            <Text
+              numberOfLines={2}
+              style={{
+                fontFamily: 'InstrumentSerif_400Regular',
+                fontSize: 22,
+                lineHeight: 25,
+                letterSpacing: -0.3,
+                color: c.paperInk,
+              }}
+            >
+              {item.title}
+            </Text>
+            <Text
+              numberOfLines={2}
+              style={{
+                marginTop: 4,
+                fontFamily: 'CourierPrime_400Regular',
+                fontSize: 12,
+                lineHeight: 17,
+                color: c.paperMuted,
+              }}
+            >
+              <Text style={{ fontFamily: 'CourierPrime_700Bold', color: c.paperInk }}>
+                {item.character}
+              </Text>
+              {` · ${item.source}`}
+            </Text>
+          </View>
+
+          {/* The bookmark was decoration. It's the unsave now — the obvious place
+              to tap to take something out of the book, with UndoBar covering the
+              mistap rather than a confirm dialog on every removal. hitSlop keeps
+              it from stealing taps meant for the card. */}
+          <Pressable
+            onPress={onUnsave}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${item.title} from your book`}
+            style={{ marginTop: 2 }}
           >
-            {item.title}
-          </Text>
+            <Ionicons name="bookmark" size={20} color={pal.accent} />
+          </Pressable>
+        </View>
+
+        <Text
+          numberOfLines={2}
+          style={{
+            marginTop: 12,
+            fontFamily: 'CourierPrime_400Regular',
+            fontSize: 13,
+            lineHeight: 20,
+            color: c.paperBody,
+          }}
+        >
+          {`“${item.excerpt}”`}
+        </Text>
+
+        <View
+          style={{
+            marginTop: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
           <Text
-            numberOfLines={1}
             style={{
-              fontFamily: 'Montserrat_500Medium',
+              fontFamily: 'BricolageGrotesque_600SemiBold',
               fontSize: 11,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              color: c.mutedForeground,
-              marginTop: 6,
+              color: c.paperMuted,
             }}
           >
-            {item.character} · {item.source}
+            {formatDuration(item.duration)}
           </Text>
+          {tag ? (
+            <Mark spec={{ label: tag, kind: 'source', tint: mediumPalette(screen ? 'screen' : 'theatre', true).tagInk }} />
+          ) : null}
         </View>
-        {/* The bookmark was decoration. It's the unsave now — the obvious place
-            to tap to take something out of the book, with UndoBar covering the
-            mistap rather than a confirm dialog on every removal. hitSlop keeps
-            it from stealing taps meant for the card. */}
-        <Pressable
-          onPress={onUnsave}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel={`Remove ${item.title} from your book`}
-        >
-          <Ionicons name="bookmark" size={20} color={pal.glow} />
-        </Pressable>
-      </View>
-
-      <Text
-        numberOfLines={2}
-        style={{
-          fontFamily: 'CourierPrime_400Regular',
-          fontSize: 13,
-          lineHeight: 20,
-          color: c.foreground,
-          opacity: 0.85,
-          marginTop: 12,
-        }}
-      >
-        {item.excerpt}
-      </Text>
-
-      {/* `pct` was never assigned anywhere in the codebase, so this was a bar
-          permanently stuck at its 6% minimum under a label permanently reading
-          "(not started.)" — an app promising memorisation tracking it does not
-          have. Memorize mode is v2 (spec §6). Just the running time until then. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
-        <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 11, color: c.chevron }}>
-          {formatDuration(item.duration)}
-        </Text>
-      </View>
+      </PaperCard>
     </Pressable>
   );
 }
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} className="pb-24">
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 36,
+        paddingBottom: 90,
+      }}
+    >
       {children}
     </View>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
@@ -8,6 +8,8 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -19,7 +21,9 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { GhostLight } from '../src/components/GhostLight';
 import { BackHeader } from '../src/components/BackHeader';
-import { WordArrow } from '../src/components/WordArrow';
+import { PrimaryPill } from '../src/components/PrimaryPill';
+import { PaperCard } from '../src/components/PaperCard';
+import { Sketch } from '../src/components/Sketches';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites } from '../src/hooks/useFavorites';
 import type { ReadState } from '../src/api/client';
@@ -29,14 +33,22 @@ import { supabase } from '../src/lib/supabase';
 import { deleteAccount } from '../src/api/client';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { restore } from '../src/lib/purchases';
-import { colors } from '../src/theme/tokens';
+import { colors, radius } from '../src/theme/tokens';
 import { useTheme, type ThemeMode } from '../src/theme/ThemeContext';
 
 /**
- * Account — warm, not a settings screen (handoff §5). A greeting, the plan as a
- * lit trial card, two stat tiles, four rows, and a small lamp still burning over
- * the sign-off. Everything else lives one level down (an action sheet), because
- * the old screen had too many buttons.
+ * Account — warm, not a settings screen. A greeting, the plan as a lit paper
+ * card, two stat tiles, four rows, and a small lamp still burning over the
+ * sign-off. Everything else lives one level down (an action sheet), because the
+ * old screen had too many buttons.
+ *
+ * v2 restyles it and changes exactly one behaviour: signing out asks on a sheet
+ * of paper rather than in a system Alert. That is not decoration. The Alert was
+ * the only moment in the app that looked like iOS instead of like Ghost Light,
+ * and it arrived at the one moment an actor is worried about losing their saves
+ * — so the reassurance was delivered by a stranger. Still one confirm, never
+ * two, and Delete account keeps its own native Alert inside Help & legal, where
+ * a system dialog is the right register for something irreversible.
  */
 
 const PRIVACY_URL = 'https://actorrise.com/privacy';
@@ -66,9 +78,9 @@ function greeting(): string {
  *   2. The OAuth profile Supabase fills in for Google.
  *   3. The address, and only if it genuinely looks like a name.
  *
- * "Good afternoon." on its own is a perfectly good greeting. Guessing wrong is
- * worse than not guessing, because a stranger's name in your own app is the
- * kind of small wrongness people don't forgive.
+ * "Evening." on its own is a perfectly good greeting. Guessing wrong is worse
+ * than not guessing, because a stranger's name in your own app is the kind of
+ * small wrongness people don't forgive.
  */
 function looksLikeAName(value: string): boolean {
   // Letters only, and a plausible length. That rules out relay hashes, anything
@@ -108,6 +120,7 @@ export default function Account() {
   const { colors: c } = useTheme();
   const { session, isAuthenticated } = useSession();
   const [busy, setBusy] = useState<null | 'restore' | 'signout' | 'delete'>(null);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   // Not a raw ['read-wall'] read: the server learns about a purchase from a
   // webhook, so for the first seconds after paying it still answers is_paid:
@@ -124,7 +137,10 @@ export default function Account() {
     setBusy('restore');
     try {
       const ok = await restore();
-      Alert.alert(ok ? 'Restored' : 'Nothing to restore', ok ? 'Welcome back.' : 'No purchase found on this account.');
+      Alert.alert(
+        ok ? 'Restored' : 'Nothing to restore',
+        ok ? 'Welcome back.' : 'No purchase found on this account.',
+      );
     } finally {
       setBusy(null);
     }
@@ -134,32 +150,20 @@ export default function Account() {
   // acknowledgement, so it read like a misfire. Confirm first, then say what
   // happened — and reassure, because signing out of a library app looks like it
   // might take your saves with it.
-  const onSignOut = () => {
-    Alert.alert(
-      'Sign out?',
-      'Your saved monologues stay on your account. Sign back in any time to pick them up.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy('signout');
-            try {
-              // The cache clear and the fresh anonymous session are handled
-              // centrally by the SIGNED_OUT listener in app/_layout.tsx.
-              await supabase.auth.signOut();
-              // `replace` turned THIS screen into a second /search on top of the
-              // one already underneath, so swiping back from search landed on
-              // search. Pop back to the real one instead.
-              goBack();
-            } finally {
-              setBusy(null);
-            }
-          },
-        },
-      ],
-    );
+  const doSignOut = async () => {
+    setConfirmSignOut(false);
+    setBusy('signout');
+    try {
+      // The cache clear and the fresh anonymous session are handled centrally by
+      // the SIGNED_OUT listener in app/_layout.tsx.
+      await supabase.auth.signOut();
+      // `replace` turned THIS screen into a second /search on top of the one
+      // already underneath, so swiping back from search landed on search. Pop
+      // back to the real one instead.
+      goBack();
+    } finally {
+      setBusy(null);
+    }
   };
 
   const onDelete = () => {
@@ -228,18 +232,40 @@ export default function Account() {
         <BackHeader label="Search" onPress={goBack} />
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
+          {/* One line, always: "Afternoon, Konstantin." is the longest this can
+              get and it has to hold at 40pt on a narrow phone, so the serif
+              shrinks rather than the name wrapping away from the comma. */}
           <Text
-            className="text-foreground"
-            style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 34, lineHeight: 40 }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            style={{
+              fontFamily: 'InstrumentSerif_400Regular',
+              fontSize: 40,
+              lineHeight: 45,
+              letterSpacing: -0.8,
+              color: c.foreground,
+            }}
           >
-            {name ? `${greeting()}, ${name}.` : `${greeting()}.`}
+            {name ? (
+              <>
+                {`${greeting()}, `}
+                <Text
+                  style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}
+                >
+                  {`${name}.`}
+                </Text>
+              </>
+            ) : (
+              `${greeting()}.`
+            )}
           </Text>
-          <StageDirection className="mt-1">(the light's still on.)</StageDirection>
+          <StageDirection style={{ marginTop: 4 }}>(the light&apos;s still on.)</StageDirection>
 
-          <View style={{ marginTop: 22 }}>
+          <View style={{ marginTop: 22, paddingRight: 8 }}>
             <PlanCard readState={readState} paid={isPaid} onStay={() => router.push('/paywall')} />
           </View>
 
@@ -248,7 +274,7 @@ export default function Account() {
               address you've never seen, so "am I even signed in, and as whom?"
               had no answer anywhere in the app — which is exactly the doubt
               someone has when they've paid and the app still looks locked. */}
-          <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 16 }}>
             <IdentityCard
               session={session}
               isAuthenticated={isAuthenticated}
@@ -265,10 +291,6 @@ export default function Account() {
             <StatTile n={readCount} label="(read.)" />
           </View>
 
-          {/* The standalone "Sign in" arrow that used to sit here is gone: the
-              identity card directly above now says "tap to sign in", so two
-              affordances for the same act were stacked one on top of the other. */}
-
           {/* Four rows only. Everything else is one level down. */}
           <View style={{ marginTop: 22, borderTopWidth: 1, borderTopColor: c.divider }}>
             <AppearanceRow />
@@ -284,24 +306,148 @@ export default function Account() {
               busy={busy === 'restore'}
             />
             <Row label="Help & legal" onPress={onHelp} />
-            {isAuthenticated ? <Row label="Sign out" onPress={onSignOut} busy={busy === 'signout'} last /> : null}
+            {isAuthenticated ? (
+              <Row
+                label="Sign out"
+                onPress={() => setConfirmSignOut(true)}
+                busy={busy === 'signout'}
+                last
+              />
+            ) : null}
           </View>
 
           {/* Sign-off: a small lamp still burning. */}
           <View style={{ alignItems: 'center', marginTop: 34 }}>
             <GhostLight size={21} />
-            <StageDirection className="mt-2">(ghost light.)</StageDirection>
+            <StageDirection style={{ marginTop: 4 }}>(ghost light.)</StageDirection>
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <SignOutCard
+        visible={confirmSignOut}
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={doSignOut}
+      />
     </View>
   );
 }
 
 /**
- * The plan as a warm card: a breathing amber bloom top-left, an eyebrow, a big
- * Playfair line, three filament bars, and the action. Honest — driven by the
- * server counter, never a hardcoded "two days left".
+ * The confirm, on paper, on the stage door.
+ *
+ * The copy is exactly the Alert's — it was already the right words, and the
+ * reassurance ("your saved monologues stay on your account") is the entire
+ * reason this dialog exists. What changed is who appears to be saying it.
+ *
+ * The backdrop dims to .72 and the card rises 24pt, which is the same arrival
+ * the reading page uses. Cancel is the outlined pill and Sign out is the
+ * primary one: the destructive action is the one you came here to do, so
+ * dressing it as the scary option would be a lie about what you just tapped.
+ */
+function SignOutCard({
+  visible,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { colors: c } = useTheme();
+  const reduce = useReducedMotion();
+  const rise = useSharedValue(reduce ? 0 : 24);
+
+  useEffect(() => {
+    if (!visible) {
+      rise.value = reduce ? 0 : 24;
+      return;
+    }
+    rise.value = withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic) });
+  }, [visible, rise, reduce]);
+
+  const cardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: rise.value }] }));
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>
+      <Animated.View
+        entering={FadeIn.duration(200)}
+        exiting={FadeOut.duration(160)}
+        style={{ flex: 1, backgroundColor: 'rgba(11, 6, 4, 0.72)', justifyContent: 'flex-end' }}
+      >
+        {/* Tapping the dimmed stage is the same as Cancel. */}
+        <Pressable
+          onPress={onCancel}
+          accessible={false}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <Animated.View style={[cardStyle, { paddingHorizontal: 24, paddingBottom: 104 }]}>
+          <PaperCard rotate={-0.5} shadow={8} style={{ paddingHorizontal: 22, paddingTop: 24, paddingBottom: 20 }}>
+            <View style={{ alignItems: 'center' }}>
+              <Sketch name="stageDoor" size={58} stroke={c.paperInk} weight={1.9} />
+            </View>
+            <Text
+              style={{
+                marginTop: 14,
+                textAlign: 'center',
+                fontFamily: 'InstrumentSerif_400Regular',
+                fontSize: 30,
+                lineHeight: 34,
+                color: c.paperInk,
+              }}
+            >
+              Sign out?
+            </Text>
+            <Text
+              style={{
+                marginTop: 10,
+                textAlign: 'center',
+                fontFamily: 'BricolageGrotesque_500Medium',
+                fontSize: 14,
+                lineHeight: 21,
+                color: c.paperMuted,
+              }}
+            >
+              Your saved monologues stay on your account. Sign back in any time to pick them up.
+            </Text>
+            <View style={{ marginTop: 20, gap: 10 }}>
+              <PrimaryPill label="Sign out" onPress={onConfirm} height={50} block haptic="medium" />
+              {/* The outline pill takes the theme foreground, and this one sits
+                  on paper in both schemes — so it is pinned to ink here rather
+                  than allowed to go cream on a dark-mode card. */}
+              <Pressable
+                onPress={onCancel}
+                accessibilityRole="button"
+                style={{
+                  height: 46,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 999,
+                  borderWidth: 1.5,
+                  borderColor: c.paperInk,
+                }}
+              >
+                <Text
+                  style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 14, color: c.paperInk }}
+                >
+                  Cancel
+                </Text>
+              </Pressable>
+            </View>
+          </PaperCard>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+/**
+ * The plan as a sheet of paper on a block of gel: an eyebrow, a big serif line,
+ * three filament bars, and the action. Honest — driven by the server counter,
+ * never a hardcoded "two days left".
+ *
+ * The amber bloom that used to breathe behind it is gone with the dark card it
+ * was bleeding into. A glow on cream is a stain.
  */
 function PlanCard({
   readState,
@@ -313,7 +459,6 @@ function PlanCard({
   onStay: () => void;
 }) {
   const { colors: c } = useTheme();
-  const reduce = useReducedMotion();
   const loaded = readState !== undefined || paid;
 
   const limit = readState && readState.reads_limit > 0 ? readState.reads_limit : 3;
@@ -322,18 +467,7 @@ function PlanCard({
   // Bars stay dark until we actually know, so the card doesn't flip on load.
   const litBars = !loaded ? 0 : paid ? 3 : Math.max(0, Math.min(3, Math.round((left / limit) * 3)));
 
-  // The bloom breathes on the 7s flicker.
-  const bloom = useSharedValue(0.12);
-  useEffect(() => {
-    if (reduce) {
-      bloom.value = 0.14;
-      return;
-    }
-    bloom.value = withRepeat(withTiming(0.2, { duration: 3500, easing: Easing.inOut(Easing.quad) }), -1, true);
-  }, [reduce, bloom]);
-  const bloomStyle = useAnimatedStyle(() => ({ opacity: bloom.value }));
-
-  const eyebrow = !loaded ? '' : paid ? 'THE WHOLE STAGE' : 'FREE';
+  const eyebrow = !loaded ? '' : paid ? 'The whole stage' : 'Free';
   // "3 of 3 reads left" is a strange thing to tell someone who has not read
   // anything yet — it reads like a countdown that has already started, and the
   // three filament bars below already say "of three". So an untouched account
@@ -350,41 +484,34 @@ function PlanCard({
           : 'Your free reads\nare spent.';
 
   return (
-    <View
-      style={{
-        borderRadius: 22,
-        borderWidth: 1,
-        borderColor: 'rgba(243, 130, 29, 0.3)',
-        backgroundColor: c.card,
-        padding: 22,
-        overflow: 'hidden',
-      }}
-    >
-      {/* amber bloom bleeding from the top-left */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          bloomStyle,
-          {
-            position: 'absolute',
-            top: -80,
-            left: -80,
-            width: 220,
-            height: 220,
-            borderRadius: 110,
-            backgroundColor: colors.stageGlow,
-          },
-        ]}
-      />
-      <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase', color: colors.stageGlow }}>
+    <PaperCard rotate={-0.5} shadow={8} style={{ padding: 20 }}>
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: 'CourierPrime_700Bold',
+          fontSize: 11,
+          letterSpacing: 2.2,
+          textTransform: 'uppercase',
+          color: colors.primary,
+        }}
+      >
         {eyebrow}
       </Text>
-      <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 28, lineHeight: 34, color: c.foreground, marginTop: 8 }}>
+      <Text
+        style={{
+          marginTop: 6,
+          fontFamily: 'InstrumentSerif_400Regular',
+          fontSize: 30,
+          lineHeight: 34,
+          letterSpacing: -0.4,
+          color: c.paperInk,
+        }}
+      >
         {headline}
       </Text>
 
       {/* three filament bars */}
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
         {[0, 1, 2].map((i) => (
           <View
             key={i}
@@ -392,22 +519,23 @@ function PlanCard({
               flex: 1,
               height: 4,
               borderRadius: 2,
-              backgroundColor: i < litBars ? colors.stageGlow : c.inactiveMeter,
-              shadowColor: colors.stageGlow,
-              shadowOpacity: i < litBars ? 0.8 : 0,
-              shadowRadius: 5,
-              shadowOffset: { width: 0, height: 0 },
+              backgroundColor: i < litBars ? colors.primary : c.paperRule,
             }}
           />
         ))}
       </View>
 
+      {/* The plan card is a stretching column, so the pill says out loud that it
+          hugs its label rather than running the full width of the card. */}
       {loaded && !paid ? (
-        <View style={{ marginTop: 18, alignItems: 'flex-start' }}>
-          <WordArrow label="Stay on" onPress={onStay} />
-        </View>
+        <PrimaryPill
+          label="Stay on"
+          onPress={onStay}
+          height={44}
+          style={{ marginTop: 16, alignSelf: 'flex-start' }}
+        />
       ) : null}
-    </View>
+    </PaperCard>
   );
 }
 
@@ -435,6 +563,10 @@ function providerLabel(session: Session | null): string | null {
  * frequently one the actor has never typed and won't recognise, so the provider
  * line matters more than the address does — "Signed in with Apple" is the fact
  * they can act on when a purchase looks like it went to the wrong place.
+ *
+ * A stage card, not a paper one: it is a readout about the app, not a page out
+ * of a script, and three cream blocks stacked down the screen would have made
+ * the plan card stop being the thing you look at first.
  */
 function IdentityCard({
   session,
@@ -460,12 +592,12 @@ function IdentityCard({
       accessibilityRole={isAuthenticated ? undefined : 'button'}
       accessibilityLabel={isAuthenticated ? undefined : 'Sign in'}
       style={{
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: isAuthenticated ? c.cardBorder : 'rgba(243, 130, 29, 0.3)',
-        backgroundColor: c.card,
-        paddingVertical: 16,
-        paddingHorizontal: 18,
+        borderRadius: radius.card,
+        borderWidth: 1.5,
+        borderColor: isAuthenticated ? c.border : colors.primary,
+        backgroundColor: c.panel,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 13,
@@ -473,13 +605,13 @@ function IdentityCard({
     >
       <Ionicons
         name={isAuthenticated ? 'person-circle-outline' : 'ellipse-outline'}
-        size={26}
-        color={isAuthenticated ? colors.stageGlow : c.mutedForeground}
+        size={24}
+        color={isAuthenticated ? c.accentText : c.mutedForeground}
       />
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           numberOfLines={1}
-          style={{ fontFamily: 'Montserrat_500Medium', fontSize: 14, color: c.foreground }}
+          style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, color: c.foreground }}
         >
           {isAuthenticated ? (email ?? 'Signed in') : 'Not signed in'}
         </Text>
@@ -505,9 +637,7 @@ function IdentityCard({
             : '(tap to sign in and keep your saves.)'}
         </Text>
       </View>
-      {isAuthenticated ? null : (
-        <Ionicons name="chevron-forward" size={16} color={colors.stageGlow} />
-      )}
+      {isAuthenticated ? null : <Ionicons name="chevron-forward" size={16} color={c.accentText} />}
     </Container>
   );
 }
@@ -523,26 +653,60 @@ function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: (
     <Container
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `${n} kept. Open your book` : undefined}
       style={{
         flex: 1,
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: c.cardBorder,
-        backgroundColor: c.card,
-        paddingVertical: 20,
-        paddingHorizontal: 18,
+        borderRadius: radius.card,
+        borderWidth: 1.5,
+        borderColor: c.border,
+        backgroundColor: c.panel,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
       }}
     >
-      <Text style={{ fontFamily: 'PlayfairDisplay_600SemiBold', fontSize: 30, color: c.foreground }}>{n}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-        <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.mutedForeground }}>
-          {label}
-        </Text>
-        {onPress ? (
-          <Ionicons name="chevron-forward" size={13} color={c.mutedForeground} style={{ marginLeft: 2 }} />
-        ) : null}
+      <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 32, color: c.foreground }}>
+        {n}
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+        <StageDirection numberOfLines={1}>{label}</StageDirection>
+        {onPress ? <Ionicons name="chevron-forward" size={12} color={c.chevron} /> : null}
       </View>
     </Container>
+  );
+}
+
+/**
+ * The per-row busy state: a 16pt ring with one gel-yellow arc leading it.
+ *
+ * `ActivityIndicator` is the system's spinner and looks it — the one piece of
+ * iOS chrome left on a screen that had just stopped using a system dialog.
+ */
+function Ring() {
+  const { colors: c } = useTheme();
+  const reduce = useReducedMotion();
+  const spin = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduce) return;
+    spin.value = withRepeat(withTiming(1, { duration: 800, easing: Easing.linear }), -1, false);
+  }, [reduce, spin]);
+
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value * 360}deg` }] }));
+
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          width: 16,
+          height: 16,
+          borderRadius: 999,
+          borderWidth: 2,
+          borderColor: c.inactiveMeter,
+          borderTopColor: c.yellow,
+        },
+      ]}
+    />
   );
 }
 
@@ -572,34 +736,40 @@ function Row({
       }}
       disabled={busy}
       accessibilityRole="button"
+      accessibilityState={{ busy: Boolean(busy) }}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 17,
+        gap: 12,
+        paddingVertical: 16,
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: c.divider,
       }}
     >
-      <Text className="text-[16px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground }}>
+      <Text
+        numberOfLines={1}
+        style={{ flex: 1, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 15, color: c.foreground }}
+      >
         {label}
       </Text>
       {busy ? (
-        <ActivityIndicator color={c.mutedForeground} />
+        <Ring />
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           {value ? (
             <Text
+              numberOfLines={1}
               style={{
-                fontFamily: 'Montserrat_500Medium',
+                fontFamily: 'BricolageGrotesque_500Medium',
                 fontSize: 14,
-                color: valueLit ? colors.stageGlow : c.mutedForeground,
+                color: valueLit ? c.accentText : c.mutedForeground,
               }}
             >
               {value}
             </Text>
           ) : null}
-          <Ionicons name="chevron-forward" size={18} color={c.chevron} />
+          <Ionicons name="chevron-forward" size={17} color={c.chevron} />
         </View>
       )}
     </Pressable>
@@ -616,7 +786,14 @@ function AppearanceRow() {
   ];
   return (
     <View style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Text className="text-[16px]" style={{ fontFamily: 'Montserrat_400Regular', color: c.foreground, marginBottom: 12 }}>
+      <Text
+        style={{
+          fontFamily: 'BricolageGrotesque_500Medium',
+          fontSize: 15,
+          color: c.foreground,
+          marginBottom: 12,
+        }}
+      >
         Appearance
       </Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -634,14 +811,24 @@ function AppearanceRow() {
               style={{
                 flex: 1,
                 alignItems: 'center',
-                paddingVertical: 11,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: active ? colors.stageGlow : c.border,
-                backgroundColor: active ? 'rgba(243, 130, 29, 0.14)' : 'transparent',
+                paddingVertical: 10,
+                borderRadius: radius.card,
+                borderWidth: 1.5,
+                // The gel is the selection everywhere else in v2 — chips, marks,
+                // the arrow disc — so it is the selection here too, with ink on
+                // it rather than the house colour.
+                borderColor: active ? c.ink : c.border,
+                backgroundColor: active ? c.yellow : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, color: active ? colors.stageGlow : c.mutedForeground }}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: active ? 'BricolageGrotesque_700Bold' : 'BricolageGrotesque_600SemiBold',
+                  fontSize: 13,
+                  color: active ? c.ink : c.mutedForeground,
+                }}
+              >
                 {o.label}
               </Text>
             </Pressable>

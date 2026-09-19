@@ -8,14 +8,20 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Imported file-by-file rather than from the package root: the root re-exports
 // every weight and italic, and Metro will happily ship all ~2MB of them.
-import PlayfairDisplay_600SemiBold from '@expo-google-fonts/playfair-display/600SemiBold/PlayfairDisplay_600SemiBold.ttf';
-import PlayfairDisplay_500Medium_Italic from '@expo-google-fonts/playfair-display/500Medium_Italic/PlayfairDisplay_500Medium_Italic.ttf';
+// Display and numerals. Instrument Serif ships one weight and its italic, which
+// is the whole point of it — the headline voice is the shape of the face, not a
+// weight you dial up. It replaces Playfair everywhere.
+import InstrumentSerif_400Regular from '@expo-google-fonts/instrument-serif/400Regular/InstrumentSerif_400Regular.ttf';
+import InstrumentSerif_400Regular_Italic from '@expo-google-fonts/instrument-serif/400Regular_Italic/InstrumentSerif_400Regular_Italic.ttf';
+// The words of the play. Unchanged.
 import CourierPrime_400Regular from '@expo-google-fonts/courier-prime/400Regular/CourierPrime_400Regular.ttf';
 import CourierPrime_400Regular_Italic from '@expo-google-fonts/courier-prime/400Regular_Italic/CourierPrime_400Regular_Italic.ttf';
 import CourierPrime_700Bold from '@expo-google-fonts/courier-prime/700Bold/CourierPrime_700Bold.ttf';
-import Montserrat_400Regular from '@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf';
-import Montserrat_500Medium from '@expo-google-fonts/montserrat/500Medium/Montserrat_500Medium.ttf';
-import Montserrat_600SemiBold from '@expo-google-fonts/montserrat/600SemiBold/Montserrat_600SemiBold.ttf';
+// Everything the app itself says. Replaces Montserrat; 500 is the new body
+// weight, so there is no 400 to load.
+import BricolageGrotesque_500Medium from '@expo-google-fonts/bricolage-grotesque/500Medium/BricolageGrotesque_500Medium.ttf';
+import BricolageGrotesque_600SemiBold from '@expo-google-fonts/bricolage-grotesque/600SemiBold/BricolageGrotesque_600SemiBold.ttf';
+import BricolageGrotesque_700Bold from '@expo-google-fonts/bricolage-grotesque/700Bold/BricolageGrotesque_700Bold.ttf';
 
 import '../src/global.css';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
@@ -48,14 +54,14 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_500Medium_Italic,
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
     CourierPrime_400Regular,
     CourierPrime_400Regular_Italic,
     CourierPrime_700Bold,
-    Montserrat_400Regular,
-    Montserrat_500Medium,
-    Montserrat_600SemiBold,
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
   });
 
   useEffect(() => {

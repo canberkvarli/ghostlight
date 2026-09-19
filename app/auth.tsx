@@ -177,7 +177,7 @@ export default function Auth() {
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
             <Text
-              style={{ fontFamily: 'Montserrat_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
+              style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
             >
               Not now
             </Text>
@@ -226,7 +226,7 @@ export default function Auth() {
             className="text-center text-foreground"
             style={{
               marginTop: typing ? 8 : emailOpen ? 16 : 28,
-              fontFamily: 'PlayfairDisplay_600SemiBold',
+              fontFamily: 'InstrumentSerif_400Regular',
               fontSize: typing ? 20 : emailOpen ? 26 : 40,
               lineHeight: typing ? 26 : emailOpen ? 32 : 46,
             }}
@@ -371,7 +371,7 @@ export default function Auth() {
                   ) : (
                     <Text
                       style={{
-                        fontFamily: 'Montserrat_400Regular',
+                        fontFamily: 'BricolageGrotesque_500Medium',
                         fontSize: 12,
                         color: c.mutedForeground,
                         textDecorationLine: 'underline',
@@ -389,7 +389,7 @@ export default function Auth() {
             <Animated.Text
               entering={FadeIn.duration(200)}
               className="mt-4 text-center text-[13px]"
-              style={{ fontFamily: 'Montserrat_400Regular', color: c.mutedForeground }}
+              style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}
             >
               {notice}
             </Animated.Text>
@@ -402,7 +402,7 @@ export default function Auth() {
           ) : null}
 
           {error ? (
-            <Text className="mt-4 text-center text-[13px]" style={{ fontFamily: 'Montserrat_400Regular', color: colors.primary }}>
+            <Text className="mt-4 text-center text-[13px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: colors.primary }}>
               {error}
             </Text>
           ) : null}
@@ -472,7 +472,7 @@ function WayRow({
           style,
           quiet
             ? { fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, color: c.chevron }
-            : { fontFamily: 'Montserrat_500Medium', fontSize: 15, color: c.foreground },
+            : { fontFamily: 'BricolageGrotesque_500Medium', fontSize: 15, color: c.foreground },
         ]}
       >
         {label}
@@ -530,7 +530,7 @@ function OutlineButton({
       ) : (
         <>
           <Ionicons name={icon} size={17} color={c.foreground} style={{ marginRight: 10 }} />
-          <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 16, color: c.foreground }}>
+          <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 16, color: c.foreground }}>
             {label}
           </Text>
         </>
@@ -603,7 +603,7 @@ function LabelledField({
             flex: 1,
             height: 34,
             color: c.foreground,
-            fontFamily: 'Montserrat_400Regular',
+            fontFamily: 'BricolageGrotesque_500Medium',
             fontSize: 16,
             paddingHorizontal: 2,
             paddingBottom: 4,
@@ -611,7 +611,7 @@ function LabelledField({
         />
         {accessory ? <View style={{ paddingBottom: 8, paddingLeft: 8 }}>{accessory}</View> : null}
       </View>
-      <View style={{ height: 1, backgroundColor: focused ? colors.stageGlow : c.border }} />
+      <View style={{ height: 1, backgroundColor: focused ? c.accentText : c.border }} />
       {/* Absolute so it can travel over the input without pushing it. */}
       <Animated.Text
         pointerEvents="none"
@@ -621,9 +621,9 @@ function LabelledField({
             position: 'absolute',
             left: 2,
             bottom: 9,
-            fontFamily: 'Montserrat_400Regular',
+            fontFamily: 'BricolageGrotesque_500Medium',
             letterSpacing: 0.4,
-            color: focused ? colors.stageGlow : c.mutedForeground,
+            color: focused ? c.accentText : c.mutedForeground,
           },
         ]}
       >
