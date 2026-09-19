@@ -71,5 +71,6 @@ metro-file-map-expo-*
 # a subdirectory of itself.
 eas-cli-nodejs/
 
-# Generated growth assets — regenerate with npm run cards
-content/cards/
+# Generated growth assets. The SVG + caption for each card is small, text, and worth
+# keeping as an archive of what has already been posted; the PNG renders are not.
+content/cards/*.png

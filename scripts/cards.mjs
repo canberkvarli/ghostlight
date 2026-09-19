@@ -214,6 +214,14 @@ function scrub(text) {
   // A bare trailing direction, which sometimes runs on with no bracket at all.
   t = t.replace(/\s*(?:Enter|Exeunt|Exit)\s+[A-Z][^.]{0,60}\.?\s*$/, '');
 
+  // Unbalanced brackets the scrape left behind — Marlowe's Gaveston carries a
+  // bare "[ (Aside.)", whose paren goes above and whose "[" would otherwise stay.
+  t = t.replace(/[[\]()]/g, ' ');
+
+  // Collapse the holes all of that just punched, and tidy the punctuation that
+  // was sitting either side of a removed group.
+  t = t.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').replace(/([,;:])\s*\1+/g, '$1');
+
   const cuts = [
     // "London: Samuel French Acting Edition. p.11." and relatives
     /\s*[A-Z][^.]{0,40}\.\s*[A-Z][\w' ]+\s*\.\s*(London|New York|Chicago)\s*:.*$/,

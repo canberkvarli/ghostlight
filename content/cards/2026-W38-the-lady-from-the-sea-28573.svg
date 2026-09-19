@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <defs>
+    <radialGradient id="spot" cx="50%" cy="34%" r="62%">
+      <stop offset="0%"   stop-color="#e0731f" stop-opacity="0.16"/>
+      <stop offset="32%"  stop-color="#e0731f" stop-opacity="0.07"/>
+      <stop offset="68%"  stop-color="#e0731f" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The halo has to fall off. A flat circle at 0.14 reads as a brown disc
+         painted on the backdrop — an object, not light. -->
+    <radialGradient id="halo">
+      <stop offset="0%"   stop-color="#e0731f" stop-opacity="0.55"/>
+      <stop offset="35%"  stop-color="#e0731f" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#e0731f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1080" height="1350" fill="#130b08"/>
+  <rect width="1080" height="1350" fill="url(#spot)"/>
+
+  <!-- the bulb -->
+  <line x1="540" y1="104" x2="540" y2="162" stroke="#4a4038" stroke-width="3"/>
+  <circle cx="540" cy="104" r="72" fill="url(#halo)"/>
+  <circle cx="540" cy="104" r="8"  fill="#ffd9a8"/>
+
+  <!-- hard offset shadow: a two-colour print, misregistered -->
+  <rect x="82" y="220" width="936" height="900" rx="6" fill="#f2e22b"/>
+  <rect x="72" y="210" width="936" height="900" rx="6"
+        fill="#f3eee6" stroke="#15110f" stroke-width="3"/>
+
+  <text x="136" y="288" font-family="'Playfair Display',Georgia,serif"
+        font-size="54" font-weight="700" fill="#15110f">Arnholm</text>
+  <text x="136" y="328" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="24" fill="#5a5450">The Lady from the Sea · Henrik Ibsen · 1888</text>
+  <line x1="136" y1="350" x2="944" y2="350"
+        stroke="#dad3c8" stroke-width="2"/>
+
+    <text x="136" y="380" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">Perhaps you are right. Of course, you</text>
+    <text x="136" y="426" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">didn't--you could not know it was for your</text>
+    <text x="136" y="472" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">sake I made this journey. I did, Bolette. In</text>
+    <text x="136" y="518" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">the spring I received a letter from your</text>
+    <text x="136" y="564" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">father, and in it there was a passage that</text>
+    <text x="136" y="610" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">made me think--hm--that you held your former</text>
+    <text x="136" y="656" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">teacher in--in a little more than friendly</text>
+    <text x="136" y="702" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">remembrance. He did not mean it so. But I</text>
+    <text x="136" y="748" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">worked myself into the belief that here was</text>
+    <text x="136" y="794" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">a young girl longing for me to come</text>
+    <text x="136" y="840" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">again--No, you mustn't interrupt me, dear</text>
+    <text x="136" y="886" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">Bolette! And--you see, when a man like</text>
+    <text x="136" y="932" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">myself, who is no longer quite young, has</text>
+    <text x="136" y="978" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">such a belief--or fancy, it makes an…</text>
+
+  <text x="136" y="1066" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="21" letter-spacing="2" fill="#897e74">1 MIN   ·   ROMANTIC   ·   AGE 40s</text>
+
+  <text x="540" y="1254" text-anchor="middle" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="26" font-weight="600" letter-spacing="4" fill="#e0731f">GHOST LIGHT</text>
+  <text x="540" y="1292" text-anchor="middle" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="21" letter-spacing="1" fill="#b5ada3">Full piece in the app · free to read</text>
+</svg>

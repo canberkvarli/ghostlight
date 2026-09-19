@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <defs>
+    <radialGradient id="spot" cx="50%" cy="34%" r="62%">
+      <stop offset="0%"   stop-color="#e0731f" stop-opacity="0.16"/>
+      <stop offset="32%"  stop-color="#e0731f" stop-opacity="0.07"/>
+      <stop offset="68%"  stop-color="#e0731f" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The halo has to fall off. A flat circle at 0.14 reads as a brown disc
+         painted on the backdrop — an object, not light. -->
+    <radialGradient id="halo">
+      <stop offset="0%"   stop-color="#e0731f" stop-opacity="0.55"/>
+      <stop offset="35%"  stop-color="#e0731f" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#e0731f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1080" height="1350" fill="#130b08"/>
+  <rect width="1080" height="1350" fill="url(#spot)"/>
+
+  <!-- the bulb -->
+  <line x1="540" y1="104" x2="540" y2="162" stroke="#4a4038" stroke-width="3"/>
+  <circle cx="540" cy="104" r="72" fill="url(#halo)"/>
+  <circle cx="540" cy="104" r="8"  fill="#ffd9a8"/>
+
+  <!-- hard offset shadow: a two-colour print, misregistered -->
+  <rect x="82" y="220" width="936" height="900" rx="6" fill="#f2e22b"/>
+  <rect x="72" y="210" width="936" height="900" rx="6"
+        fill="#f3eee6" stroke="#15110f" stroke-width="3"/>
+
+  <text x="136" y="288" font-family="'Playfair Display',Georgia,serif"
+        font-size="54" font-weight="700" fill="#15110f">Gaveston</text>
+  <text x="136" y="328" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="24" fill="#5a5450">Edward the Second · Christopher Marlowe · 1592</text>
+  <line x1="136" y1="350" x2="944" y2="350"
+        stroke="#dad3c8" stroke-width="2"/>
+
+    <text x="136" y="380" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">Let me see; thou wouldst do well To wait at</text>
+    <text x="136" y="426" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">my trencher, and tell me lies at</text>
+    <text x="136" y="472" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">dinner-time; And, as I like your</text>
+    <text x="136" y="518" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">discoursing, I'll have you.-- And what art</text>
+    <text x="136" y="564" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">thou? Why, there are hospitals for such as</text>
+    <text x="136" y="610" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">you: I have no war; and therefore, sir, be</text>
+    <text x="136" y="656" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">gone. Ay, ay, these words of his move me as</text>
+    <text x="136" y="702" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">much As if a goose should play the</text>
+    <text x="136" y="748" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">porcupine, And dart her plumes, thinking to</text>
+    <text x="136" y="794" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">pierce my breast. But yet it is no pain to</text>
+    <text x="136" y="840" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">speak men fair; I'll flatter these, and make</text>
+    <text x="136" y="886" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">them live in hope.-- You know that I came</text>
+    <text x="136" y="932" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">lately out of France, And yet I have not</text>
+    <text x="136" y="978" font-family="'Courier Prime','Courier New',monospace" font-size="30" fill="#221c19">view'd my lord the king: If I speed well…</text>
+
+  <text x="136" y="1066" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="21" letter-spacing="2" fill="#897e74">1 MIN   ·   SARCASTIC   ·   AGE 20s</text>
+
+  <text x="540" y="1254" text-anchor="middle" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="26" font-weight="600" letter-spacing="4" fill="#e0731f">GHOST LIGHT</text>
+  <text x="540" y="1292" text-anchor="middle" font-family="Montserrat,Helvetica,sans-serif"
+        font-size="21" letter-spacing="1" fill="#b5ada3">Full piece in the app · free to read</text>
+</svg>
