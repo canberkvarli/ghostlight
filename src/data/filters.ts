@@ -20,7 +20,8 @@ export type FilterGroup =
   | 'tone'
   | 'emotion'
   | 'max_duration'
-  | 'freshness';
+  | 'freshness'
+  | 'category';
 
 export type Selection = Record<FilterGroup, string | undefined>;
 
@@ -31,6 +32,7 @@ export const EMPTY_SELECTION: Selection = {
   emotion: undefined,
   max_duration: undefined,
   freshness: undefined,
+  category: undefined,
 };
 
 export interface FilterChip {
@@ -63,6 +65,12 @@ export const FILTER_CHIPS: FilterChip[] = [
 export interface FilterGroupDef {
   group: FilterGroup;
   title: string;
+  /**
+   * Hidden in the Film & TV house. `category` is a property of a play, so
+   * "classical or contemporary" is a question the Screen catalogue cannot
+   * answer — showing the chips there would offer a filter that returns nothing.
+   */
+  theatreOnly?: boolean;
   /**
    * Craft filters — tone, emotion, and hiding the overdone. Free users see them
    * (the value is visible) but a tap routes to the paywall rather than toggling.
@@ -100,6 +108,31 @@ export const SHEET_GROUPS: FilterGroupDef[] = [
       chip('max_duration', '(under 1 min.)', '60'),
       chip('max_duration', '(under 2 min.)', '120'),
       chip('max_duration', '(under 3 min.)', '180'),
+    ],
+  },
+  {
+    /**
+     * Classical or contemporary — free, and deliberately sitting with the
+     * identity basics rather than behind the paywall.
+     *
+     * This is not a craft preference, it is a requirement printed on the
+     * breakdown: drama school auditions ask for "one classical, one
+     * contemporary", and an actor arriving here has usually been handed the
+     * word already. Charging for the ability to answer the question the notice
+     * asked would be charging for the app's one job.
+     *
+     * The line the data draws is roughly 1900 — Shakespeare, the Greeks,
+     * Molière, Ibsen, Wilde and the Restoration on one side, everything modern
+     * on the other. That matches what panels mean by the words; where it is
+     * argued over (the 1890–1950 band: Chekhov, Shaw, O'Neill, Coward) no two
+     * panels agree either, so no filter can be right for all of them.
+     */
+    group: 'category',
+    title: '(what era.)',
+    theatreOnly: true,
+    chips: [
+      chip('category', '(classical.)', 'classical'),
+      chip('category', '(contemporary.)', 'contemporary'),
     ],
   },
   {
@@ -174,5 +207,6 @@ export function selectionToParams(selected: Selection): SearchParams {
   if (selected.emotion) params.emotion = selected.emotion;
   if (selected.max_duration) params.max_duration = Number(selected.max_duration);
   if (selected.freshness) params.max_overdone_score = Number(selected.freshness);
+  if (selected.category) params.category = selected.category;
   return params;
 }

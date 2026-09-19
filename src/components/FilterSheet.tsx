@@ -7,6 +7,7 @@ import { PrimaryPill } from './PrimaryPill';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { SHEET_GROUPS, chipKey, chipText, type FilterChip, type Selection } from '../data/filters';
+import type { Medium } from '../theme/medium';
 
 /**
  * The "(more filters.)" sheet. Free identity + length filters (who / how old /
@@ -26,6 +27,7 @@ export function FilterSheet({
   isPaid,
   glow,
   chipFill,
+  medium,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -37,8 +39,12 @@ export function FilterSheet({
   isPaid: boolean;
   glow: string;
   chipFill: string;
+  medium: Medium;
 }) {
   const { colors: c } = useTheme();
+
+  // The Screen house has no plays in it, so the era group does not belong there.
+  const groups = SHEET_GROUPS.filter((g) => !g.theatreOnly || medium === 'theatre');
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -83,9 +89,9 @@ export function FilterSheet({
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
           >
-            {SHEET_GROUPS.map((g) => {
+            {groups.map((g) => {
               const locked = Boolean(g.premium) && !isPaid;
-              const firstPremium = g.premium && SHEET_GROUPS.find((x) => x.premium)?.group === g.group;
+              const firstPremium = g.premium && groups.find((x) => x.premium)?.group === g.group;
               return (
                 <View key={g.group} style={{ marginBottom: 30 }}>
                   {/* A single quiet divider introduces the craft filters. */}

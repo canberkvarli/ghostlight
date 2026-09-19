@@ -43,7 +43,7 @@ export function sourceTag(item: Monologue): string | null {
   if (item.sourceType === 'tv') return 'tv';
   const category = (item.category ?? '').toLowerCase();
   if (category.includes('classic')) return 'classical';
-  if (category.includes('contemporary') || category.includes('modern')) return 'contemporary';
+  if (category.includes('contemporary')) return 'contemporary';
   return null;
 }
 

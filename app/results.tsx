@@ -102,6 +102,7 @@ export default function Results() {
     emotion?: string;
     max_duration?: string;
     max_overdone_score?: string;
+    category?: string;
     medium?: string;
   }>();
 
@@ -123,8 +124,24 @@ export default function Results() {
     if (raw.emotion) p.emotion = raw.emotion;
     if (raw.max_duration) p.max_duration = Number(raw.max_duration);
     if (raw.max_overdone_score) p.max_overdone_score = Number(raw.max_overdone_score);
+    // Theatre only. `category` is a property of a PLAY — classical or
+    // contemporary — and the Film & TV house is neither. Letting it through in
+    // screen mode would hand searchScreen a constraint that every film row
+    // either fails or satisfies by accident, and the actor would see an empty
+    // marquee with no way to tell why.
+    if (raw.category && medium === 'theatre') p.category = raw.category;
     return p;
-  }, [raw.q, raw.gender, raw.age_range, raw.tone, raw.emotion, raw.max_duration, raw.max_overdone_score]);
+  }, [
+    raw.q,
+    raw.gender,
+    raw.age_range,
+    raw.tone,
+    raw.emotion,
+    raw.max_duration,
+    raw.max_overdone_score,
+    raw.category,
+    medium,
+  ]);
 
   /** Everything the search was narrowed by, not counting the words themselves. */
   const filterCount = useMemo(

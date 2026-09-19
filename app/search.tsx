@@ -236,6 +236,13 @@ export default function Search() {
       if (next === medium) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
       setMediumState(next);
+      // Crossing to the Screen house drops the era selection. It is a property
+      // of a play, its chips are hidden over there, and a filter you can still
+      // feel but can no longer see is the worst of both — an empty marquee and
+      // nothing on screen explaining it.
+      if (next === 'screen') {
+        setSelected((s) => (s.category ? { ...s, category: undefined } : s));
+      }
       flash.value = withSequence(withTiming(1, { duration: 140 }), withTiming(0, { duration: 520 }));
       // Changing house is a lighting change, so the lamp restrikes: a hard dip,
       // two stutters, then settle. The colour wash alone read as a repaint.
@@ -791,6 +798,7 @@ export default function Search() {
         isPaid={isPaid}
         glow={pal.accentText}
         chipFill={pal.chipFill}
+        medium={medium}
       />
     </View>
   );
