@@ -70,3 +70,6 @@ metro-file-map-expo-*
 # next run its presence breaks the upload: eas tries to copy the project into
 # a subdirectory of itself.
 eas-cli-nodejs/
+
+# Generated growth assets — regenerate with npm run cards
+content/cards/

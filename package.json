@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "api:types": "openapi-typescript https://api.actorrise.com/openapi.json -o src/api/schema.d.ts",
-    "prebuild": "expo prebuild --clean"
+    "prebuild": "expo prebuild --clean",
+    "cards": "node scripts/cards.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
@@ -63,6 +64,7 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "openapi-typescript": "^7.13.0",
+    "playwright": "^1.63.0",
     "typescript": "~6.0.3"
   }
 }
