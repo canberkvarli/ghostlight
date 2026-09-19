@@ -72,8 +72,27 @@ export function PrimaryPill({
     press.value = withTiming(v, { duration: v ? 110 : 280 });
   };
 
+  /**
+   * The fill has to separate from the floor it is standing on, and ink does not
+   * do that on the ink stage: #15110f against #130b08 is about 1.1:1, so on a
+   * dark screen the pill was an invisible rectangle that you located by its
+   * border, its label and its gel disc. It read as three loose pieces rather
+   * than one button — most obviously on the launch screen, where Enter is the
+   * only thing to press.
+   *
+   * On paper, ink is exactly right and stays. On the stage the fill lifts to a
+   * warm near-black that is visibly a shape, and the border comes up with it.
+   */
+  const fill = outline ? 'transparent' : c.isLight ? colors.ink : '#241a14';
+  const edge = outline ? c.foreground : c.isLight ? colors.ink : '#6b5b4e';
+
   return (
-    <Animated.View style={[pillStyle, block ? { alignSelf: 'stretch' } : { alignSelf: 'flex-start' }, style]}>
+    // `alignSelf` is deliberately left alone unless `block` asks for stretch.
+    // Forcing `flex-start` here meant the pill pinned itself to the left edge of
+    // every centred parent — it ignored the launch screen's `alignItems:
+    // 'center'` entirely — and top-aligned itself inside any row. A caller that
+    // wants it to hug in a stretching column says so in `style`.
+    <Animated.View style={[pillStyle, block ? { alignSelf: 'stretch' } : null, style]}>
       <Pressable
         onPress={onPress}
         disabled={disabled}
@@ -97,8 +116,8 @@ export function PrimaryPill({
           paddingRight: outline ? 22 : (height - disc) / 2,
           borderRadius: 999,
           borderWidth: 1.5,
-          borderColor: outline ? c.foreground : colors.stageLine,
-          backgroundColor: outline ? 'transparent' : colors.ink,
+          borderColor: edge,
+          backgroundColor: fill,
           opacity: disabled ? 0.45 : 1,
           justifyContent: outline ? 'center' : 'space-between',
         }}

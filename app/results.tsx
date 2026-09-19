@@ -453,7 +453,7 @@ function StageHeader({
           marginTop: 8,
           fontFamily: 'InstrumentSerif_400Regular',
           fontSize: 40,
-          lineHeight: 42,
+          lineHeight: 45,
           letterSpacing: -0.8,
           color: c.foreground,
         }}
@@ -721,7 +721,7 @@ function Headline({ lines, em, tint }: { lines: string[]; em: number; tint: stri
             textAlign: 'center',
             fontFamily: i === em ? 'InstrumentSerif_400Regular_Italic' : 'InstrumentSerif_400Regular',
             fontSize: 38,
-            lineHeight: 38,
+            lineHeight: 43,
             letterSpacing: -0.6,
             color: i === em ? tint : c.foreground,
           }}

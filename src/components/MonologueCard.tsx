@@ -181,7 +181,7 @@ function MonologueCardImpl({
             style={{
               fontFamily: 'InstrumentSerif_400Regular_Italic',
               fontSize: 22,
-              lineHeight: 24,
+              lineHeight: 25,
               color: c.paperFaint,
             }}
           >

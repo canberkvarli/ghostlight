@@ -490,7 +490,7 @@ export default function Read() {
                     marginTop: 12,
                     fontFamily: 'InstrumentSerif_400Regular',
                     fontSize: 42,
-                    lineHeight: 42,
+                    lineHeight: 47,
                     letterSpacing: -0.8,
                     color: c.paperInk,
                     transformOrigin: 'left',
@@ -666,7 +666,7 @@ export default function Read() {
                       marginTop: 12,
                       fontFamily: 'InstrumentSerif_400Regular',
                       fontSize: 26,
-                      lineHeight: 28,
+                      lineHeight: 29,
                       textAlign: 'center',
                       color: c.paperInk,
                     }}

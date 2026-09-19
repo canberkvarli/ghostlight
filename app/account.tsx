@@ -245,7 +245,7 @@ export default function Account() {
             style={{
               fontFamily: 'InstrumentSerif_400Regular',
               fontSize: 40,
-              lineHeight: 42,
+              lineHeight: 45,
               letterSpacing: -0.8,
               color: c.foreground,
             }}
@@ -392,7 +392,7 @@ function SignOutCard({
                 textAlign: 'center',
                 fontFamily: 'InstrumentSerif_400Regular',
                 fontSize: 30,
-                lineHeight: 32,
+                lineHeight: 34,
                 color: c.paperInk,
               }}
             >
@@ -502,7 +502,7 @@ function PlanCard({
           marginTop: 6,
           fontFamily: 'InstrumentSerif_400Regular',
           fontSize: 30,
-          lineHeight: 31,
+          lineHeight: 34,
           letterSpacing: -0.4,
           color: c.paperInk,
         }}
@@ -525,8 +525,15 @@ function PlanCard({
         ))}
       </View>
 
+      {/* The plan card is a stretching column, so the pill says out loud that it
+          hugs its label rather than running the full width of the card. */}
       {loaded && !paid ? (
-        <PrimaryPill label="Stay on" onPress={onStay} height={44} style={{ marginTop: 16 }} />
+        <PrimaryPill
+          label="Stay on"
+          onPress={onStay}
+          height={44}
+          style={{ marginTop: 16, alignSelf: 'flex-start' }}
+        />
       ) : null}
     </PaperCard>
   );

@@ -152,7 +152,7 @@ export default function Saves() {
                   style={{
                     fontFamily: 'InstrumentSerif_400Regular',
                     fontSize: 44,
-                    lineHeight: 44,
+                    lineHeight: 49,
                     letterSpacing: -0.8,
                     color: c.foreground,
                   }}
@@ -238,7 +238,7 @@ function SavedCard({
               style={{
                 fontFamily: 'InstrumentSerif_400Regular',
                 fontSize: 22,
-                lineHeight: 24,
+                lineHeight: 25,
                 letterSpacing: -0.3,
                 color: c.paperInk,
               }}

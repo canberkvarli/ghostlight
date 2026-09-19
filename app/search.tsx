@@ -65,10 +65,10 @@ import { useTheme } from '../src/theme/ThemeContext';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
- * The lamp, small, over a drawn stand — not the standing fixture from the launch
- * screen. It stays on this screen for two reasons: it is the thing the
- * empty-handed search blows out, and a search screen with no ghost light on it
- * is a search screen that could belong to anything.
+ * The lamp, small — not the standing fixture from the launch screen. It stays on
+ * this screen for two reasons: it is the thing the empty-handed search blows
+ * out, and a search screen with no ghost light on it is a search screen that
+ * could belong to anything.
  *
  * Two sizes, because a subscriber's lamp should be visibly a little more lamp.
  * That distinction predates the redesign and the redesign nearly deleted it by
@@ -79,7 +79,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * base, and GhostLight is explicit that below ~60pt the threads stop reading and
  * turn to smudge — so at v2's scale the dressed lamp would have been a worse
  * drawing, not a richer one. The signal is carried by size and by the light it
- * throws instead, and both lamps are bare on the same stand.
+ * throws instead. Both dressings are `bare`, which already includes the pole and
+ * the foot.
  */
 const LAMP_GLASS_PAID = 26;
 const LAMP_GLASS_FREE = 22;
@@ -145,38 +146,13 @@ function StandingChip({
   );
 }
 
-/**
- * The stand under the small lamp: a dashed stem and an ellipse of floor, in the
- * house colour. The standing fixture's own brass pole would be a two-point
- * smudge at this size, so the sketch says "it is standing on something" in two
- * strokes rather than rendering hardware nobody can see.
+/*
+ * There was a `LampStand` here — a dashed stem and an ellipse of floor drawn
+ * under the bulb. It was a mistake born of reading the handoff without reading
+ * the component: `GhostLight` in `bare` dress ALREADY draws a pole and a foot,
+ * so the screen had two stands under one lamp, the real one and a sketch of one
+ * hanging off its bottom. Removed. The bulb stands on its own.
  */
-function LampStand({ glow, width }: { glow: string; width: number }) {
-  return (
-    <View style={{ alignItems: 'center', marginTop: -2 }}>
-      <View
-        style={{
-          width: 0,
-          height: 16,
-          borderLeftWidth: 1.6,
-          borderStyle: 'dashed',
-          borderColor: glow,
-          opacity: 0.55,
-        }}
-      />
-      <View
-        style={{
-          width,
-          height: Math.round(width * 0.3),
-          borderRadius: width,
-          borderWidth: 1.6,
-          borderColor: glow,
-          opacity: 0.45,
-        }}
-      />
-    </View>
-  );
-}
 
 export default function Search() {
   const router = useRouter();
@@ -214,7 +190,24 @@ export default function Search() {
    * 8.2 is Instrument Serif's rough advance per character at 1pt, taken off the
    * longest prompt with the gutters removed.
    */
-  const headline = Math.max(32, Math.min(42, Math.floor((width - 56) / 8.2)));
+  const headline = Math.max(30, Math.min(40, Math.floor((width - 56) / 8.2)));
+
+  /**
+   * And the line box has to be TALLER than the type, not shorter.
+   *
+   * The design calls for 0.95 leading and that is what CSS does happily: the
+   * glyphs simply overflow a short line box and nothing is lost. React Native
+   * clips to the line box instead, so `lineHeight: fontSize * 0.98` cut the
+   * descenders off "Say it the way / you would say it." and the ascenders off
+   * the line beneath — the same thing that was wrong with the marquee on the
+   * site, arrived at the same way.
+   *
+   * Instrument Serif is a high-contrast display face with long descenders, so it
+   * wants about 1.12. The headline is a touch smaller to pay for the extra
+   * leading, and the block reserves two full line boxes so a short second line
+   * still cannot let the field slide up the screen.
+   */
+  const headlineLine = Math.round(headline * 1.12);
 
   // Everyone can open the sheet and use the free identity/length filters; the
   // craft filters inside (tone, emotion, freshness) route to the paywall for
@@ -479,7 +472,6 @@ export default function Search() {
                   />
                 </View>
               </View>
-              <LampStand glow={pal.glow} width={isPaid ? 38 : 34} />
             </Pressable>
 
             {/* The greeting. Two lines, each held to one line on purpose, in a
@@ -489,7 +481,7 @@ export default function Search() {
               style={{
                 width: '100%',
                 marginTop: 20,
-                minHeight: Math.round(headline * 2 * 0.98),
+                minHeight: headlineLine * 2,
                 justifyContent: 'center',
               }}
             >
@@ -501,7 +493,7 @@ export default function Search() {
                     textAlign: 'center',
                     fontFamily: 'InstrumentSerif_400Regular',
                     fontSize: headline,
-                    lineHeight: Math.round(headline * 0.98),
+                    lineHeight: headlineLine,
                     letterSpacing: -0.6,
                     color: c.foreground,
                   }}
