@@ -34,9 +34,13 @@ KEEP A BOOK
 Save what fits. Your pieces stay on your phone and work without a signal — green
 rooms have terrible reception.
 
+CLASSICAL OR CONTEMPORARY, THE WAY THE NOTICE ASKS
+Filter by era in one tap. If the breakdown says one classical and one
+contemporary, that is a search, not an afternoon of scrolling.
+
 STAGE AND SCREEN
-Classical and contemporary theatre, plus monologues from film and television.
-Shakespeare through to last year.
+Shakespeare, the Greeks, Ibsen and Molière through to modern American theatre,
+plus monologues from film and television.
 
 ——
 

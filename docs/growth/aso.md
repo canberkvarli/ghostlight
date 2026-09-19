@@ -70,10 +70,13 @@ from Search Ads may want them.
 The subscription display names are indexed. Currently they almost certainly say something like
 "Annual" and "Monthly", which ranks for nothing. Change them in App Store Connect to:
 
-| plan | display name |
-|---|---|
-| annual | `Full Monologue Library — Yearly` |
-| monthly | `Full Monologue Library — Monthly` |
+| plan | display name | chars |
+|---|---|---|
+| annual | `Monologue Library — Yearly` | 26/30 |
+| monthly | `Monologue Library — Monthly` | 27/30 |
+
+The display name limit is **30 characters**, which the first draft of this table missed —
+"Full Monologue Library — Yearly" is 31 and would have been rejected at submission.
 
 This is free keyword surface for `library` and reinforces `monologue`. It also reads better on
 the paywall and in the App Store's own subscription sheet, so it is not purely a keyword play.
