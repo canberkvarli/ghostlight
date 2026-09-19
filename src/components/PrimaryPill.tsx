@@ -84,7 +84,10 @@ export function PrimaryPill({
    * warm near-black that is visibly a shape, and the border comes up with it.
    */
   const fill = outline ? 'transparent' : c.isLight ? colors.ink : '#241a14';
-  const edge = outline ? c.foreground : c.isLight ? colors.ink : '#6b5b4e';
+  // The fill only lifts the pill to 1.14:1 off the stage, so on the dark scheme
+  // the BORDER is what draws the button's edge — and 1.4.11 asks a control
+  // boundary for 3:1. #6b5b4e measured 2.99. One step warmer clears it at 3.22.
+  const edge = outline ? c.foreground : c.isLight ? colors.ink : '#70604f';
 
   return (
     // `alignSelf` is deliberately left alone unless `block` asks for stretch.

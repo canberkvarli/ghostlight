@@ -664,7 +664,10 @@ function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: (
         paddingHorizontal: 16,
       }}
     >
-      <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 32, color: c.foreground }}>
+      {/* 36, not 32: 30pt of Instrument Serif in a 32pt box is 1.07×, and RN
+          clips to the line box. Lining figures survive it, but the moment this
+          tile shows anything that is not a digit it would start trimming. */}
+      <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 36, color: c.foreground }}>
         {n}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>

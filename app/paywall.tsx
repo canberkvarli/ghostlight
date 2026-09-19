@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -9,10 +9,12 @@ import { Ionicons } from '@expo/vector-icons';
 import type { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
 
 import { GhostLight } from '../src/components/GhostLight';
+import { PaperCard } from '../src/components/PaperCard';
+import { PrimaryPill } from '../src/components/PrimaryPill';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { WordArrow } from '../src/components/WordArrow';
+import { useCatalogueSize } from '../src/hooks/useCatalogueSize';
 import { useTheme } from '../src/theme/ThemeContext';
 import {
   getCurrentOffering,
@@ -31,29 +33,18 @@ const TERMS_URL = 'https://actorrise.com/terms';
 const PRIVACY_URL = 'https://actorrise.com/privacy';
 
 /**
- * The paywall — a free trial (length set in App Store Connect; handoff §5). No
- * slabs: the offer is a headline, a
- * short list of perks with glowing dots, two hairline radio rows, and one word +
- * arrow. Restore is present because Apple requires it. Live prices come from
- * RevenueCat when configured; the static copy stands otherwise so it's never empty.
+ * The paywall — a free trial (length set in App Store Connect; handoff §5).
+ *
+ * v2 puts what you are buying on paper: the offer is a headline on the stage,
+ * the four things you get are printed on a page of sides, and the two prices are
+ * hairline rows beneath it. One primary pill takes the money. Restore is present
+ * because Apple requires it. Live prices come from RevenueCat when configured;
+ * the static copy stands otherwise so it's never empty.
+ *
+ * Nothing on this screen takes a colour from a `className`. See app/auth.tsx for
+ * what that cost the last time — a headline that resolved to the light scheme's
+ * ink while the stage behind it was the dark scheme's, and so could not be seen.
  */
-
-// Every line here must map to a real entitlement check, or App Review reads it
-// as a promise the purchase doesn't keep (Guideline 2.3.1/3.1.2). This list
-// once carried three that weren't gated at all — memorize mode (never shipped),
-// unlimited saves (free for everyone) and offline (mirrored for everyone).
-// Offline earned its place back by being implemented; the other two are gone.
-// The gates, for the record:
-//   unlimited reads  → app/read/[id].tsx:148 (free tier is 3 lifetime reads)
-//   copy to clipboard → app/read/[id].tsx:167
-//   tone/emotion/freshness filters → src/data/filters.ts (premium: true)
-//   offline copies    → src/lib/offline.ts, driven by useEntitlement
-const PERKS = [
-  'Unlimited reading, all 14,000+',
-  'Filter by tone, emotion & freshness',
-  'Copy any monologue',
-  'Read offline, anywhere',
-];
 
 type Plan = 'annual' | 'monthly';
 
@@ -68,6 +59,32 @@ export default function Paywall() {
   const { colors: c } = useTheme();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useSession();
+  const { label: catalogue } = useCatalogueSize();
+
+  // Every line here must map to a real entitlement check, or App Review reads it
+  // as a promise the purchase doesn't keep (Guideline 2.3.1/3.1.2). This list
+  // once carried three that weren't gated at all — memorize mode (never shipped),
+  // unlimited saves (free for everyone) and offline (mirrored for everyone).
+  // Offline earned its place back by being implemented; the other two are gone.
+  // The gates, for the record:
+  //   unlimited reads  → app/read/[id].tsx:148 (free tier is 3 lifetime reads)
+  //   copy to clipboard → app/read/[id].tsx:167
+  //   tone/emotion/freshness filters → src/data/filters.ts (premium: true)
+  //   offline copies    → src/lib/offline.ts, driven by useEntitlement
+  //
+  // The catalogue size is the one number in this list that goes stale on its
+  // own. It was typed in as "14,000+" and the library had grown past nineteen
+  // thousand, so the headline promise of the whole offer was understating the
+  // product by about a third. It now comes off the search endpoint's `total`.
+  const perks = useMemo(
+    () => [
+      `Unlimited reading, all ${catalogue}`,
+      'Filter by tone, emotion & freshness',
+      'Copy any monologue',
+      'Read offline, anywhere',
+    ],
+    [catalogue],
+  );
 
   // RevenueCat confirms the entitlement on-device the instant the purchase
   // returns, but ['read-wall'] is served by our API, which only learns about it
@@ -143,6 +160,8 @@ export default function Paywall() {
   const headlineTrial = trialLabel ?? '1 week';
   const headlineWord = `${headlineTrial[0].toUpperCase()}${headlineTrial.slice(1)}`;
 
+  const storeDown = storeReachable === false;
+
   const close = () => (router.canGoBack() ? router.back() : router.replace('/search'));
 
   const buy = async () => {
@@ -217,8 +236,22 @@ export default function Paywall() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 20 }}>
-          <Pressable onPress={close} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close" style={{ padding: 4 }}>
+        <View
+          style={{
+            height: 44,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingHorizontal: 20,
+          }}
+        >
+          <Pressable
+            onPress={close}
+            hitSlop={14}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={{ padding: 4 }}
+          >
             <Ionicons name="close" size={26} color={c.mutedForeground} />
           </Pressable>
         </View>
@@ -231,7 +264,12 @@ export default function Paywall() {
             build 13, which is what made the old arrangement unsafe. */}
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 30, paddingBottom: 8, flexGrow: 1, justifyContent: 'center' }}
+          contentContainerStyle={{
+            paddingHorizontal: 28,
+            paddingBottom: 10,
+            flexGrow: 1,
+            justifyContent: 'center',
+          }}
           showsVerticalScrollIndicator={false}
         >
           <View style={{ alignItems: 'center' }}>
@@ -242,23 +280,39 @@ export default function Paywall() {
                 that correctly said "Unlock everything" — the screen offered a
                 free trial and charged immediately. If no introductory offer is
                 configured in App Store Connect, this headline is the difference
-                between an honest paywall and a surprise charge. */}
+                between an honest paywall and a surprise charge.
+
+                40/48 is the v2 headline box: Instrument Serif needs about 1.16×
+                its point size or RN clips the descenders to the line box, and
+                "the house." has two of them. */}
             <Text
-              className="mt-6 text-center text-foreground"
-              style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 38, lineHeight: 44 }}
+              style={{
+                marginTop: 22,
+                textAlign: 'center',
+                fontFamily: 'InstrumentSerif_400Regular',
+                fontSize: 40,
+                lineHeight: 48,
+                letterSpacing: -0.6,
+                color: c.foreground,
+              }}
             >
-              {trialLabel ? `${headlineWord}\non the house.` : 'The whole\nlibrary.'}
+              {trialLabel ? `${headlineWord}\n` : 'The whole\n'}
+              <Text
+                style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}
+              >
+                {trialLabel ? 'on the house.' : 'library.'}
+              </Text>
             </Text>
             {/* Build 12 was rejected under 3.1.2(c) for offering a trial without
                 making the charge that follows it obvious, so the price now
                 travels with the trial in the headline and not only in the footer.
-                Courier 15px with 1.04 tracking runs about 10px a character, so
-                "(free, then $29.99 a year.)" needs 271 of the 315px a 375pt
+                Courier 13px with 1.04 tracking runs about 9px a character, so
+                "(free, then $29.99 a year.)" needs 243 of the 319px a 375pt
                 screen leaves between the gutters. A longer currency string
                 ("CHF 29.90") would ellipsize mid-price, which is worse than
                 saying nothing — hence shrink-to-fit rather than truncate. */}
             <StageDirection
-              className="mt-3"
+              style={{ marginTop: 12, textAlign: 'center' }}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -275,11 +329,16 @@ export default function Paywall() {
               tells a paying customer a price we did not get from Apple.
               Restore stays available below: someone who already subscribed
               should not be held hostage by a failed product fetch. */}
-          {storeReachable === false ? (
-            <View style={{ marginTop: 28, alignSelf: 'center', paddingHorizontal: 8 }}>
+          {storeDown ? (
+            <View style={{ marginTop: 26, paddingHorizontal: 4 }}>
               <Text
-                className="text-center text-[14px]"
-                style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground, lineHeight: 21 }}
+                style={{
+                  textAlign: 'center',
+                  fontFamily: 'BricolageGrotesque_500Medium',
+                  fontSize: 14,
+                  lineHeight: 21,
+                  color: c.mutedForeground,
+                }}
               >
                 The App Store isn’t reachable right now, so we can’t show you the
                 subscription. Check your connection and try again in a moment.
@@ -287,40 +346,72 @@ export default function Paywall() {
             </View>
           ) : null}
 
-          {/* Perks — 5pt glowing dots, no loud bullets. */}
-          <View style={{ marginTop: 28, alignSelf: 'center' }}>
-            {PERKS.map((f) => (
-              <View key={f} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+          {/* What you are buying, printed on a page of sides. A paywall that
+              lists its perks as four loose lines on the stage is a receipt; on
+              paper it is the thing itself, and it rhymes with the plan card on
+              Account that sends people here. Cream on BOTH schemes, so every
+              word inside takes a `paper*` ink — never `foreground`. */}
+          <PaperCard rotate={-0.5} shadow={8} style={{ padding: 20 }} wrapperStyle={{ marginTop: 28, marginRight: 8 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: 'CourierPrime_700Bold',
+                fontSize: 11,
+                lineHeight: 15,
+                letterSpacing: 2.2,
+                textTransform: 'uppercase',
+                color: colors.primaryDeep,
+              }}
+            >
+              The whole stage
+            </Text>
+
+            <View style={{ marginTop: 14 }}>
+              {perks.map((f, i) => (
                 <View
+                  key={f}
                   style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: 3,
-                    backgroundColor: colors.stageGlow,
-                    marginRight: 14,
-                    shadowColor: colors.stageGlow,
-                    shadowOpacity: 0.9,
-                    shadowRadius: 5,
-                    shadowOffset: { width: 0, height: 0 },
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    marginTop: i === 0 ? 0 : 12,
                   }}
-                />
-                <Text className="text-[15px] text-foreground" style={{ fontFamily: 'BricolageGrotesque_500Medium' }}>
-                  {f}
-                </Text>
-              </View>
-            ))}
-          </View>
+                >
+                  {/* An ink tick in the margin, the way a reader marks a page.
+                      The old 5pt glowing dot was `colors.stageGlow`, which is a
+                      light — on the cream card it came out at about 2:1 and
+                      simply disappeared. */}
+                  <Ionicons
+                    name="checkmark"
+                    size={15}
+                    color={colors.primaryDeep}
+                    style={{ marginTop: 3, marginRight: 11 }}
+                  />
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontFamily: 'BricolageGrotesque_500Medium',
+                      fontSize: 15,
+                      lineHeight: 21,
+                      color: c.paperInk,
+                    }}
+                  >
+                    {f}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </PaperCard>
 
           {/* Plans — hairline radio rows, not slabs. The big number is the amount
               actually charged, not the per-month equivalent: a $2.50 in 28px
-              Playfair over a $29.99 in 12px muted is the pricing prominence
+              serif over a $29.99 in 12px muted is the pricing prominence
               3.1.2(c) reads as misleading. Per-month stays, demoted to the note. */}
           <View
             style={{
-              marginTop: 24,
-              borderTopWidth: storeReachable === false ? 0 : 1,
+              marginTop: 26,
+              borderTopWidth: storeDown ? 0 : 1,
               borderTopColor: c.divider,
-              display: storeReachable === false ? 'none' : 'flex',
+              display: storeDown ? 'none' : 'flex',
             }}
           >
             <PlanRow
@@ -343,20 +434,41 @@ export default function Paywall() {
           </View>
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 30, paddingBottom: 20, paddingTop: 10, alignItems: 'center' }}>
+        <View style={{ paddingHorizontal: 28, paddingBottom: 18, paddingTop: 12 }}>
           {busy ? (
-            <ActivityIndicator color={colors.stageGlow} style={{ height: 30 }} />
-          ) : storeReachable === false ? (
-            // No CTA at all rather than one that apologises when pressed. There
-            // is nothing to buy until the store answers.
-            <WordArrow label="Try again" onPress={() => router.replace('/paywall')} haptic="none" />
+            <ActivityIndicator color={c.accentText} style={{ height: 52 }} />
+          ) : storeDown ? (
+            // No CTA that apologises when pressed. There is nothing to buy until
+            // the store answers, so the only thing on offer is asking again.
+            <PrimaryPill
+              label="Try again"
+              onPress={() => router.replace('/paywall')}
+              block
+              haptic="medium"
+            />
           ) : (
-            <WordArrow
+            <PrimaryPill
               label={trialLabel ? 'Start the trial' : 'Unlock everything'}
               onPress={buy}
-              haptic="none"
+              block
+              haptic="medium"
             />
           )}
+
+          {note ? (
+            <Text
+              style={{
+                marginTop: 12,
+                textAlign: 'center',
+                fontFamily: 'BricolageGrotesque_500Medium',
+                fontSize: 12,
+                lineHeight: 17,
+                color: c.mutedForeground,
+              }}
+            >
+              {note}
+            </Text>
+          ) : null}
 
           {/* The disclosure 3.1.2(c) is about, and it is never conditional. It
               used to share a slot with the error note, so any store failure
@@ -365,27 +477,18 @@ export default function Paywall() {
               itself. A reviewer on an iPad Air read that as a trial with no
               stated renewal and rejected build 12. Trial length, the amount
               charged after it, and the fact that it renews on its own now all
-              appear together, above the fold, under the button that starts it. */}
-          {note ? (
-            <Text
-              className="text-center text-[12px]"
-              style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground, marginTop: 12 }}
-            >
-              {note}
-            </Text>
-          ) : null}
+              appear together, above the fold, under the button that starts it.
 
-          {/* The 3.1.2 disclosure describes a purchase. With no purchase on
-              offer it would be describing terms for a price we are not showing,
-              which is worse than silence. */}
+              With no purchase on offer it would be describing terms for a price
+              we are not showing, which is worse than silence. */}
           <Text
-            className="text-[12px]"
             style={{
-              fontFamily: 'BricolageGrotesque_500Medium',
-              color: c.mutedForeground,
               marginTop: 12,
-              lineHeight: 17,
-              display: storeReachable === false ? 'none' : 'flex',
+              fontFamily: 'BricolageGrotesque_500Medium',
+              fontSize: 11,
+              lineHeight: 16,
+              color: c.mutedForeground,
+              display: storeDown ? 'none' : 'flex',
               // Left, deliberately, against a screen that centres everything
               // else. This is five lines of fine print, and centring five lines
               // gives both edges a ragged margin for a reader who is scanning
@@ -399,11 +502,23 @@ export default function Paywall() {
               : `${billed} ${cadence}, charged to your Apple Account. The subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the period ends.`}
           </Text>
 
-          <Pressable onPress={onRestore} hitSlop={10} style={{ alignItems: 'center', paddingVertical: 8 }} accessibilityRole="button">
+          <Pressable
+            onPress={onRestore}
+            hitSlop={10}
+            style={{ alignItems: 'center', paddingVertical: 10 }}
+            accessibilityRole="button"
+          >
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />
             ) : (
-              <Text className="text-[13px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.chevron }}>
+              <Text
+                style={{
+                  fontFamily: 'BricolageGrotesque_500Medium',
+                  fontSize: 13,
+                  lineHeight: 18,
+                  color: c.chevron,
+                }}
+              >
                 Restore purchases
               </Text>
             )}
@@ -413,19 +528,28 @@ export default function Paywall() {
               only on the App Store page and not only buried in Account. Build 12
               was rejected for the metadata half of the same rule; this is the
               in-app half, which a human reviewer checks next. */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingTop: 2, paddingBottom: 4 }}>
-            <Pressable onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} hitSlop={8} accessibilityRole="link">
-              <Text className="text-[11px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}>
-                Terms of Use
-              </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingBottom: 4,
+            }}
+          >
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
+              hitSlop={8}
+              accessibilityRole="link"
+            >
+              <Text style={FINE_PRINT_LINK(c.mutedForeground)}>Terms of Use</Text>
             </Pressable>
-            <Text className="text-[11px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground, paddingHorizontal: 8 }}>
-              ·
-            </Text>
-            <Pressable onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)} hitSlop={8} accessibilityRole="link">
-              <Text className="text-[11px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}>
-                Privacy Policy
-              </Text>
+            <Text style={[FINE_PRINT_LINK(c.mutedForeground), { paddingHorizontal: 8 }]}>·</Text>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
+              hitSlop={8}
+              accessibilityRole="link"
+            >
+              <Text style={FINE_PRINT_LINK(c.mutedForeground)}>Privacy Policy</Text>
             </Pressable>
           </View>
         </View>
@@ -433,6 +557,13 @@ export default function Paywall() {
     </View>
   );
 }
+
+const FINE_PRINT_LINK = (color: string) => ({
+  fontFamily: 'BricolageGrotesque_500Medium',
+  fontSize: 11,
+  lineHeight: 16,
+  color,
+});
 
 /** A human label for a package's introductory *free* trial ("3 days"), or null. */
 function introTrialLabel(pkg: PurchasesPackage | null): string | null {
@@ -447,7 +578,7 @@ function introTrialLabel(pkg: PurchasesPackage | null): string | null {
 /** "$2.50" from an annual product's price / 12, keeping the store's currency symbol. */
 function perMonthString(product: PurchasesStoreProduct | undefined, divisor: number): string | null {
   if (!product || !product.price) return null;
-  const symbol = product.priceString.replace(/[\d.,\s ]/g, '') || '$';
+  const symbol = product.priceString.replace(/[\d.,\s ]/g, '') || '$';
   return `${symbol}${(product.price / divisor).toFixed(2)}`;
 }
 
@@ -481,56 +612,104 @@ function PlanRow({
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 18,
+        paddingVertical: 17,
         borderBottomWidth: 1,
         borderBottomColor: c.divider,
       }}
     >
-      {/* Radio ring — fills with the accent when selected. */}
+      {/* Radio ring — fills with the house orange when selected. `accentText`
+          rather than `stageGlow`: the glow is a light, tuned to read against
+          warm near-black, and a 17pt ring of it on the cream stage is a smudge.
+          The UNSELECTED ring took `border`, which is 1.93:1 on the dark stage
+          and 1.29:1 on the cream one — a control you have to find by guessing
+          where it is. It takes the chevron value now: 8.8 and 4.9, which is the
+          least a thing you are asked to press can measure. The hierarchy is
+          carried by the fill, not by hiding the option you did not pick. */}
       <View
         style={{
-          width: 17,
-          height: 17,
+          width: 18,
+          height: 18,
           borderRadius: 9,
           borderWidth: 1.5,
-          borderColor: selected ? colors.stageGlow : c.border,
+          borderColor: selected ? c.accentText : c.chevron,
           alignItems: 'center',
           justifyContent: 'center',
           marginRight: 16,
         }}
       >
-        {selected ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: colors.stageGlow }} /> : null}
+        {selected ? (
+          <View
+            style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.accentText }}
+          />
+        ) : null}
       </View>
 
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text className="text-[17px] text-foreground" style={{ fontFamily: 'BricolageGrotesque_600SemiBold' }}>
+          <Text
+            style={{
+              fontFamily: 'BricolageGrotesque_600SemiBold',
+              fontSize: 17,
+              lineHeight: 23,
+              color: c.foreground,
+            }}
+          >
             {name}
           </Text>
           {badge ? (
-            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.accentText }}>
+            <Text
+              style={{
+                fontFamily: 'CourierPrime_400Regular_Italic',
+                fontSize: 13,
+                lineHeight: 18,
+                color: c.accentText,
+              }}
+            >
               ({badge})
             </Text>
           ) : null}
         </View>
-        <Text className="mt-0.5 text-[12px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}>
+        <Text
+          style={{
+            marginTop: 2,
+            fontFamily: 'BricolageGrotesque_500Medium',
+            fontSize: 12,
+            lineHeight: 17,
+            color: c.mutedForeground,
+          }}
+        >
           {note}
         </Text>
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-        {/* Playfair's dollar sign has almost no right sidebearing, so at 28px it
+        {/* The serif's dollar sign has almost no right sidebearing, so at 28px it
             sits on top of the first digit — visible in the reviewer's own
             screenshot of build 12, where "$2.50" reads as a struck-through 2.
             A half point of tracking separates them without loosening the
-            numerals enough to notice. */}
+            numerals enough to notice. The 34pt line box is not optional: without
+            it RN sizes the box to the 28pt em and clips the comma and the
+            descender off a price like "$29.99" on a narrow phone. */}
         <Text
-          className="text-foreground"
-          style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 28, letterSpacing: 0.5 }}
+          style={{
+            fontFamily: 'InstrumentSerif_400Regular',
+            fontSize: 28,
+            lineHeight: 34,
+            letterSpacing: 0.5,
+            color: c.foreground,
+          }}
         >
           {price}
         </Text>
-        <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 12, color: c.mutedForeground, marginLeft: 2 }}>
+        <Text
+          style={{
+            marginLeft: 2,
+            fontFamily: 'BricolageGrotesque_500Medium',
+            fontSize: 12,
+            lineHeight: 17,
+            color: c.mutedForeground,
+          }}
+        >
           {unit}
         </Text>
       </View>

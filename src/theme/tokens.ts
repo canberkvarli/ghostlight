@@ -98,7 +98,15 @@ export const colors = {
     cardBorder: '#15110f',
     divider: '#e2dbd0',
     inactiveMeter: '#dad3c8',
-    chevron: '#7d746b',
+    /**
+     * Chevrons AND fine print — which is why this had to move. At #7d746b it
+     * measured 3.97:1 on the cream stage, and the words it prints are 12–14pt:
+     * `(back.)`, "Restore purchases", the quiet way-in row. Those are small text
+     * and need 4.5, not the 3.0 a glyph needs. #6f665d clears it at 4.87 and is
+     * still a clear step lighter than `mutedForeground` (6.45), so the three
+     * levels of quiet on the light stage stay three levels.
+     */
+    chevron: '#6f665d',
     panel: '#faf6ef',
   },
 } as const;

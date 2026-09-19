@@ -8,6 +8,7 @@ import {
   type StyleProp,
   Text,
   TextInput,
+  type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -20,7 +21,6 @@ import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
-  FadeOut,
   FadeOutDown,
   LinearTransition,
   SlideInRight,
@@ -31,9 +31,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
+import { PrimaryPill } from '../src/components/PrimaryPill';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
-import { WordArrow } from '../src/components/WordArrow';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import {
   isAppleAuthAvailable,
@@ -45,7 +45,6 @@ import {
 } from '../src/lib/auth';
 import { useGoBack } from '../src/lib/nav';
 import { track } from '../src/lib/analytics';
-import { colors } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeContext';
 
 /**
@@ -53,6 +52,22 @@ import { useTheme } from '../src/theme/ThemeContext';
  * launch; it upgrades the same anonymous user so saves and read count survive.
  * A list of ways in, hairline-separated, each row nudging right on press. The
  * Apple slab is the only rectangle. Email folds out in place, never a new screen.
+ *
+ * v2 notes, because two of them were real bugs on a real phone:
+ *
+ *  - NOTHING on this screen takes a colour from a `className`. The headline was
+ *    `className="text-foreground"`, which resolved to the LIGHT scheme's
+ *    #15110f while the stage behind it was the dark scheme's #130b08 — near
+ *    black on near black, so the one word that names the screen was invisible.
+ *    Every colour here now comes from `useTheme()` through an explicit `style`,
+ *    which cannot disagree with the backdrop because both read the same object.
+ *
+ *  - The hero no longer SHRINKS. It used to interpolate the lamp and the
+ *    headline across three sizes as the keyboard came and went, which meant the
+ *    top of the screen was permanently in motion while you were trying to type a
+ *    password. It now has two compositions: a title card when you are choosing a
+ *    way in, and a compact header row once the form is out. It changes role
+ *    rather than scale, and once the form is open it does not move again.
  */
 export default function Auth() {
   const router = useRouter();
@@ -65,14 +80,6 @@ export default function Auth() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // `typing` used to unmount the hero outright. That deleted the lamp, the
-  // headline and the line under it the instant a field took focus — every piece
-  // of identity on the screen gone at the exact moment someone is deciding
-  // whether to trust it with a password — and because the block below is
-  // bottom-anchored, the space it vacated stayed behind as a hole. The hero now
-  // collapses to a small header instead of leaving, so there is nothing to
-  // leave a hole. Kept as state, not a shared value: it changes twice a session.
-  const [typing, setTyping] = useState(false);
   const [reveal, setReveal] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -168,266 +175,381 @@ export default function Auth() {
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* The email fields live in the bottom block, which the keyboard covered
-            outright. Padding behaviour lets the centred hero above (flex: 1)
-            give up its height instead, carrying the inputs up with it. */}
+            outright. Padding behaviour lets the hero above give up its height
+            instead, carrying the inputs up with it. */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-            <Text
-              style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, letterSpacing: 4.5, textTransform: 'uppercase', color: c.mutedForeground }}
-            >
-              Not now
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* The hero is a header that yields, not a half-screen that fights.
-            It was `flex: 1` centred, which on a small phone in landscape-ish
-            keyboard conditions left the sign-in rows with nowhere to be. Now it
-            takes the room that's spare and gives it all back the moment the
-            keyboard is up, so the ways in are always the thing you can see. */}
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-        {/* The hero leaves entirely once the keyboard is up. Shrinking it wasn't
-            enough — a 30pt lamp plus a 24pt headline is still ~90pt, which is
-            precisely the room ENTER and (back.) needed, so they sat jammed under
-            the keyboard with nothing between them and the fields. While you are
-            typing, the only things that matter are the two fields and the way
-            in; everything decorative gets out of the way and comes back when
-            you dismiss the keyboard. */}
-        {/* Three sizes, not two states. Full when you are choosing a way in,
-            medium once the form is out, small while you are typing — and never
-            absent, so the screen keeps its name and its lamp the whole way
-            down. `flexGrow` goes to 0 while typing: that is what closes the
-            hole, because the hero stops claiming the spare height rather than
-            being deleted and leaving it behind. */}
-        <Animated.View
-          layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))}
-          style={{
-            flexGrow: typing ? 0 : 1,
-            flexShrink: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 36,
-            paddingTop: typing ? 4 : 0,
-            paddingVertical: emailOpen && !typing ? 8 : typing ? 0 : 20,
-          }}
-        >
-          <GhostLight size={typing ? 24 : emailOpen ? 34 : 66} />
-          <Text
-            className="text-center text-foreground"
+          <View
             style={{
-              marginTop: typing ? 8 : emailOpen ? 16 : 28,
-              fontFamily: 'InstrumentSerif_400Regular',
-              fontSize: typing ? 20 : emailOpen ? 26 : 40,
-              lineHeight: typing ? 26 : emailOpen ? 32 : 46,
+              height: 48,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              paddingHorizontal: 28,
             }}
           >
-            Keep this one.
-          </Text>
-          {emailOpen ? null : (
-            <StageDirection className="mt-3">
-              {'(sign in to save.\nnothing you did is lost.)'}
-            </StageDirection>
-          )}
-        </Animated.View>
-
-        <Animated.View layout={LinearTransition.duration(260)} style={{ paddingHorizontal: 28, paddingBottom: 32 }}>
-          {/* Two states, one stage. The ways in leave to the left and the form
-              arrives from the right, so the change reads as travel in a
-              direction rather than one block being swapped for another under
-              your finger. `(back.)` reverses it, which is why it is the only
-              thing on this screen that moves the other way. */}
-          {emailOpen ? null : (
-            <Animated.View
-              entering={SlideInRight.duration(260).easing(Easing.out(Easing.cubic))}
-              exiting={SlideOutLeft.duration(200)}
-            >
-              {/* The Apple slab — the one rectangle Apple's guidelines require. */}
-              {Platform.OS === 'ios' && appleReady ? (
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                  // WHITE on the dark stage, BLACK on paper. A white slab on cream
-                  // is a rectangle you have to hunt for, and this is the button
-                  // Apple requires to be the prominent one.
-                  buttonStyle={
-                    c.isLight
-                      ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                      : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                  }
-                  cornerRadius={14}
-                  style={{ height: 54, width: '100%', marginBottom: 10 }}
-                  onPress={withApple}
-                />
-              ) : null}
-
-              {/* Google was bare left-aligned text sitting directly under a
-                  black slab, so two things that are peers read as a button and
-                  a footnote. It is now the same height and radius, outlined
-                  rather than filled — which keeps Apple's the prominent one, as
-                  its guidelines require, without demoting Google to a caption. */}
-              <OutlineButton
-                label="Continue with Google"
-                icon="logo-google"
-                onPress={withGoogle}
-                busy={busy === 'google'}
-              />
-
-              <View style={{ height: 8 }} />
-              <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
-              <WayRow label="(already on actorrise? connect it.)" quiet onPress={() => setEmailOpen(true)} last />
-            </Animated.View>
-          )}
-
-          {emailOpen ? (
-            <Animated.View
-              entering={SlideInRight.duration(280).easing(Easing.out(Easing.cubic))}
-              exiting={FadeOutDown.duration(180)}
-              layout={LinearTransition.duration(220)}
-            >
-              {/* Staggered by 60ms so the two fields arrive in reading order
-                  rather than as one slab. Small enough that it registers as
-                  weight, not as waiting. */}
-              <Animated.View entering={FadeInDown.duration(240).delay(60)}>
-                <LabelledField
-                  label="Email"
-                  value={email}
-                  onChangeText={(t) => { setEmail(t); setOfferSignUp(false); setNotice(null); }}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  textContentType="username"
-                  autoFocus
-                  returnKeyType="next"
-                  onFocusChange={setTyping}
-                />
-              </Animated.View>
-
-              <Animated.View entering={FadeInDown.duration(240).delay(120)}>
-                <LabelledField
-                  label="Password"
-                  value={password}
-                  onChangeText={(t) => { setPassword(t); setOfferSignUp(false); setNotice(null); }}
-                  secureTextEntry={!reveal}
-                  autoComplete="password"
-                  textContentType="password"
-                  returnKeyType="go"
-                  onSubmitEditing={withEmail}
-                  onFocusChange={setTyping}
-                  style={{ marginTop: 22 }}
-                  // A reveal toggle is not a luxury on a phone keyboard. Without
-                  // it the only way to check a typo is to clear the field and
-                  // start again, and the error you get for a wrong password is
-                  // the same one you get for no account.
-                  accessory={
-                    <Pressable
-                      onPress={() => setReveal((v) => !v)}
-                      hitSlop={12}
-                      accessibilityRole="button"
-                      accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
-                    >
-                      <Ionicons
-                        name={reveal ? 'eye-off-outline' : 'eye-outline'}
-                        size={18}
-                        color={c.mutedForeground}
-                      />
-                    </Pressable>
-                  }
-                />
-              </Animated.View>
-
-              <Animated.View
-                entering={FadeIn.duration(240).delay(180)}
-                style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <Pressable
-                  onPress={() => { setEmailOpen(false); setNotice(null); setError(null); }}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                >
-                  <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.chevron }}>
-                    (back.)
-                  </Text>
-                </Pressable>
-                {busy === 'email' ? (
-                  <ActivityIndicator color={colors.stageGlow} />
-                ) : (
-                  <WordArrow label="Enter" onPress={withEmail} haptic="none" />
-                )}
-              </Animated.View>
-
-              <Animated.View entering={FadeIn.duration(240).delay(240)} style={{ marginTop: 18, alignItems: 'center' }}>
-                <Pressable onPress={forgotPassword} hitSlop={10} accessibilityRole="button" disabled={resetting}>
-                  {resetting ? (
-                    <ActivityIndicator color={c.mutedForeground} />
-                  ) : (
-                    <Text
-                      style={{
-                        fontFamily: 'BricolageGrotesque_500Medium',
-                        fontSize: 12,
-                        color: c.mutedForeground,
-                        textDecorationLine: 'underline',
-                      }}
-                    >
-                      Forgot your password?
-                    </Text>
-                  )}
-                </Pressable>
-              </Animated.View>
-            </Animated.View>
-          ) : null}
-
-          {notice ? (
-            <Animated.Text
-              entering={FadeIn.duration(200)}
-              className="mt-4 text-center text-[13px]"
-              style={{ fontFamily: 'BricolageGrotesque_500Medium', color: c.mutedForeground }}
-            >
-              {notice}
-            </Animated.Text>
-          ) : null}
-
-          {busy === 'apple' ? (
-            <View style={{ alignItems: 'center' }} className="mt-4">
-              <ActivityIndicator color={colors.stageGlow} />
-            </View>
-          ) : null}
-
-          {error ? (
-            <Text className="mt-4 text-center text-[13px]" style={{ fontFamily: 'BricolageGrotesque_500Medium', color: colors.primary }}>
-              {error}
-            </Text>
-          ) : null}
-
-          {offerSignUp ? (
-            <Animated.View entering={FadeInDown.duration(200)} style={{ marginTop: 14, alignItems: 'center' }}>
-              <WordArrow label="Create one" onPress={createAccount} haptic="none" />
+            <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button">
               <Text
                 style={{
-                  marginTop: 8,
-                  fontFamily: 'CourierPrime_400Regular_Italic',
-                  fontSize: 12,
-                  textAlign: 'center',
+                  fontFamily: 'CourierPrime_700Bold',
+                  fontSize: 11,
+                  lineHeight: 15,
+                  letterSpacing: 2.2,
+                  textTransform: 'uppercase',
                   color: c.mutedForeground,
                 }}
               >
-                (this address, that password. your saves come with you.)
+                Not now
               </Text>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {/* Two compositions, not three scales. `flexGrow` is what makes the
+                swap work: the title card claims every spare point on the screen
+                and centres itself in it; the header row claims none, so the
+                form rises to meet the keyboard without anything above it
+                needing to be resized, faded or deleted. */}
+            <Animated.View
+              layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))}
+              style={{
+                flexGrow: emailOpen ? 0 : 1,
+                flexShrink: 1,
+                justifyContent: 'center',
+                paddingHorizontal: 30,
+                paddingTop: emailOpen ? 6 : 0,
+                paddingBottom: emailOpen ? 22 : 24,
+              }}
+            >
+              {emailOpen ? (
+                <Animated.View
+                  entering={FadeIn.duration(240)}
+                  style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                  <GhostLight size={26} />
+                  <Headline size={24} line={30} style={{ marginLeft: 12 }} />
+                </Animated.View>
+              ) : (
+                <Animated.View entering={FadeIn.duration(240)} style={{ alignItems: 'center' }}>
+                  <GhostLight size={66} />
+                  <Headline
+                    size={42}
+                    line={50}
+                    style={{ marginTop: 26, textAlign: 'center' }}
+                  />
+                  <StageDirection style={{ marginTop: 12, textAlign: 'center' }}>
+                    {'(sign in to save.\nnothing you did is lost.)'}
+                  </StageDirection>
+                </Animated.View>
+              )}
             </Animated.View>
-          ) : null}
-        </Animated.View>
-        </ScrollView>
+
+            <Animated.View
+              layout={LinearTransition.duration(260)}
+              style={{ paddingHorizontal: 30, paddingBottom: 30 }}
+            >
+              {/* Two states, one stage. The ways in leave to the left and the
+                  form arrives from the right, so the change reads as travel in
+                  a direction rather than one block being swapped for another
+                  under your finger. `(back.)` reverses it, which is why it is
+                  the only thing on this screen that moves the other way. */}
+              {emailOpen ? null : (
+                <Animated.View
+                  entering={SlideInRight.duration(260).easing(Easing.out(Easing.cubic))}
+                  exiting={SlideOutLeft.duration(200)}
+                >
+                  {/* The Apple slab — the one rectangle Apple's guidelines
+                      require, given the v2 pill radius so it stands in the same
+                      family as everything else that gets pressed. */}
+                  {Platform.OS === 'ios' && appleReady ? (
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                      // WHITE on the dark stage, BLACK on paper. A white slab on
+                      // cream is a rectangle you have to hunt for, and this is
+                      // the button Apple requires to be the prominent one.
+                      buttonStyle={
+                        c.isLight
+                          ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                          : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                      }
+                      cornerRadius={27}
+                      style={{ height: 54, width: '100%', marginBottom: 12 }}
+                      onPress={withApple}
+                    />
+                  ) : null}
+
+                  {/* Google is the same size and shape as the slab, outlined
+                      rather than filled — which keeps Apple's the prominent one,
+                      as its guidelines require, without demoting Google to the
+                      bare left-aligned caption it used to be. */}
+                  <OutlineButton
+                    label="Continue with Google"
+                    icon="logo-google"
+                    onPress={withGoogle}
+                    busy={busy === 'google'}
+                  />
+
+                  <View style={{ height: 22 }} />
+                  <View style={{ height: 1, backgroundColor: c.divider }} />
+                  <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
+                  <WayRow
+                    label="(already on actorrise? connect it.)"
+                    quiet
+                    last
+                    onPress={() => setEmailOpen(true)}
+                  />
+                </Animated.View>
+              )}
+
+              {emailOpen ? (
+                <Animated.View
+                  entering={SlideInRight.duration(280).easing(Easing.out(Easing.cubic))}
+                  exiting={FadeOutDown.duration(180)}
+                  layout={LinearTransition.duration(220)}
+                >
+                  {/* Staggered by 60ms so the two fields arrive in reading order
+                      rather than as one slab. Small enough that it registers as
+                      weight, not as waiting. */}
+                  <Animated.View entering={FadeInDown.duration(240).delay(60)}>
+                    <LabelledField
+                      label="Email"
+                      value={email}
+                      onChangeText={(t) => {
+                        setEmail(t);
+                        setOfferSignUp(false);
+                        setNotice(null);
+                      }}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      autoComplete="email"
+                      textContentType="username"
+                      autoFocus
+                      returnKeyType="next"
+                    />
+                  </Animated.View>
+
+                  <Animated.View entering={FadeInDown.duration(240).delay(120)}>
+                    <LabelledField
+                      label="Password"
+                      value={password}
+                      onChangeText={(t) => {
+                        setPassword(t);
+                        setOfferSignUp(false);
+                        setNotice(null);
+                      }}
+                      secureTextEntry={!reveal}
+                      autoComplete="password"
+                      textContentType="password"
+                      returnKeyType="go"
+                      onSubmitEditing={withEmail}
+                      style={{ marginTop: 20 }}
+                      // A reveal toggle is not a luxury on a phone keyboard.
+                      // Without it the only way to check a typo is to clear the
+                      // field and start again, and the error you get for a wrong
+                      // password is the same one you get for no account.
+                      accessory={
+                        <Pressable
+                          onPress={() => setReveal((v) => !v)}
+                          hitSlop={12}
+                          accessibilityRole="button"
+                          accessibilityLabel={reveal ? 'Hide password' : 'Show password'}
+                        >
+                          <Ionicons
+                            name={reveal ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color={c.mutedForeground}
+                          />
+                        </Pressable>
+                      }
+                    />
+                  </Animated.View>
+
+                  <Animated.View
+                    entering={FadeIn.duration(240).delay(180)}
+                    style={{
+                      marginTop: 26,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        setEmailOpen(false);
+                        setNotice(null);
+                        setError(null);
+                      }}
+                      hitSlop={14}
+                      accessibilityRole="button"
+                    >
+                      <Text
+                        style={{
+                          fontFamily: 'CourierPrime_400Regular_Italic',
+                          fontSize: 13,
+                          lineHeight: 18,
+                          color: c.chevron,
+                        }}
+                      >
+                        (back.)
+                      </Text>
+                    </Pressable>
+                    {busy === 'email' ? (
+                      <ActivityIndicator color={c.accentText} />
+                    ) : (
+                      <PrimaryPill label="Enter" onPress={withEmail} height={50} haptic="medium" />
+                    )}
+                  </Animated.View>
+
+                  <Animated.View
+                    entering={FadeIn.duration(240).delay(240)}
+                    style={{ marginTop: 20, alignItems: 'center' }}
+                  >
+                    <Pressable
+                      onPress={forgotPassword}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      disabled={resetting}
+                    >
+                      {resetting ? (
+                        <ActivityIndicator color={c.mutedForeground} />
+                      ) : (
+                        <Text
+                          style={{
+                            fontFamily: 'BricolageGrotesque_500Medium',
+                            fontSize: 12,
+                            lineHeight: 17,
+                            color: c.mutedForeground,
+                            textDecorationLine: 'underline',
+                          }}
+                        >
+                          Forgot your password?
+                        </Text>
+                      )}
+                    </Pressable>
+                  </Animated.View>
+                </Animated.View>
+              ) : null}
+
+              {notice ? (
+                <Animated.Text
+                  entering={FadeIn.duration(200)}
+                  style={{
+                    marginTop: 16,
+                    textAlign: 'center',
+                    fontFamily: 'BricolageGrotesque_500Medium',
+                    fontSize: 13,
+                    lineHeight: 19,
+                    color: c.mutedForeground,
+                  }}
+                >
+                  {notice}
+                </Animated.Text>
+              ) : null}
+
+              {busy === 'apple' ? (
+                <View style={{ alignItems: 'center', marginTop: 16 }}>
+                  <ActivityIndicator color={c.accentText} />
+                </View>
+              ) : null}
+
+              {/* The brand orange resolved for the current stage. `colors.primary`
+                  straight off the tokens is 4.1:1 on cream, which is under the
+                  floor for 13pt — and an error message is the one string on the
+                  screen that has to survive being read in a hurry. */}
+              {error ? (
+                <Text
+                  style={{
+                    marginTop: 16,
+                    textAlign: 'center',
+                    fontFamily: 'BricolageGrotesque_500Medium',
+                    fontSize: 13,
+                    lineHeight: 19,
+                    color: c.accentText,
+                  }}
+                >
+                  {error}
+                </Text>
+              ) : null}
+
+              {offerSignUp ? (
+                <Animated.View
+                  entering={FadeInDown.duration(200)}
+                  style={{ marginTop: 18, alignItems: 'center' }}
+                >
+                  <PrimaryPill
+                    label="Create one"
+                    onPress={createAccount}
+                    height={50}
+                    haptic="medium"
+                  />
+                  <Text
+                    style={{
+                      marginTop: 12,
+                      fontFamily: 'CourierPrime_400Regular_Italic',
+                      fontSize: 12,
+                      lineHeight: 17,
+                      textAlign: 'center',
+                      color: c.mutedForeground,
+                    }}
+                  >
+                    (this address, that password. your saves come with you.)
+                  </Text>
+                </Animated.View>
+              ) : null}
+            </Animated.View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
+  );
+}
+
+/**
+ * The screen's name, in the v2 headline voice: Instrument Serif with the
+ * operative phrase in its italic and the house orange.
+ *
+ * `lineHeight` is passed in beside `fontSize` and is never allowed below about
+ * 1.16× it. RN clips a glyph to the line box rather than letting it overhang the
+ * way CSS does, so a 42pt Instrument Serif in a 42pt box loses the descender of
+ * the "p" in "Keep" — which is exactly the trimming this redesign was asked to
+ * stop doing.
+ */
+function Headline({
+  size,
+  line,
+  style,
+}: {
+  size: number;
+  line: number;
+  style?: StyleProp<TextStyle>;
+}) {
+  const { colors: c } = useTheme();
+  return (
+    <Text
+      style={[
+        {
+          fontFamily: 'InstrumentSerif_400Regular',
+          fontSize: size,
+          lineHeight: line,
+          letterSpacing: -0.5,
+          color: c.foreground,
+        },
+        style,
+      ]}
+    >
+      Keep{' '}
+      <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>
+        this one.
+      </Text>
+    </Text>
   );
 }
 
@@ -471,21 +593,36 @@ function WayRow({
         style={[
           style,
           quiet
-            ? { fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 14, color: c.chevron }
-            : { fontFamily: 'BricolageGrotesque_500Medium', fontSize: 15, color: c.foreground },
+            ? {
+                fontFamily: 'CourierPrime_400Regular_Italic',
+                fontSize: 14,
+                lineHeight: 19,
+                color: c.chevron,
+              }
+            : {
+                fontFamily: 'BricolageGrotesque_500Medium',
+                fontSize: 15,
+                lineHeight: 21,
+                color: c.foreground,
+              },
         ]}
       >
         {label}
       </Animated.Text>
-      {busy ? <ActivityIndicator color={c.mutedForeground} /> : null}
+      {busy ? (
+        <ActivityIndicator color={c.mutedForeground} />
+      ) : (
+        <Ionicons name="chevron-forward" size={15} color={c.chevron} />
+      )}
     </Pressable>
   );
 }
 
 /**
- * An outlined button the same size as the Apple slab. Apple's guidelines want
- * their button to be the prominent one, which an outline satisfies — filled
- * beats outlined — while still giving the alternative a real shape to press.
+ * An outlined button the same size and radius as the Apple slab. Apple's
+ * guidelines want their button to be the prominent one, which an outline
+ * satisfies — filled beats outlined — while still giving the alternative a real
+ * shape to press.
  */
 function OutlineButton({
   label,
@@ -516,9 +653,11 @@ function OutlineButton({
         style,
         {
           height: 54,
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: c.border,
+          borderRadius: 999,
+          // 1.5, matching PrimaryPill — a 1pt hairline next to Apple's solid
+          // slab reads as a disabled control rather than a peer.
+          borderWidth: 1.5,
+          borderColor: c.foreground,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
@@ -530,7 +669,15 @@ function OutlineButton({
       ) : (
         <>
           <Ionicons name={icon} size={17} color={c.foreground} style={{ marginRight: 10 }} />
-          <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 16, color: c.foreground }}>
+          <Text
+            style={{
+              fontFamily: 'BricolageGrotesque_700Bold',
+              fontSize: 16,
+              lineHeight: 22,
+              letterSpacing: 0.2,
+              color: c.foreground,
+            }}
+          >
             {label}
           </Text>
         </>
@@ -547,13 +694,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * once both fields hold text, "email" and "password" are two indistinguishable
  * lines and the only way to check which is which is to clear one.
  *
- * The rule still lights amber on focus. The label moves on the UI thread, so
- * holding a key down never stutters it.
+ * The rule lights in the house orange on focus. The label moves on the UI
+ * thread, so holding a key down never stutters it.
  */
 function LabelledField({
   label,
   style,
-  onFocusChange,
   accessory,
   value,
   ...props
@@ -563,7 +709,6 @@ function LabelledField({
 }: Omit<React.ComponentProps<typeof TextInput>, 'style'> & {
   label: string;
   style?: StyleProp<ViewStyle>;
-  onFocusChange?: (v: boolean) => void;
   accessory?: React.ReactNode;
 }) {
   const { colors: c } = useTheme();
@@ -590,15 +735,9 @@ function LabelledField({
         <TextInput
           {...props}
           value={value}
-          onFocus={() => {
-            setFocused(true);
-            onFocusChange?.(true);
-          }}
-          onBlur={() => {
-            setFocused(false);
-            onFocusChange?.(false);
-          }}
-          selectionColor={colors.stageGlow}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          selectionColor={c.accentText}
           style={{
             flex: 1,
             height: 34,
@@ -611,7 +750,12 @@ function LabelledField({
         />
         {accessory ? <View style={{ paddingBottom: 8, paddingLeft: 8 }}>{accessory}</View> : null}
       </View>
-      <View style={{ height: 1, backgroundColor: focused ? c.accentText : c.border }} />
+      <View
+        style={{
+          height: focused ? 1.5 : 1,
+          backgroundColor: focused ? c.accentText : c.border,
+        }}
+      />
       {/* Absolute so it can travel over the input without pushing it. */}
       <Animated.Text
         pointerEvents="none"

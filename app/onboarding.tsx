@@ -18,7 +18,6 @@ import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { markOnboardingComplete } from '../src/lib/onboarding';
-import { colors } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeContext';
 
 /**
@@ -167,16 +166,34 @@ function PanelView({
       <Animated.View style={[contentStyle, { alignItems: 'center' }]}>
         <StageDirection>{panel.eyebrow}</StageDirection>
 
+        {/* Explicit colours, never `className`. `text-foreground` resolved to
+            the LIGHT scheme's ink here while the stage behind it was the dark
+            scheme's near-black, which is how the auth headline became invisible
+            on a real phone. Both of these read the same palette the backdrop
+            does, so they cannot disagree with it. */}
         <Text
-          className="text-center text-foreground"
-          style={{ fontFamily: 'InstrumentSerif_400Regular', marginTop: 16, fontSize: 44, lineHeight: 52 }}
+          style={{
+            marginTop: 16,
+            textAlign: 'center',
+            fontFamily: 'InstrumentSerif_400Regular',
+            fontSize: 44,
+            lineHeight: 52,
+            letterSpacing: -0.6,
+            color: c.foreground,
+          }}
         >
           {panel.headline}
         </Text>
 
         <Text
-          className="text-center text-[15px] leading-[23px] text-muted-foreground"
-          style={{ fontFamily: 'BricolageGrotesque_500Medium', marginTop: 28 }}
+          style={{
+            marginTop: 28,
+            textAlign: 'center',
+            fontFamily: 'BricolageGrotesque_500Medium',
+            fontSize: 15,
+            lineHeight: 23,
+            color: c.mutedForeground,
+          }}
         >
           {panel.line}
         </Text>
@@ -184,18 +201,29 @@ function PanelView({
         {panel.chips ? (
           <View style={{ marginTop: 26, maxWidth: 300, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
             {panel.chips.map((chip) => (
+              // The glow tint is a light on a dark floor. On the cream stage a
+              // 0.35-alpha glow border is barely a line, so the chip takes the
+              // deeper orange it already prints its word in.
               <View
                 key={chip}
                 style={{
                   borderRadius: 999,
                   borderWidth: 1,
-                  borderColor: 'rgba(224, 115, 31, 0.35)',
-                  backgroundColor: 'rgba(224, 115, 31, 0.06)',
+                  borderColor: c.isLight ? 'rgba(168, 64, 12, 0.45)' : 'rgba(224, 115, 31, 0.35)',
+                  backgroundColor: c.isLight ? 'rgba(168, 64, 12, 0.06)' : 'rgba(224, 115, 31, 0.06)',
                   paddingHorizontal: 16,
                   paddingVertical: 9,
                 }}
               >
-                <Text className="text-[13px] lowercase" style={{ fontFamily: 'CourierPrime_400Regular_Italic', color: c.accentText }}>
+                <Text
+                  style={{
+                    fontFamily: 'CourierPrime_400Regular_Italic',
+                    fontSize: 13,
+                    lineHeight: 18,
+                    textTransform: 'lowercase',
+                    color: c.accentText,
+                  }}
+                >
                   {chip}
                 </Text>
               </View>
@@ -252,8 +280,10 @@ function Footer({
 }
 
 function ButtonLabel({ count, width, scrollX }: { count: number; width: number; scrollX: SharedValue<number> }) {
-  // LABEL_STYLE is a module constant, so the one colour that has to follow the
-  // scheme is applied here rather than baked into it.
+  // LABEL_STYLE is a module constant and therefore cannot know the scheme, so it
+  // carries no colour at all — the one that has to follow the stage is applied
+  // here. A default baked into the constant would only be a second answer
+  // waiting for the day someone forgets to override it.
   const { colors: c } = useTheme();
   const nextStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollX.value, [(count - 2) * width, (count - 1) * width], [1, 0], Extrapolation.CLAMP),
@@ -276,20 +306,24 @@ function ButtonLabel({ count, width, scrollX }: { count: number; width: number; 
 const LABEL_STYLE = {
   fontFamily: 'BricolageGrotesque_600SemiBold',
   fontSize: 14,
+  lineHeight: 19,
   letterSpacing: 2.5,
-  color: colors.stageGlow,
   textAlign: 'center' as const,
   textTransform: 'uppercase' as const,
 };
 
 function Dot({ index, width, scrollX }: { index: number; width: number; scrollX: SharedValue<number> }) {
+  // The glow is a light: a 6pt bar of it at 28% opacity on the cream stage is
+  // not a dot, it is a rumour. `accentText` is the same orange resolved for the
+  // floor it is actually lying on.
+  const { colors: c } = useTheme();
   const style = useAnimatedStyle(() => {
     const d = scrollX.value - index * width;
     const active = interpolate(d, [-width, 0, width], [0, 1, 0], Extrapolation.CLAMP);
     return {
       width: 6 + active * 20,
       opacity: 0.28 + active * 0.72,
-      backgroundColor: colors.stageGlow,
+      backgroundColor: c.accentText,
     };
   });
   return <Animated.View style={[{ height: 6, borderRadius: 3 }, style]} />;

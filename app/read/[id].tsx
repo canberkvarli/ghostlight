@@ -490,7 +490,10 @@ export default function Read() {
                     marginTop: 12,
                     fontFamily: 'InstrumentSerif_400Regular',
                     fontSize: 42,
-                    lineHeight: 47,
+                    // 1.19×. A play title is arbitrary text at the largest size
+                    // on the page; 47 was 1.12× and a "g" or a "p" in it lost
+                    // its tail to the line box.
+                    lineHeight: 50,
                     letterSpacing: -0.8,
                     color: c.paperInk,
                     transformOrigin: 'left',
@@ -666,7 +669,9 @@ export default function Read() {
                       marginTop: 12,
                       fontFamily: 'InstrumentSerif_400Regular',
                       fontSize: 26,
-                      lineHeight: 29,
+                      // "is waiting." hangs a g off the second line. 29 was
+                      // 1.115× and took the tail with it.
+                      lineHeight: 31,
                       textAlign: 'center',
                       color: c.paperInk,
                     }}

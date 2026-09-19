@@ -85,7 +85,8 @@
       --color-card-border: #15110f;
       --color-divider: #e2dbd0;
       --color-meter: #dad3c8;
-      --color-chevron: #7d746b;
+      /* Fine print as well as chevrons — 4.87:1, where #7d746b was 3.97. */
+      --color-chevron: #6f665d;
       --color-panel: #faf6ef;
     }
   }

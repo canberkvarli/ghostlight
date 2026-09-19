@@ -114,12 +114,19 @@ const ThemeContext = createContext<ThemeValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Dark until the actor says otherwise. 'system' meant a phone set to Light
-  // opened Ghost Light on cream paper, and the whole design — the warm near-black
-  // stage, the lamp, the spotlight on the cards — is built for the dark. Light is
-  // a supported choice, not a default anyone should arrive at by accident.
-  // 'system' is still selectable in Appearance for people who want it.
-  const [mode, setModeState] = useState<ThemeMode>('dark');
+  // Follow the phone until the actor says otherwise.
+  //
+  // This was pinned to 'dark' on the argument that the whole design is built for
+  // the dark stage and nobody should arrive at the paper one by accident. That
+  // was true of v1, where light mode was a compromise. It is not true of v2: the
+  // stage flips, the cards stay paper, and every colour in the system now
+  // resolves per scheme and is measured in both. Light is a first-class room.
+  //
+  // So the default goes back to what a phone user actually expects — an app that
+  // matches everything else on their home screen. Someone who reads at night
+  // with the OS in dark mode still opens on the warm near-black; someone who
+  // does not was being overridden.
+  const [mode, setModeState] = useState<ThemeMode>('system');
   const uniwind = useUniwind();
 
   // Load the saved preference once.

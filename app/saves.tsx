@@ -152,7 +152,10 @@ export default function Saves() {
                   style={{
                     fontFamily: 'InstrumentSerif_400Regular',
                     fontSize: 44,
-                    lineHeight: 49,
+                    // 1.18×. "Your book." has a descender on both words and
+                    // this is a single clipped line, so the box has to carry the
+                    // tail of the "y" — 49 was 1.11× and shaved it.
+                    lineHeight: 52,
                     letterSpacing: -0.8,
                     color: c.foreground,
                   }}
