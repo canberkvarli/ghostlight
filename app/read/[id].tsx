@@ -20,7 +20,7 @@ import { StageBackdrop } from '../../src/components/StageBackdrop';
 import { PrimaryPill } from '../../src/components/PrimaryPill';
 import { Mark, sourceTag } from '../../src/components/Marks';
 import { useStageMotion } from '../../src/hooks/useStageMotion';
-import { PaywallShroud } from '../../src/components/PaywallShroud';
+import { ReadWall } from '../../src/components/ReadWall';
 import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
@@ -89,9 +89,9 @@ function curtainRise(_values: EntryAnimationsValues) {
   };
 }
 
-/** The typewriter's line box. The wall is placed a whole number of these down. */
+/** The typewriter's line box. */
 const LINE_HEIGHT = 27;
-/** How much of the part you get to read before the light goes off it. */
+/** Skeleton lines while the words are on their way. */
 const FREE_LINES = 4;
 /** The gel block behind the page. */
 const BLOCK = 8;
@@ -170,26 +170,6 @@ export default function Read() {
 
   const [copied, setCopied] = useState(false);
   const [saveNote, setSaveNote] = useState<string | null>(null);
-
-  // Where the words start inside the card, and how tall the card is. Both are
-  // measured rather than assumed, because the wall is placed relative to the
-  // text (four lines down) and has to leave room for the offer underneath.
-  const [textTop, setTextTop] = useState<number | null>(null);
-  const [cardH, setCardH] = useState(0);
-  /** Room the offer block needs at the foot of the card: sketch, two lines, pill. */
-  const OFFER_HEIGHT = 300;
-  const wallTop =
-    textTop === null
-      ? 0
-      : Math.max(
-          textTop + LINE_HEIGHT,
-          Math.min(
-            textTop + LINE_HEIGHT * FREE_LINES,
-            // On a short excerpt or a small phone the wall comes UP to meet the
-            // offer rather than letting it slide off the bottom of the card.
-            (cardH || height * 0.72) - OFFER_HEIGHT,
-          ),
-        );
 
   // The title settles up into place from the card's size — a soft matched
   // hand-off, eased not sprung, so nothing bounces. Origin is the left edge so
@@ -440,7 +420,6 @@ export default function Read() {
             }}
           />
           <View
-            onLayout={(e) => setCardH(Math.round(e.nativeEvent.layout.height))}
             style={{
               flex: 1,
               overflow: 'hidden',
@@ -569,19 +548,30 @@ export default function Read() {
                   pinned four line-boxes below it. */}
               {wallKnown && monologue ? (
                 <Animated.View
-                  onLayout={(e) => setTextTop(e.nativeEvent.layout.y)}
                   entering={FadeIn.duration(500)}
                   style={{ marginTop: 16 }}
                 >
-                  <MonologueText
-                    body={gated ? monologue.excerpt : body}
-                    // Only when the whole speech is on show. The server's segments
-                    // cover the full text, so passing them behind the wall would
-                    // render the part the actor hasn't paid for.
-                    segments={gated ? undefined : monologue.segments}
-                    lineHeight={LINE_HEIGHT}
-                    fontSize={15}
-                  />
+                  {gated ? (
+                    // Two lines sharp, the rest out of focus, the offer floating
+                    // over it. Segments are never passed here: they cover the
+                    // full text, which is the part the actor hasn't paid for.
+                    <ReadWall
+                      visible={monologue.excerpt}
+                      rest={monologue.fullText ?? ''}
+                      lineHeight={LINE_HEIGHT}
+                      fontSize={15}
+                      width={width}
+                      accent={ink.accent}
+                      onUnlock={() => router.push('/paywall')}
+                    />
+                  ) : (
+                    <MonologueText
+                      body={body}
+                      segments={monologue.segments}
+                      lineHeight={LINE_HEIGHT}
+                      fontSize={15}
+                    />
+                  )}
                 </Animated.View>
               ) : (
                 // Holds the scroll steady while the words are on their way — both
@@ -632,88 +622,6 @@ export default function Read() {
             {/* A folded corner, so the page reads as paper. Hidden behind the wall. */}
             {gated ? null : <PageCurl />}
 
-            {/* The wall. Four lines stay lit — enough to hear the voice and know
-                whether it's yours — and then the page goes out of focus and the
-                offer sits on the same sheet of paper. */}
-            {gated && textTop !== null ? (
-              <View
-                // No entering animation. It was FadeIn delayed 260ms over 600ms,
-                // which is precisely the "I can read the whole thing for a second
-                // and then it blurs" — nearly a second of unobstructed walled text
-                // on every open, which is both a worse wall and a worse tease. The
-                // shroud is part of the page now, not something that arrives.
-                style={{ position: 'absolute', left: 0, right: 0, top: wallTop, bottom: 0 }}
-                pointerEvents="box-none"
-              >
-                <PaywallShroud
-                  width={width - 32}
-                  height={Math.max(0, (cardH || height) - wallTop)}
-                  offerTop={Math.max(0, (cardH || height) - wallTop - OFFER_HEIGHT)}
-                />
-                <View
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    alignItems: 'center',
-                    paddingHorizontal: 24,
-                    paddingBottom: 26,
-                  }}
-                >
-                  {/* The stage door again — the same drawing the app uses for
-                      "there's more through here", which is exactly the offer. */}
-                  <Sketch name="stageDoor" size={56} stroke={c.paperInk} accent={ink.accent} weight={1.9} />
-                  <Text
-                    style={{
-                      marginTop: 12,
-                      fontFamily: 'InstrumentSerif_400Regular',
-                      fontSize: 26,
-                      // "is waiting." hangs a g off the second line. 29 was
-                      // 1.115× and took the tail with it.
-                      lineHeight: 31,
-                      textAlign: 'center',
-                      color: c.paperInk,
-                    }}
-                  >
-                    The rest of it{'\n'}
-                    <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: ink.accent }}>
-                      is waiting.
-                    </Text>
-                  </Text>
-                  <Text
-                    style={{
-                      marginTop: 8,
-                      fontFamily: 'CourierPrime_400Regular_Italic',
-                      fontSize: 13,
-                      letterSpacing: 0.8,
-                      textAlign: 'center',
-                      color: c.paperMuted,
-                    }}
-                  >
-                    (three reads were the trial.)
-                  </Text>
-                  <PrimaryPill
-                    label="Unlock every monologue"
-                    haptic="medium"
-                    height={50}
-                    block
-                    onPress={() => router.push('/paywall')}
-                    style={{ marginTop: 16 }}
-                  />
-                  <Text
-                    style={{
-                      marginTop: 10,
-                      fontFamily: 'BricolageGrotesque_500Medium',
-                      fontSize: 12,
-                      color: c.paperMuted,
-                    }}
-                  >
-                    Saving stays free.
-                  </Text>
-                </View>
-              </View>
-            ) : null}
           </View>
         </Animated.View>
       </SafeAreaView>
