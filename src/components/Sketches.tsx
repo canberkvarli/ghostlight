@@ -121,13 +121,19 @@ export function Sketch({
   const reduce = useReducedMotion();
   const strokes = SKETCHES[name];
 
+  // Gel yellow is a light on the dark stage and a near-invisible hairline on
+  // cream (tokens.ts: roughly 1.2:1). On the light scheme every yellow stroke
+  // is redrawn in the deep accent, so callers can keep asking for "the gel".
+  const ink = (colour: string) =>
+    c.isLight && colour.toLowerCase() === colors.yellow ? c.accentText : colour;
+
   const palette = useMemo(
     () => ({
-      line: stroke ?? c.mutedForeground,
-      accent: accent ?? colors.yellow,
+      line: ink(stroke ?? c.mutedForeground),
+      accent: ink(accent ?? colors.yellow),
       dim: c.stageLine,
     }),
-    [stroke, accent, c.mutedForeground, c.stageLine],
+    [stroke, accent, c.mutedForeground, c.stageLine, c.isLight, c.accentText],
   );
 
   const scale = size / BOX;
