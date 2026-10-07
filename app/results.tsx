@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
@@ -30,6 +30,7 @@ import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
 import { apiToMonologue } from '../src/data/adapt';
+import { Image } from 'expo-image';
 import { posterThumb, searchScreen } from '../src/lib/screen';
 import { track } from '../src/lib/analytics';
 import { useGoBack } from '../src/lib/nav';
@@ -163,12 +164,11 @@ export default function Results() {
     queryFn: async () => {
       const rows = await searchScreen(params, 60);
       const thumbs = rows.flatMap((m) => (m.posterUrl ? [posterThumb(m.posterUrl)] : []));
-      const warm = (url: string) => Image.prefetch(url).catch(() => false);
-      thumbs.slice(6).forEach(warm);
+      void Image.prefetch(thumbs.slice(6), 'memory-disk');
       await Promise.race([
-        Promise.all(thumbs.slice(0, 6).map(warm)),
+        Image.prefetch(thumbs.slice(0, 6), 'memory-disk'),
         new Promise((resolve) => setTimeout(resolve, 1500)),
-      ]);
+      ]).catch(() => {});
       return rows;
     },
   });

@@ -33,6 +33,7 @@ import { configurePurchases } from '../src/lib/purchases';
 import { flushAnalytics, identify, initAnalytics, internalName, resetIdentity } from '../src/lib/analytics';
 import { BackstageNoteHost } from '../src/components/BackstageNote';
 import { recordAppBackground, recordAppOpen } from '../src/lib/reviewMoments';
+import { useQuickActionNote } from '../src/hooks/useQuickActionNote';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -187,6 +188,7 @@ function Shell() {
   // when a session ends on a screen that never asks about the paywall itself.
   useEntitlement();
   // The home-screen "Before you go…" action opens the note from Canberk.
+  useQuickActionNote();
 
   /**
    * The navigator's own container colour, and the reason you could see white in

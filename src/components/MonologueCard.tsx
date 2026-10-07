@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import {
   Extrapolation,
   interpolate,
@@ -161,12 +162,16 @@ function MonologueCardImpl({
               marginBottom: 8,
             }}
           >
-            {/* The small TMDB size, which Results prefetches on arrival, so
-                the lineup lands with its posters already in the cache. */}
+            {/* expo-image for the disk cache: the plain RN Image kept almost
+                nothing, so every return to the lineup fetched every poster
+                again. Results prefetches the same thumb URLs on arrival. */}
             <Image
               source={{ uri: posterThumb(item.posterUrl!) }}
               style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={120}
+              recyclingKey={item.id}
               accessibilityIgnoresInvertColors
             />
           </View>

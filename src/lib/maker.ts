@@ -1,4 +1,5 @@
 import { Linking } from 'react-native';
+import * as StoreReview from 'expo-store-review';
 
 /**
  * The person behind the app, and the ways to reach him.
@@ -26,13 +27,24 @@ function open(url: string) {
 }
 
 /**
- * Ask for a rating, on the App Store's write-review page.
+ * Ask for a rating.
  *
- * The system sheet (expo-store-review) is the better nudge and arrives with the
- * next binary; this build has no native module for it, so every path goes to
- * the store page, which always works. `inApp` is kept so call sites don't change.
+ * `inApp` uses the system sheet, which is right for the backstage note: one
+ * tap, no context switch. Apple rations that sheet and may silently not show
+ * it, which is fine for a nudge and wrong for a button someone deliberately
+ * pressed in Account, so the explicit path goes to the App Store page instead.
  */
-export async function rateGhostLight(_opts: { inApp: boolean }): Promise<void> {
+export async function rateGhostLight({ inApp }: { inApp: boolean }): Promise<void> {
+  if (inApp) {
+    try {
+      if (await StoreReview.hasAction()) {
+        await StoreReview.requestReview();
+        return;
+      }
+    } catch {
+      // Fall through to the store page.
+    }
+  }
   open(WRITE_REVIEW_URL);
 }
 
