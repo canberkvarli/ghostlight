@@ -299,10 +299,13 @@ export default function Auth() {
 
                   <View style={{ height: 22 }} />
                   <View style={{ height: 1, backgroundColor: c.divider }} />
-                  <WayRow label="Use an email address" onPress={() => setEmailOpen(true)} />
+                  {/* One row. There used to be a second, "(already on actorrise?
+                      connect it.)", which opened this same form: an ActorRise
+                      account IS an email account on the same project, so the
+                      row promised a connection and delivered a no-op. */}
                   <WayRow
-                    label="(already on actorrise? connect it.)"
-                    quiet
+                    label="Use an email address"
+                    hint="ActorRise accounts work here too"
                     last
                     onPress={() => setEmailOpen(true)}
                   />
@@ -560,12 +563,15 @@ function WayRow({
   busy,
   quiet,
   last,
+  hint,
 }: {
   label: string;
   onPress: () => void;
   busy?: boolean;
   quiet?: boolean;
   last?: boolean;
+  /** A second, quieter line under the label. */
+  hint?: string;
 }) {
   const { colors: c } = useTheme();
   const nudge = useSharedValue(0);
@@ -589,26 +595,40 @@ function WayRow({
         borderBottomColor: c.divider,
       }}
     >
-      <Animated.Text
-        style={[
-          style,
-          quiet
-            ? {
-                fontFamily: 'CourierPrime_400Regular_Italic',
-                fontSize: 14,
-                lineHeight: 19,
-                color: c.chevron,
-              }
-            : {
-                fontFamily: 'BricolageGrotesque_500Medium',
-                fontSize: 15,
-                lineHeight: 21,
-                color: c.foreground,
-              },
-        ]}
-      >
-        {label}
-      </Animated.Text>
+      <Animated.View style={[style, { flex: 1 }]}>
+        <Text
+          style={[
+            quiet
+              ? {
+                  fontFamily: 'CourierPrime_400Regular_Italic',
+                  fontSize: 14,
+                  lineHeight: 19,
+                  color: c.chevron,
+                }
+              : {
+                  fontFamily: 'BricolageGrotesque_500Medium',
+                  fontSize: 15,
+                  lineHeight: 21,
+                  color: c.foreground,
+                },
+          ]}
+        >
+          {label}
+        </Text>
+        {hint ? (
+          <Text
+            style={{
+              marginTop: 2,
+              fontFamily: 'CourierPrime_400Regular_Italic',
+              fontSize: 12,
+              lineHeight: 16,
+              color: c.mutedForeground,
+            }}
+          >
+            {hint}
+          </Text>
+        ) : null}
+      </Animated.View>
       {busy ? (
         <ActivityIndicator color={c.mutedForeground} />
       ) : (

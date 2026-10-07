@@ -74,6 +74,10 @@ export interface Monologue {
   year?: number;
   /** IMDb rating, 0–10. */
   imdbRating?: number;
+  /** The catalogue's theme tags, verbatim. Picks the cover sketch (src/lib/sketchFor.ts). */
+  themes?: string[];
+  /** The catalogue's `primary_emotion`, verbatim. Also read by `sketchFor`. */
+  emotion?: string;
 }
 
 export const MONOLOGUES: Monologue[] = [

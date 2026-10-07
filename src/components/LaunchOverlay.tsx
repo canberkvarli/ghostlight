@@ -9,13 +9,13 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
 import { GhostLight } from './GhostLight';
 import { StageBackdrop } from './StageBackdrop';
-import { PrimaryPill } from './PrimaryPill';
 import { useTheme } from '../theme/ThemeContext';
 import { pickLaunchQuote } from '../data/launchQuotes';
 
@@ -33,7 +33,7 @@ import { pickLaunchQuote } from '../data/launchQuotes';
  * ## What v2 changed, and what it deliberately did not
  *
  * The mechanism is untouched: the eleven-step ramp over 1.4s, the wordmark in at
- * 1.2s and out at 2.6s, the quote at 1.7s, Enter at 2.6s, `lift` idempotent,
+ * 1.2s and out at 2.6s, the quote at 1.7s, the hint at 2.6s, `lift` idempotent,
  * tap-anywhere, and both safety nets. Every one of those is load-bearing and
  * none of them is a style decision.
  *
@@ -43,7 +43,7 @@ import { pickLaunchQuote } from '../data/launchQuotes';
  * `assets/icon.png`, which is an opaque raster with its own dark field and
  * shows as a lightened square on the stage. The line becomes Instrument Serif
  * italic, because it is the words of a play and the serif is what this system
- * sets those in. And Enter becomes the primary pill.
+ * sets those in. The Enter pill came and went; the tap-anywhere hint says it alone.
  */
 
 // opacity strike: 0 → … → 1 over 1.4s, linear.
@@ -51,6 +51,8 @@ const STRIKE = [0, 0.14, 0.02, 0.42, 0.06, 0.7, 0.2, 0.9, 0.48, 1, 0.66, 0.96, 1
 
 /** The standing lamp, at the size that reads as a fixture rather than a bulb. */
 const LAMP_SIZE = 110;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function LaunchOverlay() {
   const reduce = useReducedMotion();
@@ -94,7 +96,7 @@ export function LaunchOverlay() {
       // In, held, out. The wordmark says the app's name and then gets out of the
       // way, because the quote is the thing this screen exists to make you read
       // and two pieces of centred type competing is one too many. It leaves at
-      // 2600, exactly as the Enter arrow arrives: the name steps aside and the
+      // 2600, exactly as the invitation arrives: the name steps aside and the
       // invitation steps in, rather than both sitting there at once.
       //
       // The 900ms hold is the whole point of the sequence. Anything shorter and
@@ -110,7 +112,21 @@ export function LaunchOverlay() {
       // After the quote has settled, not with it. A button that arrives
       // alongside the line is a second thing competing for the eye at the
       // moment you wanted them reading.
-      enter.value = withDelay(2600, withTiming(1, { duration: 400 }));
+      // Then it breathes, slowly, so a still screen still says it is waiting
+      // for you rather than stuck.
+      enter.value = withDelay(
+        2600,
+        withSequence(
+          withTiming(1, { duration: 600 }),
+          withRepeat(
+            withSequence(
+              withTiming(0.4, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+              withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+            ),
+            -1,
+          ),
+        ),
+      );
     }
 
     // Two nets, because this overlay sits on top of everything and a launch
@@ -176,9 +192,8 @@ export function LaunchOverlay() {
         </Rect>
       </Canvas>
 
-      {/* Tap anywhere, not only the pill. The pill says what to do; the whole
-          field does it. `accessible={false}` keeps VoiceOver from swallowing the
-          quote into one giant button — the PrimaryPill below is the real control
+      {/* Tap anywhere. `accessible={false}` keeps VoiceOver from swallowing the
+          quote into one giant button; the hint at the foot is the real control
           and the only thing that should be announced as one. */}
       <Pressable
         onPress={lift}
@@ -268,36 +283,29 @@ export function LaunchOverlay() {
         </Animated.View>
       </Pressable>
 
-      {/* Anchored to the bottom rather than stacked under the quote, so adding
-          it does not shove the lamp, wordmark and line off the centre they were
-          composed on. */}
-      <Animated.View
+      {/* The only invitation, and a quiet one. There used to be an Enter pill
+          above it saying the same thing louder; two ways of saying "go on" on a
+          screen that exists to be still was one too many. It is a real button
+          for VoiceOver, since the field behind it is hidden from it. */}
+      <AnimatedPressable
+        onPress={lift}
+        hitSlop={20}
+        accessibilityRole="button"
+        accessibilityLabel="Enter Ghost Light"
         pointerEvents={gone ? 'none' : 'auto'}
-        style={[enterStyle, { position: 'absolute', left: 0, right: 0, bottom: 64, alignItems: 'center' }]}
+        style={[enterStyle, { position: 'absolute', left: 0, right: 0, bottom: 44, alignItems: 'center' }]}
       >
-        <PrimaryPill label="Enter" onPress={lift} haptic="soft" height={56} />
-      </Animated.View>
-
-      {/* Said quietly, because the pill already says it loudly. */}
-      <Animated.Text
-        pointerEvents="none"
-        style={[
-          enterStyle,
-          {
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 26,
-            textAlign: 'center',
+        <Text
+          style={{
             fontFamily: 'CourierPrime_400Regular_Italic',
-            fontSize: 12,
+            fontSize: 13,
             letterSpacing: 0.8,
-            color: c.chevron,
-          },
-        ]}
-      >
-        (tap anywhere.)
-      </Animated.Text>
+            color: c.mutedForeground,
+          }}
+        >
+          (tap anywhere.)
+        </Text>
+      </AnimatedPressable>
     </Animated.View>
   );
 }

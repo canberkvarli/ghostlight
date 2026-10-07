@@ -60,6 +60,11 @@ export async function configurePurchases(): Promise<void> {
   Purchases.configure({ apiKey: API_KEY, appUserID: userId ?? null });
   configured = true;
   lastIdentified = userId ?? null;
+  // Warm the offering now, at launch, rather than when the paywall opens. The
+  // SDK caches it, along with the StoreKit products behind it, so the paywall's
+  // prices and the Apple sheet on "Start the trial" no longer wait on a cold
+  // round trip to RevenueCat and the App Store first.
+  void Purchases.getOfferings().catch(() => {});
 }
 
 /**

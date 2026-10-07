@@ -91,6 +91,77 @@ const SKETCHES: Record<string, Stroke[]> = {
     { d: 'M19 11.7 L16.6 24 M30 10.1 L27.6 22.4 M41 8.5 L38.6 20.8 M52 6.9 L49.6 19.2' },
     { d: 'M18 38 L46 38 M18 46 L36 46', ink: 'accent' },
   ],
+
+  /*
+   * The theme sketches. A play has no poster, so the reading page and the
+   * saved shelf give it one of these instead, picked from the piece's themes
+   * by `sketchFor` (src/lib/sketchFor.ts). Paths are the web's, unchanged; web
+   * strokes that share a draw order are merged into one stroke here so the
+   * stagger matches the site. Each one carries a single gel stroke.
+   */
+
+  /** Yorick. Death, grief, mortality. The eye sockets take the gel. */
+  skull: [
+    {
+      d: 'M32 6 C17 6 10 17 10 28 C10 36 14 41 18 44 L18 52 C18 55 20 57 23 57 L41 57 C44 57 46 55 46 52 L46 44 C50 41 54 36 54 28 C54 17 47 6 32 6 Z',
+    },
+    {
+      d: 'M20 28 C20 24 23 22 26 22 C29 22 31 25 30 29 C29 32 26 33 24 33 C21 33 20 31 20 28 Z M44 28 C44 24 41 22 38 22 C35 22 33 25 34 29 C35 32 38 33 40 33 C43 33 44 31 44 28 Z',
+      ink: 'accent',
+    },
+    { d: 'M32 36 L29 42 L35 42 Z' },
+    { d: 'M26 50 L26 56 M32 50 L32 56 M38 50 L38 56' },
+  ],
+  /** A rose in bud, in profile. Love, longing. The furled petal is the gel. */
+  rose: [
+    {
+      d: 'M32 33 C27 32 24 27 24.5 21 C25 15.5 28.5 11.5 32 10 M32 33 C37 32 40 27 39.5 21 C39 15.5 35.5 11.5 32 10',
+    },
+    { d: 'M28.6 14.5 C30.6 18.5 31 24 30 30.5 M35.4 14.5 C33.4 18.5 33 24 34 30.5', ink: 'accent' },
+    {
+      d: 'M26.5 28.5 C23.5 31.5 22 35.5 23 38.5 C26 37 27.5 33 27.5 30 M37.5 28.5 C40.5 31.5 42 35.5 41 38.5 C38 37 36.5 33 36.5 30',
+    },
+    { d: 'M32 33 L32 57' },
+    {
+      d: 'M32 44 C27.5 41.5 23 43 21.5 46.5 C25.5 48.5 30 47.5 32 44 Z M32 50 C36 48 40 49.5 41 52.5 C37.5 54 34 53 32 50 Z',
+    },
+  ],
+  /** Macbeth's dagger. Revenge, violence. The fuller catches the light. */
+  dagger: [
+    { d: 'M32 5 L28.6 26 L28.6 30 L35.4 30 L35.4 26 Z' },
+    { d: 'M32 11 L32 27', ink: 'accent' },
+    { d: 'M21 29.5 C25 31.4 39 31.4 43 29.5' },
+    { d: 'M29.6 32 L30.4 45 L33.6 45 L34.4 32' },
+    { d: 'M28.4 49 A3.6 3.6 0 1 1 35.6 49 A3.6 3.6 0 1 1 28.4 49 Z' },
+  ],
+  /** Uneasy lies the head. Power, ambition. The jewels are the gel. */
+  crown: [
+    { d: 'M12 46 L9 22 L21 32 L32 16 L43 32 L55 22 L52 46 Z' },
+    { d: 'M12 52 L52 52' },
+    {
+      d: 'M9 19 A1.8 1.8 0 1 1 9 15.4 A1.8 1.8 0 1 1 9 19 M32 13 A1.8 1.8 0 1 1 32 9.4 A1.8 1.8 0 1 1 32 13 M55 19 A1.8 1.8 0 1 1 55 15.4 A1.8 1.8 0 1 1 55 19',
+      ink: 'accent',
+    },
+  ],
+  /** Comedy and tragedy. The default, when no theme speaks up. */
+  masks: [
+    { d: 'M8 12 C16 10 24 10 32 12 L32 34 C32 44 26 50 20 50 C14 50 8 44 8 34 Z' },
+    { d: 'M14 24 C15 22 17 22 18 24 M24 24 C25 22 27 22 28 24 M14 34 C17 39 23 39 26 34' },
+    { d: 'M32 16 C40 14 48 14 56 16 L56 38 C56 48 50 54 44 54 C38 54 32 48 32 38 Z' },
+    { d: 'M38 28 C39 26 41 26 42 28 M48 28 C49 26 51 26 52 28 M38 44 C41 39 47 39 50 44', ink: 'accent' },
+  ],
+  /** The Fool, who tells the truth. Comedy, wit. The bells are the gel. */
+  jester: [
+    { d: 'M14 44 C12 30 18 20 32 20 C46 20 52 30 50 44 Z' },
+    {
+      d: 'M16 28 C10 22 8 14 12 8 C18 10 22 16 22 23 M48 28 C54 22 56 14 52 8 C46 10 42 16 42 23 M32 20 C30 14 30 8 32 4',
+    },
+    {
+      d: 'M11 10 A2 2 0 1 1 11 6 A2 2 0 1 1 11 10 M53 10 A2 2 0 1 1 53 6 A2 2 0 1 1 53 10 M32 6 A2 2 0 1 1 32 2 A2 2 0 1 1 32 6',
+      ink: 'accent',
+    },
+    { d: 'M14 50 L50 50 M18 56 L46 56' },
+  ],
 };
 
 export type SketchName = keyof typeof SKETCHES;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
@@ -9,10 +9,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -20,7 +23,12 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight, ghostLightMetrics } from '../src/components/GhostLight';
-import { loadSearchHistory, pushSearchHistory, type RecentSearch } from '../src/lib/searchHistory';
+import {
+  loadSearchHistory,
+  pushSearchHistory,
+  removeSearchHistory,
+  type RecentSearch,
+} from '../src/lib/searchHistory';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
@@ -173,8 +181,19 @@ export default function Search() {
   const [promptIndex] = useState(pickPromptIndex);
   const prompt = promptAt(medium, promptIndex);
 
-  useEffect(() => {
-    void loadSearchHistory().then(setHistory);
+  // On focus, not on mount: Search stays mounted under Results, so a list read
+  // once at mount never learned about anything searched since.
+  useFocusEffect(
+    useCallback(() => {
+      void loadSearchHistory().then(setHistory);
+    }, []),
+  );
+  // Each house keeps its own past. Hamlet belongs to the plays; switching to
+  // Film & TV shows what you looked for there, and switching back finds it again.
+  const houseHistory = useMemo(() => history.filter((h) => h.medium === medium), [history, medium]);
+  const forget = useCallback((item: RecentSearch) => {
+    Haptics.selectionAsync().catch(() => {});
+    void removeSearchHistory(item).then(setHistory);
   }, []);
   const pal = mediumPalette(medium, c.isLight);
 
@@ -566,7 +585,7 @@ export default function Search() {
                     returnKeyType="search"
                     // Short on purpose: it has to sit inside the field at 15pt on
                     // the narrowest phone without ever reaching the ellipsis.
-                    placeholder="a grieving mother…"
+                    placeholder={medium === 'screen' ? 'a cop on the edge…' : 'a grieving mother…'}
                     placeholderTextColor={c.paperMuted}
                     selectionColor={pal.accent}
                     style={{
@@ -683,63 +702,69 @@ export default function Search() {
               </AnimatedPressable>
             </Animated.View>
 
-            {/* Recent searches: hairline rows, the query on the left and the
-                house it was made in on the right. They used to be pills, which
-                made four of them look like four more filters. Hidden once
-                there's a query, since re-running what you're typing is noise. */}
-            {history.length > 0 && !query.trim() ? (
+            {/* Recent searches: hairline rows, this house's only, each with a
+                way to forget it. They used to be pills, which made four of them
+                look like four more filters. Hidden only while you type: the
+                query you just ran is still in the field when you come back from
+                Results, and hiding the list then made it look as if the search
+                had never been remembered. */}
+            {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
               <Animated.View
                 pointerEvents={fieldFocused ? 'none' : 'auto'}
                 style={[belowStyle, { width: '100%', marginTop: 26 }]}
               >
                 <StageDirection style={{ marginBottom: 6 }}>(last time.)</StageDirection>
-                {history.slice(0, 3).map((item) => (
-                  <Pressable
+                {houseHistory.slice(0, 3).map((item) => (
+                  <Animated.View
                     key={`${item.medium}:${item.q}`}
-                    onPress={() => runRecent(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Search again for ${item.q} in ${
-                      item.medium === 'screen' ? 'film and TV' : 'theatre'
-                    }`}
+                    entering={FadeIn.duration(180)}
+                    exiting={FadeOut.duration(160)}
+                    layout={LinearTransition.duration(200)}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 14,
-                      paddingVertical: 10,
                       borderBottomWidth: 1,
                       borderBottomColor: c.divider,
                     }}
                   >
-                    {/* Two lines, because a remembered search is a whole
-                        sentence: "angry woman in her twenties, under two
-                        minutes, not shakespeare" is a real query and one line
-                        of it ends at "under two". The row grows; the list is
-                        three rows long, so it can afford to. */}
-                    <Text
-                      numberOfLines={2}
+                    <Pressable
+                      onPress={() => runRecent(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Search again for ${item.q}`}
+                      style={{ flex: 1, paddingVertical: 10 }}
+                    >
+                      {/* Two lines, because a remembered search is a whole
+                          sentence: "angry woman in her twenties, under two
+                          minutes, not shakespeare" is a real query and one line
+                          of it ends at "under two". */}
+                      <Text
+                        numberOfLines={2}
+                        style={{
+                          fontFamily: 'BricolageGrotesque_500Medium',
+                          fontSize: 14,
+                          lineHeight: 19,
+                          color: c.foreground,
+                        }}
+                      >
+                        {item.q}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => forget(item)}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Forget ${item.q}`}
                       style={{
-                        flex: 1,
-                        fontFamily: 'BricolageGrotesque_500Medium',
-                        fontSize: 14,
-                        lineHeight: 19,
-                        color: c.foreground,
+                        width: 32,
+                        height: 32,
+                        marginLeft: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      {item.q}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontFamily: 'CourierPrime_400Regular',
-                        fontSize: 11,
-                        letterSpacing: 0.6,
-                        color: mediumPalette(item.medium, c.isLight).accent,
-                      }}
-                    >
-                      {item.medium === 'screen' ? 'film & tv' : 'plays'}
-                    </Text>
-                  </Pressable>
+                      <Ionicons name="close" size={15} color={c.mutedForeground} />
+                    </Pressable>
+                  </Animated.View>
                 ))}
               </Animated.View>
             ) : null}

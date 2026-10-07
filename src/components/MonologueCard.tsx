@@ -21,6 +21,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { PaperCard } from './PaperCard';
 import { MarkRow, marksFor } from './Marks';
 import { formatDuration, type Monologue } from '../data/monologues';
+import { posterThumb } from '../lib/screen';
 
 /**
  * One monologue, printed on a page of sides, under the scroll spotlight.
@@ -160,8 +161,10 @@ function MonologueCardImpl({
               marginBottom: 8,
             }}
           >
+            {/* The small TMDB size, which Results prefetches on arrival, so
+                the lineup lands with its posters already in the cache. */}
             <Image
-              source={{ uri: item.posterUrl }}
+              source={{ uri: posterThumb(item.posterUrl!) }}
               style={{ width: '100%', height: '100%' }}
               resizeMode="cover"
               accessibilityIgnoresInvertColors
@@ -237,9 +240,9 @@ function MonologueCardImpl({
           </Text>
         </View>
 
-        {/* The first two lines. This is what an actor actually reads. */}
+        {/* The opening, three lines of it. This is what an actor actually reads. */}
         <Text
-          numberOfLines={2}
+          numberOfLines={3}
           style={{
             fontFamily: 'CourierPrime_400Regular',
             fontSize: 13,

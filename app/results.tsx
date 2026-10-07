@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
@@ -30,7 +30,7 @@ import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
 import { apiToMonologue } from '../src/data/adapt';
-import { searchScreen } from '../src/lib/screen';
+import { posterThumb, searchScreen } from '../src/lib/screen';
 import { track } from '../src/lib/analytics';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
@@ -157,7 +157,20 @@ export default function Results() {
     enabled: screenMode,
     retry: false,
     staleTime: 60_000,
-    queryFn: () => searchScreen(params, 60),
+    // The posters are the lineup, so the lineup waits for its first screenful of
+    // them (briefly; a slow CDN never holds the list back past 1.5s). The rest
+    // warm the disk cache in the background so scrolling finds them there.
+    queryFn: async () => {
+      const rows = await searchScreen(params, 60);
+      const thumbs = rows.flatMap((m) => (m.posterUrl ? [posterThumb(m.posterUrl)] : []));
+      const warm = (url: string) => Image.prefetch(url).catch(() => false);
+      thumbs.slice(6).forEach(warm);
+      await Promise.race([
+        Promise.all(thumbs.slice(0, 6).map(warm)),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+      return rows;
+    },
   });
 
   // Live search results; live discover on cold start. The fixtures are the
@@ -221,8 +234,7 @@ export default function Results() {
     searchReported.current = signature;
     track('search_performed', {
       medium,
-      // The same count the header's "filters · N" pill reads, so the number in
-      // the analytics and the number on the screen cannot drift apart.
+      // Every param but the query is a filter that was set on Search.
       filters: filterCount,
       has_query: Boolean(params.q),
       results: count,
@@ -307,8 +319,8 @@ export default function Results() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={floor} />
 
-      {/* The way back and the filter readout — anchored just below the notch,
-          OVER the list. Absolute so they don't shift the list: the scroll
+      {/* The way back, anchored just below the notch, OVER the list. The
+          filters pill that sat opposite only led back here too, so it went. Absolute so they don't shift the list: the scroll
           spotlight is measured against the list viewport, and putting a row
           above it would move every card 40pt out of the arithmetic. */}
       <View
@@ -343,39 +355,6 @@ export default function Results() {
           </Text>
         </Pressable>
 
-        {/* A readout, and a door back to where filters are actually set. The
-            sheet lives on Search; opening it here would mean a second place
-            that owns the selection, and two owners is how they drift. */}
-        <Pressable
-          onPress={goBack}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={
-            filterCount > 0 ? `${filterCount} filters. Change them` : 'Change filters'
-          }
-          style={{
-            height: 30,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            paddingHorizontal: 12,
-            borderRadius: 999,
-            borderWidth: 1.5,
-            borderColor: c.border,
-          }}
-        >
-          <Ionicons name="options-outline" size={12} color={c.mutedForeground} />
-          <Text
-            style={{
-              fontFamily: 'CourierPrime_400Regular',
-              fontSize: 12,
-              letterSpacing: 0.5,
-              color: c.mutedForeground,
-            }}
-          >
-            {filterCount > 0 ? `filters · ${filterCount}` : 'filters'}
-          </Text>
-        </Pressable>
       </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>

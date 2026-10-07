@@ -26,7 +26,8 @@ import type { Medium } from '../theme/medium';
 const KEY = 'ghostlight.searchHistory.v2';
 /** v1 held bare strings. Read once so nobody's list vanishes on upgrade. */
 const LEGACY_KEY = 'ghostlight.searchHistory.v1';
-const MAX = 8;
+/** Per house, not overall: a run of film searches must never push the plays out. */
+const MAX_PER_MEDIUM = 8;
 
 export interface RecentSearch {
   q: string;
@@ -59,7 +60,7 @@ export async function loadSearchHistory(): Promise<RecentSearch[]> {
 }
 
 /**
- * Most recent first, capped at MAX. De-duplication is on the pair, not the text:
+ * Most recent first, capped at MAX_PER_MEDIUM in each house. De-duplication is on the pair, not the text:
  * "hamlet" in the theatre and "hamlet" on screen are different searches with
  * different answers, and collapsing them would lose whichever you ran first.
  */
@@ -67,14 +68,30 @@ export async function pushSearchHistory(term: string, medium: Medium): Promise<R
   const q = term.trim();
   if (!q) return loadSearchHistory();
   const prev = await loadSearchHistory();
-  const next = [
+  const merged = [
     { q, medium },
     ...prev.filter((p) => !(p.q.toLowerCase() === q.toLowerCase() && p.medium === medium)),
-  ].slice(0, MAX);
+  ];
+  const kept: Record<Medium, number> = { theatre: 0, screen: 0 };
+  const next = merged.filter((p) => ++kept[p.medium] <= MAX_PER_MEDIUM);
   try {
     await AsyncStorage.setItem(KEY, JSON.stringify(next));
   } catch {
     // A full disk shouldn't break searching.
+  }
+  return next;
+}
+
+/** Forget one remembered search. Same pair rule as push: text and house together. */
+export async function removeSearchHistory(item: RecentSearch): Promise<RecentSearch[]> {
+  const prev = await loadSearchHistory();
+  const next = prev.filter(
+    (p) => !(p.q.toLowerCase() === item.q.toLowerCase() && p.medium === item.medium),
+  );
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // Cosmetic list; a failed write just means it comes back next launch.
   }
   return next;
 }

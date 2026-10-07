@@ -25,10 +25,12 @@ import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { MonologueText } from '../../src/components/MonologueText';
+import { sketchFor } from '../../src/lib/sketchFor';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
 import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
+import { recordFinishedRead } from '../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
@@ -287,13 +289,30 @@ export default function Read() {
   // changes on refetch, and depending on the object would restart the clock every
   // time the cache settled.
   const readId = monologue?.id;
+  // A finished read, for the rating moment: the same dwell, plus the last line
+  // actually reached (the bottom of the words, not of the similar row under
+  // them). Checked when a scroll settles or the layout changes, never per frame.
+  const reachedEnd = useRef(false);
+  const viewportH = useRef(0);
+  const textBottom = useRef(0);
+  const lastOffset = useRef(0);
+  const checkEnd = (offsetY = lastOffset.current) => {
+    lastOffset.current = offsetY;
+    if (textBottom.current > 0 && viewportH.current > 0 && offsetY + viewportH.current >= textBottom.current - 24) {
+      reachedEnd.current = true;
+    }
+  };
   useEffect(() => {
     if (readId == null || gated || !wallKnown) return;
     const MINIMUM_SECONDS = 20;
     const startedAt = Date.now();
+    reachedEnd.current = false;
     return () => {
       const seconds = Math.round((Date.now() - startedAt) / 1000);
-      if (seconds >= MINIMUM_SECONDS) track('monologue_read', { id: String(readId), seconds });
+      if (seconds >= MINIMUM_SECONDS) {
+        track('monologue_read', { id: String(readId), seconds });
+        if (reachedEnd.current) void recordFinishedRead();
+      }
     };
   }, [readId, gated, wallKnown]);
 
@@ -433,10 +452,19 @@ export default function Read() {
               contentContainerStyle={{ padding: 24, paddingBottom: gated ? 32 : 56 }}
               showsVerticalScrollIndicator={false}
               scrollEnabled={!gated}
+              onLayout={(e) => {
+                viewportH.current = e.nativeEvent.layout.height;
+                checkEnd();
+              }}
+              onScrollEndDrag={(e) => checkEnd(e.nativeEvent.contentOffset.y)}
+              onMomentumScrollEnd={(e) => checkEnd(e.nativeEvent.contentOffset.y)}
             >
               {/* The character, as a tag rather than an eyebrow — it is a fact
                   about the piece, the same class of thing as "classical". */}
-              <View style={{ flexDirection: 'row' }}>
+              {/* The theme sketch, top right of the page: a play has no poster,
+                  so it gets a drawing picked from its themes. On paper the
+                  highlight is the deep accent, since the gel vanishes on cream. */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <View
                   style={{
                     borderWidth: 1.5,
@@ -460,6 +488,15 @@ export default function Read() {
                     {shown.character}
                   </Text>
                 </View>
+                {shown.sourceType === 'play' || !shown.posterUrl ? (
+                  <Sketch
+                    name={sketchFor(shown)}
+                    size={56}
+                    stroke={c.paperMuted}
+                    accent={ink.accent}
+                    style={{ marginTop: -4, marginRight: -4, marginBottom: -10 }}
+                  />
+                ) : null}
               </View>
 
               <Animated.Text
@@ -550,6 +587,12 @@ export default function Read() {
                 <Animated.View
                   entering={FadeIn.duration(500)}
                   style={{ marginTop: 16 }}
+                  onLayout={(e) => {
+                    // A short speech that fits on screen is read to the end already.
+                    const l = e.nativeEvent.layout;
+                    textBottom.current = gated ? 0 : l.y + l.height;
+                    checkEnd();
+                  }}
                 >
                   {gated ? (
                     // Two lines sharp, the rest out of focus, the offer floating

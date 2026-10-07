@@ -12,14 +12,17 @@
  * Raised from 172 for the v2 card, which carries more: a margin column with a
  * roman numeral, and a row of marks under the excerpt.
  *
- * The marks are the reason this is 196 rather than the ~178 the content adds up
+ * Then raised to 216 for a third line of excerpt (20pt), which the old slack
+ * could not absorb on a 375pt phone where the marks take two rows.
+ *
+ * The marks are the reason this is 216 rather than the ~198 the content adds up
  * to. "everyone brings this" and a source tag fit on one line on a 402pt phone
  * and need two on a 375pt one, and a mark that falls off the paper is worse than
  * a card with some air in it — so the card reserves both rows and the text
  * column distributes the slack with `space-between`. On the common one-row case
  * the extra sits between the excerpt and the marks, where it reads as margin.
  */
-export const CARD_HEIGHT = 196;
+export const CARD_HEIGHT = 216;
 export const CARD_GAP = 14;
 export const ROW_HEIGHT = CARD_HEIGHT + CARD_GAP;
 

@@ -4,6 +4,7 @@ import { Image, Text, View } from 'react-native';
 import { colors } from '../theme/tokens';
 import { Sketch } from './Sketches';
 import type { Monologue } from '../data/monologues';
+import { sketchFor } from '../lib/sketchFor';
 
 /**
  * The spine of the thing the speech came out of.
@@ -16,20 +17,25 @@ import type { Monologue } from '../data/monologues';
  *      the one image in the app that was made by someone else is left alone.
  *   2. **Film & TV without one** — the drawn clapperboard. Only ever a fallback.
  *   3. **A play** — a cloth-bound cover: one deep colour keyed to the work, the
- *      year small at the head, a serif device in the middle, the short title at
+ *      year small at the head, a theme sketch in the middle (skull, rose,
+ *      dagger, crown, jester or masks, from `sketchFor`), the short title at
  *      the foot. Deliberately drawn rather than geometric; a plain coloured
  *      rectangle with a letter in it reads as a missing asset, which is exactly
  *      what the old shelf looked like.
  *
- * The cloth colour and the device are hashed from the work's title, so a play
- * has the same cover everywhere in the app and across launches — the shelf is
+ * The cloth colour is hashed from the work's title and the sketch is read from
+ * its themes, so a play has the same cover everywhere in the app and across launches; the shelf is
  * recognisable by colour before it is readable by title.
  */
 
 /** Deep bound-cloth colours. None of them are the stage, the gel or the paper. */
 const CLOTH = ['#193b26', '#531b19', '#152e4e', '#4f3005', '#342b44', '#123b3c'];
-/** Printer's devices, set in the serif. Not emoji — these must take a font. */
-const DEVICES = ['❦', '✦', '⁂', '❧', '✻', '❖'];
+/**
+ * The gel, for a sketch on cloth. Same yellow as `colors.yellow`, written with
+ * its alpha so the Sketch's light-scheme swap (yellow to deep accent, meant for
+ * cream) leaves it alone: the cloth is dark in both schemes.
+ */
+const GEL_ON_CLOTH = `${colors.yellow}ff`;
 
 function hash(value: string): number {
   let h = 0;
@@ -48,10 +54,8 @@ export function PieceCover({
 }) {
   const screen = item.sourceType === 'film' || item.sourceType === 'tv';
   const key = item.source || item.title;
-  const { cloth, device } = useMemo(() => {
-    const h = hash(key);
-    return { cloth: CLOTH[h % CLOTH.length], device: DEVICES[(h >> 3) % DEVICES.length] };
-  }, [key]);
+  const cloth = useMemo(() => CLOTH[hash(key) % CLOTH.length], [key]);
+  const theme = sketchFor(item);
 
   const frame = {
     width,
@@ -140,16 +144,13 @@ export function PieceCover({
         >
           {item.year ?? ''}
         </Text>
-        <Text
-          style={{
-            fontFamily: 'InstrumentSerif_400Regular_Italic',
-            fontSize: Math.round(height * 0.29),
-            lineHeight: Math.round(height * 0.32),
-            color: ink,
-          }}
-        >
-          {device}
-        </Text>
+        <Sketch
+          name={theme}
+          size={Math.round(Math.min(width * 0.6, height * 0.38))}
+          stroke={ink}
+          accent={GEL_ON_CLOTH}
+          weight={2.4}
+        />
         {/* A cover is 38pt of usable width, which is eleven characters a line.
             Most plays fit in two; "The Importance of Being Earnest" does not,
             and a cover reading "The Importance of Bein…" is a printing error,

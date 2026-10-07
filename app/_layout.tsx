@@ -31,6 +31,8 @@ import { supabase } from '../src/lib/supabase';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { configurePurchases } from '../src/lib/purchases';
 import { flushAnalytics, identify, initAnalytics, internalName, resetIdentity } from '../src/lib/analytics';
+import { BackstageNoteHost } from '../src/components/BackstageNote';
+import { recordAppBackground, recordAppOpen } from '../src/lib/reviewMoments';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -160,7 +162,11 @@ export default function RootLayout() {
     // showing up while a sign-in from thirty seconds ago had not.
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') flushAnalytics();
+      // Open-days and sessions for the rating moment (src/lib/reviewMoments.ts).
+      if (state === 'active') void recordAppOpen();
+      else if (state === 'background') recordAppBackground();
     });
+    void recordAppOpen();
     return () => sub.remove();
   }, []);
 
@@ -180,6 +186,7 @@ function Shell() {
   // Mounted here so the offline gate tracks entitlement app-wide, including
   // when a session ends on a screen that never asks about the paywall itself.
   useEntitlement();
+  // The home-screen "Before you go…" action opens the note from Canberk.
 
   /**
    * The navigator's own container colour, and the reason you could see white in
@@ -221,10 +228,14 @@ function Shell() {
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
+        <Stack.Screen name="note" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
       </Stack>
 
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
       <LaunchOverlay />
+
+      {/* The note from backstage: rises only after a good moment. */}
+      <BackstageNoteHost />
     </GestureHandlerRootView>
     </NavThemeProvider>
   );
