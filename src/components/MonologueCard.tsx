@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import {
   Extrapolation,
   interpolate,
@@ -21,6 +22,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { PaperCard } from './PaperCard';
 import { MarkRow, marksFor } from './Marks';
 import { formatDuration, type Monologue } from '../data/monologues';
+import { posterThumb } from '../lib/screen';
 
 /**
  * One monologue, printed on a page of sides, under the scroll spotlight.
@@ -160,10 +162,16 @@ function MonologueCardImpl({
               marginBottom: 8,
             }}
           >
+            {/* expo-image for the disk cache: the plain RN Image kept almost
+                nothing, so every return to the lineup fetched every poster
+                again. Results prefetches the same thumb URLs on arrival. */}
             <Image
-              source={{ uri: item.posterUrl }}
+              source={{ uri: posterThumb(item.posterUrl!) }}
               style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={120}
+              recyclingKey={item.id}
               accessibilityIgnoresInvertColors
             />
           </View>
@@ -237,9 +245,9 @@ function MonologueCardImpl({
           </Text>
         </View>
 
-        {/* The first two lines. This is what an actor actually reads. */}
+        {/* The opening, three lines of it. This is what an actor actually reads. */}
         <Text
-          numberOfLines={2}
+          numberOfLines={3}
           style={{
             fontFamily: 'CourierPrime_400Regular',
             fontSize: 13,

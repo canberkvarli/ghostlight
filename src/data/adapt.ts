@@ -30,14 +30,18 @@ function normalizeSourceType(category: string | null): SourceType {
   return 'play';
 }
 
-/** First two lines of the speech — what the card shows in Courier. */
-function firstTwoLines(text: string): string {
+/**
+ * Enough of the opening to fill the card's three lines. Verse breaks are run
+ * together on purpose: two short verse lines on their own lines left most of
+ * the excerpt's space empty, and the card clamps the length anyway.
+ */
+function openingLines(text: string): string {
   return text
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
-    .slice(0, 2)
-    .join('\n');
+    .slice(0, 5)
+    .join(' ');
 }
 
 export function apiToMonologue(m: ApiMonologue): Monologue {
@@ -60,10 +64,13 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     duration: m.estimated_duration_seconds,
     // The API scores overdone-ness 0–1; the card and its badge think in 0–100.
     overdoneScore: Math.round((m.overdone_score ?? 0) * 100),
-    excerpt: firstTwoLines(m.text),
+    excerpt: openingLines(m.text),
     segments: Array.isArray(m.text_segments) ? m.text_segments : undefined,
     fullText: m.text,
     // `paywalled` is newer than the committed OpenAPI snapshot; read defensively.
     paywalled: (m as { paywalled?: boolean }).paywalled ?? false,
+    // For the theme sketch on a play's cover (src/lib/sketchFor.ts).
+    themes: Array.isArray(m.themes) ? m.themes : undefined,
+    emotion: m.primary_emotion ?? undefined,
   };
 }

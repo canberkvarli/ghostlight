@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getFavorites, setFavorite } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import { listOffline, saveOffline } from '../lib/offline';
+import { recordSave } from '../lib/reviewMoments';
 import type { Monologue } from '../data/monologues';
 
 /**
@@ -79,6 +80,10 @@ export function useToggleFavorite() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(KEY, ctx.previous);
+    },
+    // Only a save the server kept counts toward the rating moment.
+    onSuccess: (_data, { on }) => {
+      if (on) void recordSave();
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   });

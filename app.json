@@ -68,7 +68,21 @@
       "expo-sqlite",
       "expo-apple-authentication",
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-image",
+      [
+        "expo-quick-actions",
+        {
+          "iosActions": [
+            {
+              "id": "note",
+              "title": "Before you go…",
+              "subtitle": "A note from Canberk",
+              "icon": "symbol:heart"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

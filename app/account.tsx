@@ -33,6 +33,7 @@ import { supabase } from '../src/lib/supabase';
 import { deleteAccount } from '../src/api/client';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { restore } from '../src/lib/purchases';
+import { MAKER, emailMaker, openInstagram, openX, rateGhostLight } from '../src/lib/maker';
 import { colors, radius } from '../src/theme/tokens';
 import { useTheme, type ThemeMode } from '../src/theme/ThemeContext';
 
@@ -314,6 +315,29 @@ export default function Account() {
                 last
               />
             ) : null}
+          </View>
+
+          {/* From the maker. Permanent, and the honest home for "rate the app":
+              a row you choose to tap, rather than only a note that finds you. */}
+          <View style={{ marginTop: 30 }}>
+            <StageDirection>(from the maker.)</StageDirection>
+            <Text
+              style={{
+                marginTop: 6,
+                fontFamily: 'BricolageGrotesque_500Medium',
+                fontSize: 15,
+                lineHeight: 22,
+                color: c.foreground,
+              }}
+            >
+              I&apos;m Canberk, an actor building Ghost Light on my own. I&apos;d love to hear from you.
+            </Text>
+            <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: c.divider }}>
+              <Row label="Rate Ghost Light" onPress={() => void rateGhostLight({ inApp: false })} />
+              <Row label="Instagram" value={`@${MAKER.instagram}`} onPress={openInstagram} />
+              <Row label="X" value={`@${MAKER.x}`} onPress={openX} />
+              <Row label="Email" value={MAKER.email} onPress={() => emailMaker('Ghost Light')} last />
+            </View>
           </View>
 
           {/* Sign-off: a small lamp still burning. */}

@@ -95,3 +95,14 @@ export async function searchScreen(
     // the sort moves here rather than disappearing. One page of sixty.
     .sort((a, b) => a.overdoneScore - b.overdoneScore);
 }
+
+/**
+ * The poster at the size a results card actually draws it. The card is 62pt
+ * wide, 186px on a 3x phone, so TMDB's w185 is the match; the stored URL is
+ * often the full-size one, which is most of a megabyte per row and is why the
+ * lineup used to fill in one poster at a time. Any URL that isn't a TMDB size
+ * path passes through untouched.
+ */
+export function posterThumb(url: string): string {
+  return url.replace(/(image\.tmdb\.org\/t\/p\/)(original|w\d+)\//, '$1w185/');
+}
