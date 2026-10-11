@@ -296,6 +296,21 @@ export default function Read() {
   const viewportH = useRef(0);
   const textBottom = useRef(0);
   const lastOffset = useRef(0);
+  // The wall used to lock the page, which was fine until a long title and scene
+  // note pushed the offer under the fold: no card, no way to reach it, and a
+  // page that looked frozen. The page scrolls now, and once the wall has laid
+  // out it glides just far enough to bring the whole offer into view.
+  const scrollRef = useRef<ScrollView>(null);
+  const wallShown = useRef(false);
+  const wallBox = useRef<{ top: number; height: number } | null>(null);
+  const revealWall = () => {
+    const box = wallBox.current;
+    if (!box || wallShown.current || viewportH.current <= 0) return;
+    wallShown.current = true;
+    const target = box.top + box.height + 32 - viewportH.current;
+    if (target <= 0) return;
+    setTimeout(() => scrollRef.current?.scrollTo({ y: target, animated: !reduceMotion }), 650);
+  };
   const checkEnd = (offsetY = lastOffset.current) => {
     lastOffset.current = offsetY;
     if (textBottom.current > 0 && viewportH.current > 0 && offsetY + viewportH.current >= textBottom.current - 24) {
@@ -449,12 +464,13 @@ export default function Read() {
             }}
           >
             <ScrollView
+              ref={scrollRef}
               contentContainerStyle={{ padding: 24, paddingBottom: gated ? 32 : 56 }}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={!gated}
               onLayout={(e) => {
                 viewportH.current = e.nativeEvent.layout.height;
                 checkEnd();
+                revealWall();
               }}
               onScrollEndDrag={(e) => checkEnd(e.nativeEvent.contentOffset.y)}
               onMomentumScrollEnd={(e) => checkEnd(e.nativeEvent.contentOffset.y)}
@@ -592,6 +608,10 @@ export default function Read() {
                     const l = e.nativeEvent.layout;
                     textBottom.current = gated ? 0 : l.y + l.height;
                     checkEnd();
+                    if (gated) {
+                      wallBox.current = { top: l.y, height: l.height };
+                      revealWall();
+                    }
                   }}
                 >
                   {gated ? (

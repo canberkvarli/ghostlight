@@ -34,7 +34,7 @@ import { useTheme } from '../theme/ThemeContext';
  */
 
 /** How much blurred page sits under the offer. Tall enough for the card. */
-const GHOST_LINES = 14;
+const GHOST_LINES = 12;
 const RISE_MS = 520;
 const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
@@ -126,7 +126,10 @@ export function ReadWall({
 
         <Animated.View
           style={[
-            { position: 'absolute', left: 0, right: hardShadow.offsetSmall, top: lineHeight * 2.2 },
+            // On the words themselves, just under the sharp lines: the title and
+            // the scene note above stay readable as the taste, and the card
+            // takes no more page than it must.
+            { position: 'absolute', left: 0, right: hardShadow.offsetSmall, top: lineHeight * 0.4 },
             cardStyle,
           ]}
         >
