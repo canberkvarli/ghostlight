@@ -47,6 +47,14 @@ import { colors } from '../theme/tokens';
 
 const LAMP = require('../../assets/ghostlight-lamp.png');
 const IMAGE_PX = 1024;
+/**
+ * The icon's halo is a circle reaching 190 units above the icon's top edge, so
+ * a plain 1024 export cut it flat: invisible on the icon's dark square, a hard
+ * orange line on the stage. The PNG is the same SVG exported with this much
+ * room above (viewBox 0 -200 1024 1224), and the canvas reaches up into it
+ * without taking any layout space, so the glow fades out on its own.
+ */
+const HEADROOM_PX = 200;
 const GLASS_PX = 262 * 1.3;
 const GLASS_CY_PX = 120 + 141 * 1.3;
 const CROP_FULL_PX = 930;
@@ -87,6 +95,8 @@ function lampBox(W: number, full: boolean) {
   const k = imgW / IMAGE_PX;
   return {
     imgW,
+    imgH: (IMAGE_PX + HEADROOM_PX) * k,
+    headroom: HEADROOM_PX * k,
     glassCy: GLASS_CY_PX * k,
     canvasW: imgW,
     canvasH: (full ? CROP_FULL_PX : CROP_BARE_PX) * k,
@@ -140,6 +150,8 @@ export function GhostLight({ size = 18, dress, stem, boost, glow = colors.stageG
 
   const g = lampBox(size, full);
   const cx = g.canvasW / 2;
+  // Inside the canvas everything sits `headroom` lower than in the layout box.
+  const glassY = g.glassCy + g.headroom;
   const flareR = size * 1.2;
 
   // A negative boost is the lamp going out (Search blows it when you ask for
@@ -160,12 +172,12 @@ export function GhostLight({ size = 18, dress, stem, boost, glow = colors.stageG
   const recolour = Math.abs(hue) > 8 ? hueRotate(hue) : null;
 
   return (
-    <View style={{ alignItems: 'center' }} pointerEvents="none">
-      <Canvas style={{ width: g.canvasW, height: g.canvasH }}>
+    <View style={{ alignItems: 'center', height: g.canvasH }} pointerEvents="none">
+      <Canvas style={{ width: g.canvasW, height: g.canvasH + g.headroom, marginTop: -g.headroom }}>
         {/* the flare: only on a positive boost, so the resting lamp is the icon */}
-        <Circle cx={cx} cy={g.glassCy} r={flareR} opacity={flare}>
+        <Circle cx={cx} cy={glassY} r={flareR} opacity={flare}>
           <RadialGradient
-            c={vec(cx, g.glassCy)}
+            c={vec(cx, glassY)}
             r={flareR}
             colors={[`rgba(${rgb}, 0.9)`, `rgba(${rgb}, 0.3)`, `rgba(${rgb}, 0)`]}
             positions={[0, 0.4, 1]}
@@ -177,7 +189,7 @@ export function GhostLight({ size = 18, dress, stem, boost, glow = colors.stageG
             the app the moment Film & TV lit its violet lamp. */}
         {image ? (
           <Group opacity={lit}>
-            <Image image={image} x={0} y={0} width={g.imgW} height={g.imgW} fit="contain">
+            <Image image={image} x={0} y={0} width={g.imgW} height={g.imgH} fit="contain">
               {recolour ? <ColorMatrix matrix={recolour} /> : null}
             </Image>
           </Group>
