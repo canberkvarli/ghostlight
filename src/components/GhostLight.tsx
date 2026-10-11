@@ -171,9 +171,15 @@ export function GhostLight({ size = 18, dress, stem, boost, glow = colors.stageG
             positions={[0, 0.4, 1]}
           />
         </Circle>
+        {/* The recolour is a filter on the image's own paint, never a `layer`.
+            A layer element must be a <Paint>; a bare ColorMatrix there leaves
+            Skia's native saveLayer reading an empty paint stack, which killed
+            the app the moment Film & TV lit its violet lamp. */}
         {image ? (
-          <Group opacity={lit} layer={recolour ? <ColorMatrix matrix={recolour} /> : undefined}>
-            <Image image={image} x={0} y={0} width={g.imgW} height={g.imgW} fit="contain" />
+          <Group opacity={lit}>
+            <Image image={image} x={0} y={0} width={g.imgW} height={g.imgW} fit="contain">
+              {recolour ? <ColorMatrix matrix={recolour} /> : null}
+            </Image>
           </Group>
         ) : null}
       </Canvas>
