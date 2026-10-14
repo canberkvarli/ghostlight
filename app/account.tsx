@@ -35,6 +35,7 @@ import { useEntitlement } from '../src/hooks/useEntitlement';
 import { restore } from '../src/lib/purchases';
 import { MAKER, emailMaker, openInstagram, openX, rateGhostLight } from '../src/lib/maker';
 import { colors, radius } from '../src/theme/tokens';
+import { track } from '../src/lib/analytics';
 import { useTheme, type ThemeMode } from '../src/theme/ThemeContext';
 
 /**
@@ -306,6 +307,8 @@ export default function Account() {
               onPress={onSubscription}
               busy={busy === 'restore'}
             />
+            {/* The tracker lives on the website too; this is the phone's door to it. */}
+            <Row label="Auditions" onPress={() => router.push('/auditions')} />
             <Row label="Help & legal" onPress={onHelp} />
             {isAuthenticated ? (
               <Row
@@ -333,7 +336,10 @@ export default function Account() {
               I&apos;m Canberk, an actor building Ghost Light on my own. I&apos;d love to hear from you.
             </Text>
             <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: c.divider }}>
-              <Row label="Rate Ghost Light" onPress={() => void rateGhostLight({ inApp: false })} />
+              <Row label="Rate Ghost Light" onPress={() => {
+                  track('app_review_prompted', { from: 'account' });
+                  void rateGhostLight({ inApp: false });
+                }} />
               <Row label="Instagram" value={`@${MAKER.instagram}`} onPress={openInstagram} />
               <Row label="X" value={`@${MAKER.x}`} onPress={openX} />
               <Row label="Email" value={MAKER.email} onPress={() => emailMaker('Ghost Light')} last />

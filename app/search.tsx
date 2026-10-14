@@ -456,6 +456,14 @@ export default function Search() {
                 <Ionicons name="bookmark-outline" size={22} color={c.mutedForeground} />
               </Pressable>
               <Pressable
+                onPress={() => router.push('/auditions')}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Auditions"
+              >
+                <Ionicons name="calendar-outline" size={22} color={c.mutedForeground} />
+              </Pressable>
+              <Pressable
                 onPress={() => router.push('/account')}
                 hitSlop={12}
                 accessibilityRole="button"
