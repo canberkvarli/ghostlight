@@ -302,7 +302,7 @@ export async function scheduleCallboard(pick: {
 
   const id = await schedule(
     'On the callboard this week',
-    `Everyone's reading ${pick.character} from ${pick.source}. Have a look before someone else brings it in.`,
+    `${pick.character}, from ${pick.source}. Worth a read before someone else brings it into the room.`,
     at,
     { moment: 'callboard', monologueId: Number(pick.id) },
   );

@@ -34,8 +34,15 @@ import { flushAnalytics, identify, initAnalytics, internalName, resetIdentity } 
 import { BackstageNoteHost } from '../src/components/BackstageNote';
 import { recordAppBackground, recordAppOpen } from '../src/lib/reviewMoments';
 import { useQuickActionNote } from '../src/hooks/useQuickActionNote';
+import { useReminderSync, useReminderTaps } from '../src/hooks/useReminders';
+import { clearAllReminders, configureNotifications } from '../src/lib/notifications';
+import { useSession } from '../src/lib/useSession';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// How a reminder presents while the app is open. Registering, not asking:
+// permission is only ever requested on the first audition save.
+configureNotifications();
 
 // Before the first screen, so a launch is counted even if someone opens the app
 // and closes it again. Silently does nothing when EXPO_PUBLIC_POSTHOG_KEY is
@@ -103,6 +110,9 @@ export default function RootLayout() {
         // Or the next anonymous session inherits the last account's identity and
         // every event it sends is filed under someone who has left the building.
         resetIdentity();
+        // The reminders were this account's week; the next sign-in must not
+        // get woken up for someone else's audition.
+        void clearAllReminders();
         // Without a fresh anonymous session every request 401s and the app looks
         // broken rather than signed out.
         void bootstrapSession();
@@ -189,6 +199,11 @@ function Shell() {
   useEntitlement();
   // The home-screen "Before you go…" action opens the note from Canberk.
   useQuickActionNote();
+  // Reminders: the week from /api/auditions onto the phone's schedule, and a
+  // tapped reminder into the reader.
+  const { isAuthenticated, session } = useSession();
+  useReminderSync(isAuthenticated, session?.user.id);
+  useReminderTaps();
 
   /**
    * The navigator's own container colour, and the reason you could see white in
@@ -231,6 +246,8 @@ function Shell() {
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
         <Stack.Screen name="note" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
+        {/* The audition form is a sheet over the list, like auth over a save. */}
+        <Stack.Screen name="audition" options={{ presentation: 'modal' }} />
       </Stack>
 
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
