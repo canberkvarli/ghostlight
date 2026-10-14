@@ -14,7 +14,7 @@ import { PaperCard } from '../src/components/PaperCard';
 import { Sketch } from '../src/components/Sketches';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useAuditions } from '../src/hooks/useAuditions';
-import { attachedPiece, type Audition, type AuditionKind } from '../src/api/auditions';
+import { KIND_LABEL, attachedPiece, type Audition } from '../src/api/auditions';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
 import { dayLabel, distanceLabel, timeLabel } from '../src/lib/when';
@@ -33,12 +33,6 @@ import { useTheme } from '../src/theme/ThemeContext';
  */
 
 const TILTS = [-0.5, 0.4, -0.3];
-
-export const KIND_LABEL: Record<AuditionKind, string> = {
-  in_person: 'In the room',
-  self_tape: 'Self-tape',
-  virtual: 'Virtual',
-};
 
 type Row = { type: 'audition'; a: Audition } | { type: 'divider'; label: string };
 

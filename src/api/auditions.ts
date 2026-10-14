@@ -13,6 +13,13 @@ import { authHeaders, API_URL, ApiError } from './client';
  */
 
 export type AuditionKind = 'in_person' | 'self_tape' | 'virtual';
+/** What the chips on the form and the cards on the list call each kind. */
+export const KIND_LABEL: Record<AuditionKind, string> = {
+  in_person: 'In the room',
+  self_tape: 'Self-tape',
+  virtual: 'Virtual',
+};
+
 export type AuditionStatus = 'submitted' | 'scheduled' | 'callback' | 'booked' | 'pinned' | 'passed';
 export type AuditionScope = 'upcoming' | 'waiting' | 'past';
 

@@ -21,12 +21,11 @@ import { PrimaryPill } from '../src/components/PrimaryPill';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { useAuditions, useCreateAudition, useDeleteAudition, useUpdateAudition } from '../src/hooks/useAuditions';
-import { attachedPiece, type AuditionDraft, type AuditionKind } from '../src/api/auditions';
+import { KIND_LABEL, attachedPiece, type AuditionDraft, type AuditionKind } from '../src/api/auditions';
 import { useSession } from '../src/lib/useSession';
 import { useGoBack } from '../src/lib/nav';
 import { dayLabel, defaultAuditionDate, localTimeZone, timeLabel } from '../src/lib/when';
 import { useTheme } from '../src/theme/ThemeContext';
-import { KIND_LABEL } from './auditions';
 
 /**
  * One audition, new or being changed. A modal over the list.
