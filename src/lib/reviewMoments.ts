@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { track } from './analytics';
+import { rateGhostLight } from './maker';
+
 /**
  * When to ask for a rating, and when not to.
  *
@@ -43,6 +46,8 @@ interface State {
   /** Timestamps of every time the note was shown, trimmed to the last year. */
   shownAt: number[];
   rated: boolean;
+  /** The automatic system rating sheet after the third save. Once per install. */
+  reviewPrompted: boolean;
 }
 
 const EMPTY: State = {
@@ -56,6 +61,7 @@ const EMPTY: State = {
   lastOpenDay: null,
   shownAt: [],
   rated: false,
+  reviewPrompted: false,
 };
 
 // Session flags live in memory: they are exactly as long-lived as the session.
@@ -166,18 +172,39 @@ export function recordAppBackground() {
   backgroundedAt = Date.now();
 }
 
-/** A save that the server accepted. */
+/**
+ * A save that the server accepted.
+ *
+ * The third save is the one good moment the app can be sure of, so from 1.0.6
+ * it does two things at once, each exactly once per install: asks the system
+ * for a rating directly (Apple's sheet, which rations itself and may not
+ * appear), and, where the note's own rules allow, queues the note from
+ * backstage. Neither fires in a session that has seen the paywall.
+ */
 export function recordSave(): Promise<void> {
   const now = Date.now();
   return update((s) => {
     s.saves += 1;
+    let out: 'note' | 'review' | null = null;
     if (!s.saveMomentUsed && s.saves >= 3 && eligible(s, now)) {
       s.saveMomentUsed = true;
-      return true;
+      out = 'note';
     }
-    return false;
+    if (!s.reviewPrompted && s.saves >= 3 && !suppressed) {
+      s.reviewPrompted = true;
+      out = out ?? 'review';
+    }
+    return out;
   }).then((fire) => {
-    if (fire) request('save', AFTER_MOMENT_MS);
+    if (fire === 'note') request('save', AFTER_MOMENT_MS);
+    if (fire === 'review') {
+      setTimeout(() => {
+        // Re-checked at the moment of asking: the paywall may have opened since.
+        if (suppressed) return;
+        track('app_review_prompted', { from: 'third_save' });
+        void rateGhostLight({ inApp: true });
+      }, AFTER_MOMENT_MS);
+    }
   });
 }
 

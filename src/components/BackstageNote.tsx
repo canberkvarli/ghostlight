@@ -21,6 +21,7 @@ import {
   type NoteOutcome,
 } from '../lib/reviewMoments';
 import { openInstagram, rateGhostLight } from '../lib/maker';
+import { track } from '../lib/analytics';
 
 /**
  * A note from backstage: the one place the app asks for a rating.
@@ -128,7 +129,12 @@ export function BackstageNote({ onDone }: { onDone: () => void }) {
             height={46}
             block
             style={{ marginTop: 18 }}
-            onPress={() => close('rated', () => void rateGhostLight({ inApp: true }))}
+            onPress={() =>
+              close('rated', () => {
+                track('app_review_prompted', { from: 'note' });
+                void rateGhostLight({ inApp: true });
+              })
+            }
           />
 
           <View
