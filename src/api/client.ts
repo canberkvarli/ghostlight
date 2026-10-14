@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
  * that breaks this surfaces as a TypeScript error rather than a runtime 500.
  */
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.actorrise.com';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.actorrise.com';
 const ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export type Monologue = components['schemas']['MonologueResponse'];
@@ -50,7 +50,7 @@ const CLIENT = 'ghostlight';
  * fall through with just the anon key so callers get a clean 401 to handle
  * rather than a thrown "no token" surprise.
  */
-async function authHeaders(): Promise<Record<string, string>> {
+export async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': CLIENT };

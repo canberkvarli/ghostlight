@@ -134,7 +134,18 @@ export type Event =
   /** Saves are the retention signal: someone building a book comes back. */
   | { name: 'monologue_saved'; props: { id: string } }
   /** Sign-in is the other one, and which method matters for what to keep. */
-  | { name: 'signed_in'; props: { method: 'apple' | 'google' | 'email' } };
+  | { name: 'signed_in'; props: { method: 'apple' | 'google' | 'email' } }
+  /**
+   * The 1.0.6 reason to come back: an audition on the calendar. `has_piece`
+   * says whether the book was in play; `kind` separates the room from the tape.
+   */
+  | { name: 'app_audition_created'; props: { kind: 'in_person' | 'self_tape' | 'virtual'; has_piece: boolean } }
+  /** A local reminder went on the phone's schedule. `moment` is which of the two. */
+  | { name: 'app_reminder_scheduled'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
+  /** Someone tapped a reminder, and the app opened from it. */
+  | { name: 'app_reminder_opened'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
+  /** The system rating sheet was asked for, and from where. */
+  | { name: 'app_review_prompted'; props: { from: 'third_save' | 'note' | 'account' } };
 
 export function track<E extends Event>(name: E['name'], props: E['props']): void {
   try {
