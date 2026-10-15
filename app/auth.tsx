@@ -20,11 +20,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
   FadeIn,
-  FadeInDown,
+  FadeOut,
   FadeOutDown,
   LinearTransition,
-  SlideInRight,
-  SlideOutLeft,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -257,16 +255,17 @@ export default function Auth() {
               layout={LinearTransition.duration(260)}
               style={{ paddingHorizontal: 30, paddingBottom: 30 }}
             >
-              {/* Two states, one stage. The ways in leave to the left and the
-                  form arrives from the right, so the change reads as travel in
-                  a direction rather than one block being swapped for another
-                  under your finger. `(back.)` reverses it, which is why it is
-                  the only thing on this screen that moves the other way. */}
+              {/* Two states, one stage, and they CROSS-FADE. They used to travel:
+                  the ways in slid out to the left and the form slid in from the
+                  right. On the new architecture a sliding `entering` animation
+                  leaves the block's touch area where the slide started, off the
+                  right edge of the screen, so nothing inside it could be
+                  pressed: Google and the email row were dead on every device
+                  while the Apple slab, a native control, kept working. Fades
+                  never move the hit area. Nothing in this file may animate a
+                  transform on a view that holds something pressable. */}
               {emailOpen ? null : (
-                <Animated.View
-                  entering={SlideInRight.duration(260).easing(Easing.out(Easing.cubic))}
-                  exiting={SlideOutLeft.duration(200)}
-                >
+                <Animated.View exiting={FadeOut.duration(160)}>
                   {/* The Apple slab — the one rectangle Apple's guidelines
                       require, given the v2 pill radius so it stands in the same
                       family as everything else that gets pressed. */}
@@ -315,14 +314,14 @@ export default function Auth() {
 
               {emailOpen ? (
                 <Animated.View
-                  entering={SlideInRight.duration(280).easing(Easing.out(Easing.cubic))}
+                  entering={FadeIn.duration(240)}
                   exiting={FadeOutDown.duration(180)}
                   layout={LinearTransition.duration(220)}
                 >
                   {/* Staggered by 60ms so the two fields arrive in reading order
                       rather than as one slab. Small enough that it registers as
                       weight, not as waiting. */}
-                  <Animated.View entering={FadeInDown.duration(240).delay(60)}>
+                  <Animated.View entering={FadeIn.duration(240).delay(60)}>
                     <LabelledField
                       label="Email"
                       value={email}
@@ -340,7 +339,7 @@ export default function Auth() {
                     />
                   </Animated.View>
 
-                  <Animated.View entering={FadeInDown.duration(240).delay(120)}>
+                  <Animated.View entering={FadeIn.duration(240).delay(120)}>
                     <LabelledField
                       label="Password"
                       value={password}
@@ -485,7 +484,7 @@ export default function Auth() {
 
               {offerSignUp ? (
                 <Animated.View
-                  entering={FadeInDown.duration(200)}
+                  entering={FadeIn.duration(200)}
                   style={{ marginTop: 18, alignItems: 'center' }}
                 >
                   <PrimaryPill
