@@ -350,9 +350,11 @@ function AuditionCard({
 }
 
 /**
- * The board before there is anything on it. One headline, the loop, three
- * lines on what happens, and the one thing to do next. Signed out, that is
- * signing in; signed in, it is pasting the first casting email.
+ * The board before there is anything on it. One headline, the loop, and the
+ * one thing to do next. Signed out, that is signing in; signed in, it is
+ * pasting the first casting email. There used to be three lines of
+ * explanation under the loop; the loop says all of it, and the lines pushed
+ * the button below the fold on a small phone.
  */
 function Intro({
   signedIn,
@@ -364,15 +366,10 @@ function Intro({
   onSecondary: () => void;
 }) {
   const { colors: c } = useTheme();
-  const lines = [
-    'Paste the casting email. It becomes a ticket on your week.',
-    'The night before and two hours out, a reminder, with your piece in it.',
-    'Same board as actorrise.com. Add it here, see it there.',
-  ];
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 48 }}
+      contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40 }}
     >
       <Text
         style={{
@@ -387,41 +384,24 @@ function Intro({
         <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>on the board.</Text>
       </Text>
       <StageDirection style={{ marginTop: 6 }}>
-        {signedIn ? '(nothing on it yet.)' : '(sign in and it fills itself.)'}
+        {signedIn ? '(nothing on it yet.)' : '(paste the email. the board does the rest.)'}
       </StageDirection>
 
       <AuditionsScene style={{ marginTop: 22 }} />
 
-      <View style={{ marginTop: 22, gap: 12 }}>
-        {lines.map((line) => (
-          <View key={line} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.yellow, marginTop: 7 }} />
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: 'BricolageGrotesque_500Medium',
-                fontSize: 14,
-                lineHeight: 20,
-                color: c.foreground,
-              }}
-            >
-              {line}
-            </Text>
-          </View>
-        ))}
+      {/* The button sits at the bottom of whatever is left, not glued to the scene. */}
+      <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: 28 }}>
+        <PrimaryPill
+          label={signedIn ? 'Paste a casting email' : 'Sign in to track auditions'}
+          onPress={onPrimary}
+          block
+        />
+        <Pressable onPress={onSecondary} hitSlop={10} accessibilityRole="button" style={{ marginTop: 14, alignSelf: 'center' }}>
+          <StageDirection numberOfLines={2} style={{ textAlign: 'center' }}>
+            {signedIn ? '(or fill it in by hand.)' : '(free with any ActorRise account. same board as the site.)'}
+          </StageDirection>
+        </Pressable>
       </View>
-
-      <PrimaryPill
-        label={signedIn ? 'Paste a casting email' : 'Sign in to track auditions'}
-        onPress={onPrimary}
-        block
-        style={{ marginTop: 28 }}
-      />
-      <Pressable onPress={onSecondary} hitSlop={10} accessibilityRole="button" style={{ marginTop: 14, alignSelf: 'center' }}>
-        <StageDirection numberOfLines={2} style={{ textAlign: 'center' }}>
-          {signedIn ? '(or add it by hand.)' : '(free with any ActorRise account. your saves come too.)'}
-        </StageDirection>
-      </Pressable>
     </ScrollView>
   );
 }

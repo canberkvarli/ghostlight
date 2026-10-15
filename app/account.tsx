@@ -339,10 +339,27 @@ export default function Account() {
               <Row label="Rate Ghost Light" onPress={() => {
                   track('app_review_prompted', { from: 'account' });
                   void rateGhostLight({ inApp: false });
-                }} />
-              <Row label="Instagram" value={`@${MAKER.instagram}`} onPress={openInstagram} />
-              <Row label="X" value={`@${MAKER.x}`} onPress={openX} />
-              <Row label="Email" value={MAKER.email} onPress={() => emailMaker('Ghost Light')} last />
+                }} last />
+            </View>
+            {/* Three doors in one line. They were three full rows with the
+                handles spelled out, which made "from the maker" the tallest
+                block on the screen and read as a contact page. */}
+            <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Social icon="logo-instagram" label="Instagram" onPress={openInstagram} />
+              <Social icon="logo-x" label="X" onPress={openX} />
+              <Social icon="mail-outline" label={`Email ${MAKER.email}`} onPress={() => emailMaker('Ghost Light')} />
+              <Text
+                numberOfLines={1}
+                style={{
+                  flex: 1,
+                  marginLeft: 4,
+                  fontFamily: 'CourierPrime_400Regular_Italic',
+                  fontSize: 12.5,
+                  color: c.mutedForeground,
+                }}
+              >
+                @{MAKER.instagram}
+              </Text>
             </View>
           </View>
 
@@ -740,6 +757,41 @@ function Ring() {
         },
       ]}
     />
+  );
+}
+
+/** A round outlined button holding one glyph: a door, not a row. */
+function Social({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: 'logo-instagram' | 'logo-x' | 'mail-outline';
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors: c } = useTheme();
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        borderWidth: 1.5,
+        borderColor: pressed ? c.foreground : c.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+      })}
+    >
+      <Ionicons name={icon} size={18} color={c.foreground} />
+    </Pressable>
   );
 }
 

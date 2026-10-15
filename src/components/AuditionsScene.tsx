@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { Text, View, type ViewStyle } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -8,6 +9,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
   type SharedValue,
@@ -25,10 +27,35 @@ import { useTheme } from '../theme/ThemeContext';
  * element reads its own moment off it, so there is no JavaScript per frame and
  * no timers to drift apart. With reduced motion the clock is parked on the
  * finished picture.
+ *
+ * It is ALWAYS a dark stage, on both themes, the way the website plays it on
+ * a near-black slab even on a white page. The first cut followed the app
+ * theme, which on the light theme made a grey box full of grey boxes, and on
+ * the dark theme put light type on cream paper so the email vanished. A stage
+ * has one lighting plot; it does not change with the house.
+ *
+ * The curtain is held for half a second after the screen lands. Starting on
+ * mount meant the first beat (the email arriving) was already over by the
+ * time the screen transition finished, so nobody saw the paste. It restarts
+ * from the top each time the screen comes back into focus.
  */
 
 const LOOP = 9000;
-const H = 320;
+const HOLD = 500;
+const H = 332;
+
+/** The stage's own lighting plot, mirroring the web intro's `--i-*` tokens. */
+const STAGE = {
+  bg: '#17100c',
+  line: 'rgba(226, 212, 190, 0.28)',
+  rule: 'rgba(226, 212, 190, 0.16)',
+  fg: '#f1e8d6',
+  muted: '#b7a58f',
+  paper: '#f7f1e5',
+  ink: '#1c1511',
+  inkMuted: '#6b5e51',
+  inkRule: '#d9cdb9',
+};
 
 const MAIL = [
   'Re: The Lighthouse, callback',
@@ -45,17 +72,19 @@ function seg(v: number, a: number, b: number): number {
 export function AuditionsScene({ style }: { style?: ViewStyle }) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
-  const t = useSharedValue(0);
+  const t = useSharedValue(reduce ? 7000 : 0);
 
-  useEffect(() => {
-    if (reduce) {
-      t.value = 7000;
-      return;
-    }
-    t.value = 0;
-    t.value = withRepeat(withTiming(LOOP, { duration: LOOP, easing: Easing.linear }), -1, false);
-    return () => cancelAnimation(t);
-  }, [reduce, t]);
+  useFocusEffect(
+    useCallback(() => {
+      if (reduce) {
+        t.value = 7000;
+        return;
+      }
+      t.value = 0;
+      t.value = withDelay(HOLD, withRepeat(withTiming(LOOP, { duration: LOOP, easing: Easing.linear }), -1, false));
+      return () => cancelAnimation(t);
+    }, [reduce, t]),
+  );
 
   // Everything but the frame fades together at the end of the loop.
   const all = useAnimatedStyle(() => ({ opacity: 1 - seg(t.value, 8300, 8900) }));
@@ -89,8 +118,10 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
     const k = seg(t.value, 5600, 6100);
     return { opacity: k, transform: [{ translateY: (1 - k) * -30 }] };
   });
+  // The gel warms up as the reminder lands, the way the website's does.
+  const gel = useAnimatedStyle(() => ({ opacity: 0.05 + 0.07 * seg(t.value, 5600, 6400) }));
 
-  const mono = { fontFamily: 'CourierPrime_400Regular', fontSize: 11.5, lineHeight: 16, color: c.foreground };
+  const mono = { fontFamily: 'CourierPrime_400Regular', fontSize: 11.5, lineHeight: 16, color: STAGE.ink };
 
   return (
     <View
@@ -100,16 +131,25 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
         {
           height: H,
           borderRadius: 18,
-          backgroundColor: c.panel,
+          backgroundColor: STAGE.bg,
           borderWidth: 1,
-          borderColor: c.border,
+          borderColor: STAGE.line,
           overflow: 'hidden',
         },
         style,
       ]}
     >
+      {/* A gel over the top corner: the one warm light on the stage. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', top: -140, right: -120, width: 320, height: 320, borderRadius: 160, backgroundColor: c.yellow },
+          gel,
+        ]}
+      />
+
       <Animated.View style={[{ flex: 1 }, all]}>
-        {/* The paste box. */}
+        {/* The paste box: a sheet of paper on the stage. */}
         <Animated.View
           style={[
             {
@@ -119,9 +159,7 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
               right: 14,
               height: 112,
               borderRadius: 10,
-              backgroundColor: c.card,
-              borderWidth: 1,
-              borderColor: c.cardBorder,
+              backgroundColor: STAGE.paper,
               padding: 12,
             },
             mailBox,
@@ -129,7 +167,7 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
         >
           <Animated.Text
             style={[
-              { position: 'absolute', left: 12, top: 12, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 11.5, lineHeight: 16, color: c.mutedForeground },
+              { position: 'absolute', left: 12, top: 12, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 11.5, lineHeight: 16, color: STAGE.inkMuted },
               placeholder,
             ]}
           >
@@ -149,14 +187,12 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
                 paddingHorizontal: 7,
                 paddingVertical: 3,
                 borderRadius: 5,
-                borderWidth: 1,
-                borderColor: c.border,
-                backgroundColor: c.panel,
+                backgroundColor: STAGE.ink,
               },
               keycap,
             ]}
           >
-            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 9, letterSpacing: 1, color: c.mutedForeground }}>
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 9, letterSpacing: 1, color: STAGE.paper }}>
               PASTE
             </Text>
           </Animated.View>
@@ -164,10 +200,10 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
 
         {/* Reading it. */}
         <Animated.View style={[{ position: 'absolute', top: 136, left: 14, right: 14 }, reading]}>
-          <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 11.5, color: c.mutedForeground }}>
+          <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 11.5, color: STAGE.muted }}>
             Reading it. Finding the date and the room.
           </Text>
-          <View style={{ marginTop: 6, height: 3, borderRadius: 2, backgroundColor: c.border, overflow: 'hidden' }}>
+          <View style={{ marginTop: 6, height: 3, borderRadius: 2, backgroundColor: STAGE.rule, overflow: 'hidden' }}>
             <Animated.View style={[{ width: 60, height: 3, borderRadius: 2, backgroundColor: c.primary }, sweep]} />
           </View>
         </Animated.View>
@@ -176,25 +212,25 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
         <Text
           style={{
             position: 'absolute',
-            top: 168,
+            top: 174,
             left: 14,
             fontFamily: 'CourierPrime_400Regular_Italic',
             fontSize: 11,
-            color: c.mutedForeground,
+            color: STAGE.muted,
           }}
         >
           (coming up)
         </Text>
-        <Animated.View style={[{ position: 'absolute', top: 188, left: 14, right: 14 }, newTicket]}>
-          <Ticket n="4" title="The Lighthouse" meta="Mara · Thu 10:30 · Studio B" chip="callback" />
+        <Animated.View style={[{ position: 'absolute', top: 196, left: 14, right: 14 }, newTicket]}>
+          <Ticket n="4" title="The Lighthouse" meta="Mara · Thu 10:30 · Studio B" chip="callback" accent={c.primary} />
         </Animated.View>
-        <Animated.View style={[{ position: 'absolute', top: 234, left: 14, right: 14 }, shift]}>
+        <Animated.View style={[{ position: 'absolute', top: 242, left: 14, right: 14 }, shift]}>
           <Ticket n="9" title="Twelfth Night" meta="Viola · audition" dim />
           <View style={{ height: 6 }} />
           <Ticket n="16" title="Proof" meta="Catherine · self-tape" dim />
         </Animated.View>
 
-        {/* The night before. */}
+        {/* The night before: the notification, on the stage's own dark card. */}
         <Animated.View
           style={[
             {
@@ -203,9 +239,9 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
               left: 14,
               right: 14,
               borderRadius: 12,
-              backgroundColor: c.card,
+              backgroundColor: 'rgba(247, 241, 229, 0.08)',
               borderWidth: 1,
-              borderColor: c.cardBorder,
+              borderColor: STAGE.line,
               paddingHorizontal: 12,
               paddingVertical: 10,
             },
@@ -215,16 +251,16 @@ export function AuditionsScene({ style }: { style?: ViewStyle }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.yellow }} />
-              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 9.5, letterSpacing: 1, color: c.mutedForeground }}>
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 9.5, letterSpacing: 1, color: STAGE.muted }}>
                 GHOST LIGHT
               </Text>
             </View>
-            <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 10, color: c.mutedForeground }}>8:00 PM</Text>
+            <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 10, color: STAGE.muted }}>8:00 PM</Text>
           </View>
-          <Text style={{ marginTop: 5, fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, lineHeight: 17, color: c.foreground }}>
+          <Text style={{ marginTop: 5, fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, lineHeight: 17, color: STAGE.fg }}>
             Your audition for Mara is tomorrow at 10:30.
           </Text>
-          <Text style={{ marginTop: 2, fontFamily: 'CourierPrime_400Regular', fontSize: 11.5, lineHeight: 16, color: c.mutedForeground }}>
+          <Text style={{ marginTop: 2, fontFamily: 'CourierPrime_400Regular', fontSize: 11.5, lineHeight: 16, color: STAGE.muted }}>
             Helena is in your book. Tap to read it.
           </Text>
         </Animated.View>
@@ -252,8 +288,21 @@ function MailLine({
 }
 
 /** A ticket on the rail: the countdown in the stub, the show and the part. */
-function Ticket({ n, title, meta, chip, dim }: { n: string; title: string; meta: string; chip?: string; dim?: boolean }) {
-  const { colors: c } = useTheme();
+function Ticket({
+  n,
+  title,
+  meta,
+  chip,
+  dim,
+  accent,
+}: {
+  n: string;
+  title: string;
+  meta: string;
+  chip?: string;
+  dim?: boolean;
+  accent?: string;
+}) {
   return (
     <View
       style={{
@@ -261,27 +310,27 @@ function Ticket({ n, title, meta, chip, dim }: { n: string; title: string; meta:
         alignItems: 'center',
         height: 40,
         borderRadius: 6,
-        backgroundColor: c.paper,
-        opacity: dim ? 0.62 : 1,
+        backgroundColor: STAGE.paper,
+        opacity: dim ? 0.55 : 1,
         paddingHorizontal: 10,
         gap: 10,
       }}
     >
       <View style={{ width: 34, alignItems: 'center' }}>
-        <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 19, lineHeight: 21, color: c.paperInk }}>{n}</Text>
-        <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 7.5, letterSpacing: 0.8, color: c.paperMuted }}>DAYS</Text>
+        <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 19, lineHeight: 21, color: STAGE.ink }}>{n}</Text>
+        <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 7.5, letterSpacing: 0.8, color: STAGE.inkMuted }}>DAYS</Text>
       </View>
-      <View style={{ width: 1, height: 24, backgroundColor: c.paperRule }} />
+      <View style={{ width: 1, height: 24, backgroundColor: STAGE.inkRule }} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 14.5, lineHeight: 17, color: c.paperInk }}>
+        <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 14.5, lineHeight: 17, color: STAGE.ink }}>
           {title}
         </Text>
-        <Text numberOfLines={1} style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 10, lineHeight: 13, color: c.paperMuted }}>
+        <Text numberOfLines={1} style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 10, lineHeight: 13, color: STAGE.inkMuted }}>
           {meta}
         </Text>
       </View>
       {chip ? (
-        <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: c.primary }}>
+        <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: accent ?? STAGE.ink }}>
           <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 8.5, letterSpacing: 0.6, color: '#fff' }}>{chip.toUpperCase()}</Text>
         </View>
       ) : null}

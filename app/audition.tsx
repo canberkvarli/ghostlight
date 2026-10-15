@@ -100,8 +100,11 @@ export default function AuditionForm() {
   const [pieceId, setPieceId] = useState<number | null>(null);
   const [touched, setTouched] = useState(false);
 
-  // The paste box: open on a new audition until a read fills the form.
-  const [pasteOpen, setPasteOpen] = useState(!id);
+  // Two ways in, one at a time. The switch at the top picks, and only the
+  // chosen pane is on screen: the paste sheet, or the fields. Arriving from
+  // "Paste a casting email" opens on paste; everything else opens on the
+  // fields, with paste one tap away in the switch.
+  const [mode, setMode] = useState<'paste' | 'hand'>(paste === '1' && !id ? 'paste' : 'hand');
   const [pasteText, setPasteText] = useState('');
   const [readLine, setReadLine] = useState<string | null>(null);
   const [beat, setBeat] = useState(0);
@@ -165,7 +168,7 @@ export default function AuditionForm() {
           ? '(read it. not sure about the date, so check it.)'
           : '(read it. look it over and put it on the board.)',
     );
-    setPasteOpen(false);
+    setMode('hand');
   };
 
   const readIt = () => {
@@ -293,83 +296,98 @@ export default function AuditionForm() {
               {existing ? '(the reminders move with it.)' : "(we'll remind you the night before.)"}
             </StageDirection>
 
-            {/* The fast way in: the casting email, read into the form. */}
-            {!existing && pasteOpen ? (
-              <View
-                style={{
-                  marginTop: 24,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: c.border,
-                  backgroundColor: c.card,
-                  padding: 14,
+            {/* The switch: two ways in, said plainly, one pane at a time. */}
+            {!existing ? (
+              <ModeSwitch
+                mode={mode}
+                onChange={(m) => {
+                  if (m === mode || parse.isPending) return;
+                  Haptics.selectionAsync().catch(() => {});
+                  setMode(m);
                 }}
-              >
-                <Text style={label}>Paste the casting email</Text>
-                <TextInput
-                  multiline
-                  value={pasteText}
-                  onChangeText={setPasteText}
-                  editable={!parse.isPending}
-                  autoFocus={paste === '1'}
-                  placeholder="Paste it here. The whole email is fine, signature and all."
-                  placeholderTextColor={c.mutedForeground}
-                  scrollEnabled
+              />
+            ) : null}
+
+            {/* The fast way in: the casting email on a sheet of paper, read into
+                the form. Paper, not the panel colour: on the light theme the
+                panel was grey type in a grey box, and the email is the one thing
+                on this screen you must be able to read back. */}
+            {!existing && mode === 'paste' ? (
+              <View style={{ marginTop: 18 }}>
+                <View
                   style={{
-                    marginTop: 8,
-                    minHeight: 96,
-                    maxHeight: 180,
-                    fontFamily: 'CourierPrime_400Regular',
-                    fontSize: 13,
-                    lineHeight: 19,
-                    color: c.foreground,
-                    textAlignVertical: 'top',
+                    borderRadius: 8,
+                    backgroundColor: c.paper,
+                    borderWidth: 1.5,
+                    borderColor: c.paperRule,
+                    paddingHorizontal: 14,
+                    paddingTop: 12,
+                    paddingBottom: 10,
                   }}
-                />
-                {parse.isPending ? (
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 12.5, color: c.mutedForeground }}>
-                      {READING_BEATS[beat]}
-                    </Text>
-                    <Sweep />
-                  </View>
-                ) : (
-                  <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Pressable
-                      onPress={pasteFromClipboard}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel="Paste from the clipboard"
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}
-                    >
-                      <Ionicons name="clipboard-outline" size={15} color={c.accentText} />
-                      <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: c.accentText }}>Paste</Text>
-                    </Pressable>
-                    <PrimaryPill label="Read it" onPress={readIt} height={44} disabled={!pasteText.trim()} />
-                  </View>
-                )}
-                {readLine && !parse.isPending ? (
-                  <StageDirection numberOfLines={3} style={{ marginTop: 10 }}>{readLine}</StageDirection>
-                ) : (
-                  <StageDirection numberOfLines={1} style={{ marginTop: 10 }}>(or fill it in below. that's always free.)</StageDirection>
-                )}
-              </View>
-            ) : !existing ? (
-              <View style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <StageDirection numberOfLines={2} style={{ flex: 1 }}>{readLine ?? '(filled in by hand.)'}</StageDirection>
-                <Pressable
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setPasteOpen(true);
-                  }}
-                  hitSlop={10}
-                  accessibilityRole="button"
                 >
-                  <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 12, color: c.accentText }}>Paste another</Text>
-                </Pressable>
+                  <TextInput
+                    multiline
+                    value={pasteText}
+                    onChangeText={setPasteText}
+                    editable={!parse.isPending}
+                    autoFocus={paste === '1'}
+                    placeholder={'Paste the casting email here.\nThe whole thing is fine, signature and all.'}
+                    placeholderTextColor={c.paperMuted}
+                    selectionColor={c.accentText}
+                    scrollEnabled
+                    style={{
+                      minHeight: 150,
+                      maxHeight: 260,
+                      fontFamily: 'CourierPrime_400Regular',
+                      fontSize: 13.5,
+                      lineHeight: 20,
+                      color: c.paperInk,
+                      textAlignVertical: 'top',
+                    }}
+                  />
+                  {parse.isPending ? (
+                    <View style={{ marginTop: 12, marginBottom: 4 }}>
+                      <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 12.5, color: c.paperMuted }}>
+                        {READING_BEATS[beat]}
+                      </Text>
+                      <Sweep />
+                    </View>
+                  ) : (
+                    <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Pressable
+                        onPress={pasteFromClipboard}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel="Paste from the clipboard"
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}
+                      >
+                        <Ionicons name="clipboard-outline" size={15} color={c.paperInk} />
+                        <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: c.paperInk }}>
+                          {pasteText ? 'Paste again' : 'Paste'}
+                        </Text>
+                      </Pressable>
+                      <PrimaryPill label="Read it" onPress={readIt} height={44} disabled={!pasteText.trim()} />
+                    </View>
+                  )}
+                </View>
+                <StageDirection numberOfLines={3} style={{ marginTop: 12 }}>
+                  {readLine && !parse.isPending
+                    ? readLine
+                    : '(the reader finds the date, the room and the part. you check it before it goes on the board.)'}
+                </StageDirection>
               </View>
             ) : null}
 
+            {/* The slow way in, always free. After a read, this is where the
+                draft lands, with what the reader was unsure about said up top. */}
+            {!existing && mode === 'hand' && readLine ? (
+              <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <StageDirection numberOfLines={3} style={{ flex: 1 }}>{readLine}</StageDirection>
+              </View>
+            ) : null}
+
+            {existing || mode === 'hand' ? (
+              <>
             {/* Kind: three words in a row, the chosen one in ink. */}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 24 }}>
               {KINDS.map((k) => {
@@ -566,6 +584,8 @@ export default function AuditionForm() {
               block
               style={{ marginTop: 32 }}
             />
+              </>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -584,8 +604,62 @@ function Sweep() {
   }, [x]);
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
-    <View style={{ marginTop: 8, height: 3, borderRadius: 2, backgroundColor: c.border, overflow: 'hidden' }}>
+    <View style={{ marginTop: 8, height: 3, borderRadius: 2, backgroundColor: c.paperRule, overflow: 'hidden' }}>
       <Animated.View style={[{ width: 60, height: 3, borderRadius: 2, backgroundColor: c.primary }, style]} />
+    </View>
+  );
+}
+
+/**
+ * Paste the email, or fill it in by hand. A two-stop track with the chosen
+ * stop in ink, the same vocabulary as the kind chips below it, so the first
+ * thing on the form reads as a choice and not as two forms stacked.
+ */
+function ModeSwitch({ mode, onChange }: { mode: 'paste' | 'hand'; onChange: (m: 'paste' | 'hand') => void }) {
+  const { colors: c } = useTheme();
+  const stops: { key: 'paste' | 'hand'; label: string; icon: 'clipboard-outline' | 'create-outline' }[] = [
+    { key: 'paste', label: 'Paste the email', icon: 'clipboard-outline' },
+    { key: 'hand', label: 'By hand', icon: 'create-outline' },
+  ];
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={{
+        marginTop: 22,
+        flexDirection: 'row',
+        padding: 4,
+        borderRadius: 999,
+        borderWidth: 1.5,
+        borderColor: c.border,
+        gap: 4,
+      }}
+    >
+      {stops.map((s) => {
+        const on = s.key === mode;
+        return (
+          <Pressable
+            key={s.key}
+            onPress={() => onChange(s.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: 999,
+              backgroundColor: on ? c.foreground : 'transparent',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+            }}
+          >
+            <Ionicons name={s.icon} size={15} color={on ? c.background : c.mutedForeground} />
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13.5, color: on ? c.background : c.foreground }}>
+              {s.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
