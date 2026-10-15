@@ -33,6 +33,20 @@ export interface AuditionPiece {
   play_title: string | null;
 }
 
+/** One thing to bring: from the casting email, from the model's read, or typed. */
+export interface BringItem {
+  text: string;
+  done: boolean;
+  src: 'email' | 'ai' | 'me';
+}
+
+/** How it went, written after. The website's three questions. */
+export type AfterNotes = Partial<Record<'how' | 'differently' | 'room', string>>;
+
+/** Which of the three reminder emails this audition gets. */
+export type ReminderMoment = 'prep' | 'eve' | 'after';
+export const REMINDER_MOMENTS: ReminderMoment[] = ['prep', 'eve', 'after'];
+
 export interface Audition {
   id: number;
   project: string;
@@ -46,13 +60,21 @@ export interface Audition {
   when: string | null;
   tz: string;
   location: string | null;
+  casting: string | null;
+  /** What they asked for, in their words ("two contrasting pieces, under 2 min"). */
+  material_raw: string | null;
+  /** The email's "bring" line as read. The list below is what you tick. */
+  bring: string | null;
   tape_link: string | null;
   notes: string | null;
   reminders_on: boolean;
+  reminder_moments: ReminderMoment[];
   scope: AuditionScope;
   created_at: string | null;
-  /** How it went, written after. The website's "after" box. */
-  after_notes: string | null;
+  after_notes: AfterNotes | null;
+  bring_list: BringItem[];
+  /** The callback added from this one, if any. */
+  callback_id: number | null;
   pieces: AuditionPiece[];
 }
 
@@ -82,6 +104,18 @@ export interface AuditionDraft {
   location?: string | null;
   tape_link?: string | null;
   notes?: string | null;
+  casting?: string | null;
+  material_raw?: string | null;
+  /** The email's "bring" line. The server splits it into the first bring items. */
+  bring?: string | null;
+}
+
+/** What the file can change without opening the form. */
+export interface AuditionPatch extends Partial<AuditionDraft> {
+  bring_list?: BringItem[];
+  after_notes?: AfterNotes;
+  reminders_on?: boolean;
+  reminder_moments?: ReminderMoment[];
 }
 
 const BASE = `${API_URL}/api/auditions`;
@@ -112,7 +146,7 @@ export async function createAudition(draft: AuditionDraft): Promise<Audition> {
   return (await res.json()) as Audition;
 }
 
-export async function patchAudition(id: number, patch: Partial<AuditionDraft>): Promise<Audition> {
+export async function patchAudition(id: number, patch: AuditionPatch): Promise<Audition> {
   const res = await json('PATCH', `/${id}`, patch);
   if (!res.ok) throw new ApiError(res.status, `patch audition ${id} failed (${res.status})`);
   return (await res.json()) as Audition;
@@ -138,6 +172,24 @@ export async function removeAuditionPiece(id: number, pieceId: number): Promise<
 export async function logOutcome(id: number, outcome: Outcome): Promise<Audition> {
   const res = await json('POST', `/${id}/outcome`, { outcome });
   if (!res.ok) throw new ApiError(res.status, `log outcome failed (${res.status})`);
+  return (await res.json()) as Audition;
+}
+
+/**
+ * The model reads the part and says what to wear; its ideas land on the bring
+ * list marked "ai". Needs a role or an "asked for" line to go on; with neither
+ * the server returns the row unchanged.
+ */
+export async function assistRead(id: number): Promise<Audition> {
+  const res = await json('POST', `/${id}/assist/read`);
+  if (!res.ok) throw new ApiError(res.status, `assist read failed (${res.status})`);
+  return (await res.json()) as Audition;
+}
+
+/** A callback: a new audition for the same project, linked from this one. */
+export async function addCallback(id: number): Promise<Audition> {
+  const res = await json('POST', `/${id}/callback`);
+  if (!res.ok) throw new ApiError(res.status, `add callback failed (${res.status})`);
   return (await res.json()) as Audition;
 }
 
@@ -176,6 +228,7 @@ export interface ParsedDraft {
   due_at: ParsedField;
   location: ParsedField;
   casting: ParsedField;
+  material_raw: ParsedField;
   bring: ParsedField;
   notes: ParsedField;
 }

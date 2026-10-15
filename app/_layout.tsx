@@ -248,6 +248,8 @@ function Shell() {
         <Stack.Screen name="note" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
         {/* The audition form is a sheet over the list, like auth over a save. */}
         <Stack.Screen name="audition" options={{ presentation: 'modal' }} />
+        {/* One audition's file opens like a page turning: a cross-fade from the board. */}
+        <Stack.Screen name="prep" options={{ animation: 'fade', animationDuration: 240 }} />
       </Stack>
 
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}

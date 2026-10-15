@@ -29,7 +29,6 @@ import { StageDirection } from '../src/components/StageDirection';
 import { LabelledField } from '../src/components/LabelledField';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useFavorites } from '../src/hooks/useFavorites';
 import {
   useAuditions,
   useCreateAudition,
@@ -55,9 +54,10 @@ import { useTheme } from '../src/theme/ThemeContext';
  *
  * The fast way in is the website's: paste the casting email and let the reader
  * fill the form. The slow way is always there under it: when, which project,
- * which role, where (or the tape link), notes, and which piece from the book.
- * On a phone, between the bus and the room, the point is to get the date in so
- * the reminder exists.
+ * which role, where (or the tape link), and notes. The piece from the book,
+ * the bring list and the reminders live on the file (app/prep.tsx), which a
+ * new audition opens onto. On a phone, between the bus and the room, the
+ * point is to get the date in so the reminder exists.
  */
 
 const KINDS: AuditionKind[] = ['in_person', 'self_tape', 'virtual'];
@@ -84,8 +84,6 @@ export default function AuditionForm() {
     () => (id ? auditions?.find((a) => String(a.id) === id) ?? null : null),
     [auditions, id],
   );
-  const { data: book } = useFavorites(isAuthenticated);
-
   const create = useCreateAudition();
   const update = useUpdateAudition();
   const remove = useDeleteAudition();
@@ -97,7 +95,11 @@ export default function AuditionForm() {
   const [when, setWhen] = useState<Date>(defaultAuditionDate());
   const [place, setPlace] = useState('');
   const [notes, setNotes] = useState('');
-  const [pieceId, setPieceId] = useState<number | null>(null);
+  // Read from the email and kept, never typed here: who is casting, what they
+  // asked for, and the "bring" line the server turns into the first tick list.
+  const [casting, setCasting] = useState('');
+  const [materialRaw, setMaterialRaw] = useState('');
+  const [bring, setBring] = useState('');
   const [touched, setTouched] = useState(false);
 
   // Two ways in, one at a time. The switch at the top picks, and only the
@@ -129,7 +131,8 @@ export default function AuditionForm() {
     if (existing.when) setWhen(new Date(existing.when));
     setPlace((existing.kind === 'self_tape' ? existing.tape_link : existing.location) ?? '');
     setNotes(existing.notes ?? '');
-    setPieceId(attachedPiece(existing)?.monologue_id ?? null);
+    setCasting(existing.casting ?? '');
+    setMaterialRaw(existing.material_raw ?? '');
   }, [existing, touched]);
 
   const pasteFromClipboard = async () => {
@@ -152,14 +155,10 @@ export default function AuditionForm() {
     const dateOk = !!date && !Number.isNaN(date.getTime()) && date.getTime() > Date.now() - 60_000;
     if (dateOk) setWhen(date);
     if (!isTape && d.location.value) setPlace(d.location.value);
-    const extra = [
-      d.notes.value,
-      d.casting.value ? `Casting: ${d.casting.value}` : null,
-      d.bring.value ? `Bring: ${d.bring.value}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n');
-    if (extra) setNotes(extra);
+    if (d.notes.value) setNotes(d.notes.value);
+    if (d.casting.value) setCasting(d.casting.value);
+    if (d.material_raw?.value) setMaterialRaw(d.material_raw.value);
+    if (d.bring.value) setBring(d.bring.value);
     const conf = isTape ? d.due_at.confidence : d.starts_at.confidence;
     setReadLine(
       !dateOk
@@ -217,13 +216,28 @@ export default function AuditionForm() {
       location: tape ? null : place.trim() || null,
       tape_link: tape ? place.trim() || null : null,
       notes: notes.trim() || null,
+      casting: casting.trim() || null,
+      material_raw: materialRaw.trim() || null,
     };
-    const done = () => goBack();
     const fail = () => Alert.alert("Couldn't save", 'Check your connection and try again.');
     if (existing) {
-      update.mutate({ id: existing.id, draft, monologueId: pieceId, current: existing }, { onSuccess: done, onError: fail });
+      // The piece is attached from the file now; an edit here leaves it alone.
+      update.mutate(
+        { id: existing.id, draft, monologueId: attachedPiece(existing)?.monologue_id ?? null, current: existing },
+        { onSuccess: () => goBack(), onError: fail },
+      );
     } else {
-      create.mutate({ draft, monologueId: pieceId }, { onSuccess: done, onError: fail });
+      // "Bring" only on create: sent again it would re-split the list and
+      // untick everything already packed.
+      create.mutate(
+        { draft: { ...draft, bring: bring.trim() || null }, monologueId: null },
+        {
+          // Straight onto its file, where the piece, the bring list and the
+          // reminders are, rather than back to the board.
+          onSuccess: (a) => router.replace({ pathname: '/prep', params: { id: String(a.id) } }),
+          onError: fail,
+        },
+      );
     }
   };
 
@@ -370,11 +384,9 @@ export default function AuditionForm() {
                     </View>
                   )}
                 </View>
-                <StageDirection numberOfLines={3} style={{ marginTop: 12 }}>
-                  {readLine && !parse.isPending
-                    ? readLine
-                    : '(the reader finds the date, the room and the part. you check it before it goes on the board.)'}
-                </StageDirection>
+                {readLine && !parse.isPending ? (
+                  <StageDirection numberOfLines={3} style={{ marginTop: 12 }}>{readLine}</StageDirection>
+                ) : null}
               </View>
             ) : null}
 
@@ -495,56 +507,6 @@ export default function AuditionForm() {
               autoCorrect={!(tape || kind === 'virtual')}
               style={{ marginTop: 16 }}
             />
-
-            {/* The piece. Chips from the book; one at a time. */}
-            <Text style={[label, { marginTop: 26 }]}>From your book</Text>
-            {book && book.length ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ gap: 8, paddingVertical: 10, paddingRight: 24 }}
-                style={{ marginHorizontal: -24, paddingHorizontal: 24 }}
-              >
-                {book.map((m) => {
-                  const mid = Number(m.id);
-                  const on = pieceId === mid;
-                  return (
-                    <Pressable
-                      key={m.id}
-                      onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
-                        setTouched(true);
-                        setPieceId(on ? null : mid);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: on }}
-                      accessibilityLabel={`${m.title}, ${m.character}`}
-                      style={{
-                        maxWidth: 220,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 6,
-                        borderWidth: 1.5,
-                        borderColor: on ? c.ink : c.paperRule,
-                        backgroundColor: c.paper,
-                        // The chosen page sits square; the rest lean, like the shelf.
-                        transform: [{ rotate: on ? '0deg' : '-0.6deg' }],
-                      }}
-                    >
-                      <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 16, color: c.paperInk }}>
-                        {m.title}
-                      </Text>
-                      <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular', fontSize: 11, color: c.paperMuted }}>
-                        {m.character}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <StageDirection style={{ marginTop: 10 }}>(save a piece and it can come with you.)</StageDirection>
-            )}
 
             {/* Notes: what they want you to bring, who is in the room, anything.
                 Its own block rather than a LabelledField: that one is a single

@@ -143,6 +143,13 @@ export type Event =
   | { name: 'app_audition_parsed'; props: { ok: boolean; has_date: boolean; quota_hit: boolean } }
   | { name: 'app_audition_outcome'; props: { outcome: 'good' | 'callback' | 'no' } }
   | { name: 'app_calendar_feed_opened'; props: Record<string, never> }
+  /** A piece from the book went onto (or off) an audition from its file. */
+  | { name: 'app_audition_piece_attached'; props: { has_piece: boolean } }
+  /** The model was asked for ideas on the file. */
+  | { name: 'app_audition_assist'; props: { part: 'read' } }
+  | { name: 'app_audition_callback_added'; props: Record<string, never> }
+  /** A reminder switch on the file. `channel` is the phone or email. */
+  | { name: 'app_reminder_toggled'; props: { channel: 'phone' | 'email'; on: boolean } }
   /** A local reminder went on the phone's schedule. `moment` is which of the two. */
   | { name: 'app_reminder_scheduled'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
   /** Someone tapped a reminder, and the app opened from it. */

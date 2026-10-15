@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,6 +16,8 @@ import { Sketch } from '../src/components/Sketches';
 import { Mark, sourceTag } from '../src/components/Marks';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites, useToggleFavorite } from '../src/hooks/useFavorites';
+import { useAttachPiece, useAudition } from '../src/hooks/useAuditions';
+import { attachedPiece } from '../src/api/auditions';
 import { UndoBar } from '../src/components/UndoBar';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
@@ -35,6 +37,9 @@ import { formatDuration, type Monologue } from '../src/data/monologues';
  * work, so the same play looks the same everywhere in the app (see PieceCover).
  *
  * The subhead is derived from the data, never a hardcoded string.
+ *
+ * With `?pick=<auditionId>` the shelf is a picker: an audition's file sent
+ * you here for the piece to bring, a tap attaches it and takes you back.
  */
 
 type Saved = Monologue;
@@ -45,10 +50,14 @@ const TILTS = [-0.5, 0.4, -0.3];
 export default function Saves() {
   const { colors: c } = useTheme();
   const router = useRouter();
-  const goBack = useGoBack('/search');
-  const { tiltX, tiltY } = useStageMotion();
   const { isAuthenticated } = useSession();
+  const { pick } = useLocalSearchParams<{ pick?: string }>();
+  const picking = useAudition(pick ? Number(pick) : null, isAuthenticated && Boolean(pick));
+  const goBack = useGoBack(pick ? '/auditions' : '/search');
+  const { tiltX, tiltY } = useStageMotion();
   const { data, isLoading, isError } = useFavorites(isAuthenticated);
+  const attach = useAttachPiece();
+  const attachedId = picking ? attachedPiece(picking)?.monologue_id ?? null : null;
 
   const toggleFavorite = useToggleFavorite();
   // The row being undone is hidden optimistically rather than removed, so the
@@ -79,23 +88,33 @@ export default function Saves() {
     });
   }, [toggleFavorite]);
 
+  const onPick = useCallback(
+    (item: Saved) => {
+      if (!picking || attach.isPending) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      attach.mutate({ current: picking, monologueId: Number(item.id) }, { onSuccess: () => goBack() });
+    },
+    [picking, attach, goBack],
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: Saved; index: number }) => (
       <SavedCard
         item={item}
         index={index}
-        onPress={() => router.push(`/read/${item.id}`)}
-        onUnsave={() => onUnsave(item)}
+        onPress={() => (picking ? onPick(item) : router.push(`/read/${item.id}`))}
+        onUnsave={picking ? undefined : () => onUnsave(item)}
+        picked={picking ? Number(item.id) === attachedId : undefined}
       />
     ),
-    [router, onUnsave],
+    [router, onUnsave, onPick, picking, attachedId],
   );
 
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <BackHeader label="Search" onPress={goBack} />
+        <BackHeader label={picking ? 'Audition' : 'Search'} onPress={goBack} />
 
         {!isAuthenticated ? (
           <Center>
@@ -160,17 +179,19 @@ export default function Saves() {
                     color: c.foreground,
                   }}
                 >
-                  Your{' '}
+                  {picking ? 'Pick a ' : 'Your '}
                   <Text
                     style={{
                       fontFamily: 'InstrumentSerif_400Regular_Italic',
                       color: c.accentText,
                     }}
                   >
-                    book.
+                    {picking ? 'piece.' : 'book.'}
                   </Text>
                 </Text>
-                <StageDirection style={{ marginTop: 6 }}>{subhead}</StageDirection>
+                <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>
+                  {picking ? `(for ${picking.project}. tap one and it comes with you.)` : subhead}
+                </StageDirection>
               </View>
             }
             ListEmptyComponent={
@@ -202,11 +223,15 @@ function SavedCard({
   index,
   onPress,
   onUnsave,
+  picked,
 }: {
   item: Saved;
   index: number;
   onPress: () => void;
-  onUnsave: () => void;
+  /** Absent in picker mode, where the bookmark is not the unsave. */
+  onUnsave?: () => void;
+  /** Picker mode: whether this is the piece already on the audition. */
+  picked?: boolean;
 }) {
   const { colors: c } = useTheme();
   // The book holds both houses, and a violet piece turning amber the moment you
@@ -269,15 +294,19 @@ function SavedCard({
               to tap to take something out of the book, with UndoBar covering the
               mistap rather than a confirm dialog on every removal. hitSlop keeps
               it from stealing taps meant for the card. */}
-          <Pressable
-            onPress={onUnsave}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${item.title} from your book`}
-            style={{ marginTop: 2 }}
-          >
-            <Ionicons name="bookmark" size={20} color={pal.accent} />
-          </Pressable>
+          {onUnsave ? (
+            <Pressable
+              onPress={onUnsave}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${item.title} from your book`}
+              style={{ marginTop: 2 }}
+            >
+              <Ionicons name="bookmark" size={20} color={pal.accent} />
+            </Pressable>
+          ) : (
+            <Ionicons name={picked ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={picked ? c.primary : c.paperFaint} style={{ marginTop: 1 }} />
+          )}
         </View>
 
         <Text

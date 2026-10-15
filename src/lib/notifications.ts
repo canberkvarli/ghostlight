@@ -26,6 +26,8 @@ import { track } from './analytics';
 
 const MAP_KEY = 'gl.reminders.v1';
 const CALLBOARD_KEY = 'gl.callboard.v1';
+/** Auditions whose phone reminders were switched off on the file. */
+const OFF_KEY = 'gl.reminders.off.v1';
 
 export type ReminderMoment = 'eve' | 'soon' | 'callboard';
 
@@ -58,6 +60,42 @@ async function saveMap(m: Scheduled): Promise<void> {
   } catch {
     // A reminder bookkeeping failure must never surface as an app error.
   }
+}
+
+async function loadOff(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(OFF_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function saveOff(off: Set<string>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(OFF_KEY, JSON.stringify([...off]));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Whether this audition's phone reminders were switched off on its file. */
+export async function phoneRemindersOff(auditionId: number): Promise<boolean> {
+  return (await loadOff()).has(String(auditionId));
+}
+
+/**
+ * The switch on the file. Off cancels what is scheduled and remembers the
+ * choice, so a sync or an edit does not quietly put the pair back. On forgets
+ * it and schedules again.
+ */
+export async function setPhoneReminders(a: Audition, on: boolean): Promise<void> {
+  const off = await loadOff();
+  if (on) off.delete(String(a.id));
+  else off.add(String(a.id));
+  await saveOff(off);
+  if (on) await scheduleRemindersFor(a);
+  else await cancelRemindersFor(a.id);
 }
 
 /** Foreground presentation: show the banner even while the app is open. */
@@ -184,6 +222,7 @@ export async function scheduleRemindersFor(a: Audition, { quiet = false } = {}):
   if (!(await hasNotificationPermission())) return;
   await cancelRemindersFor(a.id);
   if (!a.reminders_on || a.scope !== 'upcoming' || !a.when) return;
+  if (await phoneRemindersOff(a.id)) return;
 
   const when = new Date(a.when);
   const now = new Date();
@@ -238,6 +277,16 @@ export async function syncReminders(list: Audition[]): Promise<void> {
     }
   }
   await saveMap(map);
+  // An audition deleted on the website takes its "off" with it.
+  const off = await loadOff();
+  let trimmed = false;
+  for (const key of off) {
+    if (!live.has(key)) {
+      off.delete(key);
+      trimmed = true;
+    }
+  }
+  if (trimmed) await saveOff(off);
   for (const a of list) await scheduleRemindersFor(a, { quiet: true });
 }
 
@@ -250,7 +299,7 @@ export async function clearAllReminders(): Promise<void> {
   }
   await saveMap({});
   try {
-    await AsyncStorage.removeItem(CALLBOARD_KEY);
+    await AsyncStorage.multiRemove([CALLBOARD_KEY, OFF_KEY]);
   } catch {
     /* ignore */
   }

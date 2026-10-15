@@ -76,8 +76,14 @@ export function useReminderTaps() {
       const data = response.notification.request.content.data as Partial<ReminderData> | undefined;
       const moment = data?.moment ?? 'eve';
       const monologueId = data?.monologueId;
+      const auditionId = data?.auditionId;
       track('app_reminder_opened', { moment, has_piece: monologueId != null });
-      if (monologueId != null) router.push(`/read/${monologueId}`);
+      // The night-before note opens the audition's file, where the piece, the
+      // bring list and the room are. Two hours out there is one job left:
+      // read the piece once more, so that one opens the reader.
+      if (moment === 'soon' && monologueId != null) router.push(`/read/${monologueId}`);
+      else if (auditionId != null) router.push({ pathname: '/prep', params: { id: String(auditionId) } });
+      else if (monologueId != null) router.push(`/read/${monologueId}`);
       else router.push('/auditions');
     };
 
