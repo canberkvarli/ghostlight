@@ -1,15 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { Linking } from 'react-native';
+
 import {
   addAuditionPiece,
   attachedPiece,
+  calendarFeedUrl,
   createAudition,
   deleteAudition,
   listAuditions,
+  logOutcome,
+  parseNotice,
   patchAudition,
+  ParseQuotaError,
   removeAuditionPiece,
   type Audition,
   type AuditionDraft,
+  type Outcome,
 } from '../api/auditions';
 import { track } from '../lib/analytics';
 import {
@@ -85,6 +92,48 @@ export function useUpdateAudition() {
     },
     onSuccess: (a) => void scheduleRemindersFor(a),
     onSettled: () => qc.invalidateQueries({ queryKey: AUDITIONS_KEY }),
+  });
+}
+
+/** The pasted notice, read into a draft. Nothing is saved until the form says so. */
+export function useParseNotice() {
+  return useMutation({
+    mutationFn: ({ text, tz }: { text: string; tz: string }) => parseNotice(text, tz),
+    onSuccess: (r) => {
+      track('app_audition_parsed', { ok: r.ok, has_date: Boolean(r.draft.starts_at.value || r.draft.due_at.value), quota_hit: false });
+    },
+    onError: (e) => {
+      track('app_audition_parsed', { ok: false, has_date: false, quota_hit: e instanceof ParseQuotaError });
+    },
+  });
+}
+
+/** "How did it go?" on a past audition. The row comes back with its new status. */
+export function useLogOutcome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, outcome }: { id: number; outcome: Outcome }) => logOutcome(id, outcome),
+    onSuccess: (a, { outcome }) => {
+      track('app_audition_outcome', { outcome });
+      qc.setQueryData<Audition[]>(AUDITIONS_KEY, (list) => (list ?? []).map((x) => (x.id === a.id ? a : x)));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: AUDITIONS_KEY }),
+  });
+}
+
+/**
+ * Put the board in the phone's calendar. `webcal://` is what makes iOS offer
+ * a subscription rather than a one-off download, and a subscription is the
+ * point: it keeps itself up to date as the board changes, here or on the site.
+ */
+export function useCalendarFeed() {
+  return useMutation({
+    mutationFn: async () => {
+      const url = await calendarFeedUrl();
+      const webcal = url.replace(/^https?:\/\//, 'webcal://');
+      track('app_calendar_feed_opened', {});
+      await Linking.openURL(webcal);
+    },
   });
 }
 

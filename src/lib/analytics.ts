@@ -140,6 +140,9 @@ export type Event =
    * says whether the book was in play; `kind` separates the room from the tape.
    */
   | { name: 'app_audition_created'; props: { kind: 'in_person' | 'self_tape' | 'virtual'; has_piece: boolean } }
+  | { name: 'app_audition_parsed'; props: { ok: boolean; has_date: boolean; quota_hit: boolean } }
+  | { name: 'app_audition_outcome'; props: { outcome: 'good' | 'callback' | 'no' } }
+  | { name: 'app_calendar_feed_opened'; props: Record<string, never> }
   /** A local reminder went on the phone's schedule. `moment` is which of the two. */
   | { name: 'app_reminder_scheduled'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
   /** Someone tapped a reminder, and the app opened from it. */

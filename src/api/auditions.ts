@@ -51,8 +51,26 @@ export interface Audition {
   reminders_on: boolean;
   scope: AuditionScope;
   created_at: string | null;
+  /** How it went, written after. The website's "after" box. */
+  after_notes: string | null;
   pieces: AuditionPiece[];
 }
+
+/** "How did it go?" The server moves the status for a callback or a pass. */
+export type Outcome = 'good' | 'callback' | 'no';
+export const OUTCOME_LABEL: Record<Outcome, string> = {
+  good: 'Felt good',
+  callback: 'Got a callback',
+  no: 'Not this time',
+};
+export const STATUS_LABEL: Record<AuditionStatus, string> = {
+  submitted: 'Submitted',
+  scheduled: 'Audition',
+  callback: 'Callback',
+  booked: 'Booked',
+  pinned: 'Pinned',
+  passed: 'Passed',
+};
 
 export interface AuditionDraft {
   project: string;
@@ -117,7 +135,86 @@ export async function removeAuditionPiece(id: number, pieceId: number): Promise<
   if (!res.ok) throw new ApiError(res.status, `detach piece failed (${res.status})`);
 }
 
+export async function logOutcome(id: number, outcome: Outcome): Promise<Audition> {
+  const res = await json('POST', `/${id}/outcome`, { outcome });
+  if (!res.ok) throw new ApiError(res.status, `log outcome failed (${res.status})`);
+  return (await res.json()) as Audition;
+}
+
+/**
+ * The private calendar feed for this account, minted on first ask. The same
+ * URL the website hands out, so subscribing on the phone and on the laptop is
+ * one calendar, not two.
+ */
+export async function calendarFeedUrl(): Promise<string> {
+  const res = await json('GET', '/calendar-link');
+  if (!res.ok) throw new ApiError(res.status, `calendar link failed (${res.status})`);
+  return ((await res.json()) as { url: string }).url;
+}
+
 /** The monologue an audition is bringing, if it is bringing one. */
 export function attachedPiece(a: Audition): AuditionPiece | null {
   return a.pieces.find((p) => p.monologue_id != null) ?? null;
+}
+
+/**
+ * "Paste the casting email." The same reader the website uses: the notice goes
+ * up as text, a model reads it into a draft, and every field comes back with
+ * how sure it was. Dates are ISO in the zone we send. Free accounts get a few
+ * reads a month; the 403 carries the quota so the form can say so.
+ */
+export interface ParsedField<T = string | null> {
+  value: T;
+  confidence: 'high' | 'low';
+}
+
+export interface ParsedDraft {
+  project: ParsedField;
+  role: ParsedField;
+  kind: ParsedField<AuditionKind>;
+  starts_at: ParsedField;
+  due_at: ParsedField;
+  location: ParsedField;
+  casting: ParsedField;
+  bring: ParsedField;
+  notes: ParsedField;
+}
+
+export interface ParseQuota {
+  used: number;
+  limit: number;
+  remaining: number;
+  tier: 'free' | 'plus' | 'pro';
+}
+
+export interface ParseResult {
+  ok: boolean;
+  draft: ParsedDraft;
+  quota: ParseQuota;
+}
+
+export class ParseQuotaError extends ApiError {
+  constructor(public quota: ParseQuota | null) {
+    super(403, 'audition parse quota');
+  }
+}
+
+export async function parseNotice(text: string, tz: string): Promise<ParseResult> {
+  const body = new FormData();
+  body.append('text', text);
+  body.append('tz', tz);
+  // No Content-Type: fetch writes the multipart boundary itself.
+  const res = await fetch(`${BASE}/parse`, { method: 'POST', headers: await authHeaders(), body });
+  if (res.status === 403) {
+    let quota: ParseQuota | null = null;
+    try {
+      const j = (await res.json()) as { detail?: { error?: string; quota?: ParseQuota } };
+      if (j.detail?.error === 'audition_parse_quota') quota = j.detail.quota ?? null;
+    } catch {
+      // Not the quota 403; fall through to the generic error.
+    }
+    if (quota) throw new ParseQuotaError(quota);
+  }
+  if (!res.ok) throw new ApiError(res.status, `parse failed (${res.status})`);
+  return (await res.json()) as ParseResult;
 }
