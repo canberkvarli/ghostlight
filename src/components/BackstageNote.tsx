@@ -165,8 +165,15 @@ export function BackstageNote({ onDone }: { onDone: () => void }) {
             >
               <Text style={linkText}>not now</Text>
             </Pressable>
+            {/* Say hi opens Instagram and leaves the note where it is: you come
+                back from the handle to the same page, and it waits for not now
+                or a rating. Closing it on the way out made the ask vanish the
+                moment somebody showed interest. */}
             <Pressable
-              onPress={() => close('hi', openInstagram)}
+              onPress={() => {
+                void markNoteShown('hi');
+                openInstagram();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Say hi on Instagram"
               hitSlop={12}
