@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
@@ -102,58 +102,6 @@ const LAMP_FREE = ghostLightMetrics(LAMP_GLASS_FREE, 'bare');
 const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
 const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
 
-/**
- * Where you stand, in the corner that was empty.
- *
- * Status: read once, does nothing. Bare text on the left balances the row and
- * stops it competing with the two buttons that actually act. "sign in" is a verb
- * because that state wants an action; the other two are facts. The words match
- * Account's Subscription row, so nothing has two names.
- */
-function StandingChip({
-  isPaid,
-  isAuthenticated,
-  loading,
-  onPress,
-}: {
-  isPaid: boolean;
-  isAuthenticated: boolean;
-  loading: boolean;
-  onPress: () => void;
-}) {
-  const { colors: c } = useTheme();
-  // The session resolves a beat after mount, and until it does every signed-in
-  // actor is indistinguishable from a guest. Showing this early would tell a
-  // subscriber they were a guest on every single launch, so it waits.
-  if (loading) return null;
-
-  const label = isPaid ? 'subscribed' : isAuthenticated ? 'free' : 'sign in';
-
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={14}
-      accessibilityRole="button"
-      accessibilityLabel={
-        isPaid ? 'Subscribed. Open account' : isAuthenticated ? 'Free account. Open account' : 'Sign in'
-      }
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 4 }}
-    >
-      <Text
-        style={{
-          fontFamily: 'CourierPrime_400Regular_Italic',
-          fontSize: 13,
-          letterSpacing: 0.4,
-          color: isPaid ? c.accentText : c.mutedForeground,
-        }}
-      >
-        {label}
-      </Text>
-      <Ionicons name="chevron-forward" size={11} color={isPaid ? c.accentText : c.chevron} />
-    </Pressable>
-  );
-}
-
 /*
  * There was a `LampStand` here — a dashed stem and an ellipse of floor drawn
  * under the bulb. It was a mistake born of reading the handoff without reading
@@ -167,7 +115,7 @@ export default function Search() {
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
   const { width } = useWindowDimensions();
-  const { isAuthenticated, loading: sessionLoading } = useSession();
+  const { loading: sessionLoading } = useSession();
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
@@ -231,7 +179,8 @@ export default function Search() {
   // Everyone can open the sheet and use the free identity/length filters; the
   // craft filters inside (tone, emotion, freshness) route to the paywall for
   // free actors. isPaid comes from the server read counter.
-  const { isPaid } = useEntitlement();
+  const { isPaid, settled: entitlementSettled } = useEntitlement();
+
   const advanced = advancedCount(selected);
 
   const openMoreFilters = useCallback(() => {
@@ -244,6 +193,18 @@ export default function Search() {
   // Declared above `setMedium` because that callback's dependency array reads
   // it, and a `const` further down would be in the temporal dead zone.
   const bulbBoost = useSharedValue(0);
+
+  // While the session or the entitlement is unsettled (first launch, and the
+  // teardown after a sign-out) the lamp goes OUT rather than away. The size it
+  // comes back at depends on isPaid, and swapping sizes on a lit lamp made it
+  // vanish and reappear; swapped in the dark, nobody sees the fixture change.
+  const unsettled = sessionLoading || !entitlementSettled;
+  useEffect(() => {
+    bulbBoost.value = withTiming(unsettled ? -1 : 0, {
+      duration: unsettled ? 160 : 620,
+      easing: unsettled ? Easing.in(Easing.quad) : Easing.out(Easing.cubic),
+    });
+  }, [unsettled, bulbBoost]);
 
   // The house-lights flash: a wash of the new colour that blooms and fades as
   // the medium changes, so the switch feels like a lighting cue, not a repaint.
@@ -439,15 +400,11 @@ export default function Search() {
               alignItems: 'center',
             }}
           >
-            <StandingChip
-              isPaid={isPaid}
-              isAuthenticated={isAuthenticated}
-              loading={sessionLoading}
-              onPress={() => router.push(isAuthenticated ? '/account' : '/auth')}
-            />
-            {/* marginLeft auto, not space-between: the chip is absent while the
-                session resolves, and with one child space-between parks the
-                buttons on the left for a beat, then jumps them right. */}
+            {/* Right-aligned on its own; there used to be a "free / subscribed /
+                sign in" chip on the left. It arrived a beat after the buttons
+                and was the only thing on the screen that was about the account
+                rather than the search. The lamp's size says paid; Account says
+                the rest. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22, marginLeft: 'auto' }}>
               <Pressable
                 onPress={() => router.push('/saves')}

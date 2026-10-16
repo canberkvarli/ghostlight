@@ -307,8 +307,6 @@ export default function Account() {
               onPress={onSubscription}
               busy={busy === 'restore'}
             />
-            {/* The tracker lives on the website too; this is the phone's door to it. */}
-            <Row label="Auditions" onPress={() => router.push('/auditions')} />
             <Row label="Help & legal" onPress={onHelp} />
             {isAuthenticated ? (
               <Row
@@ -370,6 +368,22 @@ export default function Account() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Signing out and deleting take a second or two and tear the session
+          down under every other screen, so the page is held while they run:
+          one ring in the middle, nothing tappable behind it. The per-row ring
+          let you wander off mid-teardown and tap into a session that was
+          halfway gone. */}
+      {busy === 'signout' || busy === 'delete' ? (
+        <Animated.View
+          entering={FadeIn.duration(160)}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: c.isLight ? 'rgba(250,246,238,0.6)' : 'rgba(19,11,8,0.6)' }}
+          accessibilityViewIsModal
+          accessibilityLabel={busy === 'signout' ? 'Signing out' : 'Deleting your account'}
+        >
+          <Ring size={28} />
+        </Animated.View>
+      ) : null}
 
       <SignOutCard
         visible={confirmSignOut}
@@ -731,7 +745,7 @@ function StatTile({ n, label, onPress }: { n: number; label: string; onPress?: (
  * `ActivityIndicator` is the system's spinner and looks it — the one piece of
  * iOS chrome left on a screen that had just stopped using a system dialog.
  */
-function Ring() {
+function Ring({ size = 16 }: { size?: number }) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
   const spin = useSharedValue(0);
@@ -748,10 +762,10 @@ function Ring() {
       style={[
         style,
         {
-          width: 16,
-          height: 16,
+          width: size,
+          height: size,
           borderRadius: 999,
-          borderWidth: 2,
+          borderWidth: size > 20 ? 2.5 : 2,
           borderColor: c.inactiveMeter,
           borderTopColor: c.yellow,
         },

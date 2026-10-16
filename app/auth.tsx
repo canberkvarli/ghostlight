@@ -220,11 +220,14 @@ export default function Auth() {
             <Animated.View
               layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))}
               style={{
-                flexGrow: emailOpen ? 0 : 1,
+                // Both ways it keeps the spare room; with the form open the
+                // title moves to the TOP of that room and the fields keep the
+                // bottom, so the lamp is not sitting on the email line.
+                flexGrow: 1,
                 flexShrink: 1,
-                justifyContent: 'center',
+                justifyContent: emailOpen ? 'flex-start' : 'center',
                 paddingHorizontal: 30,
-                paddingTop: emailOpen ? 6 : 0,
+                paddingTop: emailOpen ? 10 : 0,
                 paddingBottom: emailOpen ? 22 : 24,
               }}
             >

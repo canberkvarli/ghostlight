@@ -8,6 +8,8 @@ import { usePreventCaptureWhileFocused } from '../src/hooks/usePreventCaptureWhi
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
   runOnJS,
   useAnimatedReaction,
   useAnimatedScrollHandler,
@@ -360,12 +362,19 @@ export default function Results() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ flex: 1 }}>
           {searching ? (
-            <SearchingStage pal={pal} screen={screenMode} />
+            <Animated.View key="searching" exiting={FadeOut.duration(180)} style={{ flex: 1 }}>
+              <SearchingStage pal={pal} screen={screenMode} />
+            </Animated.View>
           ) : searchFailed ? (
             <SearchFailedStage onRetry={() => (screenMode ? refetchScreen() : refetch())} />
           ) : noResults ? (
             <RequestStage query={params.q ?? ''} pal={pal} />
           ) : (
+            /* Opacity only, over 420ms: the lights come up on the results rather
+               than the list snapping in the frame the request lands. Not a
+               slide: an entering translate leaves the rows untouchable on the
+               new architecture. */
+            <Animated.View key="results" entering={FadeIn.duration(420).easing(Easing.out(Easing.quad))} style={{ flex: 1 }}>
             <AnimatedFlashList
               data={data}
               renderItem={renderItem}
@@ -382,6 +391,7 @@ export default function Results() {
               ListFooterComponent={footer}
               ListEmptyComponent={EmptyStage}
             />
+            </Animated.View>
           )}
         </View>
       </SafeAreaView>

@@ -92,7 +92,6 @@ export default function Prep() {
   const feed = useCalendarFeed();
 
   const scroll = useRef<ScrollView>(null);
-  const yBring = useRef(0);
   const yAfter = useRef(0);
   const scrollTo = (y: number) => scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
 
@@ -174,8 +173,6 @@ export default function Prep() {
               <Animated.View entering={FadeIn.delay(120).duration(300)}>
                 <Primary
                   a={a}
-                  onPack={() => scrollTo(yBring.current)}
-                  onAfter={() => scrollTo(yAfter.current)}
                   onRead={(mid) => router.push(`/read/${mid}`)}
                   onCallback={onCallback}
                   busy={callback.isPending}
@@ -191,11 +188,9 @@ export default function Prep() {
                   </View>
                 ) : null}
 
-                <View onLayout={(e) => (yBring.current = e.nativeEvent.layout.y)}>
-                  <Reveal order={a.scope !== 'upcoming' ? 2 : 1}>
-                    <Bring a={a} />
-                  </Reveal>
-                </View>
+                <Reveal order={a.scope !== 'upcoming' ? 2 : 1}>
+                  <Bring a={a} />
+                </Reveal>
 
                 <Reveal order={a.scope !== 'upcoming' ? 3 : 2}>
                   <Piece a={a} onPick={() => router.push({ pathname: '/saves', params: { pick: String(a.id) } })} onRead={(mid) => router.push(`/read/${mid}`)} />
@@ -224,11 +219,11 @@ export default function Prep() {
                 onPress={onCalendar}
                 hitSlop={10}
                 accessibilityRole="button"
-                accessibilityLabel="Put the board in your calendar"
+                accessibilityLabel="Add to calendar"
                 style={{ marginTop: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
                 <Ionicons name="calendar-outline" size={14} color={c.mutedForeground} />
-                <StageDirection numberOfLines={1}>(put the board in your calendar.)</StageDirection>
+                <StageDirection numberOfLines={1}>(add to calendar.)</StageDirection>
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -292,44 +287,26 @@ function Head({ a }: { a: Audition }) {
  */
 function Primary({
   a,
-  onPack,
-  onAfter,
   onRead,
   onCallback,
   busy,
 }: {
   a: Audition;
-  onPack: () => void;
-  onAfter: () => void;
   onRead: (monologueId: number) => void;
   onCallback: () => void;
   busy: boolean;
 }) {
   const piece = attachedPiece(a);
-  const packing = a.bring_list.some((i) => !i.done);
   let label: string | null = null;
   let act: (() => void) | null = null;
   if (a.scope !== 'upcoming') {
-    const heard = a.status === 'booked' || a.status === 'passed';
     if (a.status === 'callback' && !a.callback_id) {
       label = busy ? 'Adding it' : 'Add the callback';
       act = onCallback;
-    } else if (a.when && !heard && !a.after_notes?.how) {
-      label = 'How did it go?';
-      act = onAfter;
     }
-  } else {
-    const d = a.when ? daysUntil(a.when) : null;
-    if (d != null && d <= 1 && packing) {
-      label = 'Pack';
-      act = onPack;
-    } else if (piece?.monologue_id != null) {
-      label = 'Read it once more';
-      act = () => onRead(piece.monologue_id as number);
-    } else if (packing) {
-      label = 'Pack';
-      act = onPack;
-    }
+  } else if (piece?.monologue_id != null) {
+    label = 'Read it once more';
+    act = () => onRead(piece.monologue_id as number);
   }
   if (!label || !act) return null;
   return <PrimaryPill label={label} onPress={act} block disabled={busy} style={{ marginTop: 24 }} />;
