@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -35,6 +36,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
+import { HomeRows } from '../src/components/HomeRows';
+import { track } from '../src/lib/analytics';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useSession } from '../src/lib/useSession';
 import { colors, radius } from '../src/theme/tokens';
@@ -71,6 +74,16 @@ import { useTheme } from '../src/theme/ThemeContext';
  */
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/**
+ * Three ways in, per house, for the screen before there is a past. Each is a
+ * whole search in the voice the field wants, not a category: the point is to
+ * show what a search here can sound like.
+ */
+const DOORS: Record<Medium, string[]> = {
+  theatre: ['a woman who has had enough', 'a father trying to apologise', 'something funny, under two minutes'],
+  screen: ['a cop who has stopped believing', 'a breakup with no shouting', 'a villain who is sure he is right'],
+};
 
 /**
  * The lamp, small — not the standing fixture from the launch screen. It stays on
@@ -115,7 +128,7 @@ export default function Search() {
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
   const { width } = useWindowDimensions();
-  const { loading: sessionLoading } = useSession();
+  const { loading: sessionLoading, isAuthenticated } = useSession();
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
@@ -359,6 +372,19 @@ export default function Search() {
     [medium, router],
   );
 
+  // A door is a search someone else phrased for you. It is remembered like
+  // one you typed, so the next visit shows it under "last time".
+  const runDoor = useCallback(
+    (q: string) => {
+      Haptics.selectionAsync().catch(() => {});
+      track('app_home_row', { row: 'door' });
+      setQuery(q);
+      void pushSearchHistory(q, medium).then(setHistory);
+      router.push({ pathname: '/results', params: { q, medium } });
+    },
+    [medium, router],
+  );
+
   // Tapping the lamp does not go anywhere. It's the ghost light: you touch it,
   // it answers, that's all. Making it a shortcut into the lineup gave the one
   // decorative thing on the screen a hidden destination, which is worse than
@@ -400,28 +426,11 @@ export default function Search() {
               alignItems: 'center',
             }}
           >
-            {/* Right-aligned on its own; there used to be a "free / subscribed /
-                sign in" chip on the left. It arrived a beat after the buttons
-                and was the only thing on the screen that was about the account
-                rather than the search. The lamp's size says paid; Account says
-                the rest. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22, marginLeft: 'auto' }}>
-              <Pressable
-                onPress={() => router.push('/saves')}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Saved monologues"
-              >
-                <Ionicons name="bookmark-outline" size={22} color={c.mutedForeground} />
-              </Pressable>
-              <Pressable
-                onPress={() => router.push('/auditions')}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Auditions"
-              >
-                <Ionicons name="calendar-outline" size={22} color={c.mutedForeground} />
-              </Pressable>
+            {/* Account alone in the corner. The book and the board used to be
+                two more icons here, which made the corner the whole map of the
+                app, drawn in chrome; they are rows under the field now, with
+                what is in them written on them (HomeRows). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
               <Pressable
                 onPress={() => router.push('/account')}
                 hitSlop={12}
@@ -433,7 +442,16 @@ export default function Search() {
             </View>
           </View>
 
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start' }}>
+          {/* A scroll, not a column: on a short phone the rows and the recents
+              under the field run past the fold, and a screen you cannot scroll
+              is a screen with things missing from it. On a tall one nothing moves. */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ alignItems: 'center', justifyContent: 'flex-start' }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             {/* The ghost light, small, standing over the question. */}
             <Pressable
               onPress={onLampPress}
@@ -669,16 +687,66 @@ export default function Search() {
               </AnimatedPressable>
             </Animated.View>
 
+            {/* Yours: the book and the board, as rows that say what is in them. */}
+            <Animated.View
+              pointerEvents={fieldFocused ? 'none' : 'auto'}
+              style={[belowStyle, { width: '100%', marginTop: 26 }]}
+            >
+              <HomeRows isAuthenticated={isAuthenticated} />
+            </Animated.View>
+
             {/* Recent searches: hairline rows, this house's only, each with a
                 way to forget it. They used to be pills, which made four of them
                 look like four more filters. Hidden only while you type: the
                 query you just ran is still in the field when you come back from
                 Results, and hiding the list then made it look as if the search
-                had never been remembered. */}
+                had never been remembered.
+
+                Before there is a past, three ways in: typed searches, each one a
+                door. The empty-handed newcomer has somewhere to press instead of
+                being asked to phrase it. */}
+            {houseHistory.length === 0 && !(fieldFocused && query.trim()) ? (
+              <Animated.View
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 24 }]}
+              >
+                <StageDirection style={{ marginBottom: 2 }}>(ways in.)</StageDirection>
+                {DOORS[medium].map((q) => (
+                  <Pressable
+                    key={q}
+                    onPress={() => runDoor(q)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search for ${q}`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 11,
+                      borderBottomWidth: 1,
+                      borderBottomColor: c.divider,
+                    }}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        flex: 1,
+                        fontFamily: 'CourierPrime_400Regular_Italic',
+                        fontSize: 14,
+                        lineHeight: 19,
+                        letterSpacing: 0.3,
+                        color: c.foreground,
+                      }}
+                    >
+                      {q}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={14} color={pal.accentText} />
+                  </Pressable>
+                ))}
+              </Animated.View>
+            ) : null}
             {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
               <Animated.View
                 pointerEvents={fieldFocused ? 'none' : 'auto'}
-                style={[belowStyle, { width: '100%', marginTop: 26 }]}
+                style={[belowStyle, { width: '100%', marginTop: 24 }]}
               >
                 <StageDirection style={{ marginBottom: 6 }}>(last time.)</StageDirection>
                 {houseHistory.slice(0, 3).map((item) => (
@@ -735,7 +803,8 @@ export default function Search() {
                 ))}
               </Animated.View>
             ) : null}
-          </View>
+            <View style={{ height: 16 }} />
+          </ScrollView>
 
           {/* The foot says one thing, centred: how many filters are lit, or that
               you have asked for nothing at all. There is no Search button here

@@ -33,6 +33,7 @@ import { LabelledField } from '../src/components/LabelledField';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
+import { AboutActorRiseSheet } from '../src/components/AboutActorRiseSheet';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import {
   isAppleAuthAvailable,
@@ -86,6 +87,7 @@ export default function Auth() {
   // account off the back of that on our own — see signInWithEmail for why the
   // same error also means "wrong password" — so this offers instead.
   const [offerSignUp, setOfferSignUp] = useState(false);
+  const [about, setAbout] = useState(false);
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
@@ -312,6 +314,21 @@ export default function Auth() {
                     last
                     onPress={() => setEmailOpen(true)}
                   />
+                  {/* The name above means nothing to someone who found the app
+                      on its own. One question, answered on a sheet. */}
+                  <Pressable
+                    onPress={() => {
+                      track('app_about_actorrise', { from: 'auth', visited: false });
+                      setAbout(true);
+                    }}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="What is ActorRise?"
+                    style={{ alignSelf: 'center', marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  >
+                    <Ionicons name="help-circle-outline" size={15} color={c.mutedForeground} />
+                    <StageDirection>(what is actorrise?)</StageDirection>
+                  </Pressable>
                 </Animated.View>
               )}
 
@@ -514,6 +531,7 @@ export default function Auth() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <AboutActorRiseSheet open={about} onClose={() => setAbout(false)} from="auth" />
     </View>
   );
 }

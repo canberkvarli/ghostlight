@@ -23,6 +23,7 @@ import { GhostLight } from '../src/components/GhostLight';
 import { BackHeader } from '../src/components/BackHeader';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { PaperCard } from '../src/components/PaperCard';
+import { AboutActorRiseSheet } from '../src/components/AboutActorRiseSheet';
 import { Sketch } from '../src/components/Sketches';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites } from '../src/hooks/useFavorites';
@@ -123,6 +124,7 @@ export default function Account() {
   const { session, isAuthenticated } = useSession();
   const [busy, setBusy] = useState<null | 'restore' | 'signout' | 'delete'>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [about, setAbout] = useState(false);
 
   // Not a raw ['read-wall'] read: the server learns about a purchase from a
   // webhook, so for the first seconds after paying it still answers is_paid:
@@ -308,6 +310,14 @@ export default function Account() {
               busy={busy === 'restore'}
             />
             <Row label="Help & legal" onPress={onHelp} />
+            <Row
+              label="What is ActorRise?"
+              onPress={() => {
+                track('app_about_actorrise', { from: 'account', visited: false });
+                setAbout(true);
+              }}
+              last={!isAuthenticated}
+            />
             {isAuthenticated ? (
               <Row
                 label="Sign out"
@@ -390,6 +400,7 @@ export default function Account() {
         onCancel={() => setConfirmSignOut(false)}
         onConfirm={doSignOut}
       />
+      <AboutActorRiseSheet open={about} onClose={() => setAbout(false)} from="account" />
     </View>
   );
 }
