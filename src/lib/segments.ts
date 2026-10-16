@@ -29,8 +29,12 @@ function isLineated(text: string): boolean {
  * thought. A one- or two-word sentence joins the one before it.
  */
 function toSentences(text: string): string[] {
+  // A break after . ! or ? (plus any closing quote) when followed by space and
+  // a capital, a quote, or a bracket: the start of something new. Written as a
+  // marker and a split rather than a lookbehind, which Hermes may not have.
   const parts = text
-    .split(/(?<=[.!?]["'”’)]?)\s+(?=["'“‘(]?[A-Z0-9])/g)
+    .replace(/([.!?]["'”’)]?)\s+(?=["'“‘(]?[A-Z0-9])/g, '$1\u0000')
+    .split('\u0000')
     .map((s) => s.trim())
     .filter(Boolean);
   const out: string[] = [];
@@ -142,11 +146,13 @@ export function clock(seconds: number): string {
  * rest as middots, punctuation and spacing kept so the line keeps its shape.
  * "To be, or not" becomes "T· b·, o· n··".
  */
+const LETTER = /[A-Za-z\u00C0-\u024F\u0370-\u03FF\u0400-\u04FF]/;
+
 export function maskFirstLetters(text: string): string {
   let sawFirst = false;
   let out = '';
   for (const ch of text) {
-    if (/\p{L}/u.test(ch)) {
+    if (LETTER.test(ch)) {
       if (!sawFirst) {
         out += ch;
         sawFirst = true;
@@ -155,7 +161,7 @@ export function maskFirstLetters(text: string): string {
       }
     } else {
       out += ch;
-      if (/\s/u.test(ch)) sawFirst = false;
+      if (/\s/.test(ch)) sawFirst = false;
     }
   }
   return out;
