@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInUp, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -186,7 +186,7 @@ export default function Prep() {
                 {a.scope !== 'upcoming' ? (
                   <View onLayout={(e) => (yAfter.current = e.nativeEvent.layout.y)}>
                     <Reveal order={1}>
-                      <After a={a} onCallback={onCallback} busy={callback.isPending} />
+                      <After a={a} onCallback={onCallback} busy={callback.isPending} onFocusNote={() => scrollTo(yAfter.current)} />
                     </Reveal>
                   </View>
                 ) : null}
@@ -366,12 +366,14 @@ function TextLink({ icon, label, onPress, muted = false }: { icon?: keyof typeof
  * ideas marked as such, and anything you add. Ticks show at once and save
  * behind; the pack bar fills as you go.
  */
+/** Audition and inputs this session has already asked the model to read. */
+const READ = new Set<string>();
+
 function Bring({ a }: { a: Audition }) {
   const { colors: c } = useTheme();
   const patch = usePatchAudition();
   const assist = useAssistRead();
   const [draft, setDraft] = useState('');
-  const [asked, setAsked] = useState<'none' | 'nothing' | 'added'>('none');
   const items = a.bring_list;
   const packed = items.filter((i) => i.done).length;
 
@@ -391,16 +393,22 @@ function Bring({ a }: { a: Audition }) {
     Haptics.selectionAsync().catch(() => {});
     save([...items, { text, done: false, src: 'me' }]);
   };
-  const canAsk = Boolean(a.role?.trim() || a.material_raw?.trim());
-  const ask = () => {
-    if (assist.isPending) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const before = items.length;
-    assist.mutate(a.id, {
-      onSuccess: (next) => setAsked(next.bring_list.length > before ? 'added' : 'nothing'),
-      onError: () => setAsked('nothing'),
-    });
-  };
+  /**
+   * The read runs on its own, the way it does on the website: open the file and
+   * the model's ideas on what to wear are already on the list, marked as its
+   * own, with a cross beside each. Nobody is asked to ask. The server keeps
+   * the read keyed on the inputs, so this costs one model call per audition
+   * and a repeat open is served from the saved one; `READ` keeps this
+   * session from even making the round trip twice for the same inputs.
+   */
+  const canRead = Boolean(a.role?.trim() || a.material_raw?.trim()) && a.scope === 'upcoming';
+  const readKey = `${a.id}|${a.role ?? ''}|${a.material_raw ?? ''}`;
+  useEffect(() => {
+    if (!canRead || READ.has(readKey)) return;
+    READ.add(readKey);
+    assist.mutate(a.id, { onError: () => READ.delete(readKey) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canRead, readKey, a.id]);
 
   return (
     <Section
@@ -465,20 +473,14 @@ function Bring({ a }: { a: Audition }) {
         ) : null}
       </View>
 
-      <Pressable onPress={canAsk ? ask : undefined} hitSlop={8} accessibilityRole="button" disabled={!canAsk || assist.isPending} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-        <Ionicons name="sparkles-outline" size={13} color={c.mutedForeground} />
-        <StageDirection numberOfLines={2} style={{ flex: 1 }}>
-          {assist.isPending
-            ? '(reading the part…)'
-            : !canAsk
-              ? '(add the role and i can have ideas on what to wear.)'
-              : asked === 'added'
-                ? '(a few ideas added. take any off.)'
-                : asked === 'nothing'
-                  ? '(nothing to add for now.)'
-                  : '(ask me what to wear for this one.)'}
-        </StageDirection>
-      </Pressable>
+      {assist.isPending ? (
+        <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <Ionicons name="sparkles-outline" size={13} color={c.mutedForeground} />
+          <StageDirection numberOfLines={2} style={{ flex: 1 }}>(reading the part for what to wear…)</StageDirection>
+        </Animated.View>
+      ) : !canRead && a.scope === 'upcoming' ? (
+        <StageDirection numberOfLines={2} style={{ marginTop: 14 }}>(add the role and i'll have ideas on what to wear.)</StageDirection>
+      ) : null}
     </Section>
   );
 }
@@ -592,7 +594,7 @@ function Piece({ a, onPick, onRead }: { a: Audition; onPick: () => void; onRead:
  * Once it has gone: how did it go, in a word and then in your own. The word
  * moves the status (a callback, a pass); the note is yours to keep.
  */
-function After({ a, onCallback, busy }: { a: Audition; onCallback: () => void; busy: boolean }) {
+function After({ a, onCallback, busy, onFocusNote }: { a: Audition; onCallback: () => void; busy: boolean; onFocusNote: () => void }) {
   const { colors: c } = useTheme();
   const outcome = useLogOutcome();
   const patch = usePatchAudition();
@@ -646,6 +648,9 @@ function After({ a, onCallback, busy }: { a: Audition; onCallback: () => void; b
         scrollEnabled={false}
         value={how}
         onChangeText={setHow}
+        // The keyboard covers the bottom half of the file; bring the section
+        // to the top once it has risen so the words land in view.
+        onFocus={() => setTimeout(onFocusNote, 280)}
         onBlur={saveHow}
         placeholder="How did it go, in your own words."
         placeholderTextColor={c.mutedForeground}

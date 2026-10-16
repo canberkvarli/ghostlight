@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -95,6 +95,8 @@ export default function AuditionForm() {
   const [when, setWhen] = useState<Date>(defaultAuditionDate());
   const [place, setPlace] = useState('');
   const [notes, setNotes] = useState('');
+  const scroll = useRef<ScrollView>(null);
+  const notesFocused = useRef(false);
   // Read from the email and kept, never typed here: who is casting, what they
   // asked for, and the "bring" line the server turns into the first tick list.
   const [casting, setCasting] = useState('');
@@ -296,6 +298,7 @@ export default function AuditionForm() {
           </View>
 
           <ScrollView
+            ref={scroll}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
@@ -512,10 +515,24 @@ export default function AuditionForm() {
                 Its own block rather than a LabelledField: that one is a single
                 34pt line with a label that floats over it. */}
             <Text style={[label, { marginTop: 26 }]}>Notes (optional)</Text>
+            {/* Notes is the last field, under the keyboard the moment it comes
+                up. The avoiding view makes room; nothing scrolls into it on
+                its own, so the field does: to the end on focus (once the
+                keyboard has risen), and again each time a new line is typed. */}
             <TextInput
               multiline
               scrollEnabled={false}
               value={notes}
+              onFocus={() => {
+                notesFocused.current = true;
+                setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 280);
+              }}
+              onBlur={() => {
+                notesFocused.current = false;
+              }}
+              onContentSizeChange={() => {
+                if (notesFocused.current) scroll.current?.scrollToEnd({ animated: true });
+              }}
               onChangeText={(t) => {
                 setTouched(true);
                 setNotes(t);
