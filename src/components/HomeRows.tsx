@@ -1,7 +1,9 @@
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
+import { StageDirection } from './StageDirection';
 import { useFavorites } from '../hooks/useFavorites';
 import { useAuditions } from '../hooks/useAuditions';
 import { clockLabel, daysUntil } from '../lib/when';
@@ -9,18 +11,19 @@ import { track } from '../lib/analytics';
 import { useTheme } from '../theme/ThemeContext';
 
 /**
- * Your things, under the search field: the book and the board, as two props on
- * the stage. The book is a small stack of cream pages with the count on the
- * front sheet; the next audition is a ticket stub with its date in a block of
- * its own. Each gets half the width and 64pt.
+ * Your things, under the search field: the book and the board, two full-width
+ * hairline rows in the same hand as the recents and the trending shelf below
+ * them. Each row is a prop on the left (the book is a small stack of cream
+ * pages with the count on the front sheet; the next audition is a ticket stub
+ * with its date on it), the name of the thing, and what is in it written at the
+ * right in the stage-direction italic.
  *
- * The shape is the point. These were two half-width rows of text, and a
- * project name next to a day and a time in that width always lost its end.
- * Here the date lives in the stub and the name has the whole line to itself,
- * so the only thing that can ever shorten is a very long title, and it shortens
- * where a title would.
+ * Full width is the point. These were two half-width tiles, and no amount of
+ * arranging fits "sign in to keep one" and a stack into 160pt. A row gives the
+ * title and the detail the whole line between them; the title yields first,
+ * the way a title would, and the detail never has to.
  *
- * Both are always there. Signed out, the second line says what signing in gets
+ * Both rows are always there. Signed out, the detail says what signing in gets
  * you; the screens behind them ask for the account.
  */
 export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -52,10 +55,15 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
       const days = daysUntil(next.when);
       const due = next.kind === 'self_tape';
       // Inside the week the weekday is what you think in; past it, the month.
-      const top = due ? 'DUE' : days <= 6 ? d.toLocaleDateString(undefined, { weekday: 'short' }) : d.toLocaleDateString(undefined, { month: 'short' });
+      const top = due
+        ? 'DUE'
+        : days <= 6
+          ? d.toLocaleDateString(undefined, { weekday: 'short' })
+          : d.toLocaleDateString(undefined, { month: 'short' });
       stub = [top.toUpperCase(), String(d.getDate())];
-      nextLine = days === 0 ? `today · ${clockLabel(next.when)}` : clockLabel(next.when);
-      if (next.status === 'callback') nextLine += ' · callback';
+      // The stub carries the day, so the line only needs the hour.
+      nextLine = days === 0 ? `today, ${clockLabel(next.when)}` : clockLabel(next.when);
+      if (next.status === 'callback') nextLine = `callback, ${nextLine}`;
     } else {
       stub = ['TBD', '?'];
       nextLine = 'date to come';
@@ -63,8 +71,9 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
   }
 
   return (
-    <View style={{ width: '100%', flexDirection: 'row', gap: 10 }}>
-      <Prop
+    <View style={{ width: '100%' }}>
+      <StageDirection style={{ marginBottom: 2 }}>(yours.)</StageDirection>
+      <Row
         title="Your book"
         line={bookLine}
         accessibilityLabel={`Your book, ${bookLine}`}
@@ -74,8 +83,8 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
         }}
       >
         <Stack count={isAuthenticated ? keptCount : null} />
-      </Prop>
-      <Prop
+      </Row>
+      <Row
         title={nextTitle}
         line={nextLine}
         accessibilityLabel={`${nextTitle}, ${nextLine}`}
@@ -86,13 +95,13 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
         }}
       >
         <Stub top={stub[0]} day={stub[1]} />
-      </Prop>
+      </Row>
     </View>
   );
 }
 
-/** Half the width: the prop on the left, two lines of words beside it. */
-function Prop({
+/** One full-width row: the prop, the title, and what is in it at the right. */
+function Row({
   title,
   line,
   onPress,
@@ -115,42 +124,44 @@ function Prop({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => ({
-        flex: 1,
-        minWidth: 0,
+        width: '100%',
+        height: 58,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 11,
-        height: 64,
-        paddingLeft: 11,
-        paddingRight: 10,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        borderColor: c.border,
-        opacity: pressed ? 0.8 : 1,
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: c.divider,
+        opacity: pressed ? 0.7 : 1,
       })}
     >
-      {children}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          numberOfLines={1}
-          style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, lineHeight: 17, color: c.foreground }}
-        >
-          {title}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={{
-            marginTop: 2,
-            fontFamily: 'CourierPrime_400Regular_Italic',
-            fontSize: 11,
-            lineHeight: 14,
-            letterSpacing: 0.3,
-            color: c.mutedForeground,
-          }}
-        >
-          {line}
-        </Text>
-      </View>
+      {/* The props sit in one fixed column so the titles line up. */}
+      <View style={{ width: 44, alignItems: 'center' }}>{children}</View>
+      <Text
+        numberOfLines={1}
+        style={{
+          flexShrink: 1,
+          fontFamily: 'BricolageGrotesque_600SemiBold',
+          fontSize: 15,
+          lineHeight: 20,
+          color: c.foreground,
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        numberOfLines={1}
+        style={{
+          flexShrink: 0,
+          marginLeft: 'auto',
+          fontFamily: 'CourierPrime_400Regular_Italic',
+          fontSize: 12,
+          letterSpacing: 0.3,
+          color: c.mutedForeground,
+        }}
+      >
+        {line}
+      </Text>
+      <Ionicons name="chevron-forward" size={14} color={c.mutedForeground} style={{ marginRight: 2 }} />
     </Pressable>
   );
 }
@@ -221,8 +232,6 @@ function Stub({ top, day }: { top: string; day: string }) {
         height: 40,
         borderRadius: 3,
         borderWidth: 1,
-        borderRightWidth: 1,
-        borderRightColor: c.ink,
         borderColor: c.ink,
         backgroundColor: c.paper,
         alignItems: 'center',

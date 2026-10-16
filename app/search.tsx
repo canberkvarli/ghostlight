@@ -16,6 +16,9 @@ import Animated, {
   FadeIn,
   FadeOut,
   LinearTransition,
+  interpolate,
+  Extrapolation,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -385,6 +388,24 @@ export default function Search() {
    */
   const dashedInk = c.isLight ? pal.accent : c.yellow;
 
+  /**
+   * The screen scrolls, and the lamp goes out as it goes.
+   *
+   * Under the field there is now enough to be worth a scroll: your book and
+   * your board, what others are working on, what you looked for last time. But
+   * the ScrollView clips at the header row, and a lamp sliding up into that
+   * edge was being cut off at the glass. So it dims with the scroll instead,
+   * read straight off a shared value: gone by the time its top would reach the
+   * header, and back as you come down. No JavaScript per frame.
+   */
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+  const lampStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, LAMP_BOX * 0.75], [1, 0], Extrapolation.CLAMP),
+  }));
+
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
@@ -419,18 +440,26 @@ export default function Search() {
             </View>
           </View>
 
-          {/* A column, not a scroll. This screen holds still: the lamp stays
-              where it stands and nothing below the field is worth a scroll. So
-              everything under the field is sized to fit the shortest phone it
-              has to, which is why the tiles are half-width and the lists are two. */}
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start' }}>
+          {/* A scroll, with the lamp at the top of it. On a tall phone nothing
+              moves; on a short one the shelves under the field are reachable
+              and the lamp dims as it slides under the header (lampStyle). */}
+          <Animated.ScrollView
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            alwaysBounceVertical={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            style={{ flex: 1 }}
+            contentContainerStyle={{ alignItems: 'center', paddingBottom: 16 }}
+          >
             {/* The ghost light, small, standing over the question. */}
-            <Pressable
+            <AnimatedPressable
               onPress={onLampPress}
               hitSlop={16}
               accessibilityRole="image"
               accessibilityLabel="The ghost light"
-              style={{ marginTop: 10, alignItems: 'center' }}
+              style={[lampStyle, { marginTop: 10, alignItems: 'center' }]}
             >
               {/* The taller lamp's room is reserved always, and the shorter one
                   is nudged down so its glass lands at the same height — so the
@@ -448,7 +477,7 @@ export default function Search() {
                   />
                 </View>
               </View>
-            </Pressable>
+            </AnimatedPressable>
 
             {/* The greeting. Two lines, each held to one line on purpose, in a
                 box tall enough for both — so a prompt whose second line is
@@ -659,10 +688,10 @@ export default function Search() {
               </AnimatedPressable>
             </Animated.View>
 
-            {/* Yours: the book and the board, two tiles that say what is in them. */}
+            {/* Yours: the book and the board, two rows that say what is in them. */}
             <Animated.View
               pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[belowStyle, { width: '100%', marginTop: 22 }]}
+              style={[belowStyle, { width: '100%', marginTop: 24 }]}
             >
               <HomeRows isAuthenticated={isAuthenticated} />
             </Animated.View>
@@ -681,7 +710,7 @@ export default function Search() {
                 pointerEvents={fieldFocused ? 'none' : 'auto'}
                 style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
-                <Trending medium={medium} accent={pal.accentText} />
+                <Trending medium={medium} accent={pal.accentText} rows={3} />
               </Animated.View>
             ) : null}
             {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
@@ -690,7 +719,7 @@ export default function Search() {
                 style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
                 <StageDirection style={{ marginBottom: 2 }}>(last time.)</StageDirection>
-                {houseHistory.slice(0, 2).map((item) => (
+                {houseHistory.slice(0, 4).map((item) => (
                   <Animated.View
                     key={`${item.medium}:${item.q}`}
                     entering={FadeIn.duration(180)}
@@ -744,7 +773,7 @@ export default function Search() {
                 ))}
               </Animated.View>
             ) : null}
-          </View>
+          </Animated.ScrollView>
 
           {/* The foot says one thing, centred: how many filters are lit, or that
               you have asked for nothing at all. There is no Search button here
