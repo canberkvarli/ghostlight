@@ -437,7 +437,6 @@ export default function Search() {
               height: 40,
               flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'space-between',
             }}
           >
             <StandingChip
@@ -446,7 +445,10 @@ export default function Search() {
               loading={sessionLoading}
               onPress={() => router.push(isAuthenticated ? '/account' : '/auth')}
             />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22 }}>
+            {/* marginLeft auto, not space-between: the chip is absent while the
+                session resolves, and with one child space-between parks the
+                buttons on the left for a beat, then jumps them right. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 22, marginLeft: 'auto' }}>
               <Pressable
                 onPress={() => router.push('/saves')}
                 hitSlop={12}

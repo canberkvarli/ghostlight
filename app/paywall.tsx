@@ -266,12 +266,19 @@ export default function Paywall() {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: 28,
+            paddingTop: 12,
             paddingBottom: 10,
             flexGrow: 1,
-            justifyContent: 'center',
           }}
           showsVerticalScrollIndicator={false}
         >
+          {/* Centred by two growing spacers, not `justifyContent: 'center'`.
+              Centring the content container clips the top the moment the
+              content is taller than the room above the footer: the overflow
+              sits above the scroll origin where no scroll can reach it, and
+              the lamp and the card's top rule are the first things to go.
+              Spacers shrink to nothing instead and the page simply scrolls. */}
+          <View style={{ flexGrow: 1 }} />
           <View style={{ alignItems: 'center' }}>
             <GhostLight size={34} />
             {/* Only promise a trial when one actually exists. `headlineTrial`
@@ -432,6 +439,7 @@ export default function Paywall() {
               unit="/mo"
             />
           </View>
+          <View style={{ flexGrow: 1 }} />
         </ScrollView>
 
         <View style={{ paddingHorizontal: 28, paddingBottom: 18, paddingTop: 12 }}>
