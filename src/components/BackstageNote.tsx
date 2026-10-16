@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { usePathname } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -11,6 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { PaperCard } from './PaperCard';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 import { PrimaryPill } from './PrimaryPill';
 import { StageDirection } from './StageDirection';
 import { useTheme } from '../theme/ThemeContext';
@@ -26,10 +27,10 @@ import { track } from '../lib/analytics';
 /**
  * A note from backstage: the one place the app asks for a rating.
  *
- * It is a small lit page that rises from the bottom straight after something
- * went right (see src/lib/reviewMoments.ts for exactly when). It is not a
- * modal: the stage stays live behind it, and nothing is dimmed, because a
- * request for a favour should never feel like a wall.
+ * It is a small lit page that comes up in the middle of the stage straight
+ * after something went right (see src/lib/reviewMoments.ts for exactly when).
+ * The house dims a little behind it, enough to say this is the moment, not
+ * enough to be a wall: a tap anywhere on the dark is "not now".
  *
  * Mounted once in app/_layout.tsx. Screens never render it; they only record
  * moments, and the store decides.
@@ -69,7 +70,6 @@ export function BackstageNoteHost() {
 
 export function BackstageNote({ onDone }: { onDone: () => void }) {
   const { colors: c } = useTheme();
-  const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
   const shown = useSharedValue(0);
 
@@ -79,9 +79,14 @@ export function BackstageNote({ onDone }: { onDone: () => void }) {
 
   const style = useAnimatedStyle(() => ({
     opacity: shown.value,
+    // A short rise and a touch of scale, so it arrives rather than appears.
     // Reduced motion: it fades in where it lands, no travel.
-    transform: [{ translateY: reduce ? 0 : (1 - shown.value) * 48 }],
+    transform: [
+      { translateY: reduce ? 0 : (1 - shown.value) * 16 },
+      { scale: reduce ? 1 : 0.96 + 0.04 * shown.value },
+    ],
   }));
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: shown.value * 0.42 }));
 
   const closing = useRef(false);
   const close = (outcome: NoteOutcome, after?: () => void) => {
@@ -102,12 +107,17 @@ export function BackstageNote({ onDone }: { onDone: () => void }) {
   } as const;
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' }}
-    >
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center' }}>
+      {/* The dark: tap it and the note goes away as "not now". */}
+      <AnimatedPressable
+        onPress={() => close('later')}
+        accessibilityRole="button"
+        accessibilityLabel="Not now"
+        style={[scrimStyle, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#130b08' }]}
+      />
       <Animated.View
-        style={[style, { paddingHorizontal: 16, paddingBottom: insets.bottom + 12 }]}
+        pointerEvents="box-none"
+        style={[style, { paddingHorizontal: 24 }]}
       >
         <PaperCard shadow={6} rotate={-0.4} style={{ padding: 20 }}>
           <StageDirection on="paper">(a note from backstage.)</StageDirection>
