@@ -91,6 +91,12 @@ export interface Monologue {
   offBook?: boolean;
   /** Your performance notes, from the website. Read-only on the phone for now. */
   notes?: string;
+  /**
+   * The audition cut: first and last unit, inclusive, as indices into
+   * `unitsOf(fullText)` (src/lib/segments.ts). The same pair the website keeps.
+   */
+  cutStart?: number;
+  cutEnd?: number;
 }
 
 export const MONOLOGUES: Monologue[] = [

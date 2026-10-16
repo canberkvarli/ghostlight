@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { getSimilar } from '../api/client';
+import { getFromPlay, getSimilar } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import type { Monologue } from '../data/monologues';
 import { colors, radius } from '../theme/tokens';
@@ -20,14 +20,28 @@ import { colors, radius } from '../theme/tokens';
  * pair of sides someone left next to yours. Server-backed; if it can't load
  * (offline, or the wall) it simply isn't there.
  */
-export function SimilarRow({ id, enabled }: { id: string; enabled: boolean }) {
+export function SimilarRow({
+  id,
+  enabled,
+  kind = 'similar',
+  label = '(in the same key.)',
+}: {
+  id: string;
+  enabled: boolean;
+  /** `play`: the other speeches in the same play or script, not the whole corpus. */
+  kind?: 'similar' | 'play';
+  label?: string;
+}) {
   const router = useRouter();
   const { data } = useQuery<Monologue[]>({
-    queryKey: ['similar', id],
+    queryKey: [kind === 'play' ? 'from-play' : 'similar', id],
     enabled: enabled && Boolean(id),
     retry: false,
     staleTime: 60_000,
-    queryFn: async ({ signal }) => (await getSimilar(id, 6, signal)).map(apiToMonologue),
+    queryFn: async ({ signal }) =>
+      (await (kind === 'play' ? getFromPlay(id, 6, signal) : getSimilar(id, 6, signal)))
+        .map(apiToMonologue)
+        .filter((m) => m.id !== id),
   });
 
   if (!data || data.length === 0) return null;
@@ -51,7 +65,7 @@ export function SimilarRow({ id, enabled }: { id: string; enabled: boolean }) {
           color: colors.paper.muted,
         }}
       >
-        (in the same key.)
+        {label}
       </Text>
       <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }}>
         {pair.map((m, i) => (

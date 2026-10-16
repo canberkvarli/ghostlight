@@ -56,7 +56,7 @@ async function db(): Promise<SQLite.SQLiteDatabase> {
       // Columns added after the table first shipped. SQLite has no ADD COLUMN IF
       // NOT EXISTS, so each one is tried on its own and a "duplicate column" is
       // the expected outcome on every launch but the first.
-      for (const col of ['off_book INTEGER NOT NULL DEFAULT 0', 'last_studied_at TEXT', 'server_saved_at TEXT']) {
+      for (const col of ['off_book INTEGER NOT NULL DEFAULT 0', 'last_studied_at TEXT', 'server_saved_at TEXT', 'cut_start INTEGER', 'cut_end INTEGER']) {
         try {
           await d.execAsync(`ALTER TABLE saved_monologues ADD COLUMN ${col};`);
         } catch {
@@ -86,6 +86,8 @@ interface Row {
   off_book?: number | null;
   last_studied_at?: string | null;
   server_saved_at?: string | null;
+  cut_start?: number | null;
+  cut_end?: number | null;
 }
 
 function rowToMonologue(r: Row): Monologue {
@@ -106,6 +108,8 @@ function rowToMonologue(r: Row): Monologue {
     offBook: r.off_book ? true : undefined,
     lastStudiedAt: r.last_studied_at ?? undefined,
     savedAt: r.server_saved_at ?? undefined,
+    cutStart: r.cut_start ?? undefined,
+    cutEnd: r.cut_end ?? undefined,
   };
 }
 
@@ -115,12 +119,14 @@ export async function saveOffline(m: Monologue): Promise<void> {
   await d.runAsync(
     `INSERT OR REPLACE INTO saved_monologues
       (id, title, source, author, character, age_range, gender, tone, source_type,
-       duration, overdone_score, excerpt, full_text, saved_at, off_book, last_studied_at, server_saved_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       duration, overdone_score, excerpt, full_text, saved_at, off_book, last_studied_at, server_saved_at,
+       cut_start, cut_end)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       m.id, m.title, m.source, m.author, m.character, m.ageRange, m.gender, m.tone,
       m.sourceType, m.duration, m.overdoneScore, m.excerpt, m.fullText ?? null, Date.now(),
       m.offBook ? 1 : 0, m.lastStudiedAt ?? null, m.savedAt ?? null,
+      m.cutStart ?? null, m.cutEnd ?? null,
     ],
   );
 }

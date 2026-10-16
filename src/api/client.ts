@@ -182,6 +182,21 @@ export async function setMemorized(id: string | number, on: boolean): Promise<vo
   if (!res.ok) throw new ApiError(res.status, `memorized ${id} failed (${res.status})`);
 }
 
+/**
+ * The audition cut (`POST /api/monologues/{id}/cut`): first and last unit, or
+ * both null to clear it. The server adds the piece to the book if it isn't there.
+ */
+export async function setCut(id: string | number, start: number | null, end: number | null): Promise<void> {
+  const headers = await authHeaders();
+  headers['Content-Type'] = 'application/json';
+  const res = await fetch(`${API_URL}/api/monologues/${id}/cut`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ start_line: start, end_line: end }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `cut ${id} failed (${res.status})`);
+}
+
 /** Notes on a save (spec §4, `PATCH /api/monologues/{id}/favorite/notes`). */
 export async function setFavoriteNotes(id: string | number, notes: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/monologues/${id}/favorite/notes`, {
@@ -213,6 +228,20 @@ export async function getSimilar(
     signal,
   });
   if (!res.ok) throw new ApiError(res.status, `similar ${id} failed (${res.status})`);
+  return (await res.json()) as Monologue[];
+}
+
+/** The other speeches in the same play or script (`GET /api/monologues/{id}/from-play`). */
+export async function getFromPlay(
+  id: string | number,
+  limit = 6,
+  signal?: AbortSignal,
+): Promise<Monologue[]> {
+  const res = await fetch(`${API_URL}/api/monologues/${id}/from-play?limit=${limit}`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `from-play ${id} failed (${res.status})`);
   return (await res.json()) as Monologue[];
 }
 

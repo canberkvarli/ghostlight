@@ -78,5 +78,7 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     lastStudiedAt: m.last_studied_at ?? undefined,
     offBook: m.memorized === true ? true : undefined,
     notes: m.notes ?? undefined,
+    cutStart: m.cut_start_line ?? undefined,
+    cutEnd: m.cut_end_line ?? undefined,
   };
 }

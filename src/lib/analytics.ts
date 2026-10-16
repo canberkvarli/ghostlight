@@ -159,7 +159,15 @@ export type Event =
   /** The tick on a saved piece: into the pocket (on) or back to the shelf. */
   | { name: 'app_off_book_toggled'; props: { on: boolean } }
   /** The book was searched. `hits` is how many rows matched, not what was typed. */
-  | { name: 'app_book_find'; props: { hits: number } };
+  | { name: 'app_book_find'; props: { hits: number } }
+  /** A cut was saved (or cleared: `seconds` 0). `of` is the whole piece. */
+  | { name: 'app_cut_set'; props: { seconds: number; of: number; cleared: boolean } }
+  /** Running a piece: which level it started at. */
+  | { name: 'app_run_started'; props: { level: 'words' | 'hints' | 'dark'; has_cut: boolean } }
+  /** A row under the search field was tapped. */
+  | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'door' } }
+  /** The "what is ActorRise" sheet, and where it was opened from. */
+  | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } };
 
 export function track<E extends Event>(name: E['name'], props: E['props']): void {
   try {

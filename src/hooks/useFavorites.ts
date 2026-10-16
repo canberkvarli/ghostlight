@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getFavorites, setFavorite, setMemorized, setPrepState } from '../api/client';
+import { getFavorites, setCut, setFavorite, setMemorized, setPrepState } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import { listOffline, saveOffline } from '../lib/offline';
 import { track } from '../lib/analytics';
@@ -117,6 +117,40 @@ export function useSetOffBook() {
     },
     onSuccess: (_data, { on, id }) => {
       track('app_off_book_toggled', { on });
+      const row = qc.getQueryData<Monologue[]>(KEY)?.find((m) => m.id === id);
+      if (row) void saveOffline(row);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/**
+ * The cut. Written into the cached row (the book's and the page's) before the
+ * server answers, and put back if it says no. Setting a cut on a piece not yet
+ * in the book saves it there too, as the server does; the list is refetched so
+ * the new row has its place.
+ */
+export function useSetCut() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, start, end }: { id: string; start: number | null; end: number | null; item?: Monologue }) =>
+      setCut(id, start, end),
+    onMutate: async ({ id, start, end, item }) => {
+      await qc.cancelQueries({ queryKey: KEY });
+      const previous = qc.getQueryData<Monologue[]>(KEY);
+      const patch = { cutStart: start ?? undefined, cutEnd: end ?? undefined };
+      qc.setQueryData<Monologue[]>(KEY, (list) => {
+        const had = (list ?? []).some((m) => m.id === id);
+        if (!had && item) return [{ ...item, ...patch, savedAt: new Date().toISOString() }, ...(list ?? [])];
+        return (list ?? []).map((m) => (m.id === id ? { ...m, ...patch } : m));
+      });
+      qc.setQueryData<Monologue>(['monologue', id], (m) => (m ? { ...m, ...patch } : m));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(KEY, ctx.previous);
+    },
+    onSuccess: (_data, { id }) => {
       const row = qc.getQueryData<Monologue[]>(KEY)?.find((m) => m.id === id);
       if (row) void saveOffline(row);
     },
