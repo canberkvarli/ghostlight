@@ -108,6 +108,20 @@ const LAMP_FREE = ghostLightMetrics(LAMP_GLASS_FREE, 'bare');
 const LAMP_BOX = Math.max(LAMP_PAID.canvasH, LAMP_FREE.canvasH);
 const LAMP_GLASS = Math.max(LAMP_PAID.glassCy, LAMP_FREE.glassCy);
 
+/**
+ * The top row: the Account icon at its right, and the place the lamp docks
+ * when the screen scrolls. At rest the lamp stands LAMP_REST below it; by the
+ * time its spacer has scrolled away (LAMP_TRAVEL) it has shrunk to fit the
+ * row and its glass sits on the row's centre line. Scale is about the lamp's
+ * centre, so the shift is worked out from where the glass lands after it.
+ */
+const HEADER_H = 44;
+const LAMP_REST = 10;
+const LAMP_DOCK_SCALE = Math.min(1, (HEADER_H - 6) / LAMP_BOX);
+const LAMP_TRAVEL = LAMP_BOX * 0.9;
+const LAMP_DOCK_SHIFT =
+  HEADER_H / 2 - (HEADER_H + LAMP_REST + LAMP_BOX / 2) - (LAMP_GLASS - LAMP_BOX / 2) * LAMP_DOCK_SCALE;
+
 /*
  * There was a `LampStand` here — a dashed stem and an ellipse of floor drawn
  * under the bulb. It was a mistake born of reading the handoff without reading
@@ -389,22 +403,26 @@ export default function Search() {
   const dashedInk = c.isLight ? pal.accent : c.yellow;
 
   /**
-   * The screen scrolls, and the lamp goes out as it goes.
+   * The screen scrolls, and the lamp climbs into the top row as it goes.
    *
    * Under the field there is now enough to be worth a scroll: your book and
-   * your board, what others are working on, what you looked for last time. But
-   * the ScrollView clips at the header row, and a lamp sliding up into that
-   * edge was being cut off at the glass. So it dims with the scroll instead,
-   * read straight off a shared value: gone by the time its top would reach the
-   * header, and back as you come down. No JavaScript per frame.
+   * your board, what others are working on, what you looked for last time. The
+   * lamp is not in the scroll at all: it is drawn over the screen, standing on
+   * a spacer of its own height at the top of the content. As the spacer
+   * scrolls away the lamp shrinks and rises to the centre of the top row, where
+   * it stays, lit, beside the Account icon, and comes back down as you do. Read
+   * straight off a shared value; no JavaScript per frame.
    */
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
   });
-  const lampStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, LAMP_BOX * 0.75], [1, 0], Extrapolation.CLAMP),
-  }));
+  const lampStyle = useAnimatedStyle(() => {
+    const p = interpolate(scrollY.value, [0, LAMP_TRAVEL], [0, 1], Extrapolation.CLAMP);
+    return {
+      transform: [{ translateY: LAMP_DOCK_SHIFT * p }, { scale: 1 + (LAMP_DOCK_SCALE - 1) * p }],
+    };
+  });
 
   return (
     <View style={{ flex: 1 }}>
@@ -417,32 +435,10 @@ export default function Search() {
           accessible={false}
           style={{ flex: 1, paddingHorizontal: 24 }}
         >
-          <View
-            style={{
-              height: 40,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            {/* Account alone in the corner. The book and the board used to be
-                two more icons here, which made the corner the whole map of the
-                app, drawn in chrome; they are rows under the field now, with
-                what is in them written on them (HomeRows). */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
-              <Pressable
-                onPress={() => router.push('/account')}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Account"
-              >
-                <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* A scroll, with the lamp at the top of it. On a tall phone nothing
-              moves; on a short one the shelves under the field are reachable
-              and the lamp dims as it slides under the header (lampStyle). */}
+          {/* A scroll, starting under the top row. On a tall phone nothing
+              moves; on a short one the shelves under the field are reachable,
+              and the lamp (drawn over the screen, below) climbs into the top
+              row as its spacer here scrolls away. */}
           <Animated.ScrollView
             onScroll={onScroll}
             scrollEventThrottle={16}
@@ -450,34 +446,12 @@ export default function Search() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            style={{ flex: 1 }}
+            style={{ flex: 1, marginTop: HEADER_H }}
             contentContainerStyle={{ alignItems: 'center', paddingBottom: 16 }}
           >
-            {/* The ghost light, small, standing over the question. */}
-            <AnimatedPressable
-              onPress={onLampPress}
-              hitSlop={16}
-              accessibilityRole="image"
-              accessibilityLabel="The ghost light"
-              style={[lampStyle, { marginTop: 10, alignItems: 'center' }]}
-            >
-              {/* The taller lamp's room is reserved always, and the shorter one
-                  is nudged down so its glass lands at the same height — so the
-                  bulb does not slide when entitlement resolves a beat after the
-                  screen has already settled. */}
-              <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
-                <View style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}>
-                  <GhostLight
-                    size={isPaid ? LAMP_GLASS_PAID : LAMP_GLASS_FREE}
-                    dress="bare"
-                    boost={bulbBoost}
-                    glow={pal.glow}
-                    glassStops={pal.glassStops}
-                    neck={pal.neck}
-                  />
-                </View>
-              </View>
-            </AnimatedPressable>
+            {/* The lamp's room. The lamp itself stands over this, outside the
+                scroll, so it is never clipped at the top edge. */}
+            <View style={{ height: LAMP_BOX, marginTop: LAMP_REST }} />
 
             {/* The greeting. Two lines, each held to one line on purpose, in a
                 box tall enough for both — so a prompt whose second line is
@@ -774,6 +748,57 @@ export default function Search() {
               </Animated.View>
             ) : null}
           </Animated.ScrollView>
+
+          {/* The ghost light, small, standing over the question, and over the
+              scroll: it climbs into the top row as the screen scrolls (lampStyle)
+              rather than being cut off at the edge of it. Taps on the empty
+              width either side fall through to the screen. */}
+          <Animated.View
+            pointerEvents="box-none"
+            style={[
+              lampStyle,
+              { position: 'absolute', top: HEADER_H + LAMP_REST, left: 0, right: 0, alignItems: 'center' },
+            ]}
+          >
+            <Pressable
+              onPress={onLampPress}
+              hitSlop={16}
+              accessibilityRole="image"
+              accessibilityLabel="The ghost light"
+              style={{ alignItems: 'center' }}
+            >
+              {/* The taller lamp's room is reserved always, and the shorter one
+                  is nudged down so its glass lands at the same height — so the
+                  bulb does not slide when entitlement resolves a beat after the
+                  screen has already settled. */}
+              <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
+                <View style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}>
+                  <GhostLight
+                    size={isPaid ? LAMP_GLASS_PAID : LAMP_GLASS_FREE}
+                    dress="bare"
+                    boost={bulbBoost}
+                    glow={pal.glow}
+                    glassStops={pal.glassStops}
+                    neck={pal.neck}
+                  />
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          {/* Account, an icon in the corner and nothing more: it owns no row.
+              The book and the board used to be two more icons here, which made
+              the corner the whole map of the app, drawn in chrome; they are
+              rows under the field now (HomeRows). */}
+          <Pressable
+            onPress={() => router.push('/account')}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+            style={{ position: 'absolute', top: (HEADER_H - 22) / 2, right: 24 }}
+          >
+            <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
+          </Pressable>
 
           {/* The foot says one thing, centred: how many filters are lit, or that
               you have asked for nothing at all. There is no Search button here
