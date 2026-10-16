@@ -28,8 +28,13 @@ import { useTheme } from '../theme/ThemeContext';
  */
 export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
   const router = useRouter();
-  const { data: kept } = useFavorites(isAuthenticated);
-  const { data: auditions } = useAuditions(isAuthenticated);
+  const { data: keptData } = useFavorites(isAuthenticated);
+  const { data: auditionData } = useAuditions(isAuthenticated);
+  // Signed out, nothing of the last account's is shown, whatever the cache
+  // still holds: the SIGNED_OUT clear in _layout and this screen's session
+  // state do not land in the same frame, and the gap showed the old board.
+  const kept = isAuthenticated ? keptData : undefined;
+  const auditions = isAuthenticated ? auditionData : undefined;
 
   const keptCount = kept?.length ?? 0;
   const offBook = kept?.filter((m) => m.offBook).length ?? 0;
