@@ -165,7 +165,7 @@ export type Event =
   /** Running a piece: which level it started at. */
   | { name: 'app_run_started'; props: { level: 'words' | 'hints' | 'dark'; has_cut: boolean } }
   /** A row under the search field was tapped. */
-  | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'door' } }
+  | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
   /** The "what is ActorRise" sheet, and where it was opened from. */
   | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } };
 

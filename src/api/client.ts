@@ -231,6 +231,16 @@ export async function getSimilar(
   return (await res.json()) as Monologue[];
 }
 
+/** What other actors are working on (`GET /api/monologues/trending`) — the search screen before a past. */
+export async function getTrending(limit = 20, signal?: AbortSignal): Promise<Monologue[]> {
+  const res = await fetch(`${API_URL}/api/monologues/trending?limit=${limit}`, {
+    headers: await authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `trending failed (${res.status})`);
+  return (await res.json()) as Monologue[];
+}
+
 /** The other speeches in the same play or script (`GET /api/monologues/{id}/from-play`). */
 export async function getFromPlay(
   id: string | number,

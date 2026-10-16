@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -37,6 +36,7 @@ import { useStageMotion } from '../src/hooks/useStageMotion';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
 import { HomeRows } from '../src/components/HomeRows';
+import { Trending } from '../src/components/Trending';
 import { track } from '../src/lib/analytics';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useSession } from '../src/lib/useSession';
@@ -74,16 +74,6 @@ import { useTheme } from '../src/theme/ThemeContext';
  */
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-/**
- * Three ways in, per house, for the screen before there is a past. Each is a
- * whole search in the voice the field wants, not a category: the point is to
- * show what a search here can sound like.
- */
-const DOORS: Record<Medium, string[]> = {
-  theatre: ['a woman who has had enough', 'a father trying to apologise', 'something funny, under two minutes'],
-  screen: ['a cop who has stopped believing', 'a breakup with no shouting', 'a villain who is sure he is right'],
-};
 
 /**
  * The lamp, small — not the standing fixture from the launch screen. It stays on
@@ -372,19 +362,6 @@ export default function Search() {
     [medium, router],
   );
 
-  // A door is a search someone else phrased for you. It is remembered like
-  // one you typed, so the next visit shows it under "last time".
-  const runDoor = useCallback(
-    (q: string) => {
-      Haptics.selectionAsync().catch(() => {});
-      track('app_home_row', { row: 'door' });
-      setQuery(q);
-      void pushSearchHistory(q, medium).then(setHistory);
-      router.push({ pathname: '/results', params: { q, medium } });
-    },
-    [medium, router],
-  );
-
   // Tapping the lamp does not go anywhere. It's the ghost light: you touch it,
   // it answers, that's all. Making it a shortcut into the lineup gave the one
   // decorative thing on the screen a hidden destination, which is worse than
@@ -442,16 +419,11 @@ export default function Search() {
             </View>
           </View>
 
-          {/* A scroll, not a column: on a short phone the rows and the recents
-              under the field run past the fold, and a screen you cannot scroll
-              is a screen with things missing from it. On a tall one nothing moves. */}
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ alignItems: 'center', justifyContent: 'flex-start' }}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            showsVerticalScrollIndicator={false}
-          >
+          {/* A column, not a scroll. This screen holds still: the lamp stays
+              where it stands and nothing below the field is worth a scroll. So
+              everything under the field is sized to fit the shortest phone it
+              has to, which is why the tiles are half-width and the lists are two. */}
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start' }}>
             {/* The ghost light, small, standing over the question. */}
             <Pressable
               onPress={onLampPress}
@@ -687,10 +659,10 @@ export default function Search() {
               </AnimatedPressable>
             </Animated.View>
 
-            {/* Yours: the book and the board, as rows that say what is in them. */}
+            {/* Yours: the book and the board, two tiles that say what is in them. */}
             <Animated.View
               pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[belowStyle, { width: '100%', marginTop: 26 }]}
+              style={[belowStyle, { width: '100%', marginTop: 22 }]}
             >
               <HomeRows isAuthenticated={isAuthenticated} />
             </Animated.View>
@@ -702,54 +674,23 @@ export default function Search() {
                 Results, and hiding the list then made it look as if the search
                 had never been remembered.
 
-                Before there is a past, three ways in: typed searches, each one a
-                door. The empty-handed newcomer has somewhere to press instead of
-                being asked to phrase it. */}
+                Before there is a past, what other actors are working on takes the
+                room instead. */}
             {houseHistory.length === 0 && !(fieldFocused && query.trim()) ? (
               <Animated.View
                 pointerEvents={fieldFocused ? 'none' : 'auto'}
-                style={[belowStyle, { width: '100%', marginTop: 24 }]}
+                style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
-                <StageDirection style={{ marginBottom: 2 }}>(ways in.)</StageDirection>
-                {DOORS[medium].map((q) => (
-                  <Pressable
-                    key={q}
-                    onPress={() => runDoor(q)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Search for ${q}`}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 11,
-                      borderBottomWidth: 1,
-                      borderBottomColor: c.divider,
-                    }}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        flex: 1,
-                        fontFamily: 'CourierPrime_400Regular_Italic',
-                        fontSize: 14,
-                        lineHeight: 19,
-                        letterSpacing: 0.3,
-                        color: c.foreground,
-                      }}
-                    >
-                      {q}
-                    </Text>
-                    <Ionicons name="arrow-forward" size={14} color={pal.accentText} />
-                  </Pressable>
-                ))}
+                <Trending medium={medium} accent={pal.accentText} />
               </Animated.View>
             ) : null}
             {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
               <Animated.View
                 pointerEvents={fieldFocused ? 'none' : 'auto'}
-                style={[belowStyle, { width: '100%', marginTop: 24 }]}
+                style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
-                <StageDirection style={{ marginBottom: 6 }}>(last time.)</StageDirection>
-                {houseHistory.slice(0, 3).map((item) => (
+                <StageDirection style={{ marginBottom: 2 }}>(last time.)</StageDirection>
+                {houseHistory.slice(0, 2).map((item) => (
                   <Animated.View
                     key={`${item.medium}:${item.q}`}
                     entering={FadeIn.duration(180)}
@@ -766,7 +707,7 @@ export default function Search() {
                       onPress={() => runRecent(item)}
                       accessibilityRole="button"
                       accessibilityLabel={`Search again for ${item.q}`}
-                      style={{ flex: 1, paddingVertical: 10 }}
+                      style={{ flex: 1, paddingVertical: 9 }}
                     >
                       {/* Two lines, because a remembered search is a whole
                           sentence: "angry woman in her twenties, under two
@@ -803,14 +744,13 @@ export default function Search() {
                 ))}
               </Animated.View>
             ) : null}
-            <View style={{ height: 16 }} />
-          </ScrollView>
+          </View>
 
           {/* The foot says one thing, centred: how many filters are lit, or that
               you have asked for nothing at all. There is no Search button here
               any more — the field's disc is the only one. */}
           <View
-            style={{ paddingBottom: 22, minHeight: 26, alignItems: 'center', justifyContent: 'center' }}
+            style={{ paddingBottom: 12, minHeight: 26, alignItems: 'center', justifyContent: 'center' }}
           >
             {scolding || activeCount > 0 ? (
               <StageDirection numberOfLines={1} style={scolding ? { color: pal.accent } : undefined}>

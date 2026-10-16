@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-import { StageDirection } from './StageDirection';
 import { useFavorites } from '../hooks/useFavorites';
 import { useAuditions } from '../hooks/useAuditions';
 import { clockLabel, dayLabel } from '../lib/when';
@@ -46,9 +45,8 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
         : 'date to come';
 
   return (
-    <View style={{ width: '100%' }}>
-      <StageDirection style={{ marginBottom: 2 }}>(yours.)</StageDirection>
-      <Row
+    <View style={{ width: '100%', flexDirection: 'row', gap: 10 }}>
+      <Tile
         icon="bookmark-outline"
         label="Your book"
         meta={bookMeta}
@@ -57,7 +55,7 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
           router.push('/saves');
         }}
       />
-      <Row
+      <Tile
         icon="calendar-outline"
         label={next ? next.project : 'Auditions'}
         meta={nextMeta}
@@ -71,7 +69,11 @@ export function HomeRows({ isAuthenticated }: { isAuthenticated: boolean }) {
   );
 }
 
-function Row({
+/**
+ * Half a row each, side by side: the label on top, what is in it under. Two
+ * full-width rows were 128pt the screen did not have; this is 56.
+ */
+function Tile({
   icon,
   label,
   meta,
@@ -92,35 +94,40 @@ function Row({
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${meta}`}
       style={{
+        flex: 1,
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        paddingVertical: 11,
-        borderBottomWidth: 1,
-        borderBottomColor: c.divider,
+        gap: 10,
+        height: 56,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: c.border,
       }}
     >
       <Ionicons name={icon} size={17} color={c.mutedForeground} />
-      <Text
-        numberOfLines={1}
-        style={{ flexShrink: 1, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, lineHeight: 19, color: c.foreground }}
-      >
-        {label}
-      </Text>
-      <Text
-        numberOfLines={1}
-        style={{
-          flex: 1,
-          textAlign: 'right',
-          fontFamily: 'CourierPrime_400Regular_Italic',
-          fontSize: 12,
-          letterSpacing: 0.4,
-          color: c.mutedForeground,
-        }}
-      >
-        {`(${meta}.)`}
-      </Text>
-      <Ionicons name="chevron-forward" size={14} color={c.chevron} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, lineHeight: 17, color: c.foreground }}
+        >
+          {label}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            marginTop: 1,
+            fontFamily: 'CourierPrime_400Regular_Italic',
+            fontSize: 11,
+            lineHeight: 15,
+            letterSpacing: 0.3,
+            color: c.mutedForeground,
+          }}
+        >
+          {`(${meta}.)`}
+        </Text>
+      </View>
     </Pressable>
   );
 }
