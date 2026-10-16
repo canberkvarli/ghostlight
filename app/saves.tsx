@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -13,38 +13,48 @@ import { PrimaryPill } from '../src/components/PrimaryPill';
 import { PaperCard } from '../src/components/PaperCard';
 import { PieceCover } from '../src/components/PieceCover';
 import { Sketch } from '../src/components/Sketches';
-import { Mark, sourceTag } from '../src/components/Marks';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useFavorites, useToggleFavorite } from '../src/hooks/useFavorites';
-import { useAttachPiece, useAudition } from '../src/hooks/useAuditions';
+import { useFavorites, useSetOffBook, useToggleFavorite } from '../src/hooks/useFavorites';
+import { useAttachPiece, useAudition, useAuditions } from '../src/hooks/useAuditions';
 import { attachedPiece } from '../src/api/auditions';
 import { UndoBar } from '../src/components/UndoBar';
+import { track } from '../src/lib/analytics';
+import { FIND_FROM, TONE_LABEL, findInBook, rowMeta, shelve, type RoomPiece } from '../src/lib/book';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
+import { stubLabel } from '../src/lib/when';
 import { useTheme } from '../src/theme/ThemeContext';
-import { mediumPalette } from '../src/theme/medium';
-import { formatDuration, type Monologue } from '../src/data/monologues';
+import type { Monologue, Tone } from '../src/data/monologues';
 
 /**
  * Saved — "Your book."
  *
- * Every card sits lit here; there is no light to chase on a shelf you made
- * yourself. So the v2 card drops the spotlight machinery entirely and becomes
- * what it always wanted to be: a page with the work's cover clipped to it.
+ * A book that sorts itself. Under five pieces it is one list of pages. Past
+ * that, shelves appear on their own, each only when it has something on it:
+ * what you are bringing to a room, what you have been working on, what you
+ * saved and never opened, and the rest by house. Past twelve, a tone row and a
+ * find field. Nothing to file, nothing to name (src/lib/book.ts decides).
  *
- * The covers are the change that makes this a shelf rather than a list. Film and
- * TV show their real poster; a play gets a drawn cloth binding keyed to the
- * work, so the same play looks the same everywhere in the app (see PieceCover).
+ * The one thing you do by hand is the tick at the right edge of a row: off
+ * book. The page lifts out of its shelf and lands in the pocket at the top, the
+ * two or three you could do right now. It is the website's "off book" mark, so
+ * the pocket is the same on the laptop.
  *
- * The subhead is derived from the data, never a hardcoded string.
- *
- * With `?pick=<auditionId>` the shelf is a picker: an audition's file sent
- * you here for the piece to bring, a tap attaches it and takes you back.
+ * With `?pick=<auditionId>` the book is a picker: an audition's file sent you
+ * here for the piece to bring, a tap attaches it and takes you back. The pocket
+ * comes first there too; those are the ready ones.
  */
 
 type Saved = Monologue;
 
-/** Alternating tilt, so the shelf reads as paper rather than as rows. */
+const SERIF = 'InstrumentSerif_400Regular';
+const SERIF_I = 'InstrumentSerif_400Regular_Italic';
+const MONO = 'CourierPrime_400Regular';
+const MONO_B = 'CourierPrime_700Bold';
+const SANS = 'BricolageGrotesque_500Medium';
+const SANS_B = 'BricolageGrotesque_600SemiBold';
+
+/** Alternating tilt, so a column of pages reads as paper rather than as rows. */
 const TILTS = [-0.5, 0.4, -0.3];
 
 export default function Saves() {
@@ -56,37 +66,65 @@ export default function Saves() {
   const goBack = useGoBack(pick ? '/auditions' : '/search');
   const { tiltX, tiltY } = useStageMotion();
   const { data, isLoading, isError } = useFavorites(isAuthenticated);
+  // For the room: the board is already on the phone; nothing is fetched for it.
+  const { data: auditions } = useAuditions(isAuthenticated);
   const attach = useAttachPiece();
   const attachedId = picking ? attachedPiece(picking)?.monologue_id ?? null : null;
 
   const toggleFavorite = useToggleFavorite();
-  // The row being undone is hidden optimistically rather than removed, so the
-  // server round-trip never makes the list jump under the actor's thumb. It
-  // reappears in place if they undo.
+  const setOffBook = useSetOffBook();
   const [pendingRemoval, setPendingRemoval] = useState<Saved | null>(null);
+  const [find, setFind] = useState('');
+  const [tone, setTone] = useState<Tone | null>(null);
 
   const all = (data ?? []) as Saved[];
-  const items = pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all;
-  const subhead = `(${items.length} kept.)`;
+  const items = useMemo(
+    () => (pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all),
+    [all, pendingRemoval],
+  );
+  const book = useMemo(() => shelve(items, auditions ?? []), [items, auditions]);
+  const finding = find.trim().length > 0;
+  const found = useMemo(() => (finding ? findInBook(items, find) : items), [items, find, finding]);
+
+  // One event per search, after the typing has stopped, with the count and not the words.
+  const findTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!finding) return;
+    if (findTimer.current) clearTimeout(findTimer.current);
+    findTimer.current = setTimeout(() => track('app_book_find', { hits: found.length }), 900);
+    return () => {
+      if (findTimer.current) clearTimeout(findTimer.current);
+    };
+  }, [find, finding, found.length]);
+
+  const subhead = picking
+    ? `(for ${picking.project}. tap one and it comes with you.)`
+    : book.pocket.length
+      ? `(${items.length} kept, ${book.pocket.length} ready.)`
+      : `(${items.length} kept.)`;
 
   const onUnsave = useCallback((item: Saved) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPendingRemoval(item);
   }, []);
-
-  // Undo simply drops the pending state — nothing was ever sent.
   const onUndo = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
     setPendingRemoval(null);
   }, []);
-
-  // The five seconds elapsed, so make it real.
   const onExpire = useCallback(() => {
     setPendingRemoval((victim) => {
       if (victim) toggleFavorite.mutate({ id: victim.id, on: false });
       return null;
     });
   }, [toggleFavorite]);
+
+  const onTick = useCallback(
+    (item: Saved) => {
+      Haptics.impactAsync(item.offBook ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      setOffBook.mutate({ id: item.id, on: !item.offBook });
+    },
+    [setOffBook],
+  );
 
   const onPick = useCallback(
     (item: Saved) => {
@@ -96,19 +134,25 @@ export default function Saves() {
     },
     [picking, attach, goBack],
   );
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: Saved; index: number }) => (
-      <SavedCard
-        item={item}
-        index={index}
-        onPress={() => (picking ? onPick(item) : router.push(`/read/${item.id}`))}
-        onUnsave={picking ? undefined : () => onUnsave(item)}
-        picked={picking ? Number(item.id) === attachedId : undefined}
-      />
-    ),
-    [router, onUnsave, onPick, picking, attachedId],
+  const open = useCallback(
+    (item: Saved) => (picking ? onPick(item) : router.push(`/read/${item.id}`)),
+    [picking, onPick, router],
   );
+
+  const row = (item: Saved, i: number, note?: string) => (
+    <Row
+      key={item.id}
+      item={item}
+      index={i}
+      note={note}
+      onPress={() => open(item)}
+      onUnsave={picking ? undefined : () => onUnsave(item)}
+      onTick={picking ? undefined : () => onTick(item)}
+      picked={picking ? Number(item.id) === attachedId : undefined}
+    />
+  );
+
+  const toneFilter = (list: Saved[]) => (tone ? list.filter((m) => m.tone === tone) : list);
 
   return (
     <View style={{ flex: 1 }}>
@@ -122,11 +166,7 @@ export default function Saves() {
             <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
               (sign in to keep monologues.)
             </StageDirection>
-            <PrimaryPill
-              label="Sign in"
-              onPress={() => router.push('/auth')}
-              style={{ marginTop: 22, alignSelf: 'center' }}
-            />
+            <PrimaryPill label="Sign in" onPress={() => router.push('/auth')} style={{ marginTop: 22, alignSelf: 'center' }} />
           </Center>
         ) : isLoading ? (
           <Center>
@@ -136,230 +176,384 @@ export default function Saves() {
             </StageDirection>
           </Center>
         ) : isError ? (
-          // Not the same as an empty book. Free actors have no offline shelf to
-          // fall back on, so a dropped signal used to render "(nothing saved
-          // yet.)" — telling someone their saves are gone when they are fine.
           <Center>
             <Sketch name="footlights" size={96} stroke={c.mutedForeground} />
             <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
               (couldn&apos;t reach your book.)
             </StageDirection>
-            <Text
-              style={{
-                marginTop: 16,
-                textAlign: 'center',
-                fontFamily: 'BricolageGrotesque_500Medium',
-                fontSize: 13,
-                lineHeight: 20,
-                color: c.mutedForeground,
-              }}
-            >
+            <Text style={{ marginTop: 16, textAlign: 'center', fontFamily: SANS, fontSize: 13, lineHeight: 20, color: c.mutedForeground }}>
               Your saves are safe. Check your{'\n'}connection and try again.
             </Text>
           </Center>
+        ) : items.length === 0 && !pendingRemoval ? (
+          <Center>
+            <Sketch name="stageDoor" size={96} stroke={c.mutedForeground} accent={c.yellow} />
+            <Text style={{ marginTop: 26, textAlign: 'center', fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>
+              Nothing kept <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>yet.</Text>
+            </Text>
+            <StageDirection numberOfLines={3} style={{ marginTop: 12, textAlign: 'center' }}>
+              {'(the bookmark on any page puts it here.\nthe book sorts itself as it fills.)'}
+            </StageDirection>
+            <PrimaryPill label="Find one" onPress={goBack} style={{ marginTop: 22, alignSelf: 'center' }} />
+          </Center>
         ) : (
-          <FlashList
-            data={items}
-            renderItem={renderItem}
-            keyExtractor={(m) => m.id}
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 110 }}
-            ListHeaderComponent={
-              <View style={{ paddingTop: 8, paddingBottom: 20, paddingHorizontal: 6 }}>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: 'InstrumentSerif_400Regular',
-                    fontSize: 44,
-                    // 1.18×. "Your book." has a descender on both words and
-                    // this is a single clipped line, so the box has to carry the
-                    // tail of the "y" — 49 was 1.11× and shaved it.
-                    lineHeight: 52,
-                    letterSpacing: -0.8,
-                    color: c.foreground,
-                  }}
-                >
-                  {picking ? 'Pick a ' : 'Your '}
-                  <Text
-                    style={{
-                      fontFamily: 'InstrumentSerif_400Regular_Italic',
-                      color: c.accentText,
-                    }}
-                  >
-                    {picking ? 'piece.' : 'book.'}
-                  </Text>
-                </Text>
-                <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>
-                  {picking ? `(for ${picking.project}. tap one and it comes with you.)` : subhead}
-                </StageDirection>
-              </View>
-            }
-            ListEmptyComponent={
-              <Center>
-                <Sketch name="stageDoor" size={96} stroke={c.mutedForeground} accent={c.yellow} />
-                <StageDirection style={{ marginTop: 24 }}>(nothing saved yet.)</StageDirection>
-              </Center>
-            }
-          />
+            contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }}
+          >
+            <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}
+              >
+                {picking ? 'Pick a ' : 'Your '}
+                <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{picking ? 'piece.' : 'book.'}</Text>
+              </Text>
+              <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>
+                {subhead}
+              </StageDirection>
+            </View>
+
+            {items.length >= FIND_FROM ? (
+              <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>
+                <Ionicons name="search-outline" size={16} color={c.mutedForeground} />
+                <TextInput
+                  value={find}
+                  onChangeText={setFind}
+                  placeholder="find in your book"
+                  placeholderTextColor={c.mutedForeground}
+                  selectionColor={c.accentText}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                  accessibilityLabel="Find in your book"
+                  style={{ flex: 1, paddingVertical: 10, fontFamily: SANS, fontSize: 15.5, color: c.foreground }}
+                />
+              </Animated.View>
+            ) : null}
+
+            {finding ? (
+              <Animated.View key="found" entering={FadeIn.duration(220)} layout={LinearTransition.duration(220)} style={{ marginTop: 18 }}>
+                {found.length === 0 ? (
+                  <StageDirection style={{ marginTop: 8 }}>(nothing in the book by that name.)</StageDirection>
+                ) : (
+                  found.map((m, i) => row(m, i))
+                )}
+              </Animated.View>
+            ) : (
+              <Animated.View key="book" layout={LinearTransition.duration(260)}>
+                {book.pocket.length > 0 ? (
+                  <Reveal order={0}>
+                    <Shelf title="In your pocket" aside={`(${book.pocket.length} ready.)`} first>
+                      <Pocket items={book.pocket} onOpen={open} onTick={picking ? undefined : onTick} pickedId={attachedId} />
+                    </Shelf>
+                  </Reveal>
+                ) : book.shelved && !picking ? (
+                  <Reveal order={0}>
+                    <Shelf title="In your pocket" first>
+                      <StageDirection numberOfLines={2} style={{ paddingVertical: 6 }}>
+                        (tick a piece when you&apos;re off book. it waits here.)
+                      </StageDirection>
+                    </Shelf>
+                  </Reveal>
+                ) : null}
+
+                {!book.shelved ? (
+                  <Reveal order={1}>
+                    <View style={{ marginTop: book.pocket.length ? 28 : 22 }}>{book.flat.map((m, i) => row(m, i))}</View>
+                  </Reveal>
+                ) : (
+                  <>
+                    {book.room.length > 0 ? (
+                      <Reveal order={1}>
+                        <Shelf title="For the room" aside={`(${book.room.length}.)`}>
+                          {book.room.map((r, i) => row(r.item, i, roomNote(r)))}
+                        </Shelf>
+                      </Reveal>
+                    ) : null}
+                    {book.working.length > 0 ? (
+                      <Reveal order={2}>
+                        <Shelf title="Working on" aside={`(${book.working.length}.)`}>
+                          {book.working.map((m, i) => row(m, i))}
+                        </Shelf>
+                      </Reveal>
+                    ) : null}
+                    {book.fresh.length > 0 ? (
+                      <Reveal order={3}>
+                        <Shelf title="New" aside="(saved, not opened yet.)">
+                          {book.fresh.map((m, i) => row(m, i))}
+                        </Shelf>
+                      </Reveal>
+                    ) : null}
+                    {book.stage.length + book.screen.length > 0 ? (
+                      <Reveal order={4}>
+                        <Shelf title="The shelf" aside={`(${book.stage.length + book.screen.length}.)`}>
+                          {items.length >= FIND_FROM && book.tones.length > 1 ? (
+                            <ToneRow tones={book.tones} value={tone} onChange={setTone} />
+                          ) : null}
+                          {toneFilter(book.stage).length > 0 ? (
+                            <>
+                              {book.screen.length > 0 ? <House label="Stage" /> : null}
+                              {toneFilter(book.stage).map((m, i) => row(m, i))}
+                            </>
+                          ) : null}
+                          {toneFilter(book.screen).length > 0 ? (
+                            <>
+                              {book.stage.length > 0 ? <House label="Screen" /> : null}
+                              {toneFilter(book.screen).map((m, i) => row(m, i))}
+                            </>
+                          ) : null}
+                          {tone && toneFilter(book.stage).length + toneFilter(book.screen).length === 0 ? (
+                            <StageDirection style={{ marginTop: 12 }}>(nothing {TONE_LABEL[tone]} on the shelf.)</StageDirection>
+                          ) : null}
+                        </Shelf>
+                      </Reveal>
+                    ) : null}
+                  </>
+                )}
+              </Animated.View>
+            )}
+          </ScrollView>
         )}
 
         {pendingRemoval ? (
           // Keyed on the id so a second removal restarts the five seconds
           // instead of inheriting the first one's remaining time.
-          <UndoBar
-            key={pendingRemoval.id}
-            label={`Removed “${pendingRemoval.title}”`}
-            onUndo={onUndo}
-            onExpire={onExpire}
-          />
+          <UndoBar key={pendingRemoval.id} label={`Removed “${pendingRemoval.title}”`} onUndo={onUndo} onExpire={onExpire} />
         ) : null}
       </SafeAreaView>
     </View>
   );
 }
 
-function SavedCard({
+/** "for Hedda · Thu 14" under a piece that is going into a room. */
+function roomNote(r: RoomPiece): string {
+  const [mon, day] = stubLabel(r.audition);
+  const when = r.audition.when ? `${mon} ${day}`.trim() : 'no date yet';
+  return `for ${r.audition.project} · ${when}`;
+}
+
+// ── Shelves ──────────────────────────────────────────────────────────────────
+
+function Reveal({ order, children }: { order: number; children: React.ReactNode }) {
+  return (
+    <Animated.View entering={FadeIn.delay(80 + order * 70).duration(320)} layout={LinearTransition.duration(260)}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function Shelf({ title, aside, first, children }: { title: string; aside?: string; first?: boolean; children: React.ReactNode }) {
+  const { colors: c } = useTheme();
+  return (
+    <View style={{ marginTop: first ? 26 : 34 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingBottom: 10, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+        <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.foreground }}>{title}</Text>
+        {aside ? (
+          <StageDirection numberOfLines={1} style={{ flexShrink: 1 }}>
+            {aside}
+          </StageDirection>
+        ) : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** The small-caps house label inside the shelf: STAGE, SCREEN. */
+function House({ label }: { label: string }) {
+  const { colors: c } = useTheme();
+  return (
+    <Text style={{ marginTop: 10, marginBottom: 10, fontFamily: MONO_B, fontSize: 11, letterSpacing: 2.2, textTransform: 'uppercase', color: c.mutedForeground }}>
+      {label}
+    </Text>
+  );
+}
+
+function ToneRow({ tones, value, onChange }: { tones: Tone[]; value: Tone | null; onChange: (t: Tone | null) => void }) {
+  const { colors: c } = useTheme();
+  const chip = (label: string, on: boolean, press: () => void) => (
+    <Pressable
+      key={label}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        press();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      style={{ paddingHorizontal: 12, height: 30, borderRadius: 999, borderWidth: 1.5, borderColor: on ? c.foreground : c.border, backgroundColor: on ? c.foreground : 'transparent', justifyContent: 'center' }}
+    >
+      <Text style={{ fontFamily: SANS_B, fontSize: 12.5, color: on ? c.panel : c.mutedForeground }}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+      {chip('all', value === null, () => onChange(null))}
+      {tones.map((t) => chip(TONE_LABEL[t], value === t, () => onChange(value === t ? null : t)))}
+    </View>
+  );
+}
+
+// ── The pocket ───────────────────────────────────────────────────────────────
+
+/**
+ * The ready ones, side by side and a size up from the shelf. Each is a page
+ * with its cover on top, the way a pocket holds the two or three sides you
+ * carry folded. The tick is filled here; tapping it puts the page back.
+ */
+function Pocket({
+  items,
+  onOpen,
+  onTick,
+  pickedId,
+}: {
+  items: Saved[];
+  onOpen: (m: Saved) => void;
+  onTick?: (m: Saved) => void;
+  pickedId: number | null;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 4, gap: 14 }} style={{ marginHorizontal: -4 }}>
+      {items.map((m, i) => (
+        <Animated.View key={m.id} entering={FadeIn.duration(260)} exiting={FadeOut.duration(180)} layout={LinearTransition.duration(260)}>
+          <PocketCard item={m} index={i} onPress={() => onOpen(m)} onTick={onTick ? () => onTick(m) : undefined} picked={pickedId != null ? Number(m.id) === pickedId : undefined} />
+        </Animated.View>
+      ))}
+    </ScrollView>
+  );
+}
+
+function PocketCard({ item, index, onPress, onTick, picked }: { item: Saved; index: number; onPress: () => void; onTick?: () => void; picked?: boolean }) {
+  const { colors: c } = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.character}, off book`}>
+      <PaperCard rotate={TILTS[(index + 1) % TILTS.length]} shadow={5} style={{ width: 156, padding: 14 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <PieceCover item={item} width={50} height={72} />
+          {onTick ? (
+            <Tick on onPress={onTick} label={`Put ${item.title} back on the shelf`} />
+          ) : picked != null ? (
+            <Ionicons name={picked ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={picked ? c.primary : c.paperFaint} />
+          ) : null}
+        </View>
+        <Text numberOfLines={2} style={{ marginTop: 12, fontFamily: SERIF, fontSize: 18, lineHeight: 21, letterSpacing: -0.2, color: c.paperInk }}>
+          {item.title}
+        </Text>
+        <Text numberOfLines={1} style={{ marginTop: 5, fontFamily: MONO_B, fontSize: 11, lineHeight: 15, color: c.paperInk }}>
+          {item.character}
+        </Text>
+        <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: MONO, fontSize: 11, lineHeight: 15, color: c.paperMuted }}>
+          {item.source}
+        </Text>
+      </PaperCard>
+    </Pressable>
+  );
+}
+
+// ── A row of the book ────────────────────────────────────────────────────────
+
+/**
+ * Denser than the old card, because a book of forty needs scanning, not
+ * reading: cover, title on one line, who says it and where, then one quiet
+ * line that tells you the most useful thing about YOUR copy (see rowMeta).
+ * The margin on the right holds the tick, and under it the bookmark that takes
+ * the page out of the book.
+ */
+function Row({
   item,
   index,
+  note,
   onPress,
   onUnsave,
+  onTick,
   picked,
 }: {
   item: Saved;
   index: number;
+  /** A line that beats the usual meta, e.g. which room it is going into. */
+  note?: string;
   onPress: () => void;
-  /** Absent in picker mode, where the bookmark is not the unsave. */
+  /** Absent in picker mode. */
   onUnsave?: () => void;
+  /** Absent in picker mode. */
+  onTick?: () => void;
   /** Picker mode: whether this is the piece already on the audition. */
   picked?: boolean;
 }) {
   const { colors: c } = useTheme();
-  // The book holds both houses, and a violet piece turning amber the moment you
-  // save it makes the shelf look like it belongs to the theatre alone.
-  const screen = item.sourceType === 'film' || item.sourceType === 'tv';
-  const pal = mediumPalette(screen ? 'screen' : 'theatre', c.isLight);
-  const tag = sourceTag(item);
+  return (
+    <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(160)} layout={LinearTransition.duration(260)}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.character}`} style={{ marginBottom: 12 }}>
+        <PaperCard rotate={TILTS[index % TILTS.length]} style={{ paddingVertical: 12, paddingLeft: 12, paddingRight: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <PieceCover item={item} width={40} height={56} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 19, lineHeight: 23, letterSpacing: -0.2, color: c.paperInk }}>
+                {item.title}
+              </Text>
+              <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: MONO, fontSize: 11.5, lineHeight: 16, color: c.paperMuted }}>
+                <Text style={{ fontFamily: MONO_B, color: c.paperInk }}>{item.character}</Text>
+                {` · ${item.source}`}
+              </Text>
+              <Text numberOfLines={1} style={{ marginTop: 5, fontFamily: SANS_B, fontSize: 11, lineHeight: 14, color: note ? c.accentText : c.paperMuted }}>
+                {note ?? rowMeta(item)}
+              </Text>
+            </View>
+            {onTick ? (
+              <View style={{ alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 1 }}>
+                <Tick on={Boolean(item.offBook)} onPress={onTick} label={item.offBook ? `Put ${item.title} back on the shelf` : `${item.title}: off book`} />
+                {onUnsave ? (
+                  <Pressable onPress={onUnsave} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${item.title} from your book`}>
+                    <Ionicons name="bookmark" size={15} color={c.paperFaint} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : picked != null ? (
+              <Ionicons name={picked ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={picked ? c.primary : c.paperFaint} />
+            ) : null}
+          </View>
+        </PaperCard>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
+/**
+ * The tick. An ink ring on the page; filled with the house orange once you
+ * are off book. It is the only control on the screen that changes where a
+ * page lives, so it gets the room and the hit area of a real button.
+ */
+function Tick({ on, onPress, label }: { on: boolean; onPress: () => void; label: string }) {
+  const { colors: c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.title}, ${item.character}`}
-      style={{ marginBottom: 14 }}
+      hitSlop={10}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={label}
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: on ? c.accentText : c.paperRule,
+        backgroundColor: on ? c.accentText : 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      <PaperCard
-        rotate={TILTS[index % TILTS.length]}
-        style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 14 }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
-          <PieceCover item={item} width={46} height={66} />
-
-          <View style={{ flex: 1, minWidth: 0 }}>
-            {/* Two lines each, and for the same reason: the text column here is
-                about 240pt wide once the cover and the bookmark have taken
-                theirs, which is 27 characters of 22pt serif — "The Importance
-                of Being Earnest" is 31. The Saves card has no fixed height (it
-                is not under the scroll spotlight), so it can simply be taller
-                for the pieces that need it. */}
-            <Text
-              numberOfLines={2}
-              style={{
-                fontFamily: 'InstrumentSerif_400Regular',
-                fontSize: 22,
-                lineHeight: 25,
-                letterSpacing: -0.3,
-                color: c.paperInk,
-              }}
-            >
-              {item.title}
-            </Text>
-            <Text
-              numberOfLines={2}
-              style={{
-                marginTop: 4,
-                fontFamily: 'CourierPrime_400Regular',
-                fontSize: 12,
-                lineHeight: 17,
-                color: c.paperMuted,
-              }}
-            >
-              <Text style={{ fontFamily: 'CourierPrime_700Bold', color: c.paperInk }}>
-                {item.character}
-              </Text>
-              {` · ${item.source}`}
-            </Text>
-          </View>
-
-          {/* The bookmark was decoration. It's the unsave now — the obvious place
-              to tap to take something out of the book, with UndoBar covering the
-              mistap rather than a confirm dialog on every removal. hitSlop keeps
-              it from stealing taps meant for the card. */}
-          {onUnsave ? (
-            <Pressable
-              onPress={onUnsave}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${item.title} from your book`}
-              style={{ marginTop: 2 }}
-            >
-              <Ionicons name="bookmark" size={20} color={pal.accent} />
-            </Pressable>
-          ) : (
-            <Ionicons name={picked ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={picked ? c.primary : c.paperFaint} style={{ marginTop: 1 }} />
-          )}
-        </View>
-
-        <Text
-          numberOfLines={2}
-          style={{
-            marginTop: 12,
-            fontFamily: 'CourierPrime_400Regular',
-            fontSize: 13,
-            lineHeight: 20,
-            color: c.paperBody,
-          }}
-        >
-          {`“${item.excerpt}”`}
-        </Text>
-
-        <View
-          style={{
-            marginTop: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 10,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: 'BricolageGrotesque_600SemiBold',
-              fontSize: 11,
-              color: c.paperMuted,
-            }}
-          >
-            {formatDuration(item.duration)}
-          </Text>
-          {tag ? (
-            <Mark spec={{ label: tag, kind: 'source', tint: mediumPalette(screen ? 'screen' : 'theatre', true).tagInk }} />
-          ) : null}
-        </View>
-      </PaperCard>
+      {on ? <Ionicons name="checkmark" size={15} color={c.paper} /> : null}
     </Pressable>
   );
 }
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 36,
-        paddingBottom: 90,
-      }}
-    >
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36, paddingBottom: 90 }}>
       {children}
     </View>
   );

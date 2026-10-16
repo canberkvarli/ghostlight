@@ -167,6 +167,21 @@ export async function setPrepState(id: string | number, kind: PrepState): Promis
   if (!res.ok) throw new ApiError(res.status, `${kind} ${id} failed (${res.status})`);
 }
 
+/**
+ * Off book, on or off. `setPrepState('memorized')` can only set it: the route
+ * defaults `memorized` to true when no body is sent, so unticking needs one.
+ */
+export async function setMemorized(id: string | number, on: boolean): Promise<void> {
+  const headers = await authHeaders();
+  headers['Content-Type'] = 'application/json';
+  const res = await fetch(`${API_URL}/api/monologues/${id}/memorized`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ memorized: on }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `memorized ${id} failed (${res.status})`);
+}
+
 /** Notes on a save (spec §4, `PATCH /api/monologues/{id}/favorite/notes`). */
 export async function setFavoriteNotes(id: string | number, notes: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/monologues/${id}/favorite/notes`, {

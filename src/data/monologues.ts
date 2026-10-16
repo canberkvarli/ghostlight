@@ -78,6 +78,19 @@ export interface Monologue {
   themes?: string[];
   /** The catalogue's `primary_emotion`, verbatim. Also read by `sketchFor`. */
   emotion?: string;
+  /**
+   * What the server keeps about YOUR copy of a saved piece (monologue_favorites),
+   * present only on rows that came from the book. The website's Rehearse page
+   * reads and writes the same columns, so a tick here is a tick there.
+   */
+  /** ISO. When it went into the book. */
+  savedAt?: string;
+  /** ISO. The last time a reader or the memorize page opened on it. */
+  lastStudiedAt?: string;
+  /** "Off book": you know it. The pocket on the Saves screen is this. */
+  offBook?: boolean;
+  /** Your performance notes, from the website. Read-only on the phone for now. */
+  notes?: string;
 }
 
 export const MONOLOGUES: Monologue[] = [

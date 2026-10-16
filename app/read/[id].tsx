@@ -34,7 +34,7 @@ import { recordFinishedRead } from '../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
-import { useIsFavorited, useToggleFavorite } from '../../src/hooks/useFavorites';
+import { useIsFavorited, useMarkStudied, useSavedPiece, useSetOffBook, useToggleFavorite } from '../../src/hooks/useFavorites';
 import { MonologueTextSkeleton } from '../../src/components/MonologueTextSkeleton';
 import { track } from '../../src/lib/analytics';
 import * as Haptics from 'expo-haptics';
@@ -169,6 +169,23 @@ export default function Read() {
   const { isAuthenticated } = useSession();
   const favorited = useIsFavorited(id ?? '', isAuthenticated);
   const toggleFavorite = useToggleFavorite();
+  const saved = useSavedPiece(id ?? '', isAuthenticated);
+  const setOffBook = useSetOffBook();
+  // Opening a saved piece is "working on it": the book's Working on shelf
+  // reads this. Once per piece per visit, and only for a piece in the book.
+  const markStudied = useMarkStudied();
+  const studiedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!id || !favorited || studiedFor.current === id) return;
+    studiedFor.current = id;
+    markStudied.mutate(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, favorited]);
+  const onOffBook = () => {
+    if (!saved) return;
+    Haptics.impactAsync(saved.offBook ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setOffBook.mutate({ id: saved.id, on: !saved.offBook });
+  };
 
   const [copied, setCopied] = useState(false);
   const [saveNote, setSaveNote] = useState<string | null>(null);
@@ -567,6 +584,31 @@ export default function Read() {
                 {shown.gender && shown.gender !== 'any' ? <MetaPill>{shown.gender}</MetaPill> : null}
                 {tag ? (
                   <Mark spec={{ label: tag, kind: 'source', tint: ink.tagInk }} />
+                ) : null}
+                {/* Off book, for a piece in the book. The same tick as the Saves
+                    screen and the website: filled once you know it. */}
+                {saved ? (
+                  <Pressable
+                    onPress={onOffBook}
+                    hitSlop={8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: Boolean(saved.offBook) }}
+                    accessibilityLabel="Off book"
+                    style={{
+                      height: 26,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 5,
+                      borderRadius: 999,
+                      borderWidth: 1.5,
+                      borderColor: saved.offBook ? c.accentText : c.paperRule,
+                      backgroundColor: saved.offBook ? c.accentText : 'transparent',
+                      paddingHorizontal: 10,
+                    }}
+                  >
+                    <Ionicons name={saved.offBook ? 'checkmark' : 'ellipse-outline'} size={12} color={saved.offBook ? c.paper : c.paperMuted} />
+                    <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11, color: saved.offBook ? c.paper : c.paperMuted }}>off book</Text>
+                  </Pressable>
                 ) : null}
               </View>
 

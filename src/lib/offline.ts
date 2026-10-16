@@ -53,6 +53,16 @@ async function db(): Promise<SQLite.SQLiteDatabase> {
           saved_at INTEGER NOT NULL
         );
       `);
+      // Columns added after the table first shipped. SQLite has no ADD COLUMN IF
+      // NOT EXISTS, so each one is tried on its own and a "duplicate column" is
+      // the expected outcome on every launch but the first.
+      for (const col of ['off_book INTEGER NOT NULL DEFAULT 0', 'last_studied_at TEXT', 'server_saved_at TEXT']) {
+        try {
+          await d.execAsync(`ALTER TABLE saved_monologues ADD COLUMN ${col};`);
+        } catch {
+          // already there
+        }
+      }
       return d;
     });
   }
@@ -73,6 +83,9 @@ interface Row {
   overdone_score: number;
   excerpt: string;
   full_text: string | null;
+  off_book?: number | null;
+  last_studied_at?: string | null;
+  server_saved_at?: string | null;
 }
 
 function rowToMonologue(r: Row): Monologue {
@@ -90,6 +103,9 @@ function rowToMonologue(r: Row): Monologue {
     overdoneScore: r.overdone_score,
     excerpt: r.excerpt,
     fullText: r.full_text ?? undefined,
+    offBook: r.off_book ? true : undefined,
+    lastStudiedAt: r.last_studied_at ?? undefined,
+    savedAt: r.server_saved_at ?? undefined,
   };
 }
 
@@ -99,11 +115,12 @@ export async function saveOffline(m: Monologue): Promise<void> {
   await d.runAsync(
     `INSERT OR REPLACE INTO saved_monologues
       (id, title, source, author, character, age_range, gender, tone, source_type,
-       duration, overdone_score, excerpt, full_text, saved_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       duration, overdone_score, excerpt, full_text, saved_at, off_book, last_studied_at, server_saved_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       m.id, m.title, m.source, m.author, m.character, m.ageRange, m.gender, m.tone,
       m.sourceType, m.duration, m.overdoneScore, m.excerpt, m.fullText ?? null, Date.now(),
+      m.offBook ? 1 : 0, m.lastStudiedAt ?? null, m.savedAt ?? null,
     ],
   );
 }

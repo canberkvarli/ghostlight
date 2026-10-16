@@ -155,7 +155,11 @@ export type Event =
   /** Someone tapped a reminder, and the app opened from it. */
   | { name: 'app_reminder_opened'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
   /** The system rating sheet was asked for, and from where. */
-  | { name: 'app_review_prompted'; props: { from: 'third_save' | 'note' | 'account' } };
+  | { name: 'app_review_prompted'; props: { from: 'third_save' | 'note' | 'account' } }
+  /** The tick on a saved piece: into the pocket (on) or back to the shelf. */
+  | { name: 'app_off_book_toggled'; props: { on: boolean } }
+  /** The book was searched. `hits` is how many rows matched, not what was typed. */
+  | { name: 'app_book_find'; props: { hits: number } };
 
 export function track<E extends Event>(name: E['name'], props: E['props']): void {
   try {

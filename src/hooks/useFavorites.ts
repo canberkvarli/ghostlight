@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getFavorites, setFavorite } from '../api/client';
+import { getFavorites, setFavorite, setMemorized, setPrepState } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import { listOffline, saveOffline } from '../lib/offline';
+import { track } from '../lib/analytics';
 import { recordSave } from '../lib/reviewMoments';
 import type { Monologue } from '../data/monologues';
 
@@ -86,5 +87,55 @@ export function useToggleFavorite() {
       if (on) void recordSave();
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** Your copy of one piece, if it is in the book: carries off book, notes, dates. */
+export function useSavedPiece(id: string, enabled: boolean): Monologue | null {
+  const { data } = useFavorites(enabled);
+  return data?.find((m) => m.id === id) ?? null;
+}
+
+/**
+ * The tick. Off book is the one thing you do to the book by hand, so it moves
+ * at once: the row re-flows into the pocket before the server has heard, and
+ * comes back down if the server says no. The website's "off book" is the same
+ * column, so the two agree without either knowing about the other.
+ */
+export function useSetOffBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, on }: { id: string; on: boolean }) => setMemorized(id, on),
+    onMutate: async ({ id, on }) => {
+      await qc.cancelQueries({ queryKey: KEY });
+      const previous = qc.getQueryData<Monologue[]>(KEY);
+      qc.setQueryData<Monologue[]>(KEY, (list) => (list ?? []).map((m) => (m.id === id ? { ...m, offBook: on } : m)));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(KEY, ctx.previous);
+    },
+    onSuccess: (_data, { on, id }) => {
+      track('app_off_book_toggled', { on });
+      const row = qc.getQueryData<Monologue[]>(KEY)?.find((m) => m.id === id);
+      if (row) void saveOffline(row);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/**
+ * "I opened this one." Touches last_studied_at on the server, which is what
+ * the Working on shelf reads; a no-op there for a piece not in the book. The
+ * cache is stamped first so the shelf is right the moment you come back.
+ */
+export function useMarkStudied() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => setPrepState(id, 'studied'),
+    onMutate: (id) => {
+      const now = new Date().toISOString();
+      qc.setQueryData<Monologue[]>(KEY, (list) => (list ?? []).map((m) => (m.id === id ? { ...m, lastStudiedAt: now } : m)));
+    },
   });
 }

@@ -72,5 +72,11 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     // For the theme sketch on a play's cover (src/lib/sketchFor.ts).
     themes: Array.isArray(m.themes) ? m.themes : undefined,
     emotion: m.primary_emotion ?? undefined,
+    // Only the favourites route fills these; everywhere else they are absent.
+    // `saved_at` is newer than the OpenAPI snapshot, so it is read defensively.
+    savedAt: (m as { saved_at?: string | null }).saved_at ?? undefined,
+    lastStudiedAt: m.last_studied_at ?? undefined,
+    offBook: m.memorized === true ? true : undefined,
+    notes: m.notes ?? undefined,
   };
 }
