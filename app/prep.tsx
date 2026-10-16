@@ -25,14 +25,17 @@ import { Sketch } from '../src/components/Sketches';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import {
   useAddCallback,
+  useAskAudition,
   useAssistRead,
   useAttachPiece,
   useAuditions,
   useCalendarFeed,
   useDeleteAudition,
+  useForgetAsk,
   useLogOutcome,
   usePatchAudition,
 } from '../src/hooks/useAuditions';
+import { ApiError } from '../src/api/client';
 import {
   KIND_LABEL,
   OUTCOME_LABEL,
@@ -52,7 +55,7 @@ import {
 import { track } from '../src/lib/analytics';
 import { useGoBack } from '../src/lib/nav';
 import { useSession } from '../src/lib/useSession';
-import { daysUntil, dayLabel, eyebrow, timeLabel, whenSentence } from '../src/lib/when';
+import { clockLabel, dayLabel, eyebrow, timeLabel } from '../src/lib/when';
 import { useTheme } from '../src/theme/ThemeContext';
 
 /**
@@ -93,7 +96,17 @@ export default function Prep() {
 
   const scroll = useRef<ScrollView>(null);
   const yAfter = useRef(0);
+  const yAsk = useRef(0);
   const scrollTo = (y: number) => scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+
+  // A question fired from elsewhere on the file (the bring list's "ask me what
+  // to pack"): Ask me picks it up, sends it, and the page scrolls to the answer.
+  const [fire, setFire] = useState<{ q: string; n: number } | null>(null);
+  const askFromElsewhere = (q: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setFire({ q, n: Date.now() });
+    setTimeout(() => scrollTo(yAsk.current), 160);
+  };
 
   const onEdit = useCallback(() => {
     if (!a) return;
@@ -189,15 +202,21 @@ export default function Prep() {
                 ) : null}
 
                 <Reveal order={a.scope !== 'upcoming' ? 2 : 1}>
-                  <Bring a={a} />
+                  <Bring a={a} onAsk={askFromElsewhere} />
                 </Reveal>
 
-                <Reveal order={a.scope !== 'upcoming' ? 3 : 2}>
+                <View onLayout={(e) => (yAsk.current = e.nativeEvent.layout.y)}>
+                  <Reveal order={a.scope !== 'upcoming' ? 3 : 2}>
+                    <AskMe a={a} fire={fire} />
+                  </Reveal>
+                </View>
+
+                <Reveal order={a.scope !== 'upcoming' ? 4 : 3}>
                   <Piece a={a} onPick={() => router.push({ pathname: '/saves', params: { pick: String(a.id) } })} onRead={(mid) => router.push(`/read/${mid}`)} />
                 </Reveal>
 
                 {a.notes?.trim() ? (
-                  <Reveal order={3}>
+                  <Reveal order={4}>
                     <Section title="Notes">
                       <Text style={{ fontFamily: SANS, fontSize: 15.5, lineHeight: 23, color: c.foreground }}>{a.notes.trim()}</Text>
                     </Section>
@@ -205,12 +224,12 @@ export default function Prep() {
                 ) : null}
 
                 {a.scope === 'upcoming' ? (
-                  <Reveal order={4}>
+                  <Reveal order={5}>
                     <Reminders a={a} emailReachable={emailReachable} email={email} />
                   </Reveal>
                 ) : null}
 
-                <Reveal order={5}>
+                <Reveal order={6}>
                   <Details a={a} onEdit={onEdit} onRemove={onRemove} removing={remove.isPending} />
                 </Reveal>
               </Animated.View>
@@ -238,43 +257,94 @@ function Reveal({ order, children }: { order: number; children: React.ReactNode 
   return <Animated.View entering={FadeIn.delay(140 + order * 70).duration(320)}>{children}</Animated.View>;
 }
 
-/** The eyebrow, the title, the part, the when and where. No button in here, so it may lift as it lands. */
+/**
+ * The eyebrow, the title, and the call sheet: a cream card with the day torn
+ * off at the left (weekday, the date large, the month) and the facts beside
+ * it, one to a line, in the order you need them at the door: the hour, the
+ * place, the part. Directions and the link are on the card, under the facts.
+ *
+ * It was three lines of 17pt prose, with the date and the place sharing a
+ * line, and a long address made it a paragraph. A day you can read from across
+ * the room, and a short list, is what a call sheet is for.
+ */
 function Head({ a }: { a: Audition }) {
   const { colors: c } = useTheme();
-  const role = [a.role?.trim(), a.kind !== 'in_person' ? KIND_LABEL[a.kind] : null].filter(Boolean).join(' · ');
-  const when = whenSentence(a);
-  const place = a.kind === 'self_tape' ? null : a.location?.split(',')[0]?.trim();
+  const role = [a.role?.trim(), KIND_LABEL[a.kind]].filter(Boolean).join(' · ');
+  const place = a.kind === 'self_tape' ? null : a.location?.trim() || null;
   const directions = a.kind === 'in_person' && a.location?.trim() ? `http://maps.apple.com/?daddr=${encodeURIComponent(a.location.trim())}` : null;
   const link = a.kind !== 'in_person' ? a.tape_link?.trim() || null : null;
+  const due = a.kind === 'self_tape';
+  const d = a.when ? new Date(a.when) : null;
+  const hour = d && a.when ? `${due ? 'Due ' : ''}${d.toLocaleDateString(undefined, { weekday: 'long' })} at ${clockLabel(a.when)}` : null;
+
+  const cap = { fontFamily: 'CourierPrime_700Bold', fontSize: 9.5, lineHeight: 12, letterSpacing: 1.4, color: c.paperMuted } as const;
   return (
     <View>
       <Animated.View entering={FadeInUp.duration(380)}>
         <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 11.5, letterSpacing: 1, textTransform: 'uppercase', color: c.accentText }}>
           {eyebrow(a)}
         </Text>
-        <Text style={{ marginTop: 10, fontFamily: SERIF, fontSize: 40, lineHeight: 44, letterSpacing: -0.6, color: c.foreground }}>{a.project}</Text>
-        {role ? <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 17, lineHeight: 24, color: c.foreground }}>{role}</Text> : null}
-        {when || place ? (
-          <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 17, lineHeight: 24, color: c.foreground }}>
-            {when}
-            {place ? <Text style={{ color: c.mutedForeground }}>{when ? ' · ' : ''}{place}</Text> : null}
-          </Text>
-        ) : (
-          <StageDirection style={{ marginTop: 6 }}>(no date yet. edit it to set one.)</StageDirection>
-        )}
+        <Text style={{ marginTop: 10, fontFamily: SERIF, fontSize: 38, lineHeight: 42, letterSpacing: -0.6, color: c.foreground }}>{a.project}</Text>
       </Animated.View>
-      {directions || link ? (
-        <Animated.View entering={FadeIn.delay(80).duration(300)} style={{ flexDirection: 'row', gap: 18, marginTop: 10 }}>
-          {directions ? <TextLink icon="navigate-outline" label="Directions" onPress={() => Linking.openURL(directions).catch(() => {})} /> : null}
-          {link ? (
-            <TextLink
-              icon="open-outline"
-              label={a.kind === 'self_tape' ? 'Where to send it' : 'Meeting link'}
-              onPress={() => Linking.openURL(/^https?:\/\//.test(link) ? link : `https://${link}`).catch(() => {})}
-            />
+
+      <Animated.View
+        entering={FadeIn.delay(80).duration(300)}
+        style={{
+          marginTop: 16,
+          flexDirection: 'row',
+          borderRadius: 8,
+          borderWidth: 1.5,
+          borderColor: c.cardBorder,
+          backgroundColor: c.paper,
+          overflow: 'hidden',
+          transform: [{ rotate: '-0.3deg' }],
+        }}
+      >
+        {/* The day, torn off at the left. */}
+        <View style={{ width: 74, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderRightColor: c.paperRule }}>
+          {d ? (
+            <>
+              <Text style={cap}>{(due ? 'DUE' : d.toLocaleDateString(undefined, { weekday: 'short' })).toUpperCase()}</Text>
+              <Text style={{ fontFamily: SERIF, fontSize: 36, lineHeight: 40, color: c.paperInk }}>{d.getDate()}</Text>
+              <Text style={cap}>{d.toLocaleDateString(undefined, { month: 'short' }).toUpperCase()}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={cap}>TBD</Text>
+              <Text style={{ fontFamily: SERIF, fontSize: 36, lineHeight: 40, color: c.paperMuted }}>?</Text>
+              <Text style={cap}>{'  '}</Text>
+            </>
+          )}
+        </View>
+
+        {/* The facts, one to a line. */}
+        <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'center', gap: 3 }}>
+          <Text style={{ fontFamily: SANS_BOLD, fontSize: 16, lineHeight: 22, color: c.paperInk }}>{hour ?? 'No date yet'}</Text>
+          {place ? (
+            <Text numberOfLines={2} style={{ fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.paperBody }}>
+              {place}
+            </Text>
           ) : null}
-        </Animated.View>
-      ) : null}
+          {role ? (
+            <Text numberOfLines={1} style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, lineHeight: 17, letterSpacing: 0.3, color: c.paperMuted }}>
+              {role}
+            </Text>
+          ) : null}
+          {!hour ? <StageDirection on="paper" style={{ marginTop: 2 }}>(edit it to set one.)</StageDirection> : null}
+          {directions || link ? (
+            <View style={{ flexDirection: 'row', gap: 18, marginTop: 6 }}>
+              {directions ? <TextLink icon="navigate-outline" label="Directions" onPress={() => Linking.openURL(directions).catch(() => {})} /> : null}
+              {link ? (
+                <TextLink
+                  icon="open-outline"
+                  label={a.kind === 'self_tape' ? 'Where to send it' : 'Meeting link'}
+                  onPress={() => Linking.openURL(/^https?:\/\//.test(link) ? link : `https://${link}`).catch(() => {})}
+                />
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -312,15 +382,37 @@ function Primary({
   return <PrimaryPill label={label} onPress={act} block disabled={busy} style={{ marginTop: 24 }} />;
 }
 
-function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
+/** A heading with a rule under it. `onHeaderPress` makes the heading a button (the folding sections); no children, no body. */
+function Section({
+  title,
+  aside,
+  children,
+  onHeaderPress,
+  accessibilityLabel,
+}: {
+  title: string;
+  aside?: React.ReactNode;
+  children?: React.ReactNode;
+  onHeaderPress?: () => void;
+  accessibilityLabel?: string;
+}) {
   const { colors: c } = useTheme();
+  const head = (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+      <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.foreground }}>{title}</Text>
+      {aside}
+    </View>
+  );
   return (
     <View style={{ marginTop: 34 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-        <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.foreground }}>{title}</Text>
-        {aside}
-      </View>
-      <View style={{ paddingTop: 12 }}>{children}</View>
+      {onHeaderPress ? (
+        <Pressable onPress={onHeaderPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} hitSlop={6}>
+          {head}
+        </Pressable>
+      ) : (
+        head
+      )}
+      {children ? <View style={{ paddingTop: 12 }}>{children}</View> : null}
     </View>
   );
 }
@@ -346,7 +438,7 @@ function TextLink({ icon, label, onPress, muted = false }: { icon?: keyof typeof
 /** Audition and inputs this session has already asked the model to read. */
 const READ = new Set<string>();
 
-function Bring({ a }: { a: Audition }) {
+function Bring({ a, onAsk }: { a: Audition; onAsk: (q: string) => void }) {
   const { colors: c } = useTheme();
   const patch = usePatchAudition();
   const assist = useAssistRead();
@@ -457,6 +549,20 @@ function Bring({ a }: { a: Audition }) {
         </Animated.View>
       ) : !canRead && a.scope === 'upcoming' ? (
         <StageDirection numberOfLines={2} style={{ marginTop: 14 }}>(add the role and i'll have ideas on what to wear.)</StageDirection>
+      ) : a.scope === 'upcoming' ? (
+        /* The list is the model's first pass; the rest is a question away. */
+        <Pressable
+          onPress={() => onAsk(a.kind === 'self_tape' ? 'What do I need to set up for this tape?' : 'What should I bring to this one, and what should I wear?')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Ask me what to bring"
+          style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 7 }}
+        >
+          <Ionicons name="sparkles-outline" size={13} color={c.accentText} />
+          <StageDirection numberOfLines={1} style={{ color: c.accentText }}>
+            {a.kind === 'self_tape' ? '(not sure what to set up? ask me.)' : '(not sure what to pack? ask me.)'}
+          </StageDirection>
+        </Pressable>
       ) : null}
     </Section>
   );
@@ -716,16 +822,40 @@ function Reminders({ a, emailReachable, email }: { a: Audition; emailReachable: 
 
   const trackColor = { true: c.primary, false: c.divider };
 
+  /**
+   * Folded by default. The switches are set once and read never, so the whole
+   * section was a screen of toggles between you and the facts. The heading
+   * says what is on; tap it and the switches unfold.
+   */
+  const [open, setOpen] = useState(false);
+  const toggleOpen = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setOpen((v) => !v);
+  };
+  const emails = emailReachable ? moments.length : 0;
+  const summary = !a.when
+    ? 'set a date first'
+    : [phoneOn ? 'phone' : null, emails ? `${emails} email${emails === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ') || 'off';
+  const aside = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 5 }}>
+      <Text style={{ fontFamily: MONO, fontSize: 12.5, letterSpacing: 0.3, color: c.mutedForeground }}>{summary}</Text>
+      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} />
+    </View>
+  );
+  const label = `I'll remind you, ${summary}. ${open ? 'Hide' : 'Show'} the reminders`;
+
   if (!a.when) {
     return (
-      <Section title="I'll remind you">
-        <StageDirection>(set a date and the reminders follow it.)</StageDirection>
+      <Section title="I'll remind you" aside={aside} onHeaderPress={toggleOpen} accessibilityLabel={label}>
+        {open ? <StageDirection>(set a date and the reminders follow it.)</StageDirection> : null}
       </Section>
     );
   }
 
+  if (!open) return <Section title="I'll remind you" aside={aside} onHeaderPress={toggleOpen} accessibilityLabel={label} />;
+
   return (
-    <Section title="I'll remind you">
+    <Section title="I'll remind you" aside={aside} onHeaderPress={toggleOpen} accessibilityLabel={label}>
       <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: c.mutedForeground }}>On this phone</Text>
       <SwitchRow
         label="The night before, and two hours out"
@@ -792,6 +922,136 @@ function SwitchRow({
       </View>
       <Switch value={on} onValueChange={onChange} disabled={disabled} trackColor={trackColor} thumbColor="#fff" ios_backgroundColor={trackColor.false} />
     </View>
+  );
+}
+
+// ── Ask me ───────────────────────────────────────────────────────────────────
+
+/**
+ * One question box about this audition, the website's. The model answers from
+ * what is saved on the file (the facts, the bring list, the notes, the sides
+ * when there are any, and what it already told you), and the answer stays on
+ * the page until you take it off. Before the first question there are three
+ * to tap, so nobody has to think of what to ask a page.
+ */
+const STARTERS: Record<'room' | 'tape', string[]> = {
+  room: ['What should I wear?', 'How early should I get there?', 'What do I bring?'],
+  tape: ['What do I wear on camera?', 'How do I frame and light it?', 'How should I slate?'],
+};
+
+function AskMe({ a, fire }: { a: Audition; fire: { q: string; n: number } | null }) {
+  const { colors: c } = useTheme();
+  const ask = useAskAudition();
+  const forget = useForgetAsk();
+  const [q, setQ] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const asks = a.assist?.asks ?? [];
+
+  const send = useCallback(
+    (text: string) => {
+      const t = text.trim();
+      if (t.length < 2 || ask.isPending) return;
+      Haptics.selectionAsync().catch(() => {});
+      setError(null);
+      ask.mutate(
+        { id: a.id, q: t },
+        {
+          onSuccess: () => setQ(''),
+          onError: (err) =>
+            setError(
+              err instanceof ApiError && err.status === 403
+                ? "(that's all my questions for this month on your plan.)"
+                : "(i couldn't answer that just now. try again in a moment.)",
+            ),
+        },
+      );
+    },
+    [a.id, ask],
+  );
+
+  // A question fired from elsewhere on the file.
+  const fired = useRef<number | null>(null);
+  useEffect(() => {
+    if (!fire || fired.current === fire.n) return;
+    fired.current = fire.n;
+    send(fire.q);
+  }, [fire, send]);
+
+  const remove = (at: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    forget.mutate({ id: a.id, at });
+  };
+
+  return (
+    <Section title="Ask me" aside={<StageDirection style={{ paddingBottom: 5 }}>(about this one.)</StageDirection>}>
+      {asks.length > 0 ? (
+        <Animated.View layout={LinearTransition.duration(220)} style={{ marginBottom: 6 }}>
+          {asks.map((x) => (
+            <Animated.View
+              key={x.at}
+              entering={FadeIn.duration(240)}
+              exiting={FadeOut.duration(160)}
+              layout={LinearTransition.duration(220)}
+              style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <Text style={{ flex: 1, fontFamily: SANS_BOLD, fontSize: 15, lineHeight: 21, color: c.foreground }}>{x.q}</Text>
+                <Pressable onPress={() => remove(x.at)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Take "${x.q}" off the page`} style={{ paddingTop: 3 }}>
+                  <Ionicons name="close" size={16} color={c.mutedForeground} />
+                </Pressable>
+              </View>
+              <Text style={{ marginTop: 4, fontFamily: SANS, fontSize: 15.5, lineHeight: 23, color: c.foreground }}>{x.a}</Text>
+            </Animated.View>
+          ))}
+        </Animated.View>
+      ) : null}
+
+      {asks.length === 0 && !ask.isPending ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+          {STARTERS[a.kind === 'self_tape' ? 'tape' : 'room'].map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => send(s)}
+              accessibilityRole="button"
+              style={{ height: 34, paddingHorizontal: 13, borderRadius: 999, borderWidth: 1.5, borderColor: c.border, justifyContent: 'center' }}
+            >
+              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.3, color: c.mutedForeground }}>{s.toLowerCase()}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>
+        <Ionicons name="sparkles-outline" size={16} color={c.mutedForeground} />
+        <TextInput
+          value={q}
+          onChangeText={setQ}
+          onSubmitEditing={() => send(q)}
+          returnKeyType="send"
+          blurOnSubmit={false}
+          editable={!ask.isPending}
+          placeholder="where do I park? what should I wear?"
+          placeholderTextColor={c.mutedForeground}
+          selectionColor={c.accentText}
+          maxLength={500}
+          style={{ flex: 1, paddingVertical: 10, fontFamily: SANS, fontSize: 15.5, color: c.foreground }}
+        />
+        {q.trim().length >= 2 && !ask.isPending ? (
+          <Pressable onPress={() => send(q)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Ask">
+            <Text style={{ fontFamily: SANS_BOLD, fontSize: 13.5, color: c.accentText }}>Ask</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {ask.isPending ? (
+        <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <Ionicons name="sparkles-outline" size={13} color={c.mutedForeground} />
+          <StageDirection numberOfLines={1}>(thinking it over…)</StageDirection>
+        </Animated.View>
+      ) : error ? (
+        <StageDirection numberOfLines={2} style={{ marginTop: 12 }}>{error}</StageDirection>
+      ) : null}
+    </Section>
   );
 }
 

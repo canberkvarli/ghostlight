@@ -76,6 +76,19 @@ export interface Audition {
   /** The callback added from this one, if any. */
   callback_id: number | null;
   pieces: AuditionPiece[];
+  /** What the model has said about this one: the read of the part, and your questions with their answers. */
+  assist: AuditionAssist | null;
+}
+
+export interface AuditionAsk {
+  q: string;
+  a: string;
+  /** ISO time it was asked; the handle for taking it off the page. */
+  at: string;
+}
+export interface AuditionAssist {
+  read?: { key: string; line: string | null; wear: string[] } | null;
+  asks?: AuditionAsk[];
 }
 
 /** "How did it go?" The server moves the status for a callback or a pass. */
@@ -183,6 +196,23 @@ export async function logOutcome(id: number, outcome: Outcome): Promise<Audition
 export async function assistRead(id: number): Promise<Audition> {
   const res = await json('POST', `/${id}/assist/read`);
   if (!res.ok) throw new ApiError(res.status, `assist read failed (${res.status})`);
+  return (await res.json()) as Audition;
+}
+
+/**
+ * A question about this audition, answered from what is saved on it (the
+ * facts, the bring list, the notes, earlier answers). The answer is kept on
+ * the row until it is taken off. 403 is the month's quota on this plan.
+ */
+export async function askAudition(id: number, q: string): Promise<Audition> {
+  const res = await json('POST', `/${id}/ask`, { q });
+  if (!res.ok) throw new ApiError(res.status, `ask failed (${res.status})`);
+  return (await res.json()) as Audition;
+}
+
+export async function forgetAsk(id: number, at: string): Promise<Audition> {
+  const res = await json('DELETE', `/${id}/ask?at=${encodeURIComponent(at)}`);
+  if (!res.ok) throw new ApiError(res.status, `forget ask failed (${res.status})`);
   return (await res.json()) as Audition;
 }
 

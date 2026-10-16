@@ -20,6 +20,8 @@ import {
   type AuditionDraft,
   type AuditionPatch,
   type Outcome,
+  askAudition,
+  forgetAsk,
 } from '../api/auditions';
 import { track } from '../lib/analytics';
 import {
@@ -175,6 +177,43 @@ export function useAssistRead() {
       track('app_audition_assist', { part: 'read' });
       qc.setQueryData<Audition[]>(AUDITIONS_KEY, (list) => (list ?? []).map((x) => (x.id === a.id ? a : x)));
     },
+  });
+}
+
+/** Ask the model about this one. The answer lands on the row and stays. */
+export function useAskAudition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, q }: { id: number; q: string }) => askAudition(id, q),
+    onSuccess: (a, { q }) => {
+      track('app_audition_asked', { chars: q.length });
+      qc.setQueryData<Audition[]>(AUDITIONS_KEY, (list) => (list ?? []).map((x) => (x.id === a.id ? a : x)));
+    },
+  });
+}
+
+/** Take a question and its answer off the page. Gone at once; the server catches up. */
+export function useForgetAsk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, at }: { id: number; at: string }) => forgetAsk(id, at),
+    onMutate: async ({ id, at }) => {
+      await qc.cancelQueries({ queryKey: AUDITIONS_KEY });
+      const previous = qc.getQueryData<Audition[]>(AUDITIONS_KEY);
+      qc.setQueryData<Audition[]>(AUDITIONS_KEY, (list) =>
+        (list ?? []).map((x) =>
+          x.id === id ? { ...x, assist: { ...(x.assist ?? {}), asks: (x.assist?.asks ?? []).filter((k) => k.at !== at) } } : x,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(AUDITIONS_KEY, ctx.previous);
+    },
+    onSuccess: (a) => {
+      qc.setQueryData<Audition[]>(AUDITIONS_KEY, (list) => (list ?? []).map((x) => (x.id === a.id ? a : x)));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: AUDITIONS_KEY }),
   });
 }
 
