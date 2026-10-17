@@ -19,7 +19,6 @@ import { formatDuration } from '../data/monologues';
 export const SHELVES_FROM = 5;
 /** From this many, the shelf gets a tone row and the top gets a find field. */
 export const FIND_FROM = 12;
-const WORKING_DAYS = 14;
 const NEW_DAYS = 30;
 const DAY = 86_400_000;
 
@@ -33,11 +32,7 @@ export interface Book {
   pocket: Monologue[];
   /** Attached to an upcoming audition, soonest first. May repeat a pocket piece. */
   room: RoomPiece[];
-  /** Opened in the last two weeks, not off book, not for a room. */
-  working: Monologue[];
-  /** Saved in the last month and never opened. */
-  fresh: Monologue[];
-  /** The rest, by house. */
+  /** The rest, by house, the one you last touched first. */
   stage: Monologue[];
   screen: Monologue[];
   /** Everything that is not in the pocket, in the server's order. For the flat book. */
@@ -72,16 +67,13 @@ export function shelve(items: Monologue[], auditions: Audition[], now = Date.now
     .sort((a, b) => stamp(a.audition.when ?? undefined) - stamp(b.audition.when ?? undefined));
   const inRoom = new Set(room.map((r) => r.item.id));
 
-  const rest = flat.filter((m) => !inRoom.has(m.id));
-  const working = rest
-    .filter((m) => m.lastStudiedAt && now - stamp(m.lastStudiedAt) < WORKING_DAYS * DAY)
-    .sort((a, b) => stamp(b.lastStudiedAt) - stamp(a.lastStudiedAt));
-  const inWorking = new Set(working.map((m) => m.id));
-  const fresh = rest
-    .filter((m) => !inWorking.has(m.id) && !m.lastStudiedAt && m.savedAt && now - stamp(m.savedAt) < NEW_DAYS * DAY)
-    .sort((a, b) => stamp(b.savedAt) - stamp(a.savedAt));
-  const inFresh = new Set(fresh.map((m) => m.id));
-  const shelf = rest.filter((m) => !inWorking.has(m.id) && !inFresh.has(m.id));
+  // One shelf for the rest. There were two more, "working on" and "new", cut
+  // by how long ago you opened or saved a piece, and a page moved between them
+  // on its own as the days passed, which read as the book shuffling itself. The
+  // row's own line still says "worked on Tue" or "new"; the shelf just keeps
+  // what you touched last at the top.
+  const touched = (m: Monologue) => Math.max(stamp(m.lastStudiedAt), stamp(m.savedAt));
+  const shelf = flat.filter((m) => !inRoom.has(m.id)).sort((a, b) => touched(b) - touched(a));
   const stage = shelf.filter((m) => m.sourceType === 'play');
   const screen = shelf.filter((m) => m.sourceType !== 'play');
 
@@ -90,8 +82,6 @@ export function shelve(items: Monologue[], auditions: Audition[], now = Date.now
   return {
     pocket,
     room,
-    working,
-    fresh,
     stage,
     screen,
     flat,

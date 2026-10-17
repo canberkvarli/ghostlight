@@ -18,6 +18,7 @@ import { useFavorites, useSetOffBook, useToggleFavorite } from '../src/hooks/use
 import { useAttachPiece, useAudition, useAuditions } from '../src/hooks/useAuditions';
 import { attachedPiece } from '../src/api/auditions';
 import { UndoBar } from '../src/components/UndoBar';
+import { SwipeRow } from '../src/components/SwipeRow';
 import { track } from '../src/lib/analytics';
 import { FIND_FROM, TONE_LABEL, findInBook, rowMeta, shelve, type RoomPiece } from '../src/lib/book';
 import { useGoBack } from '../src/lib/nav';
@@ -30,15 +31,17 @@ import type { Monologue, Tone } from '../src/data/monologues';
  * Saved — "Your book."
  *
  * A book that sorts itself. Under five pieces it is one list of pages. Past
- * that, shelves appear on their own, each only when it has something on it:
- * what you are bringing to a room, what you have been working on, what you
- * saved and never opened, and the rest by house. Past twelve, a tone row and a
- * find field. Nothing to file, nothing to name (src/lib/book.ts decides).
+ * that, three shelves, each only when it has something on it: the pocket
+ * (what you are off book on), the room (what is going into an audition), and
+ * the shelf (everything else, by house, what you touched last at the top).
+ * Past twelve, a tone row and a find field. Nothing to file, nothing to name
+ * (src/lib/book.ts decides).
  *
- * The one thing you do by hand is the tick at the right edge of a row: off
- * book. The page lifts out of its shelf and lands in the pocket at the top, the
- * two or three you could do right now. It is the website's "off book" mark, so
- * the pocket is the same on the laptop.
+ * Two things you do by hand. The tick at the right edge of a row: off book, and
+ * the page lifts into the pocket at the top, the two or three you could do
+ * right now; it is the website's "off book" mark, so the pocket is the same on
+ * the laptop. And a slide to the left, which takes the page out of the book,
+ * with five seconds to take that back.
  *
  * With `?pick=<auditionId>` the book is a picker: an audition's file sent you
  * here for the piece to bring, a tap attaches it and takes you back. The pocket
@@ -103,10 +106,32 @@ export default function Saves() {
       ? `(${items.length} kept, ${book.pocket.length} ready.)`
       : `(${items.length} kept.)`;
 
-  const onUnsave = useCallback((item: Saved) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setPendingRemoval(item);
-  }, []);
+  const onUnsave = useCallback(
+    (item: Saved) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setPendingRemoval((prev) => {
+        // A second removal inside the first one's five seconds used to replace
+        // it, and the first page, never sent to the server, came back on the
+        // next refetch, which made the whole thing feel like a toggle. The
+        // earlier one is settled the moment a new one starts.
+        if (prev && prev.id !== item.id) toggleFavorite.mutate({ id: prev.id, on: false });
+        return item;
+      });
+    },
+    [toggleFavorite],
+  );
+  // The same promise on the way out: leave the screen with the bar still up,
+  // and the removal happens rather than quietly not happening.
+  const pendingRef = useRef<Saved | null>(null);
+  pendingRef.current = pendingRemoval;
+  useEffect(
+    () => () => {
+      const victim = pendingRef.current;
+      if (victim) toggleFavorite.mutate({ id: victim.id, on: false });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   const onUndo = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
     setPendingRemoval(null);
@@ -274,22 +299,8 @@ export default function Saves() {
                         </Shelf>
                       </Reveal>
                     ) : null}
-                    {book.working.length > 0 ? (
-                      <Reveal order={2}>
-                        <Shelf title="Working on" aside={`(${book.working.length}.)`}>
-                          {book.working.map((m, i) => row(m, i))}
-                        </Shelf>
-                      </Reveal>
-                    ) : null}
-                    {book.fresh.length > 0 ? (
-                      <Reveal order={3}>
-                        <Shelf title="New" aside="(saved, not opened yet.)">
-                          {book.fresh.map((m, i) => row(m, i))}
-                        </Shelf>
-                      </Reveal>
-                    ) : null}
                     {book.stage.length + book.screen.length > 0 ? (
-                      <Reveal order={4}>
+                      <Reveal order={2}>
                         <Shelf title="The shelf" aside={`(${book.stage.length + book.screen.length}.)`}>
                           {items.length >= FIND_FROM && book.tones.length > 1 ? (
                             <ToneRow tones={book.tones} value={tone} onChange={setTone} />
@@ -459,8 +470,9 @@ function PocketCard({ item, index, onPress, onTick, picked }: { item: Saved; ind
  * Denser than the old card, because a book of forty needs scanning, not
  * reading: cover, title on one line, who says it and where, then one quiet
  * line that tells you the most useful thing about YOUR copy (see rowMeta).
- * The margin on the right holds the tick, and under it the bookmark that takes
- * the page out of the book.
+ * The margin on the right holds the tick, and nothing else: taking the page
+ * out of the book is a slide to the left (SwipeRow), not a second tiny target
+ * under the first.
  */
 function Row({
   item,
@@ -484,9 +496,8 @@ function Row({
   picked?: boolean;
 }) {
   const { colors: c } = useTheme();
-  return (
-    <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(160)} layout={LinearTransition.duration(260)}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.character}`} style={{ marginBottom: 12 }}>
+  const page = (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.character}`}>
         <PaperCard rotate={TILTS[index % TILTS.length]} style={{ paddingVertical: 12, paddingLeft: 12, paddingRight: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <PieceCover item={item} width={40} height={56} />
@@ -503,20 +514,23 @@ function Row({
               </Text>
             </View>
             {onTick ? (
-              <View style={{ alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 1 }}>
-                <Tick on={Boolean(item.offBook)} onPress={onTick} label={item.offBook ? `Put ${item.title} back on the shelf` : `${item.title}: off book`} />
-                {onUnsave ? (
-                  <Pressable onPress={onUnsave} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${item.title} from your book`}>
-                    <Ionicons name="bookmark" size={15} color={c.paperFaint} />
-                  </Pressable>
-                ) : null}
-              </View>
+              <Tick on={Boolean(item.offBook)} onPress={onTick} label={item.offBook ? `Put ${item.title} back on the shelf` : `${item.title}: off book`} />
             ) : picked != null ? (
               <Ionicons name={picked ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={picked ? c.primary : c.paperFaint} />
             ) : null}
           </View>
         </PaperCard>
       </Pressable>
+  );
+  return (
+    <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(160)} layout={LinearTransition.duration(260)}>
+      {onUnsave ? (
+        <SwipeRow onRemove={onUnsave} label={`Remove ${item.title} from your book`} style={{ marginBottom: 12 }}>
+          {page}
+        </SwipeRow>
+      ) : (
+        <View style={{ marginBottom: 12 }}>{page}</View>
+      )}
     </Animated.View>
   );
 }
