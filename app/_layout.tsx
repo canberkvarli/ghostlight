@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 // Imported file-by-file rather than from the package root: the root re-exports
 // every weight and italic, and Metro will happily ship all ~2MB of them.
 // Display and numerals. Instrument Serif ships one weight and its italic, which
@@ -172,6 +172,11 @@ export default function RootLayout() {
     // exactly how this was found: `Application Opened` from old sessions
     // showing up while a sign-in from thirty seconds ago had not.
     const sub = AppState.addEventListener('change', (state) => {
+      // React Query's idea of focus is a browser tab's, which never changes
+      // here. Hand it the app's own foreground state, so a query that failed
+      // or went stale while the phone was away is asked again the moment the
+      // app is back, instead of waiting for a screen to be opened afresh.
+      focusManager.setFocused(state === 'active');
       if (state !== 'active') flushAnalytics();
       // Open-days and sessions for the rating moment (src/lib/reviewMoments.ts).
       if (state === 'active') void recordAppOpen();

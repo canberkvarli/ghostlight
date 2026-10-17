@@ -1,7 +1,8 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getReadState, type ReadState } from '../api/client';
+import { ApiError, getReadState, type ReadState } from '../api/client';
+import { track } from '../lib/analytics';
 import { setOfflineAllowed } from '../lib/offline';
 import { hasMonologuesEntitlement, onCustomerInfoUpdate } from '../lib/purchases';
 
@@ -61,15 +62,36 @@ export interface Entitlement {
   wall: ReadState | undefined;
   /** False until the server has actually answered. Gate the wall on this. */
   settled: boolean;
+  /** Asked, and never got an answer: no wall to show, not even a locked one. */
+  failed: boolean;
+  /** Ask again. Stable, so a focus effect can depend on it. */
+  refresh: () => void;
 }
 
 export function useEntitlement(): Entitlement {
-  const { data: wall, isFetched } = useQuery({
+  const { data: wall, isFetched, isError, error, refetch } = useQuery({
     queryKey: ['read-wall'],
     queryFn: ({ signal }) => getReadState(signal),
-    retry: false,
+    // A 4xx is an answer and is not asked again (401 and 403 never get here:
+    // getReadState turns them into a locked state). Anything else, a dropped
+    // connection at the moment of signing in, a 5xx while the server restarts,
+    // is asked twice more before it counts as a failure. `retry: false` left
+    // the plan card on "Your stage." for as long as the screen stayed open:
+    // nothing had answered, so nothing was shown, and nothing asked again.
+    retry: (count, err) => count < 2 && !(err instanceof ApiError && err.status < 500),
+    retryDelay: (count) => 700 * (count + 1),
     staleTime: 15_000,
   });
+
+  useEffect(() => {
+    // So the next "it still says Your stage" can be read off a dashboard with
+    // the status the server actually sent, rather than guessed at.
+    if (!isError) return;
+    track('app_wall_failed', { status: error instanceof ApiError ? error.status : null });
+  }, [isError, error]);
+  const refresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   // The device's own receipt. The server hears about a purchase from a webhook
   // and that gap was visible: the app unlocked, then re-locked when the next
@@ -95,5 +117,7 @@ export function useEntitlement(): Entitlement {
     readsLimit: wall?.reads_limit ?? 3,
     wall,
     settled: isFetched,
+    failed: isError && wall === undefined,
+    refresh,
   };
 }

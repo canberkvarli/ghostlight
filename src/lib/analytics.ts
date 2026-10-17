@@ -149,6 +149,7 @@ export type Event =
   | { name: 'app_audition_assist'; props: { part: 'read' } }
   /** A question typed (or tapped) on the file, answered by the model. */
   | { name: 'app_audition_asked'; props: { chars: number } }
+  | { name: 'app_wall_failed'; props: { status: number | null } }
   | { name: 'app_audition_callback_added'; props: Record<string, never> }
   /** A reminder switch on the file. `channel` is the phone or email. */
   | { name: 'app_reminder_toggled'; props: { channel: 'phone' | 'email'; on: boolean } }

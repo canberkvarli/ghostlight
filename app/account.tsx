@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
@@ -130,8 +130,18 @@ export default function Account() {
   // webhook, so for the first seconds after paying it still answers is_paid:
   // false. useEntitlement ORs in the device's own receipt, which is why this
   // card no longer says "unlimited" and then takes it back.
-  const { wall: readState, isPaid } = useEntitlement();
+  const { wall: readState, isPaid, failed: wallFailed, refresh: refreshWall } = useEntitlement();
   const { data: saved } = useFavorites(isAuthenticated);
+
+  // Coming back to this screen, from the sign-in form above all, asks again if
+  // the last answer never came. Signing in refetches the wall from the root
+  // layout; when that request failed, this is what stops the card sitting on
+  // "Your stage." until the app is relaunched.
+  useFocusEffect(
+    useCallback(() => {
+      if (wallFailed) refreshWall();
+    }, [wallFailed, refreshWall]),
+  );
 
   const name = firstName(session);
   const keptCount = saved?.length ?? 0;
@@ -270,7 +280,13 @@ export default function Account() {
           <StageDirection style={{ marginTop: 4 }}>(the light&apos;s still on.)</StageDirection>
 
           <View style={{ marginTop: 22, paddingRight: 8 }}>
-            <PlanCard readState={readState} paid={isPaid} onStay={() => router.push('/paywall')} />
+            <PlanCard
+              readState={readState}
+              paid={isPaid}
+              failed={wallFailed}
+              onRetry={refreshWall}
+              onStay={() => router.push('/paywall')}
+            />
           </View>
 
           {/* Who you're signed in as. This was the one question the screen
@@ -524,10 +540,14 @@ function SignOutCard({
 function PlanCard({
   readState,
   paid,
+  failed,
+  onRetry,
   onStay,
 }: {
   readState?: ReadState;
   paid: boolean;
+  failed: boolean;
+  onRetry: () => void;
   onStay: () => void;
 }) {
   const { colors: c } = useTheme();
@@ -581,6 +601,21 @@ function PlanCard({
       >
         {headline}
       </Text>
+
+      {/* "Your stage." is the card not knowing yet. When it asked and nothing
+          came back, say so, and give the tap that asks again, rather than
+          leaving a headline that reads like the answer. */}
+      {!loaded && failed ? (
+        <Pressable
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel="Check your plan again"
+          hitSlop={8}
+          style={{ marginTop: 8 }}
+        >
+          <StageDirection on="paper">(couldn&apos;t reach the house. tap to ask again.)</StageDirection>
+        </Pressable>
+      ) : null}
 
       {/* three filament bars */}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
