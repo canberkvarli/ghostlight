@@ -454,6 +454,20 @@ function Intro({
         <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>
           {signedIn ? '(nothing on it yet.)' : '(same board as the site. free with any account.)'}
         </StageDirection>
+        {/* Straight under the line that says what the board is: the question
+            belongs with the claim, not under the button that acts on it. */}
+        <Pressable
+          onPress={onHow}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="How this works"
+          style={{ marginTop: 12, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6 }}
+        >
+          <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.2, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 12, lineHeight: 14, color: c.mutedForeground }}>?</Text>
+          </View>
+          <StageDirection>(how this works.)</StageDirection>
+        </Pressable>
       </View>
 
       <View>
@@ -463,18 +477,6 @@ function Intro({
             <StageDirection>(or fill it in by hand.)</StageDirection>
           </Pressable>
         ) : null}
-        <Pressable
-          onPress={onHow}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="How this works"
-          style={{ marginTop: signedIn ? 10 : 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6 }}
-        >
-          <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.2, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 12, lineHeight: 14, color: c.mutedForeground }}>?</Text>
-          </View>
-          <StageDirection>(how this works.)</StageDirection>
-        </Pressable>
       </View>
     </ScrollView>
   );

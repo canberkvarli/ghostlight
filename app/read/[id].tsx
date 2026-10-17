@@ -527,7 +527,7 @@ export default function Read() {
                 <Ionicons
                   name={copied ? 'checkmark' : 'copy-outline'}
                   size={21}
-                  color={copied ? c.yellow : c.mutedForeground}
+                  color={copied ? c.accentText : c.mutedForeground}
                 />
               </Pressable>
               {/* Saved is the gel, not the house colour: it is a mark you made,
@@ -536,7 +536,7 @@ export default function Read() {
                 <Ionicons
                   name={favorited ? 'bookmark' : 'bookmark-outline'}
                   size={22}
-                  color={favorited ? c.yellow : c.mutedForeground}
+                  color={favorited ? c.accentText : c.mutedForeground}
                 />
               </Pressable>
             </View>
@@ -694,24 +694,27 @@ export default function Read() {
               </View>
 
               {/* Working on it: the cut and the run. Only once the words are
-                  here and the wall is not, and never while the other is open. */}
+                  here and the wall is not, and never while the other is open.
+
+                  Not pills. In the same shape as the running time and the age
+                  they read as two more facts about the piece, and nobody
+                  pressed them. These are the tools: ink stamps on a block of
+                  gel, the one row on the page that is plainly for pressing. */}
               {monologue?.fullText && wallKnown && !gated && units.length > 1 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                  <TogglePill
-                    on={Boolean(cut)}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 18 }}>
+                  <WorkButton
                     lit={mode === 'cut'}
                     icon="cut-outline"
-                    label={cut ? `cut · ${clock(cutSeconds)}` : 'cut'}
+                    label={mode === 'cut' ? 'done' : cut ? `cut · ${clock(cutSeconds)}` : 'cut'}
                     onPress={mode === 'cut' ? doneCut : enterCut}
-                    accessibilityLabel={cut ? 'Change the cut' : 'Make a cut'}
+                    accessibilityLabel={mode === 'cut' ? 'Keep the cut' : cut ? 'Change the cut' : 'Make a cut'}
                   />
-                  <TogglePill
-                    on={false}
+                  <WorkButton
                     lit={mode === 'run'}
-                    icon="play-outline"
-                    label="run it"
+                    icon={mode === 'run' ? 'stop-outline' : 'play-outline'}
+                    label={mode === 'run' ? 'stop' : 'run it'}
                     onPress={mode === 'run' ? doneRun : enterRun}
-                    accessibilityLabel="Run the piece"
+                    accessibilityLabel={mode === 'run' ? 'Stop running' : 'Run the piece'}
                   />
                 </View>
               ) : null}
@@ -1022,6 +1025,74 @@ function TogglePill({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * A tool, not a fact: the cut and the run. An ink stamp on a hard block of gel,
+ * the same offset shadow the lit card carries, so it is the one shape on the
+ * page that says press me. `lit` is the mode being open, when the stamp is
+ * the way out of it and turns the paper's accent.
+ */
+function WorkButton({
+  lit,
+  icon,
+  label,
+  onPress,
+  accessibilityLabel,
+}: {
+  lit?: boolean;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
+  const { colors: c } = useTheme();
+  return (
+    <View>
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 3,
+          top: 3,
+          right: -3,
+          bottom: -3,
+          borderRadius: 5,
+          backgroundColor: c.yellow,
+        }}
+      />
+      <Pressable
+        onPress={onPress}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityState={{ selected: Boolean(lit) }}
+        accessibilityLabel={accessibilityLabel}
+        style={({ pressed }) => ({
+          height: 36,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          borderRadius: 5,
+          paddingHorizontal: 14,
+          backgroundColor: lit ? c.accentText : c.paperInk,
+          transform: pressed ? [{ translateX: 2 }, { translateY: 2 }] : undefined,
+        })}
+      >
+        <Ionicons name={icon} size={14} color={c.paper} />
+        <Text
+          style={{
+            fontFamily: 'CourierPrime_700Bold',
+            fontSize: 12,
+            letterSpacing: 1.6,
+            textTransform: 'uppercase',
+            color: c.paper,
+          }}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
