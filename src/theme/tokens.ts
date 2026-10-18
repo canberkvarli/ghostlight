@@ -46,6 +46,13 @@ export const colors = {
   yellow: '#f2e22b',
   /** Near-black ink. The pill fill, the card border, every mark drawn on paper. */
   ink: '#15110f',
+  /**
+   * The one red in the app: the block that comes out from under a row you
+   * slide aside to take out of the book. Warm, a shade under the system red,
+   * so it sits with the amber and the cream instead of arriving from iOS.
+   * Never text; always a fill under white.
+   */
+  remove: '#c7392a',
 
   /**
    * The page a card is printed on. Constant across schemes — see the note above.
