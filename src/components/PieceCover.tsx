@@ -17,7 +17,7 @@ import { sketchFor } from '../lib/sketchFor';
  *      the one image in the app that was made by someone else is left alone.
  *   2. **Film & TV without one** — the drawn clapperboard. Only ever a fallback.
  *   3. **A play** — a cloth-bound cover: one deep colour keyed to the work, the
- *      year small at the head, a theme sketch in the middle (skull, rose,
+ *      year small at the head, a theme sketch in the middle (skull,
  *      dagger, crown, jester or masks, from `sketchFor`), the short title at
  *      the foot. Deliberately drawn rather than geometric; a plain coloured
  *      rectangle with a letter in it reads as a missing asset, which is exactly

@@ -1,6 +1,6 @@
 import type { Monologue } from '../data/monologues';
 
-export type ThemeSketch = 'skull' | 'rose' | 'dagger' | 'crown' | 'jester' | 'masks';
+export type ThemeSketch = 'skull' | 'dagger' | 'crown' | 'jester' | 'masks';
 
 /**
  * Which drawing a piece gets, from what the catalogue says it is about.
@@ -13,14 +13,14 @@ export type ThemeSketch = 'skull' | 'rose' | 'dagger' | 'crown' | 'jester' | 'ma
  *
  * Order is the priority when a piece is tagged with more than one. Violence
  * first, because a revenge speech is nearly always also about death or love
- * and the dagger is the more specific picture. Then death, power, love, and
- * comedy last: comedy is the broadest tag and the tone fallback below.
+ * and the dagger is the more specific picture. Then death, power, and comedy
+ * last: comedy is the broadest tag and the tone fallback below. Love has no
+ * drawing of its own (the rose never read as a rose) and takes the masks.
  */
 const RULES: [ThemeSketch, RegExp][] = [
   ['dagger', /\b(reveng|vengean|violen|rage|enrage|fury|furious|wrath|murder|kill|betray|treach|blood)/i],
   ['skull', /\b(death|dead|dying|die\b|grief|griev|mourn|mortal|despair|suicid|loss\b|bereave)/i],
   ['crown', /\b(power|ambiti|authorit|pride|proud|king|queen|throne|crown|tyran|status|control)/i],
-  ['rose', /\b(love|lover|desire|longing|romanc|romantic|passion|heartbreak|infatuat|devotion)/i],
   ['jester', /\b(comed|comic|humou?r|absurd|wit\b|witty|farce|satir|fool)/i],
 ];
 
