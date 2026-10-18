@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -301,6 +302,15 @@ export default function Search() {
   // What comes up under the field while you are in it: the chips, then the
   // past. It fades with the focus, the reverse of the stage.
   const focusStyle = useAnimatedStyle(() => ({ opacity: focus.value }));
+  // The head of the page, greeting and houses, folds away while you are in
+  // the field, so the field rises to the top and what comes up under it has
+  // the room above the keyboard. Measured once, so the fold is exact.
+  const headH = useSharedValue(0);
+  const headStyle = useAnimatedStyle(() =>
+    headH.value > 0
+      ? { height: headH.value * (1 - focus.value), opacity: 1 - focus.value }
+      : { opacity: 1 - focus.value },
+  );
   const fieldStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${-0.6 * (1 - focus.value)}deg` }],
   }));
@@ -437,16 +447,13 @@ export default function Search() {
                 key="chips"
                 entering={FadeIn.duration(180)}
                 exiting={FadeOut.duration(140)}
-                style={[
-                  { marginTop: 22 },
-                  {
-                    width: '100%',
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center',
-                    gap: 8,
-                  },
-                ]}
+                style={{ marginTop: 22, alignSelf: 'stretch', marginHorizontal: -24 }}
+              >
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingHorizontal: 24, gap: 8, alignItems: 'center' }}
               >
                 {FILTER_CHIPS.map((chip) => {
                   const active = selected[chip.group] === chip.value;
@@ -515,6 +522,7 @@ export default function Search() {
                     {advanced > 0 ? `${advanced} more` : 'more'}
                   </Text>
                 </AnimatedPressable>
+              </ScrollView>
               </Animated.View>
     ) : null;
 
@@ -590,6 +598,13 @@ export default function Search() {
             contentContainerStyle={{ alignItems: 'center', paddingBottom: 16 }}
           >
 
+            <Animated.View style={[headStyle, { width: '100%', overflow: 'hidden' }]}>
+            <View
+              onLayout={(e) => {
+                headH.value = e.nativeEvent.layout.height;
+              }}
+              style={{ width: '100%', alignItems: 'center' }}
+            >
             {/* The greeting. Two lines, each held to one line on purpose, in a
                 box tall enough for both — so a prompt whose second line is
                 shorter cannot let the field slide up the screen. */}
@@ -633,6 +648,8 @@ export default function Search() {
             <View style={{ marginTop: 18 }}>
               <MediumToggle medium={medium} onChange={setMedium} />
             </View>
+            </View>
+            </Animated.View>
 
             {/* The field: paper on a block of gel, tilted off square until you
                 touch it. Its ink disc is the only submit on the screen. */}

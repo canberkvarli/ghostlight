@@ -136,18 +136,6 @@ const SKETCHES: Record<string, Stroke[]> = {
     { d: 'M32 16 C40 14 48 14 56 16 L56 38 C56 48 50 54 44 54 C38 54 32 48 32 38 Z' },
     { d: 'M38 28 C39 26 41 26 42 28 M48 28 C49 26 51 26 52 28 M38 44 C41 39 47 39 50 44', ink: 'accent' },
   ],
-  /** The Fool, who tells the truth. Comedy, wit. The bells are the gel. */
-  jester: [
-    { d: 'M14 44 C12 30 18 20 32 20 C46 20 52 30 50 44 Z' },
-    {
-      d: 'M16 28 C10 22 8 14 12 8 C18 10 22 16 22 23 M48 28 C54 22 56 14 52 8 C46 10 42 16 42 23 M32 20 C30 14 30 8 32 4',
-    },
-    {
-      d: 'M11 10 A2 2 0 1 1 11 6 A2 2 0 1 1 11 10 M53 10 A2 2 0 1 1 53 6 A2 2 0 1 1 53 10 M32 6 A2 2 0 1 1 32 2 A2 2 0 1 1 32 6',
-      ink: 'accent',
-    },
-    { d: 'M14 50 L50 50 M18 56 L46 56' },
-  ],
 };
 
 export type SketchName = keyof typeof SKETCHES;
