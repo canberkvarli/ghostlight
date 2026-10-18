@@ -25,7 +25,7 @@ import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { MonologueText } from '../../src/components/MonologueText';
-import { WorkingPage, type PageMode, type RunLevel } from '../../src/components/WorkingPage';
+import { WorkingPage, type PageMode } from '../../src/components/WorkingPage';
 import { applyCut, clock, estimateSeconds, joinUnits, unitsOf } from '../../src/lib/segments';
 import { sketchFor } from '../../src/lib/sketchFor';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
@@ -197,8 +197,6 @@ export default function Read() {
   // cut made here is the cut the site shows, index for index.
   const [mode, setMode] = useState<PageMode>('read');
   const [pick, setPick] = useState<{ start: number | null; end: number | null }>({ start: null, end: null });
-  const [level, setLevel] = useState<RunLevel>('hints');
-  const [revealed, setRevealed] = useState<Set<number>>(() => new Set());
   const setCutM = useSetCut();
   const units = useMemo(() => unitsOf(monologue?.fullText ?? ''), [monologue?.fullText]);
   // The saved cut: the book's row first (it moves the moment you tap Done),
@@ -256,32 +254,13 @@ export default function Read() {
     setPick({ start: null, end: null });
     setMode('read');
   };
+  // Running it is its own room (app/run/[id].tsx): the page is put away and
+  // the lines come up on the dark stage. The medium rides along so the room is
+  // lit in the same house colour as the page.
   const enterRun = () => {
     if (!monologue) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setRevealed(new Set());
-    setMode('run');
-    track('app_run_started', { level, has_cut: Boolean(cut) });
-    // Up to the first line, so the run starts where the piece does.
-    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, textTop.current - 12), animated: !reduceMotion }), 40);
-  };
-  const onReveal = (i: number) => {
-    setRevealed((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  };
-  const switchLevel = (next: RunLevel) => {
-    if (next === level) return;
-    Haptics.selectionAsync().catch(() => {});
-    setLevel(next);
-    setRevealed(new Set());
-  };
-  const doneRun = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setMode('read');
+    router.push({ pathname: '/run/[id]', params: { id: monologue.id, medium } });
   };
 
   // The title settles up into place from the card's size — a soft matched
@@ -710,11 +689,10 @@ export default function Read() {
                     accessibilityLabel={mode === 'cut' ? 'Keep the cut' : cut ? 'Change the cut' : 'Make a cut'}
                   />
                   <WorkButton
-                    lit={mode === 'run'}
-                    icon={mode === 'run' ? 'stop-outline' : 'play-outline'}
-                    label={mode === 'run' ? 'stop' : 'run it'}
-                    onPress={mode === 'run' ? doneRun : enterRun}
-                    accessibilityLabel={mode === 'run' ? 'Stop running' : 'Run the piece'}
+                    icon="play-outline"
+                    label="run it"
+                    onPress={enterRun}
+                    accessibilityLabel="Run the piece"
                   />
                 </View>
               ) : null}
@@ -784,9 +762,6 @@ export default function Read() {
                       cut={cut}
                       pick={pick}
                       onPick={onPick}
-                      level={level}
-                      revealed={revealed}
-                      onReveal={onReveal}
                       lineHeight={LINE_HEIGHT}
                       fontSize={15}
                     />
@@ -881,8 +856,6 @@ export default function Read() {
                   backgroundColor: c.paper,
                 }}
               >
-                {mode === 'cut' ? (
-                  <>
                     <Text
                       numberOfLines={2}
                       style={{
@@ -908,23 +881,6 @@ export default function Read() {
                       </Pressable>
                     ) : null}
                     <PrimaryPill label="Done" onPress={doneCut} height={38} />
-                  </>
-                ) : (
-                  <>
-                    <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
-                      {(['words', 'hints', 'dark'] as RunLevel[]).map((l) => (
-                        <TogglePill
-                          key={l}
-                          on={level === l}
-                          label={l}
-                          onPress={() => switchLevel(l)}
-                          accessibilityLabel={`Run with ${l}`}
-                        />
-                      ))}
-                    </View>
-                    <PrimaryPill label="Done" onPress={doneRun} height={38} />
-                  </>
-                )}
               </Animated.View>
             ) : null}
 

@@ -247,6 +247,8 @@ function Shell() {
             paper does its curtain rise. */}
         <Stack.Screen name="results" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
         <Stack.Screen name="read/[id]" options={{ animation: 'fade', animationDuration: 260 }} />
+        {/* The rehearsal room: the house lights go down on the page and come up on the stage. */}
+        <Stack.Screen name="run/[id]" options={{ animation: 'fade', animationDuration: 320 }} />
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
