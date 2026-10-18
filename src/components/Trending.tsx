@@ -1,12 +1,11 @@
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { StageDirection } from './StageDirection';
-import { getTrending } from '../api/client';
-import { apiToMonologue } from '../data/adapt';
+import { useTrendingList } from '../hooks/useTonight';
 import type { Monologue } from '../data/monologues';
 import { track } from '../lib/analytics';
 import type { Medium } from '../theme/medium';
@@ -19,17 +18,25 @@ import { useTheme } from '../theme/ThemeContext';
  * three searches somebody else phrased. Gone the moment you have searched
  * once; the recents take the room.
  */
-export function Trending({ medium, accent, rows = 2 }: { medium: Medium; accent: string; rows?: number }) {
+export function Trending({
+  medium,
+  accent,
+  rows = 2,
+  omit,
+}: {
+  medium: Medium;
+  accent: string;
+  rows?: number;
+  /** Tonight's speech has its own row; it is not listed twice. */
+  omit?: string;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
   const { colors: c } = useTheme();
-  const { data } = useQuery<Monologue[]>({
-    queryKey: ['trending'],
-    retry: false,
-    staleTime: 10 * 60_000,
-    queryFn: async ({ signal }) => (await getTrending(20, signal)).map(apiToMonologue),
-  });
-  const house = (data ?? []).filter((m) => (medium === 'screen' ? m.sourceType !== 'play' : m.sourceType === 'play')).slice(0, rows);
+  const data = useTrendingList();
+  const house = data
+    .filter((m) => m.id !== omit && (medium === 'screen' ? m.sourceType !== 'play' : m.sourceType === 'play'))
+    .slice(0, rows);
   if (house.length === 0) return null;
 
   const open = (m: Monologue) => {

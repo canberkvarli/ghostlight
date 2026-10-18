@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { StageDirection } from './StageDirection';
-import { useAuditions } from '../hooks/useAuditions';
+import type { Audition } from '../api/auditions';
 import { clockLabel, daysUntil } from '../lib/when';
 import { track } from '../lib/analytics';
 import { useTheme } from '../theme/ThemeContext';
@@ -23,17 +23,16 @@ const CAP = 'CourierPrime_700Bold';
  * card says so and offers to add one; signed out it says what the board is
  * for and the screen behind it asks for the account.
  */
-export function BoardCard({ isAuthenticated }: { isAuthenticated: boolean }) {
-  const router = useRouter();
-  const { colors: c } = useTheme();
-  const { data } = useAuditions(isAuthenticated);
-  // Signed out, nothing of the last account's is shown, whatever the cache
-  // still holds: the SIGNED_OUT clear in _layout and this screen's session
-  // state do not land in the same frame.
-  const auditions = isAuthenticated ? data : undefined;
-  const next = (auditions ?? [])
+/** The soonest upcoming audition, dated ones first. */
+export function nextAudition(auditions: Audition[] | undefined): Audition | undefined {
+  return (auditions ?? [])
     .filter((a) => a.scope === 'upcoming')
     .sort((a, b) => (a.when ? Date.parse(a.when) : Infinity) - (b.when ? Date.parse(b.when) : Infinity))[0];
+}
+
+export function BoardCard({ isAuthenticated, next }: { isAuthenticated: boolean; next: Audition | undefined }) {
+  const router = useRouter();
+  const { colors: c } = useTheme();
 
   const open = () => {
     Haptics.selectionAsync().catch(() => {});

@@ -35,7 +35,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
-import { BoardCard } from '../src/components/BoardCard';
+import { BoardCard, nextAudition } from '../src/components/BoardCard';
+import { ContinueCard, TonightCard, TonightRow } from '../src/components/HomeCards';
+import { useAuditions } from '../src/hooks/useAuditions';
+import { useTonight } from '../src/hooks/useTonight';
+import { isFresh, loadRecents, type RecentPiece } from '../src/lib/recents';
+import { daysUntil } from '../src/lib/when';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { Trending } from '../src/components/Trending';
 import { track } from '../src/lib/analytics';
@@ -144,11 +149,27 @@ export default function Search() {
 
   // On focus, not on mount: Search stays mounted under Results, so a list read
   // once at mount never learned about anything searched since.
+  const [recents, setRecents] = useState<RecentPiece[]>([]);
   useFocusEffect(
     useCallback(() => {
       void loadSearchHistory().then(setHistory);
+      void loadRecents().then(setRecents);
     }, []),
   );
+  // The top of the page: one card, whichever is most urgent today. An audition
+  // inside the week, then the piece you opened last in this house, then an
+  // audition further out, then tonight's speech. The empty board (nothing on
+  // it, or sign in) only heads the page when there is nothing else at all.
+  const { data: auditionData } = useAuditions(isAuthenticated);
+  // Signed out, nothing of the last account's is shown, whatever the cache
+  // still holds: the SIGNED_OUT clear in _layout and this screen's session
+  // state do not land in the same frame.
+  const next = nextAudition(isAuthenticated ? auditionData : undefined);
+  const soon = next?.when ? daysUntil(next.when) <= 7 : false;
+  const tonight = useTonight(medium);
+  const lastPiece = useMemo(() => recents.find((p) => p.medium === medium && isFresh(p)), [recents, medium]);
+  const top: 'next' | 'continue' | 'tonight' | 'board' =
+    next && (soon || !lastPiece) ? 'next' : lastPiece ? 'continue' : tonight ? 'tonight' : 'board';
   // Each house keeps its own past. Hamlet belongs to the plays; switching to
   // Film & TV shows what you looked for there, and switching back finds it again.
   const houseHistory = useMemo(() => history.filter((h) => h.medium === medium), [history, medium]);
@@ -273,6 +294,10 @@ export default function Search() {
   const belowStyle = useAnimatedStyle(() => ({
     opacity: 1 - focus.value,
     transform: [{ translateY: 18 * focus.value }, { scale: 1 - 0.04 * focus.value }],
+  }));
+  const aboveStyle = useAnimatedStyle(() => ({
+    opacity: 1 - focus.value,
+    transform: [{ translateY: -14 * focus.value }, { scale: 1 - 0.04 * focus.value }],
   }));
   const fieldStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${-0.6 * (1 - focus.value)}deg` }],
@@ -400,6 +425,98 @@ export default function Search() {
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
 
+  // Filters: a row of stage-direction chips, lit = gel behind ink. They come
+  // out only while you type, or stay while something is lit so you can see
+  // what you asked for. While typing with nothing lit they float under the
+  // field, so nothing below shifts when they go.
+  const chipsFloat = fieldFocused && activeCount === 0;
+  const chipRow =
+    fieldFocused || activeCount > 0 ? (
+              <Animated.View
+                key="chips"
+                entering={FadeIn.duration(180)}
+                exiting={FadeOut.duration(140)}
+                style={[
+                  chipsFloat ? { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 14 } : { marginTop: 22 },
+                  {
+                    width: '100%',
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: 8,
+                  },
+                ]}
+              >
+                {FILTER_CHIPS.map((chip) => {
+                  const active = selected[chip.group] === chip.value;
+                  return (
+                    <Pressable
+                      key={chipKey(chip)}
+                      onPress={() => toggle(chip)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      style={{
+                        flexShrink: 0,
+                        height: 36,
+                        justifyContent: 'center',
+                        borderRadius: 999,
+                        borderWidth: 1.5,
+                        paddingHorizontal: 14,
+                        borderColor: active ? c.ink : c.border,
+                        backgroundColor: active ? c.yellow : 'transparent',
+                      }}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontFamily: 'CourierPrime_400Regular_Italic',
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                          textTransform: 'lowercase',
+                          color: active ? c.ink : c.mutedForeground,
+                        }}
+                      >
+                        {chipText(chip.label)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+
+                {/* The premium refinement sheet — dashed, because it opens
+                    something rather than setting something. */}
+                <AnimatedPressable
+                  onPress={openMoreFilters}
+                  accessibilityRole="button"
+                  accessibilityLabel="More filters"
+                  style={{
+                    flexShrink: 0,
+                    height: 36,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 999,
+                    borderWidth: 1.5,
+                    borderStyle: 'dashed',
+                    borderColor: c.border,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <Ionicons name="options-outline" size={13} color={dashedInk} />
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: 'CourierPrime_400Regular_Italic',
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                      color: dashedInk,
+                    }}
+                  >
+                    {advanced > 0 ? `${advanced} more` : 'more'}
+                  </Text>
+                </AnimatedPressable>
+              </Animated.View>
+    ) : null;
+
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
@@ -516,6 +633,17 @@ export default function Search() {
               <MediumToggle medium={medium} onChange={setMedium} />
             </View>
 
+            {/* The card: the call sheet, the piece you left, or tonight's speech. */}
+            <Animated.View pointerEvents={fieldFocused ? 'none' : 'auto'} style={[aboveStyle, { width: '100%', marginTop: 24 }]}>
+              {top === 'next' || top === 'board' ? (
+                <BoardCard isAuthenticated={isAuthenticated} next={next} />
+              ) : top === 'continue' && lastPiece ? (
+                <ContinueCard piece={lastPiece} />
+              ) : tonight ? (
+                <TonightCard piece={tonight} medium={medium} />
+              ) : null}
+            </Animated.View>
+
             {/* The field: paper on a block of gel, tilted off square until you
                 touch it. Its ink disc is the only submit on the screen. */}
             <Animated.View style={[shakeStyle, { width: '100%', marginTop: 24 }]}>
@@ -595,99 +723,20 @@ export default function Search() {
                   </Pressable>
                 </View>
               </Animated.View>
+              {chipsFloat ? chipRow : null}
             </Animated.View>
 
-            {/* Filters: a row of stage-direction chips. Lit = gel behind ink. */}
-            <Animated.View
-              pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[
-                belowStyle,
-                {
-                  marginTop: 22,
-                  width: '100%',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: 8,
-                },
-              ]}
-            >
-              {FILTER_CHIPS.map((chip) => {
-                const active = selected[chip.group] === chip.value;
-                return (
-                  <Pressable
-                    key={chipKey(chip)}
-                    onPress={() => toggle(chip)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    style={{
-                      flexShrink: 0,
-                      height: 36,
-                      justifyContent: 'center',
-                      borderRadius: 999,
-                      borderWidth: 1.5,
-                      paddingHorizontal: 14,
-                      borderColor: active ? c.ink : c.border,
-                      backgroundColor: active ? c.yellow : 'transparent',
-                    }}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontFamily: 'CourierPrime_400Regular_Italic',
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                        textTransform: 'lowercase',
-                        color: active ? c.ink : c.mutedForeground,
-                      }}
-                    >
-                      {chipText(chip.label)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            {chipsFloat ? null : chipRow}
 
-              {/* The premium refinement sheet — dashed, because it opens
-                  something rather than setting something. */}
-              <AnimatedPressable
-                onPress={openMoreFilters}
-                accessibilityRole="button"
-                accessibilityLabel="More filters"
-                style={{
-                  flexShrink: 0,
-                  height: 36,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  borderRadius: 999,
-                  borderWidth: 1.5,
-                  borderStyle: 'dashed',
-                  borderColor: c.border,
-                  paddingHorizontal: 12,
-                }}
+            {/* Tonight's speech as a row, when another card has the top. */}
+            {tonight && top !== 'tonight' ? (
+              <Animated.View
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 26 }]}
               >
-                <Ionicons name="options-outline" size={13} color={dashedInk} />
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: 'CourierPrime_400Regular_Italic',
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                    color: dashedInk,
-                  }}
-                >
-                  {advanced > 0 ? `${advanced} more` : 'more'}
-                </Text>
-              </AnimatedPressable>
-            </Animated.View>
-
-            {/* The board: the next audition as a call sheet, or the offer of one. */}
-            <Animated.View
-              pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[belowStyle, { width: '100%', marginTop: 26 }]}
-            >
-              <BoardCard isAuthenticated={isAuthenticated} />
-            </Animated.View>
+                <TonightRow piece={tonight} medium={medium} accent={pal.accentText} />
+              </Animated.View>
+            ) : null}
 
             {/* Recent searches: hairline rows, this house's only, each with a
                 way to forget it. They used to be pills, which made four of them
@@ -703,7 +752,7 @@ export default function Search() {
                 pointerEvents={fieldFocused ? 'none' : 'auto'}
                 style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
-                <Trending medium={medium} accent={pal.accentText} rows={3} />
+                <Trending medium={medium} accent={pal.accentText} rows={2} omit={tonight?.id} />
               </Animated.View>
             ) : null}
             {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
@@ -764,6 +813,15 @@ export default function Search() {
                     </Pressable>
                   </Animated.View>
                 ))}
+              </Animated.View>
+            ) : null}
+            {/* The board with nothing on it: the offer to add one, or to sign in. */}
+            {!next && top !== 'board' ? (
+              <Animated.View
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 26 }]}
+              >
+                <BoardCard isAuthenticated={isAuthenticated} next={undefined} />
               </Animated.View>
             ) : null}
           </Animated.ScrollView>
