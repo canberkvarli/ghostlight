@@ -18,9 +18,14 @@ import * as Haptics from 'expo-haptics';
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -329,8 +334,19 @@ export default function AuditionForm() {
                 the form. Paper, not the panel colour: on the light theme the
                 panel was grey type in a grey box, and the email is the one thing
                 on this screen you must be able to read back. */}
+            {/* One host for both panes, so the form's height eases between
+                them instead of jumping, and each pane fades rather than snaps:
+                the switch above is a slide, and the page under it should move
+                like one thing. Fade only: an entrance that travels leaves the
+                buttons under it dead on Fabric. */}
+            <Animated.View layout={LinearTransition.duration(280)}>
             {!existing && mode === 'paste' ? (
-              <View style={{ marginTop: 18 }}>
+              <Animated.View
+                key="paste"
+                entering={FadeIn.duration(240)}
+                exiting={FadeOut.duration(140)}
+                style={{ marginTop: 18 }}
+              >
                 <View
                   style={{
                     borderRadius: 8,
@@ -390,19 +406,24 @@ export default function AuditionForm() {
                 {readLine && !parse.isPending ? (
                   <StageDirection numberOfLines={3} style={{ marginTop: 12 }}>{readLine}</StageDirection>
                 ) : null}
-              </View>
+              </Animated.View>
             ) : null}
 
             {/* The slow way in, always free. After a read, this is where the
-                draft lands, with what the reader was unsure about said up top. */}
-            {!existing && mode === 'hand' && readLine ? (
+                draft lands, with what the reader was unsure about said up top.
+                Coming off a read, the fields arrive a beat after the sheet has
+                gone, so the email reads as having turned into the form. */}
+            {existing || mode === 'hand' ? (
+              <Animated.View
+                key="hand"
+                entering={existing ? undefined : FadeIn.duration(260).delay(readLine ? 120 : 40)}
+                exiting={FadeOut.duration(140)}
+              >
+            {!existing && readLine ? (
               <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <StageDirection numberOfLines={3} style={{ flex: 1 }}>{readLine}</StageDirection>
               </View>
             ) : null}
-
-            {existing || mode === 'hand' ? (
-              <>
             {/* Kind: three words in a row, the chosen one in ink. */}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 24 }}>
               {KINDS.map((k) => {
@@ -563,8 +584,9 @@ export default function AuditionForm() {
               block
               style={{ marginTop: 32 }}
             />
-              </>
+              </Animated.View>
             ) : null}
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -596,23 +618,45 @@ function Sweep() {
  */
 function ModeSwitch({ mode, onChange }: { mode: 'paste' | 'hand'; onChange: (m: 'paste' | 'hand') => void }) {
   const { colors: c } = useTheme();
+  const reduce = useReducedMotion();
   const stops: { key: 'paste' | 'hand'; label: string; icon: 'clipboard-outline' | 'create-outline' }[] = [
     { key: 'paste', label: 'Paste the email', icon: 'clipboard-outline' },
     { key: 'hand', label: 'By hand', icon: 'create-outline' },
   ];
+  const index = stops.findIndex((s) => s.key === mode);
+  // The ink thumb is one object that slides between the stops, not two pills
+  // that trade fills. Width comes from layout, so the thumb fits whatever the
+  // phone's width leaves for each stop.
+  const [slot, setSlot] = useState(0);
+  const x = useSharedValue(0);
+  useEffect(() => {
+    const to = index * (slot + GAP);
+    x.value = reduce || slot === 0 ? to : withSpring(to, { damping: 22, stiffness: 240, mass: 0.7 });
+  }, [index, slot, reduce, x]);
+  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View
       accessibilityRole="tablist"
+      onLayout={(e) => setSlot((e.nativeEvent.layout.width - PAD * 2 - GAP) / 2)}
       style={{
         marginTop: 22,
         flexDirection: 'row',
-        padding: 4,
+        padding: PAD,
         borderRadius: 999,
         borderWidth: 1.5,
         borderColor: c.border,
-        gap: 4,
+        gap: GAP,
       }}
     >
+      {slot > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            thumb,
+            { position: 'absolute', left: PAD, top: PAD, width: slot, height: 40, borderRadius: 999, backgroundColor: c.foreground },
+          ]}
+        />
+      ) : null}
       {stops.map((s) => {
         const on = s.key === mode;
         return (
@@ -625,7 +669,6 @@ function ModeSwitch({ mode, onChange }: { mode: 'paste' | 'hand'; onChange: (m: 
               flex: 1,
               height: 40,
               borderRadius: 999,
-              backgroundColor: on ? c.foreground : 'transparent',
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
@@ -642,6 +685,8 @@ function ModeSwitch({ mode, onChange }: { mode: 'paste' | 'hand'; onChange: (m: 
     </View>
   );
 }
+const PAD = 4;
+const GAP = 4;
 
 function WhenChip({ label, onPress }: { label: string; onPress: () => void }) {
   const { colors: c } = useTheme();
