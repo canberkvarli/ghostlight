@@ -166,3 +166,36 @@ export function maskFirstLetters(text: string): string {
   }
   return out;
 }
+
+/**
+ * Which units are stage directions, by the server's typed segmentation. A
+ * direction segment covers a run of the text; any unit that falls wholly
+ * inside one is a direction and is set in the italic grey the plain page uses,
+ * so the working page and the plain page draw the same picture.
+ */
+export function directionUnits(
+  units: Unit[],
+  text: string | null | undefined,
+  segments?: { text: string; type: string }[],
+): Set<number> {
+  const out = new Set<number>();
+  const t = text ?? '';
+  if (!t || !segments?.length) return out;
+  const ranges: [number, number][] = [];
+  let cursor = 0;
+  for (const seg of segments) {
+    const at = t.indexOf(seg.text, cursor);
+    if (at < 0) continue;
+    if (seg.type === 'direction') ranges.push([at, at + seg.text.length]);
+    cursor = at + seg.text.length;
+  }
+  if (!ranges.length) return out;
+  cursor = 0;
+  units.forEach((u, i) => {
+    const at = t.indexOf(u.text, cursor);
+    if (at < 0) return;
+    cursor = at + u.text.length;
+    if (ranges.some(([a, b]) => at >= a && cursor <= b)) out.add(i);
+  });
+  return out;
+}

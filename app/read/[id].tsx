@@ -26,7 +26,7 @@ import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { MonologueText } from '../../src/components/MonologueText';
 import { WorkingPage, type PageMode } from '../../src/components/WorkingPage';
-import { applyCut, clock, estimateSeconds, joinUnits, unitsOf } from '../../src/lib/segments';
+import { applyCut, clock, directionUnits, estimateSeconds, joinUnits, unitsOf } from '../../src/lib/segments';
 import { sketchFor } from '../../src/lib/sketchFor';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
 import { getMonologue } from '../../src/api/client';
@@ -199,6 +199,10 @@ export default function Read() {
   const [pick, setPick] = useState<{ start: number | null; end: number | null }>({ start: null, end: null });
   const setCutM = useSetCut();
   const units = useMemo(() => unitsOf(monologue?.fullText ?? ''), [monologue?.fullText]);
+  const directions = useMemo(
+    () => directionUnits(units, monologue?.fullText, monologue?.segments),
+    [units, monologue?.fullText, monologue?.segments],
+  );
   // The saved cut: the book's row first (it moves the moment you tap Done),
   // the page's own row otherwise (the server sends it along for a kept piece).
   const cutSrc = saved ?? monologue;
@@ -556,7 +560,7 @@ export default function Read() {
           >
             <ScrollView
               ref={scrollRef}
-              contentContainerStyle={{ padding: 24, paddingBottom: gated ? 32 : working ? 96 : 56 }}
+              contentContainerStyle={{ padding: 24, paddingBottom: gated ? 32 : 96 }}
               showsVerticalScrollIndicator={false}
               onLayout={(e) => {
                 viewportH.current = e.nativeEvent.layout.height;
@@ -755,13 +759,16 @@ export default function Read() {
                       accent={ink.accent}
                       onUnlock={() => router.push('/paywall')}
                     />
-                  ) : working || cut ? (
+                  ) : units.length > 1 ? (
+                    // The same page whether you are reading or cutting, so the
+                    // words stay where they are when the cut opens.
                     <WorkingPage
                       units={units}
                       mode={mode}
                       cut={cut}
                       pick={pick}
                       onPick={onPick}
+                      directions={directions}
                       lineHeight={LINE_HEIGHT}
                       fontSize={15}
                     />
