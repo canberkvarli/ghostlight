@@ -898,7 +898,7 @@ export default function Read() {
                         ? '(tap the first line.)'
                         : pick.end == null
                           ? '(now the last.)'
-                          : `${clock(pickSeconds ?? 0)} of ${clock(fullSeconds)}`}
+                          : `${clock(pickSeconds ?? 0)} kept · ${clock(Math.max(0, fullSeconds - (pickSeconds ?? 0)))} struck`}
                     </Text>
                     {cut || pick.start != null ? (
                       <Pressable onPress={clearCut} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear the cut">

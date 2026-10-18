@@ -12,9 +12,12 @@ import { useTheme } from '../theme/ThemeContext';
  * Three jobs, one component, because they are three states of one page and the
  * words must not move between them:
  *
- *   read  — the piece, with everything outside a saved cut set back in grey.
+ *   read  — the piece, with everything outside a saved cut struck through in
+ *           pencil, the way a marked-up script looks: the kept lines in ink,
+ *           the cut ones grey with a line through them in the house colour.
  *   cut   — tap the first unit, then the last. The chosen stretch is lit on a
- *           wash of the house colour; the rest is grey.
+ *           wash of the house colour; once both ends are down, the rest is
+ *           struck the same way, so you see the cut you are about to keep.
  *   run   — rehearsing. `words` shows the piece; `hints` keeps the first letter
  *           of every word and dots the rest; `dark` leaves only a ghost of the
  *           line. A tap on a line brings it back in full, another tap puts it
@@ -66,6 +69,7 @@ export const WorkingPage = memo(function WorkingPage({
   const grey = c.paperMuted;
   const ghost = `${c.paperInk}14`;
   const wash = `${c.accentText}22`;
+  const pencil = c.accentText;
 
   const spans = useMemo(() => {
     const out: React.ReactNode[] = [];
@@ -113,6 +117,7 @@ export const WorkingPage = memo(function WorkingPage({
 
       let color = ink;
       let background: string | undefined;
+      let struck = false;
       if (mode === 'cut') {
         if (pick?.start == null) {
           color = ink;
@@ -124,9 +129,12 @@ export const WorkingPage = memo(function WorkingPage({
           const within = pLo != null && pHi != null && i >= pLo && i <= pHi;
           color = within ? ink : grey;
           background = within ? wash : undefined;
+          struck = !within;
         }
       } else if (lo != null && hi != null) {
-        color = i >= lo && i <= hi ? ink : grey;
+        const within = i >= lo && i <= hi;
+        color = within ? ink : grey;
+        struck = !within;
       }
 
       // Directions keep their italic grey inside a unit, as on the plain page.
@@ -143,7 +151,12 @@ export const WorkingPage = memo(function WorkingPage({
               : undefined
           }
           suppressHighlighting
-          style={{ color, backgroundColor: background }}
+          style={{
+            color,
+            backgroundColor: background,
+            textDecorationLine: struck ? 'line-through' : 'none',
+            textDecorationColor: pencil,
+          }}
         >
           {parts.map((p, k) =>
             IS_DIRECTION.test(p) ? (
@@ -158,7 +171,7 @@ export const WorkingPage = memo(function WorkingPage({
       );
     });
     return out;
-  }, [units, mode, cut, pick, level, revealed, onPick, onReveal, ink, grey, ghost, wash]);
+  }, [units, mode, cut, pick, level, revealed, onPick, onReveal, ink, grey, ghost, wash, pencil]);
 
   return (
     <Text
