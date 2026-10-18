@@ -34,6 +34,7 @@ import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { getOffline } from '../../src/lib/offline';
 import { noteRecent } from '../../src/lib/recents';
+import { maybeAskKnock } from '../../src/lib/nudges';
 import { track } from '../../src/lib/analytics';
 import { mediumPalette, type Medium } from '../../src/theme/medium';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -152,6 +153,7 @@ export default function RunScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setCurtain(true);
     if (id) void noteRecent(id, { ran: true });
+    void maybeAskKnock('curtain');
     track('app_run_finished', {
       level: hidden ? 'dark' : 'words',
       lines: lines.length,

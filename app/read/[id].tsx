@@ -33,6 +33,7 @@ import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
 import { noteRecent, touchRecent } from '../../src/lib/recents';
+import { maybeAskKnock, notePieceOpened } from '../../src/lib/nudges';
 import { recordFinishedRead } from '../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
@@ -161,6 +162,7 @@ export default function Read() {
     if (!monologue || touchedFor.current === monologue.id) return;
     touchedFor.current = monologue.id;
     void touchRecent(monologue, medium);
+    void notePieceOpened(monologue.id);
   }, [monologue, medium]);
 
   // Coming back from the sign-in sheet: if the page couldn't be reached before
@@ -347,6 +349,7 @@ export default function Read() {
     // Handing the row over lets the cache paint the save without waiting for the
     // POST, which is what made this button feel dead (see useToggleFavorite).
     toggleFavorite.mutate({ id: monologue.id, on: willSave, item: monologue });
+    if (willSave) void maybeAskKnock('save');
     // A bookmark filling in is easy to miss and easy to misread as a tap that
     // didn't land — especially since the same button un-saves. One word, and it
     // says which of the two just happened.
