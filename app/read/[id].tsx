@@ -32,6 +32,7 @@ import { getMonologueById, formatDuration, type Monologue } from '../../src/data
 import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { recordRead } from '../../src/lib/reads';
+import { noteRecent, touchRecent } from '../../src/lib/recents';
 import { recordFinishedRead } from '../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
 import { useSession } from '../../src/lib/useSession';
@@ -153,6 +154,15 @@ export default function Read() {
   /** What the heading draws from — the real row once it lands, the preview until then. */
   const head = monologue ?? preview;
 
+  // The home's pick-it-up card reads this: the piece opened last, on this
+  // device, saved or not. Once per piece per visit.
+  const touchedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!monologue || touchedFor.current === monologue.id) return;
+    touchedFor.current = monologue.id;
+    void touchRecent(monologue, medium);
+  }, [monologue, medium]);
+
   // Coming back from the sign-in sheet: if the page couldn't be reached before
   // (no session), try again now that there might be one — so the read opens
   // itself instead of leaving the actor on the dead-end.
@@ -187,6 +197,7 @@ export default function Read() {
     if (!saved) return;
     Haptics.impactAsync(saved.offBook ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setOffBook.mutate({ id: saved.id, on: !saved.offBook });
+    void noteRecent(saved.id, { offBook: !saved.offBook });
   };
 
   const [copied, setCopied] = useState(false);
@@ -242,6 +253,7 @@ export default function Read() {
       const hi = Math.max(pick.start, pick.end);
       if (!cut || lo !== Math.min(cut.start, cut.end) || hi !== Math.max(cut.start, cut.end)) {
         setCutM.mutate({ id: monologue.id, start: lo, end: hi, item: monologue });
+        void noteRecent(monologue.id, { cutSeconds: pickSeconds ?? 0 });
         track('app_cut_set', { seconds: pickSeconds ?? 0, of: fullSeconds, cleared: false });
         setSaveNote('Cut kept');
         setTimeout(() => setSaveNote(null), 1500);
@@ -253,6 +265,7 @@ export default function Read() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (monologue && cut) {
       setCutM.mutate({ id: monologue.id, start: null, end: null, item: monologue });
+      void noteRecent(monologue.id, { cutSeconds: null });
       track('app_cut_set', { seconds: 0, of: fullSeconds, cleared: true });
     }
     setPick({ start: null, end: null });

@@ -36,6 +36,7 @@ import { recordAppBackground, recordAppOpen } from '../src/lib/reviewMoments';
 import { useQuickActionNote } from '../src/hooks/useQuickActionNote';
 import { useReminderSync, useReminderTaps } from '../src/hooks/useReminders';
 import { clearAllReminders, configureNotifications } from '../src/lib/notifications';
+import { clearRecents } from '../src/lib/recents';
 import { useSession } from '../src/lib/useSession';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -113,6 +114,8 @@ export default function RootLayout() {
         // The reminders were this account's week; the next sign-in must not
         // get woken up for someone else's audition.
         void clearAllReminders();
+        // The pieces opened on this device were this account's reading.
+        void clearRecents();
         // Without a fresh anonymous session every request 401s and the app looks
         // broken rather than signed out.
         void bootstrapSession();

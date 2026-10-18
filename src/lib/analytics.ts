@@ -169,7 +169,7 @@ export type Event =
   | { name: 'app_run_started'; props: { level: 'words' | 'hints' | 'dark'; has_cut: boolean } }
   | { name: 'app_run_finished'; props: { level: 'words' | 'hints' | 'dark'; lines: number; seconds: number } }
   /** A row under the search field was tapped. */
-  | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
+  | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' | 'continue' | 'tonight' } }
   /** The "what is ActorRise" sheet, and where it was opened from. */
   | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } };
 

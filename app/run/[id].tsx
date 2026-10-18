@@ -33,6 +33,7 @@ import { getMonologueById, type Monologue } from '../../src/data/monologues';
 import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { getOffline } from '../../src/lib/offline';
+import { noteRecent } from '../../src/lib/recents';
 import { track } from '../../src/lib/analytics';
 import { mediumPalette, type Medium } from '../../src/theme/medium';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -150,12 +151,13 @@ export default function RunScreen() {
   const finish = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setCurtain(true);
+    if (id) void noteRecent(id, { ran: true });
     track('app_run_finished', {
       level: hidden ? 'dark' : 'words',
       lines: lines.length,
       seconds: Math.round((Date.now() - startedAt.current) / 1000),
     });
-  }, [hidden, lines.length]);
+  }, [hidden, lines.length, id]);
 
   const goTo = useCallback(
     (i: number) => {
@@ -204,6 +206,7 @@ export default function RunScreen() {
     if (!saved || saved.offBook) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setOffBook.mutate({ id: saved.id, on: true });
+    void noteRecent(saved.id, { offBook: true });
   }, [saved, setOffBook]);
 
   const fg = c.foreground;
