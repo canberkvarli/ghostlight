@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -36,12 +35,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
-import { Ticket } from '../src/components/Ticket';
-import { useAuditions } from '../src/hooks/useAuditions';
-import { useNudge } from '../src/hooks/useNudge';
-import { pickTonight, useTrendingList } from '../src/hooks/useTonight';
-import { nextAudition, trackNudgeOpen, type Nudge } from '../src/lib/nudges';
-import { isFresh, loadRecents, type RecentPiece } from '../src/lib/recents';
+import { BoardCard } from '../src/components/BoardCard';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { Trending } from '../src/components/Trending';
 import { track } from '../src/lib/analytics';
@@ -150,34 +144,11 @@ export default function Search() {
 
   // On focus, not on mount: Search stays mounted under Results, so a list read
   // once at mount never learned about anything searched since.
-  const [recents, setRecents] = useState<RecentPiece[]>([]);
   useFocusEffect(
     useCallback(() => {
       void loadSearchHistory().then(setHistory);
-      void loadRecents().then(setRecents);
     }, []),
   );
-  // The ticket under the field: one sentence, the most urgent thing today,
-  // from the engine in src/lib/nudges.ts, which also writes the knocks.
-  const { data: auditionData } = useAuditions(isAuthenticated);
-  // Signed out, nothing of the last account's is shown, whatever the cache
-  // still holds: the SIGNED_OUT clear in _layout and this screen's session
-  // state do not land in the same frame.
-  const auditions = isAuthenticated ? auditionData : undefined;
-  const next = nextAudition(auditions);
-  const trendingList = useTrendingList();
-  const tonight = useMemo(() => pickTonight(trendingList, medium), [trendingList, medium]);
-  const lastPiece = useMemo(() => recents.find((p) => p.medium === medium && isFresh(p)), [recents, medium]);
-  const { nudge, dismiss: dismissNudge } = useNudge(
-    { next, lastPiece, tonight, medium, isAuthenticated },
-    auditions,
-    trendingList,
-  );
-  const openNudge = (n: Nudge) => {
-    Haptics.selectionAsync().catch(() => {});
-    trackNudgeOpen(n);
-    router.push(n.route);
-  };
   // Each house keeps its own past. Hamlet belongs to the plays; switching to
   // Film & TV shows what you looked for there, and switching back finds it again.
   const houseHistory = useMemo(() => history.filter((h) => h.medium === medium), [history, medium]);
@@ -299,18 +270,10 @@ export default function Search() {
   // cycle, never per frame.
   const [fieldFocused, setFieldFocused] = useState(false);
 
-  // What comes up under the field while you are in it: the chips, then the
-  // past. It fades with the focus, the reverse of the stage.
-  const focusStyle = useAnimatedStyle(() => ({ opacity: focus.value }));
-  // The head of the page, greeting and houses, folds away while you are in
-  // the field, so the field rises to the top and what comes up under it has
-  // the room above the keyboard. Measured once, so the fold is exact.
-  const headH = useSharedValue(0);
-  const headStyle = useAnimatedStyle(() =>
-    headH.value > 0
-      ? { height: headH.value * (1 - focus.value), opacity: 1 - focus.value }
-      : { opacity: 1 - focus.value },
-  );
+  const belowStyle = useAnimatedStyle(() => ({
+    opacity: 1 - focus.value,
+    transform: [{ translateY: 18 * focus.value }, { scale: 1 - 0.04 * focus.value }],
+  }));
   const fieldStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${-0.6 * (1 - focus.value)}deg` }],
   }));
@@ -437,95 +400,6 @@ export default function Search() {
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
 
-  // Filters: a row of stage-direction chips, lit = gel behind ink. They come
-  // out only while you type, or stay while something is lit so you can see
-  // what you asked for. The ticket is the only other thing under the field,
-  // and it is away while you type, so nothing visible shifts when they come.
-  const chipRow =
-    fieldFocused || activeCount > 0 ? (
-              <Animated.View
-                key="chips"
-                entering={FadeIn.duration(180)}
-                exiting={FadeOut.duration(140)}
-                style={{ marginTop: 22, alignSelf: 'stretch', marginHorizontal: -24 }}
-              >
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingHorizontal: 24, gap: 8, alignItems: 'center' }}
-              >
-                {FILTER_CHIPS.map((chip) => {
-                  const active = selected[chip.group] === chip.value;
-                  return (
-                    <Pressable
-                      key={chipKey(chip)}
-                      onPress={() => toggle(chip)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      style={{
-                        flexShrink: 0,
-                        height: 36,
-                        justifyContent: 'center',
-                        borderRadius: 999,
-                        borderWidth: 1.5,
-                        paddingHorizontal: 14,
-                        borderColor: active ? c.ink : c.border,
-                        backgroundColor: active ? c.yellow : 'transparent',
-                      }}
-                    >
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          fontFamily: 'CourierPrime_400Regular_Italic',
-                          fontSize: 13,
-                          letterSpacing: 0.5,
-                          textTransform: 'lowercase',
-                          color: active ? c.ink : c.mutedForeground,
-                        }}
-                      >
-                        {chipText(chip.label)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-
-                {/* The premium refinement sheet — dashed, because it opens
-                    something rather than setting something. */}
-                <AnimatedPressable
-                  onPress={openMoreFilters}
-                  accessibilityRole="button"
-                  accessibilityLabel="More filters"
-                  style={{
-                    flexShrink: 0,
-                    height: 36,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    borderRadius: 999,
-                    borderWidth: 1.5,
-                    borderStyle: 'dashed',
-                    borderColor: c.border,
-                    paddingHorizontal: 12,
-                  }}
-                >
-                  <Ionicons name="options-outline" size={13} color={dashedInk} />
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontFamily: 'CourierPrime_400Regular_Italic',
-                      fontSize: 13,
-                      letterSpacing: 0.5,
-                      color: dashedInk,
-                    }}
-                  >
-                    {advanced > 0 ? `${advanced} more` : 'more'}
-                  </Text>
-                </AnimatedPressable>
-              </ScrollView>
-              </Animated.View>
-    ) : null;
-
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
@@ -598,13 +472,6 @@ export default function Search() {
             contentContainerStyle={{ alignItems: 'center', paddingBottom: 16 }}
           >
 
-            <Animated.View style={[headStyle, { width: '100%', overflow: 'hidden' }]}>
-            <View
-              onLayout={(e) => {
-                headH.value = e.nativeEvent.layout.height;
-              }}
-              style={{ width: '100%', alignItems: 'center' }}
-            >
             {/* The greeting. Two lines, each held to one line on purpose, in a
                 box tall enough for both — so a prompt whose second line is
                 shorter cannot let the field slide up the screen. */}
@@ -648,8 +515,6 @@ export default function Search() {
             <View style={{ marginTop: 18 }}>
               <MediumToggle medium={medium} onChange={setMedium} />
             </View>
-            </View>
-            </Animated.View>
 
             {/* The field: paper on a block of gel, tilted off square until you
                 touch it. Its ink disc is the only submit on the screen. */}
@@ -732,29 +597,119 @@ export default function Search() {
               </Animated.View>
             </Animated.View>
 
-            {chipRow}
+            {/* Filters: a row of stage-direction chips. Lit = gel behind ink. */}
+            <Animated.View
+              pointerEvents={fieldFocused ? 'none' : 'auto'}
+              style={[
+                belowStyle,
+                {
+                  marginTop: 22,
+                  width: '100%',
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  gap: 8,
+                },
+              ]}
+            >
+              {FILTER_CHIPS.map((chip) => {
+                const active = selected[chip.group] === chip.value;
+                return (
+                  <Pressable
+                    key={chipKey(chip)}
+                    onPress={() => toggle(chip)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={{
+                      flexShrink: 0,
+                      height: 36,
+                      justifyContent: 'center',
+                      borderRadius: 999,
+                      borderWidth: 1.5,
+                      paddingHorizontal: 14,
+                      borderColor: active ? c.ink : c.border,
+                      backgroundColor: active ? c.yellow : 'transparent',
+                    }}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: 'CourierPrime_400Regular_Italic',
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                        textTransform: 'lowercase',
+                        color: active ? c.ink : c.mutedForeground,
+                      }}
+                    >
+                      {chipText(chip.label)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
 
-            {/* The ticket: one sentence, the most urgent thing today, or nothing. */}
-            {nudge && !fieldFocused ? (
-              <Animated.View key={nudge.key} exiting={FadeOut.duration(120)} style={{ width: '100%', marginTop: 20 }}>
-                <Ticket nudge={nudge} onPress={() => openNudge(nudge)} onDismiss={() => dismissNudge(nudge)} />
-              </Animated.View>
-            ) : null}
+              {/* The premium refinement sheet — dashed, because it opens
+                  something rather than setting something. */}
+              <AnimatedPressable
+                onPress={openMoreFilters}
+                accessibilityRole="button"
+                accessibilityLabel="More filters"
+                style={{
+                  flexShrink: 0,
+                  height: 36,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  borderRadius: 999,
+                  borderWidth: 1.5,
+                  borderStyle: 'dashed',
+                  borderColor: c.border,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Ionicons name="options-outline" size={13} color={dashedInk} />
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'CourierPrime_400Regular_Italic',
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                    color: dashedInk,
+                  }}
+                >
+                  {advanced > 0 ? `${advanced} more` : 'more'}
+                </Text>
+              </AnimatedPressable>
+            </Animated.View>
 
-            {/* The past, only while you are in the field with nothing typed yet:
-                your last searches in this house, each with a way to forget it,
-                or before there is a past, what other actors are working on.
-                Where every search app keeps them, and off the resting stage. */}
-            {fieldFocused && !query.trim() && houseHistory.length === 0 ? (
+            {/* The board: the next audition as a call sheet, or the offer of one. */}
+            <Animated.View
+              pointerEvents={fieldFocused ? 'none' : 'auto'}
+              style={[belowStyle, { width: '100%', marginTop: 26 }]}
+            >
+              <BoardCard isAuthenticated={isAuthenticated} />
+            </Animated.View>
+
+            {/* Recent searches: hairline rows, this house's only, each with a
+                way to forget it. They used to be pills, which made four of them
+                look like four more filters. Hidden only while you type: the
+                query you just ran is still in the field when you come back from
+                Results, and hiding the list then made it look as if the search
+                had never been remembered.
+
+                Before there is a past, what other actors are working on takes the
+                room instead. */}
+            {houseHistory.length === 0 && !(fieldFocused && query.trim()) ? (
               <Animated.View
-                style={[focusStyle, { width: '100%', marginTop: 22 }]}
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
                 <Trending medium={medium} accent={pal.accentText} rows={3} />
               </Animated.View>
             ) : null}
-            {fieldFocused && !query.trim() && houseHistory.length > 0 ? (
+            {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
               <Animated.View
-                style={[focusStyle, { width: '100%', marginTop: 22 }]}
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 22 }]}
               >
                 <StageDirection style={{ marginBottom: 2 }}>(last time.)</StageDirection>
                 {houseHistory.slice(0, 4).map((item) => (

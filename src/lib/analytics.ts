@@ -116,8 +116,6 @@ export function resetIdentity(): void {
  * policy accounts for them, and the callboard promise is explicit that raw
  * queries never travel. Shape of the search, yes; the words, no.
  */
-type ReminderMomentName = 'eve' | 'soon' | 'callboard' | 'tonight' | 'left';
-
 export type Event =
   /** Did they search at all, and with what shape of query? */
   // `theatre`, not `stage`: it is what `Medium` in src/theme/medium.ts calls it
@@ -156,9 +154,9 @@ export type Event =
   /** A reminder switch on the file. `channel` is the phone or email. */
   | { name: 'app_reminder_toggled'; props: { channel: 'phone' | 'email'; on: boolean } }
   /** A local reminder went on the phone's schedule. `moment` is which of the two. */
-  | { name: 'app_reminder_scheduled'; props: { moment: ReminderMomentName; has_piece: boolean } }
+  | { name: 'app_reminder_scheduled'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
   /** Someone tapped a reminder, and the app opened from it. */
-  | { name: 'app_reminder_opened'; props: { moment: ReminderMomentName; has_piece: boolean } }
+  | { name: 'app_reminder_opened'; props: { moment: 'eve' | 'soon' | 'callboard'; has_piece: boolean } }
   /** The system rating sheet was asked for, and from where. */
   | { name: 'app_review_prompted'; props: { from: 'third_save' | 'note' | 'account' } }
   /** The tick on a saved piece: into the pocket (on) or back to the shelf. */
@@ -171,9 +169,7 @@ export type Event =
   | { name: 'app_run_started'; props: { level: 'words' | 'hints' | 'dark'; has_cut: boolean } }
   | { name: 'app_run_finished'; props: { level: 'words' | 'hints' | 'dark'; lines: number; seconds: number } }
   /** A row under the search field was tapped. */
-  | { name: 'app_home_row'; props: { row: 'book' | 'trending' } }
-  | { name: 'app_ticket'; props: { kind: 'audition' | 'left' | 'tonight' | 'board'; action: 'open' | 'dismiss' } }
-  | { name: 'app_knock_asked'; props: { yes: boolean; granted: boolean } }
+  | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
   /** The "what is ActorRise" sheet, and where it was opened from. */
   | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } };
 

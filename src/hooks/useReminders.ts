@@ -3,10 +3,11 @@ import * as Notifications from 'expo-notifications';
 import { useRootNavigationState, useRouter } from 'expo-router';
 
 import { listAuditions } from '../api/auditions';
+import { getDiscover } from '../api/client';
 import { track } from '../lib/analytics';
-import { noteTonightOpened } from '../lib/nudges';
 import {
   ensureAndroidChannel,
+  scheduleCallboard,
   syncReminders,
   type ReminderData,
 } from '../lib/notifications';
@@ -39,6 +40,20 @@ export function useReminderSync(isAuthenticated: boolean, userId: string | undef
       } catch {
         // Offline: the phone keeps whatever it already had.
       }
+      try {
+        const lineup = await getDiscover(8);
+        const pick = lineup[0];
+        if (alive && pick) {
+          await scheduleCallboard({
+            id: String(pick.id),
+            title: pick.title,
+            character: pick.character_name,
+            source: pick.play_title,
+          });
+        }
+      } catch {
+        /* ignore */
+      }
     })();
     return () => {
       alive = false;
@@ -63,7 +78,6 @@ export function useReminderTaps() {
       const monologueId = data?.monologueId;
       const auditionId = data?.auditionId;
       track('app_reminder_opened', { moment, has_piece: monologueId != null });
-      if (moment === 'tonight') void noteTonightOpened();
       // The night-before note opens the audition's file, where the piece, the
       // bring list and the room are. Two hours out there is one job left:
       // read the piece once more, so that one opens the reader.

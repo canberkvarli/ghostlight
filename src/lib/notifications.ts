@@ -29,12 +29,12 @@ const CALLBOARD_KEY = 'gl.callboard.v1';
 /** Auditions whose phone reminders were switched off on the file. */
 const OFF_KEY = 'gl.reminders.off.v1';
 
-export type ReminderMoment = 'eve' | 'soon' | 'callboard' | 'tonight' | 'left';
+export type ReminderMoment = 'eve' | 'soon' | 'callboard';
 
 export interface ReminderData {
   moment: ReminderMoment;
   auditionId?: number;
-  monologueId?: number | string;
+  monologueId?: number;
   [key: string]: unknown;
 }
 
@@ -305,6 +305,69 @@ export async function clearAllReminders(): Promise<void> {
   }
 }
 
+// ── The callboard ───────────────────────────────────────────────────────────
+
+/**
+ * One nudge a week that is not about a deadline: the piece the room is reading.
+ *
+ * No server pushes it. On launch, if the phone already allows notifications
+ * (we never ask for this; the first audition asks), pick a piece from the
+ * discover lineup and post it for the coming Sunday evening, when an actor is
+ * most likely to be planning the week. One is kept on the schedule at a time,
+ * so a quiet week gets exactly one tap on the shoulder, never a pile.
+ */
+const CALLBOARD_HOUR = 18;
+const SUNDAY = 0;
+
+interface Callboard {
+  id: string;
+  monologueId: string;
+  at: number;
+}
+
+export async function scheduleCallboard(pick: {
+  id: string;
+  title: string;
+  character: string;
+  source: string;
+}): Promise<void> {
+  if (!(await hasNotificationPermission())) return;
+  try {
+    const raw = await AsyncStorage.getItem(CALLBOARD_KEY);
+    const current = raw ? (JSON.parse(raw) as Callboard) : null;
+    if (current && current.at > Date.now()) return; // one on the board already
+  } catch {
+    /* fall through and schedule */
+  }
+
+  const now = new Date();
+  const at = new Date(now);
+  at.setHours(CALLBOARD_HOUR, 0, 0, 0);
+  let ahead = (SUNDAY - now.getDay() + 7) % 7;
+  if (ahead === 0 && at.getTime() <= now.getTime()) ahead = 7;
+  // Never the same day someone installed: give the app a few days to be missed.
+  if (ahead < 2) ahead += 7;
+  at.setDate(at.getDate() + ahead);
+
+  const id = await schedule(
+    'On the callboard this week',
+    `${pick.character}, from ${pick.source}. Worth a read before someone else brings it into the room.`,
+    at,
+    { moment: 'callboard', monologueId: Number(pick.id) },
+  );
+  if (!id) return;
+  track('app_reminder_scheduled', { moment: 'callboard', has_piece: false });
+  try {
+    await AsyncStorage.setItem(
+      CALLBOARD_KEY,
+      JSON.stringify({ id, monologueId: pick.id, at: at.getTime() } satisfies Callboard),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Android needs a channel before anything shows. iOS ignores this. */
 export async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   try {
