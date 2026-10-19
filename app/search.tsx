@@ -36,6 +36,12 @@ import { useStageMotion } from '../src/hooks/useStageMotion';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
 import { BoardCard } from '../src/components/BoardCard';
+import { Ticket } from '../src/components/Ticket';
+import { useAuditions } from '../src/hooks/useAuditions';
+import { useNudge } from '../src/hooks/useNudge';
+import { pickTonight, useTrendingList } from '../src/hooks/useTonight';
+import { trackNudgeOpen, type Nudge } from '../src/lib/nudges';
+import { isFresh, loadRecents, type RecentPiece } from '../src/lib/recents';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { Trending } from '../src/components/Trending';
 import { track } from '../src/lib/analytics';
@@ -135,6 +141,7 @@ export default function Search() {
   const [medium, setMediumState] = useState<Medium>('theatre');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [history, setHistory] = useState<RecentSearch[]>([]);
+  const [recents, setRecents] = useState<RecentPiece[]>([]);
 
   // One greeting per open, rolled in the initialiser — not an interval, not an
   // effect (see src/data/prompts.ts). Switching house re-reads the same index
@@ -147,6 +154,7 @@ export default function Search() {
   useFocusEffect(
     useCallback(() => {
       void loadSearchHistory().then(setHistory);
+      void loadRecents().then(setRecents);
     }, []),
   );
   // Each house keeps its own past. Hamlet belongs to the plays; switching to
@@ -399,6 +407,29 @@ export default function Search() {
   // account's is shown, whatever the cache still holds.
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
+
+  // The ticket and the knocks. The board card above already says the next
+  // audition and the empty board, so the ticket keeps to the two things the
+  // page has no other voice for: the piece you left in this house, and
+  // tonight's speech. The auditions still feed the knocks, which leave the
+  // audition days to the reminders that own them.
+  const { data: auditionData } = useAuditions(isAuthenticated);
+  const trendingList = useTrendingList();
+  const tonight = useMemo(() => pickTonight(trendingList, medium), [trendingList, medium]);
+  const lastPiece = useMemo(() => recents.find((r) => r.medium === medium && isFresh(r)), [recents, medium]);
+  const { nudge, dismiss: dismissNudge } = useNudge(
+    { next: undefined, lastPiece, tonight, medium, isAuthenticated: false },
+    isAuthenticated ? auditionData : undefined,
+    trendingList,
+  );
+  const openNudge = useCallback(
+    (n: Nudge) => {
+      Haptics.selectionAsync().catch(() => {});
+      void trackNudgeOpen(n);
+      router.push(n.route);
+    },
+    [router],
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -688,6 +719,19 @@ export default function Search() {
             >
               <BoardCard isAuthenticated={isAuthenticated} />
             </Animated.View>
+
+            {/* The ticket: one sentence on a paper stub, the piece you left or
+                tonight's speech. Tap to go, slide aside to be quiet for the day. */}
+            {nudge ? (
+              <Animated.View
+                key={nudge.key}
+                exiting={FadeOut.duration(120)}
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 14 }]}
+              >
+                <Ticket nudge={nudge} onPress={() => openNudge(nudge)} onDismiss={() => dismissNudge(nudge)} />
+              </Animated.View>
+            ) : null}
 
             {/* Recent searches: hairline rows, this house's only, each with a
                 way to forget it. They used to be pills, which made four of them
