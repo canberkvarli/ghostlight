@@ -7,6 +7,8 @@ import Animated, {
   Easing,
   FadeIn,
   FadeOut,
+  interpolateColor,
+  LinearTransition,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -25,7 +27,7 @@ import { PageCurl } from '../../src/components/PageCurl';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { MonologueText } from '../../src/components/MonologueText';
-import { WorkingPage, type PageMode } from '../../src/components/WorkingPage';
+import { WorkingPage, type PageMode, type PageView } from '../../src/components/WorkingPage';
 import { applyCut, clock, directionUnits, estimateSeconds, joinUnits, unitsOf } from '../../src/lib/segments';
 import { sketchFor } from '../../src/lib/sketchFor';
 import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
@@ -209,6 +211,9 @@ export default function Read() {
   // is the plain page. The units are the website's (src/lib/segments.ts), so a
   // cut made here is the cut the site shows, index for index.
   const [mode, setMode] = useState<PageMode>('read');
+  // How a kept cut is read: struck through, or the whole speech with the
+  // kept stretch on a wash. Back to struck each time a cut is kept.
+  const [view, setView] = useState<PageView>('cut');
   const [pick, setPick] = useState<{ start: number | null; end: number | null }>({ start: null, end: null });
   const setCutM = useSetCut();
   const units = useMemo(() => unitsOf(monologue?.fullText ?? ''), [monologue?.fullText]);
@@ -261,6 +266,7 @@ export default function Read() {
         setTimeout(() => setSaveNote(null), 1500);
       }
     }
+    setView('cut');
     setMode('read');
   };
   const clearCut = () => {
@@ -746,9 +752,60 @@ export default function Read() {
                   `onLayout` is how the wall knows where line five begins: the y it
                   reports is this block's top inside the card, and the shroud is
                   pinned four line-boxes below it. */}
+              {/* With a cut kept, the page says so above the words, and
+                  offers the whole speech back: nothing is gone, it is struck.
+                  The words ease down to make the room. */}
+              {wallKnown && monologue && cut && mode === 'read' && !gated && units.length > 1 ? (
+                <Animated.View
+                  entering={FadeIn.duration(320)}
+                  exiting={FadeOut.duration(200)}
+                  layout={LinearTransition.duration(320)}
+                  style={{ marginTop: 16 }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'CourierPrime_400Regular_Italic',
+                      fontSize: 12,
+                      lineHeight: 18,
+                      letterSpacing: 0.8,
+                      color: c.paperMuted,
+                    }}
+                  >
+                    {`(cut to ${clock(cutSeconds)} of ${clock(fullSeconds)} · `}
+                    <Text
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setView('cut');
+                      }}
+                      suppressHighlighting
+                      accessibilityRole="button"
+                      accessibilityLabel="Show the cut, the rest struck through"
+                      style={view === 'cut' ? { fontFamily: 'CourierPrime_700Bold', fontStyle: 'normal', color: c.paperInk } : undefined}
+                    >
+                      the cut
+                    </Text>
+                    {' / '}
+                    <Text
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setView('whole');
+                      }}
+                      suppressHighlighting
+                      accessibilityRole="button"
+                      accessibilityLabel="Show the whole speech"
+                      style={view === 'whole' ? { fontFamily: 'CourierPrime_700Bold', fontStyle: 'normal', color: c.paperInk } : undefined}
+                    >
+                      the whole
+                    </Text>
+                    {')'}
+                  </Text>
+                </Animated.View>
+              ) : null}
+
               {wallKnown && monologue ? (
                 <Animated.View
                   entering={FadeIn.duration(500)}
+                  layout={LinearTransition.duration(320)}
                   style={{ marginTop: 16 }}
                   onLayout={(e) => {
                     // A short speech that fits on screen is read to the end already.
@@ -782,6 +839,7 @@ export default function Read() {
                       units={units}
                       mode={mode}
                       cut={cut}
+                      view={view}
                       pick={pick}
                       onPick={onPick}
                       directions={directions}
@@ -856,13 +914,22 @@ export default function Read() {
             </ScrollView>
 
             {/* A folded corner, so the page reads as paper. Hidden behind the wall. */}
-            {gated || working ? null : <PageCurl />}
+            {gated || working ? null : (
+              <Animated.View
+                pointerEvents="none"
+                entering={FadeIn.duration(260)}
+                exiting={FadeOut.duration(160)}
+                style={{ position: 'absolute', right: 0, bottom: 0, width: 46, height: 46 }}
+              >
+                <PageCurl />
+              </Animated.View>
+            )}
 
             {/* The working bar, along the foot of the paper. */}
             {working ? (
               <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(160)}
+                entering={FadeIn.duration(280)}
+                exiting={FadeOut.duration(200)}
                 style={{
                   position: 'absolute',
                   left: 0,
@@ -879,7 +946,9 @@ export default function Read() {
                   backgroundColor: c.paper,
                 }}
               >
-                    <Text
+                    <Animated.Text
+                      key={pick.start == null ? 'first' : pick.end == null ? 'last' : 'kept'}
+                      entering={FadeIn.duration(220)}
                       numberOfLines={2}
                       style={{
                         flex: 1,
@@ -895,7 +964,7 @@ export default function Read() {
                         : pick.end == null
                           ? '(now the last.)'
                           : `${clock(pickSeconds ?? 0)} kept · ${clock(Math.max(0, fullSeconds - (pickSeconds ?? 0)))} struck`}
-                    </Text>
+                    </Animated.Text>
                     {cut || pick.start != null ? (
                       <Pressable onPress={clearCut} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear the cut">
                         <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: c.paperMuted }}>
@@ -1027,6 +1096,16 @@ function WorkButton({
   accessibilityLabel: string;
 }) {
   const { colors: c } = useTheme();
+  const reduce = useReducedMotion();
+  // The stamp takes the accent and gives it back in a breath, not a blink,
+  // and the word on it fades to the next one rather than jumping.
+  const on = useSharedValue(lit ? 1 : 0);
+  useEffect(() => {
+    on.value = withTiming(lit ? 1 : 0, { duration: reduce ? 0 : 320, easing: Easing.inOut(Easing.cubic) });
+  }, [lit, on, reduce]);
+  const inkStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(on.value, [0, 1], [c.paperInk, c.accentText]),
+  }));
   return (
     <View>
       <View
@@ -1054,12 +1133,15 @@ function WorkButton({
           gap: 8,
           borderRadius: 5,
           paddingHorizontal: 14,
-          backgroundColor: lit ? c.accentText : c.paperInk,
+          overflow: 'hidden',
           transform: pressed ? [{ translateX: 2 }, { translateY: 2 }] : undefined,
         })}
       >
+        <Animated.View pointerEvents="none" style={[inkStyle, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]} />
         <Ionicons name={icon} size={14} color={c.paper} />
-        <Text
+        <Animated.Text
+          key={label}
+          entering={FadeIn.duration(200)}
           style={{
             fontFamily: 'CourierPrime_700Bold',
             fontSize: 12,
@@ -1069,7 +1151,7 @@ function WorkButton({
           }}
         >
           {label}
-        </Text>
+        </Animated.Text>
       </Pressable>
     </View>
   );
