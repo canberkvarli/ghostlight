@@ -24,6 +24,7 @@ import { Mark, sourceTag } from '../../src/components/Marks';
 import { useStageMotion } from '../../src/hooks/useStageMotion';
 import { ReadWall } from '../../src/components/ReadWall';
 import { PageCurl } from '../../src/components/PageCurl';
+import { ShareCard, sharePiece } from '../../src/components/ShareCard';
 import { SimilarRow } from '../../src/components/SimilarRow';
 import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { MonologueText } from '../../src/components/MonologueText';
@@ -235,6 +236,7 @@ export default function Read() {
       ? estimateSeconds(joinUnits(units, Math.min(pick.start, pick.end), Math.max(pick.start, pick.end)))
       : null;
   const textTop = useRef(0);
+  const shareRef = useRef<View>(null);
   const working = mode !== 'read';
 
   const enterCut = () => {
@@ -497,6 +499,12 @@ export default function Read() {
 
   return (
     <View style={{ flex: 1, backgroundColor: pal.background ?? c.background }}>
+      {/* The share card, off the edge of the screen, ready to be photographed. */}
+      {monologue ? (
+        <View pointerEvents="none" style={{ position: 'absolute', left: -1000, top: 0 }}>
+          <ShareCard ref={shareRef} piece={monologue} />
+        </View>
+      ) : null}
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* On the dark shell: the eyebrow (centred), the way back, and the tools. */}
         <View style={{ height: 48, justifyContent: 'center', paddingHorizontal: 20 }}>
@@ -523,6 +531,18 @@ export default function Read() {
               </Text>
             </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+              {/* The piece as a picture, for a story. The card is the excerpt,
+                  which is free to everyone, so this is not a way round the wall. */}
+              <Pressable
+                onPress={() => {
+                  if (monologue) void sharePiece(shareRef, monologue, 'read');
+                }}
+                hitSlop={14}
+                accessibilityRole="button"
+                accessibilityLabel="Share the monologue as a picture"
+              >
+                <Ionicons name="share-outline" size={21} color={c.mutedForeground} />
+              </Pressable>
               <Pressable
                 onPress={onCopy}
                 hitSlop={14}

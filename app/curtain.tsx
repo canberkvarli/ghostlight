@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Keyboard, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,6 +19,7 @@ import { GhostLight } from '../src/components/GhostLight';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { PaperCard } from '../src/components/PaperCard';
 import { PieceCover } from '../src/components/PieceCover';
+import { ShareCard, sharePiece } from '../src/components/ShareCard';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { WordArrow } from '../src/components/WordArrow';
@@ -73,6 +74,7 @@ export default function Curtain() {
   const piece = house.length ? house[((at % house.length) + house.length) % house.length] : null;
 
   const [query, setQuery] = useState('');
+  const shareRef = useRef<View>(null);
 
   // The next two posters are fetched while this page is up, so a swipe lands
   // on a cover and not on a blank where one is loading.
@@ -165,6 +167,12 @@ export default function Curtain() {
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />
+      {/* The share card, off the edge of the screen, ready to be photographed. */}
+      {piece ? (
+        <View pointerEvents="none" style={{ position: 'absolute', left: -1000, top: 0 }}>
+          <ShareCard ref={shareRef} piece={piece} />
+        </View>
+      ) : null}
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <Pressable onPress={() => Keyboard.dismiss()} accessible={false} style={{ flex: 1, paddingHorizontal: 24 }}>
           {/* The lamp in the middle, the way in for people who already have a seat on the right. */}
@@ -230,6 +238,7 @@ export default function Curtain() {
                 <Animated.View style={cardStyle}>
                   <Pressable
                     onPress={open}
+                    onLongPress={() => void sharePiece(shareRef, piece, 'curtain')}
                     onPressIn={() => {
                       pressed.value = withTiming(1, { duration: 90 });
                     }}
@@ -238,7 +247,7 @@ export default function Curtain() {
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={`${piece.character}, from ${piece.source}. Read it`}
-                    accessibilityHint="Swipe sideways for another"
+                    accessibilityHint="Swipe sideways for another. Press and hold to share it as a picture"
                   >
                     <PaperCard rotate={-0.6} shadow={8} pressed={pressed} style={{ padding: 22 }}>
                       {/* The head of the page: the cover of the thing the speech
