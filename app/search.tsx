@@ -39,7 +39,7 @@ import { BoardCard } from '../src/components/BoardCard';
 import { Ticket } from '../src/components/Ticket';
 import { useAuditions } from '../src/hooks/useAuditions';
 import { useNudge } from '../src/hooks/useNudge';
-import { pickTonight, useTrendingList } from '../src/hooks/useTonight';
+import { pickTonight, useHouseList } from '../src/hooks/useTonight';
 import { trackNudgeOpen, type Nudge } from '../src/lib/nudges';
 import { isFresh, loadRecents, type RecentPiece } from '../src/lib/recents';
 import { useFavorites } from '../src/hooks/useFavorites';
@@ -414,7 +414,7 @@ export default function Search() {
   // tonight's speech. The auditions still feed the knocks, which leave the
   // audition days to the reminders that own them.
   const { data: auditionData } = useAuditions(isAuthenticated);
-  const trendingList = useTrendingList();
+  const trendingList = useHouseList(medium);
   const tonight = useMemo(() => pickTonight(trendingList, medium), [trendingList, medium]);
   const lastPiece = useMemo(() => recents.find((r) => r.medium === medium && isFresh(r)), [recents, medium]);
   const { nudge, dismiss: dismissNudge } = useNudge(

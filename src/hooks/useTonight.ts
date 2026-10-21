@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getTrending } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import type { Monologue } from '../data/monologues';
+import { searchScreen } from '../lib/screen';
 import type { Medium } from '../theme/medium';
 
 /**
@@ -39,7 +40,30 @@ export function useTrendingList(): Monologue[] {
   return data ?? [];
 }
 
+/**
+ * Film & TV has no trending list: the plays' shelf is plays only. Its shelf is
+ * the screen search with nothing asked of it, the same rows the results page
+ * shows when you open that house without typing, so tonight's speech on
+ * screen is the same for everyone too.
+ */
+export function useScreenShelf(): Monologue[] {
+  const { data } = useQuery<Monologue[]>({
+    queryKey: ['screen-shelf'],
+    retry: false,
+    staleTime: 10 * 60_000,
+    queryFn: ({ signal }) => searchScreen({}, 20, signal),
+  });
+  return data ?? [];
+}
+
+/** The house's shelf: trending for the plays, the screen search for Film & TV. */
+export function useHouseList(medium: Medium): Monologue[] {
+  const trending = useTrendingList();
+  const screen = useScreenShelf();
+  return medium === 'screen' ? screen : trending;
+}
+
 export function useTonight(medium: Medium): Monologue | null {
-  const list = useTrendingList();
+  const list = useHouseList(medium);
   return pickTonight(list, medium);
 }

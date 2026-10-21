@@ -22,7 +22,7 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { WordArrow } from '../src/components/WordArrow';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { pickTonight, useTrendingList } from '../src/hooks/useTonight';
+import { pickTonight, useHouseList } from '../src/hooks/useTonight';
 import { track } from '../src/lib/analytics';
 import { clock } from '../src/lib/segments';
 import { mediumPalette, type Medium } from '../src/theme/medium';
@@ -57,7 +57,7 @@ export default function Curtain() {
   useEffect(() => {
     if (isAuthenticated) router.replace('/search');
   }, [isAuthenticated, router]);
-  const list = useTrendingList();
+  const list = useHouseList(medium);
 
   // The house, in the order the curtain shows it: tonight's speech, then the
   // rest of the list after it, wrapping round.
