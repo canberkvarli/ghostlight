@@ -29,6 +29,9 @@ import { colors } from '../theme/tokens';
  * and a play's cover is cloth and a title rather than the drawn sketch.
  */
 
+/** The one place the app is for sale. Same link the website's QR code points at. */
+export const APP_STORE_URL = 'https://apps.apple.com/us/app/ghost-light-monologues/id6804278673';
+
 export const SHARE_W = 360;
 export const SHARE_H = 450;
 
@@ -185,8 +188,10 @@ export const ShareCard = forwardRef<View, { piece: Monologue }>(function ShareCa
 });
 
 /**
- * Photograph the card and hand it to the share sheet. The file lives in the
- * cache, named by the piece, so sharing the same one twice writes once.
+ * Photograph the card and hand it to the share sheet, with a line and the
+ * App Store link beside it. A story takes the picture and drops the words; a
+ * message takes both, so the picture is never a dead end in a chat. The file
+ * lives in the cache, named by the piece.
  */
 export async function sharePiece(ref: RefObject<View | null>, piece: Monologue, from: 'read' | 'curtain'): Promise<void> {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -198,5 +203,8 @@ export async function sharePiece(ref: RefObject<View | null>, piece: Monologue, 
   file.create();
   file.write(bytes);
   track('app_share', { from, medium: piece.sourceType === 'play' ? 'theatre' : 'screen' });
-  await Share.share({ url: file.uri });
+  await Share.share({
+    url: file.uri,
+    message: `${piece.character}, from ${piece.source}. The whole speech is in Ghost Light:\n${APP_STORE_URL}`,
+  });
 }
