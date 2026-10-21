@@ -45,6 +45,7 @@ import { isFresh, loadRecents, type RecentPiece } from '../src/lib/recents';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { Trending } from '../src/components/Trending';
 import { track } from '../src/lib/analytics';
+import { syncWidget } from '../src/lib/widget';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useSession } from '../src/lib/useSession';
 import { colors, radius } from '../src/theme/tokens';
@@ -415,6 +416,9 @@ export default function Search() {
   // audition days to the reminders that own them.
   const { data: auditionData } = useAuditions(isAuthenticated);
   const trendingList = useHouseList(medium);
+  useEffect(() => {
+    syncWidget(trendingList, medium);
+  }, [trendingList, medium]);
   const tonight = useMemo(() => pickTonight(trendingList, medium), [trendingList, medium]);
   const lastPiece = useMemo(() => recents.find((r) => r.medium === medium && isFresh(r)), [recents, medium]);
   const { nudge, dismiss: dismissNudge } = useNudge(

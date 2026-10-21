@@ -26,6 +26,7 @@ import { WordArrow } from '../src/components/WordArrow';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { pickTonight, useHouseList } from '../src/hooks/useTonight';
 import { track } from '../src/lib/analytics';
+import { syncWidget } from '../src/lib/widget';
 import { clock } from '../src/lib/segments';
 import { mediumPalette, type Medium } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -71,6 +72,12 @@ export default function Curtain() {
   }, [list, medium]);
   const [at, setAt] = useState(0);
   const [swiped, setSwiped] = useState(false);
+
+  // The home screen widget reads the same shelf: a week of tonights, written
+  // whenever this house has one.
+  useEffect(() => {
+    syncWidget(list, medium);
+  }, [list, medium]);
   const piece = house.length ? house[((at % house.length) + house.length) % house.length] : null;
 
   const [query, setQuery] = useState('');
