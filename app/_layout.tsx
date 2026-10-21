@@ -251,6 +251,7 @@ function Shell() {
         {/* Results rise and fade up like the lights changing for a new scene,
             rather than sliding in from the side. Read cross-fades, then the
             paper does its curtain rise. */}
+        <Stack.Screen name="curtain" options={{ animation: 'fade', animationDuration: 320 }} />
         <Stack.Screen name="results" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
         <Stack.Screen name="read/[id]" options={{ animation: 'fade', animationDuration: 260 }} />
         {/* The rehearsal room: a sheet that comes up over the page and goes

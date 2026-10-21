@@ -172,6 +172,7 @@ export type Event =
   | { name: 'app_run_finished'; props: { level: 'words' | 'hints' | 'dark'; lines: number; seconds: number } }
   /** A row under the search field was tapped. */
   | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
+  | { name: 'app_curtain'; props: { action: 'open' | 'swipe' | 'search' | 'sign_in' } }
   | { name: 'app_ticket'; props: { kind: 'audition' | 'left' | 'tonight' | 'board'; action: 'open' | 'dismiss' } }
   | { name: 'app_knock_asked'; props: { yes: boolean; granted: boolean } }
   /** The "what is ActorRise" sheet, and where it was opened from. */

@@ -37,7 +37,7 @@ import { track } from '../lib/analytics';
  */
 
 /** Routes where a note would interrupt something that matters more. */
-const QUIET_ROUTES = new Set(['/', '/onboarding', '/paywall', '/auth', '/note']);
+const QUIET_ROUTES = new Set(['/', '/curtain', '/paywall', '/auth', '/note']);
 
 export function BackstageNoteHost() {
   const pathname = usePathname();

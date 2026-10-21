@@ -85,7 +85,7 @@ const PAGE = 20;
 export default function Results() {
   const { height } = useWindowDimensions();
   const router = useRouter();
-  const goBack = useGoBack('/search');
+  const goBack = useGoBack('/');
   const insets = useSafeAreaInsets();
   const { tiltX, tiltY, reduceMotion } = useStageMotion();
   const { colors: c } = useTheme();

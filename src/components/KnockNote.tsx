@@ -26,7 +26,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * two pages never land on top of each other.
  */
 
-const QUIET_ROUTES = new Set(['/', '/onboarding', '/paywall', '/auth', '/note']);
+const QUIET_ROUTES = new Set(['/', '/curtain', '/paywall', '/auth', '/note']);
 
 export function KnockNoteHost() {
   const pathname = usePathname();

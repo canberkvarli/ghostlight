@@ -160,7 +160,7 @@ export function ReadWall({
                   color: c.paperMuted,
                 }}
               >
-                (three reads were the trial.)
+                (the first one was on the house.)
               </Text>
               <PrimaryPill
                 label="Unlock every monologue"

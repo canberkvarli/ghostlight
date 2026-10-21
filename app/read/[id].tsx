@@ -107,7 +107,7 @@ const BLOCK = 8;
 export default function Read() {
   const { id, medium: mediumParam } = useLocalSearchParams<{ id: string; medium?: string }>();
   const router = useRouter();
-  const goBack = useGoBack('/search');
+  const goBack = useGoBack('/');
   const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();
   const { colors: c } = useTheme();

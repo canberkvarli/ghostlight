@@ -9,6 +9,9 @@ import { supabase } from '../lib/supabase';
  * that breaks this surfaces as a TypeScript error rather than a runtime 500.
  */
 
+/** Full reads before the wall. One: the first is the product, the second is the trial. */
+export const FREE_READS = 1;
+
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.actorrise.com';
 const ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -112,7 +115,7 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
   // signed-out 401 PRESERVED the previous account's `is_paid: true` instead of
   // clearing it. Returning a locked state makes the failure fail closed.
   if (res.status === 401 || res.status === 403) {
-    return { reads_used: 0, reads_limit: 3, is_paid: false, atWall: false };
+    return { reads_used: 0, reads_limit: FREE_READS, is_paid: false, atWall: false };
   }
   if (!res.ok) throw new ApiError(res.status, `usage failed (${res.status})`);
   const j = (await res.json()) as {
@@ -120,8 +123,12 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
     monologue_reads_limit?: number;
   };
   const used = j.monologue_reads_used ?? 0;
-  const limit = j.monologue_reads_limit ?? 3;
-  const isPaid = limit === -1;
+  const serverLimit = j.monologue_reads_limit ?? FREE_READS;
+  const isPaid = serverLimit === -1;
+  // The server still allows three; the app shows the wall after one. The
+  // first read is the whole product, free. The second is where the trial
+  // starts. Clamped here so the count and the wall agree everywhere.
+  const limit = isPaid ? serverLimit : Math.min(serverLimit, FREE_READS);
   return { reads_used: used, reads_limit: limit, is_paid: isPaid, atWall: !isPaid && used >= limit };
 }
 
