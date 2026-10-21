@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Keyboard, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Image, Keyboard, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import Animated, {
 import { GhostLight } from '../src/components/GhostLight';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { PaperCard } from '../src/components/PaperCard';
+import { PieceCover } from '../src/components/PieceCover';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { WordArrow } from '../src/components/WordArrow';
@@ -72,6 +73,16 @@ export default function Curtain() {
   const piece = house.length ? house[((at % house.length) + house.length) % house.length] : null;
 
   const [query, setQuery] = useState('');
+
+  // The next two posters are fetched while this page is up, so a swipe lands
+  // on a cover and not on a blank where one is loading.
+  useEffect(() => {
+    if (house.length < 2) return;
+    for (const k of [1, 2]) {
+      const m = house[(((at + k) % house.length) + house.length) % house.length];
+      if (m?.posterUrl) Image.prefetch(m.posterUrl).catch(() => {});
+    }
+  }, [house, at]);
 
   const changeHouse = useCallback((next: Medium) => {
     Haptics.selectionAsync().catch(() => {});
@@ -230,35 +241,47 @@ export default function Curtain() {
                     accessibilityHint="Swipe sideways for another"
                   >
                     <PaperCard rotate={-0.6} shadow={8} pressed={pressed} style={{ padding: 22 }}>
-                      <StageDirection on="paper">{at === 0 && !swiped ? '(tonight.)' : '(another.)'}</StageDirection>
-                      <Text
-                        numberOfLines={2}
-                        style={{
-                          marginTop: 8,
-                          fontFamily: 'InstrumentSerif_400Regular',
-                          fontSize: 32,
-                          lineHeight: 36,
-                          letterSpacing: -0.4,
-                          color: c.paperInk,
-                        }}
-                      >
-                        {piece.character}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          marginTop: 4,
-                          fontFamily: 'CourierPrime_400Regular_Italic',
-                          fontSize: 13,
-                          letterSpacing: 0.4,
-                          color: c.paperMuted,
-                        }}
-                      >
-                        {`from ${piece.source}`}
-                      </Text>
+                      {/* The head of the page: the cover of the thing the speech
+                          came out of, the poster for a film or a series and the
+                          cloth cover for a play, with the name and the source
+                          beside it. */}
+                      <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <View style={{ transform: [{ rotate: '-2deg' }], marginTop: 2 }}>
+                          <PieceCover item={piece} width={68} height={98} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+                          <StageDirection on="paper">{at === 0 && !swiped ? '(tonight.)' : '(another.)'}</StageDirection>
+                          <Text
+                            numberOfLines={2}
+                            style={{
+                              marginTop: 6,
+                              fontFamily: 'InstrumentSerif_400Regular',
+                              fontSize: 28,
+                              lineHeight: 31,
+                              letterSpacing: -0.4,
+                              color: c.paperInk,
+                            }}
+                          >
+                            {piece.character}
+                          </Text>
+                          <Text
+                            numberOfLines={2}
+                            style={{
+                              marginTop: 4,
+                              fontFamily: 'CourierPrime_400Regular_Italic',
+                              fontSize: 13,
+                              lineHeight: 17,
+                              letterSpacing: 0.4,
+                              color: c.paperMuted,
+                            }}
+                          >
+                            {`from ${piece.source}`}
+                          </Text>
+                        </View>
+                      </View>
                       <View style={{ marginTop: 16, height: 1.5, backgroundColor: c.ink }} />
                       <Text
-                        numberOfLines={7}
+                        numberOfLines={6}
                         style={{
                           marginTop: 14,
                           fontFamily: 'CourierPrime_400Regular',
