@@ -830,7 +830,6 @@ export default function Read() {
                       fontSize={15}
                       width={width}
                       accent={ink.accent}
-                      onUnlock={() => router.push('/paywall')}
                     />
                   ) : units.length > 1 ? (
                     // The same page whether you are reading or cutting, so the

@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
-import type { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from 'react-native-purchases';
 
 import { GhostLight } from '../src/components/GhostLight';
 import { PaperCard } from '../src/components/PaperCard';
@@ -15,22 +13,9 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useCatalogueSize } from '../src/hooks/useCatalogueSize';
+import { PRIVACY_URL, TERMS_URL, useTrialOffer } from '../src/hooks/useTrialOffer';
 import { useTheme } from '../src/theme/ThemeContext';
-import {
-  getCurrentOffering,
-  isPurchasesConfigured,
-  purchase,
-  restore,
-} from '../src/lib/purchases';
 import { colors } from '../src/theme/tokens';
-import type { ReadState } from '../src/api/client';
-import { useSession } from '../src/lib/useSession';
-import { track } from '../src/lib/analytics';
-
-// Same pair the Account screen links to. Kept as literals rather than imported
-// from account.tsx so the paywall does not pull a screen module in.
-const TERMS_URL = 'https://actorrise.com/terms';
-const PRIVACY_URL = 'https://actorrise.com/privacy';
 
 /**
  * The paywall — a free trial (length set in App Store Connect; handoff §5).
@@ -44,22 +29,38 @@ const PRIVACY_URL = 'https://actorrise.com/privacy';
  * Nothing on this screen takes a colour from a `className`. See app/auth.tsx for
  * what that cost the last time — a headline that resolved to the light scheme's
  * ink while the stage behind it was the dark scheme's, and so could not be seen.
+ *
+ * The money itself is src/hooks/useTrialOffer.ts, shared with the wall on the
+ * page; this screen only draws it.
  */
-
-type Plan = 'annual' | 'monthly';
 
 export default function Paywall() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
-  const [plan, setPlan] = useState<Plan>('annual');
-  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
   const { colors: c } = useTheme();
-  const queryClient = useQueryClient();
-  const { isAuthenticated } = useSession();
   const { label: catalogue } = useCatalogueSize();
+
+  const close = useCallback(() => (router.canGoBack() ? router.back() : router.replace('/')), [router]);
+  const {
+    plan,
+    setPlan,
+    busy,
+    restoring,
+    note,
+    storeDown,
+    retry,
+    annualBilled,
+    monthlyBilled,
+    annualPerMonth,
+    billed,
+    cadence,
+    trialLabel,
+    terms,
+    buy,
+    onRestore,
+  } = useTrialOffer({ from: 'paywall', onDone: close, onSignIn: () => router.replace('/auth') });
+  const headlineTrial = trialLabel ?? '1 week';
+  const headlineWord = `${headlineTrial[0].toUpperCase()}${headlineTrial.slice(1)}`;
 
   // Every line here must map to a real entitlement check, or App Review reads it
   // as a promise the purchase doesn't keep (Guideline 2.3.1/3.1.2). This list
@@ -85,151 +86,6 @@ export default function Paywall() {
     ],
     [catalogue],
   );
-
-  // RevenueCat confirms the entitlement on-device the instant the purchase
-  // returns, but ['read-wall'] is served by our API, which only learns about it
-  // when the RevenueCat webhook lands — a second or two later, sometimes more.
-  // Invalidating alone therefore refetches the one source that is still saying
-  // "free", which is precisely the wait it looks like it's avoiding.
-  //
-  // So: seed the unlocked state so the app opens the moment the sheet closes,
-  // then reconcile against the server as the webhook arrives. The server stays
-  // the source of truth; it just gets a head start.
-  const refreshEntitlement = () => {
-    queryClient.setQueryData<ReadState>(['read-wall'], {
-      reads_used: 0,
-      reads_limit: -1,
-      is_paid: true,
-      atWall: false,
-    });
-    queryClient.invalidateQueries({ queryKey: ['monologue'] });
-    for (const ms of [1500, 4000, 9000]) {
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['read-wall'] }), ms);
-    }
-  };
-
-  // `null` means "not answered yet", which is not the same as "answered, and
-  // there is nothing to sell". Conflating the two is what let this screen show
-  // prices it had invented while the CTA was inert.
-  const [storeReachable, setStoreReachable] = useState<boolean | null>(null);
-
-  // The wall firing at all is the event; whether it converts is the two above.
-  // `reads_used` comes off the cached read state rather than a fresh fetch,
-  // because a paywall must not wait on telemetry to draw.
-  useEffect(() => {
-    const wall = queryClient.getQueryData<ReadState>(['read-wall']);
-    track('paywall_shown', { reads_used: wall?.reads_used ?? 0, from: 'read' });
-  }, [queryClient]);
-
-  useEffect(() => {
-    let alive = true;
-    getCurrentOffering()
-      .then((o) => {
-        if (!alive) return;
-        setOffering(o);
-        setStoreReachable(Boolean(o?.annual || o?.monthly));
-      })
-      .catch(() => {
-        if (!alive) return;
-        setOffering(null);
-        setStoreReachable(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const annualPkg = offering?.annual ?? null;
-  const monthlyPkg = offering?.monthly ?? null;
-  const annualBilled = annualPkg?.product.priceString ?? '$29.99';
-  const monthlyBilled = monthlyPkg?.product.priceString ?? '$4.99';
-  const annualPerMonth = perMonthString(annualPkg?.product, 12) ?? '$2.50';
-
-  const selectedPkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
-  const billed = plan === 'annual' ? annualBilled : monthlyBilled;
-  const cadence = plan === 'annual' ? 'a year' : 'a month';
-  // Real trial from RevenueCat when live; else the trial set in App Store
-  // Connect. `trialLabel` gates the CTA/terms; `headlineTrial` always carries a
-  // length for the headline copy.
-  //
-  // "1 week", not "7 days": App Store Connect stores the introductory period
-  // with a unit, and the reviewer's own screenshot of build 12 shows RevenueCat
-  // reporting WEEK/1. The fallback has to say what the store says, or the
-  // offline copy and the live copy disagree about the length of the same trial.
-  const trialLabel = introTrialLabel(selectedPkg) ?? (offering ? null : '1 week');
-  const headlineTrial = trialLabel ?? '1 week';
-  const headlineWord = `${headlineTrial[0].toUpperCase()}${headlineTrial.slice(1)}`;
-
-  const storeDown = storeReachable === false;
-
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/search'));
-
-  const buy = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    if (!isPurchasesConfigured() || !selectedPkg) {
-      // Reachable whenever RevenueCat cannot fetch products, which is every
-      // simulator run and any real device the App Store is having a bad day on.
-      // The old copy said "not configured yet in this build", which is true of
-      // a simulator and reads, to an App Reviewer, like an admission that the
-      // thing they were sent does not work. Same failure, no confession.
-      setNote('Couldn’t reach the App Store. Try again in a moment.');
-      return;
-    }
-    setBusy(true);
-    setNote(null);
-    // Started and completed are separate events on purpose: the gap between
-    // them is the Apple sheet, and how many people die in that gap is the one
-    // number that tells you whether the paywall or the price is the problem.
-    track('purchase_started', { plan, trial: Boolean(trialLabel) });
-    try {
-      const entitled = await purchase(selectedPkg);
-      if (entitled) {
-        track('purchase_completed', { plan, trial: Boolean(trialLabel) });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        refreshEntitlement();
-        // Buying without an account is allowed, but the entitlement then hangs
-        // off an anonymous RevenueCat id that does not survive a reinstall or a
-        // new phone. Restore Purchases is the only way back, and the people who
-        // need it most are the ones least likely to find it — so ask once, here,
-        // while the purchase is the thing they're thinking about. Never block:
-        // they've paid, they get in either way.
-        if (!isAuthenticated) {
-          Alert.alert(
-            'Keep this subscription safe',
-            'Sign in and it follows you to any device. Without an account it lives on this phone only.',
-            [
-              { text: 'Not now', style: 'cancel', onPress: close },
-              { text: 'Sign in', onPress: () => router.replace('/auth') },
-            ],
-          );
-          return;
-        }
-        close();
-      }
-    } catch (e) {
-      const err = e as { userCancelled?: boolean; message?: string };
-      if (!err.userCancelled) setNote(err.message ?? 'Purchase failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onRestore = async () => {
-    if (restoring) return;
-    setRestoring(true);
-    setNote(null);
-    try {
-      const entitled = await restore();
-      if (entitled) {
-        refreshEntitlement();
-        close();
-      } else setNote('Nothing to restore on this account.');
-    } catch {
-      setNote('Couldn’t reach the store. Try again.');
-    } finally {
-      setRestoring(false);
-    }
-  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -450,7 +306,7 @@ export default function Paywall() {
             // the store answers, so the only thing on offer is asking again.
             <PrimaryPill
               label="Try again"
-              onPress={() => router.replace('/paywall')}
+              onPress={retry}
               block
               haptic="medium"
             />
@@ -505,9 +361,7 @@ export default function Paywall() {
               textAlign: 'left',
             }}
           >
-            {trialLabel
-              ? `Free for ${trialLabel}, then ${billed} ${cadence}. Payment is charged to your Apple Account at the end of the trial and the subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the trial ends.`
-              : `${billed} ${cadence}, charged to your Apple Account. The subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the period ends.`}
+            {terms}
           </Text>
 
           <Pressable
@@ -572,23 +426,6 @@ const FINE_PRINT_LINK = (color: string) => ({
   lineHeight: 16,
   color,
 });
-
-/** A human label for a package's introductory *free* trial ("3 days"), or null. */
-function introTrialLabel(pkg: PurchasesPackage | null): string | null {
-  const intro = pkg?.product.introPrice;
-  if (!intro || intro.price > 0) return null;
-  const n = intro.periodNumberOfUnits ?? 0;
-  if (n <= 0) return null;
-  const unit = String(intro.periodUnit ?? 'DAY').toLowerCase();
-  return `${n} ${unit}${n === 1 ? '' : 's'}`;
-}
-
-/** "$2.50" from an annual product's price / 12, keeping the store's currency symbol. */
-function perMonthString(product: PurchasesStoreProduct | undefined, divisor: number): string | null {
-  if (!product || !product.price) return null;
-  const symbol = product.priceString.replace(/[\d.,\s ]/g, '') || '$';
-  return `${symbol}${(product.price / divisor).toFixed(2)}`;
-}
 
 function PlanRow({
   selected,
