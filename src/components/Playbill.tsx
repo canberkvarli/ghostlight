@@ -64,6 +64,9 @@ export function PlaybillPage({
   const pressed = useSharedValue(0);
   const screen = item.sourceType === 'film' || item.sourceType === 'tv';
   const pictureH = Math.round(height * 0.55);
+  // However many lines of the speech fit between the name and the foot of the
+  // page, so a tall phone shows more of it and a short one is not crowded.
+  const lines = Math.max(3, Math.min(6, Math.floor((height - pictureH - 200) / 22)));
 
   // d is this page's distance from the top in pages: 0 when it is the one on
   // stage, 1 when it has scrolled up and out, -1 when it is the next one waiting.
@@ -156,8 +159,6 @@ export function PlaybillPage({
               <StageDirection on="paper">{first ? '(tonight.)' : '(another.)'}</StageDirection>
               <Text
                 numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
                 style={{
                   marginTop: 6,
                   fontFamily: 'InstrumentSerif_400Regular',
@@ -183,7 +184,7 @@ export function PlaybillPage({
                 {`from ${item.source}`}
               </Text>
               <Text
-                numberOfLines={height > 560 ? 4 : 3}
+                numberOfLines={lines}
                 style={{
                   marginTop: 12,
                   fontFamily: 'CourierPrime_400Regular',
