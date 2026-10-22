@@ -71,7 +71,7 @@ export const postEvents = (runId: number, events: JournalEvent[]) =>
 export const getGuided = (signal?: AbortSignal) =>
   call<{ scene_id: number; character: string }>('/api/rehearsal/guided', {}, signal);
 
-export interface RunStats { runs: number; completed: number; scenes: number }
+export interface RunStats { runs: number; finished: number; lines_read: number; scenes: number }
 export const getRunStats = (signal?: AbortSignal) => call<RunStats>('/api/rehearsal/stats', {}, signal);
 
 // ── the library and the actor's own scripts ──
