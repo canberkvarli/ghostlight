@@ -81,13 +81,13 @@
           "iosActions": [
             {
               "id": "note",
-              "title": "Before you go\u2026",
+              "title": "Before you go…",
               "subtitle": "A note from Canberk",
               "icon": "symbol:heart"
             },
             {
               "id": "note",
-              "title": "Before you go\u2026",
+              "title": "Before you go…",
               "subtitle": "A note from Canberk",
               "icon": "symbol:heart"
             }
@@ -103,7 +103,9 @@
           "defaultChannel": "reminders"
         }
       ],
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-audio",
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true
