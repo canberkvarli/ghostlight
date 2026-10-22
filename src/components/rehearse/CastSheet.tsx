@@ -71,7 +71,7 @@ export function CastSheet({ payload, guided, chosen, canBegin, waiting, error, g
 
   return (
     <View style={{ flex: 1, paddingHorizontal: 26, paddingTop: 36 }}>
-      {payload.scene.play_title ? (
+      {payload.scene.play_title && payload.scene.play_title.trim().toLowerCase() !== payload.scene.title.trim().toLowerCase() ? (
         <Text style={{ fontFamily: MONO, fontSize: 13, color: c.mutedForeground }}>{payload.scene.play_title}</Text>
       ) : null}
       <Text style={{ marginTop: 4, fontFamily: SERIF, fontSize: 38, lineHeight: 42, letterSpacing: -0.6, color: c.foreground }}>
@@ -79,7 +79,7 @@ export function CastSheet({ payload, guided, chosen, canBegin, waiting, error, g
       </Text>
       {guided ? (
         <StageDirection style={{ marginTop: 14 }} numberOfLines={3}>
-          {'(two minutes with a partner. your lines are lit;\nspeak them, and the scene moves.)'}
+          (two minutes with a partner. your lines are lit; speak them, and the scene moves.)
         </StageDirection>
       ) : (
         <View style={{ marginTop: 30, gap: 18 }}>
