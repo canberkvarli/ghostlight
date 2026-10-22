@@ -159,6 +159,10 @@ export default function RootLayout() {
         }
         void queryClient.invalidateQueries({ queryKey: ['read-wall'] });
         void queryClient.invalidateQueries({ queryKey: ['favorites'] });
+        // The shelves wait for a session (see useTonight); a shelf that asked
+        // too early and failed asks again now that there is one.
+        void queryClient.invalidateQueries({ queryKey: ['trending'] });
+        void queryClient.invalidateQueries({ queryKey: ['screen-shelf'] });
         // A walled monologue withholds its text, so the copy already fetched
         // under the old identity is the wrong one to keep.
         void queryClient.invalidateQueries({ queryKey: ['monologue'] });

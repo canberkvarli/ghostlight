@@ -4,6 +4,7 @@ import { getTrending } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import type { Monologue } from '../data/monologues';
 import { searchScreen } from '../lib/screen';
+import { useSession } from '../lib/useSession';
 import type { Medium } from '../theme/medium';
 
 /**
@@ -29,15 +30,33 @@ export function pickTonight(list: Monologue[], medium: Medium, now = new Date())
   return house[tonightIndex(house.length, now)];
 }
 
+/**
+ * Both shelves wait for a session. The backend wants a user on every list, and
+ * on a first launch the curtain mounts while the anonymous session is still
+ * being minted: the request went out with no token, came back 401, and with
+ * `retry: false` the house stayed dark for ten minutes. Signed-in phones never
+ * saw it because their session was already there. So: no session, no request;
+ * the query wakes the moment one exists.
+ */
+function useHasSession(): boolean {
+  const { session } = useSession();
+  return Boolean(session);
+}
+
 /** The same query the trending rows read, so the two never cost two requests. */
-export function useTrendingList(): Monologue[] {
-  const { data } = useQuery<Monologue[]>({
+export function useTrendingQuery() {
+  const ready = useHasSession();
+  return useQuery<Monologue[]>({
     queryKey: ['trending'],
+    enabled: ready,
     retry: false,
     staleTime: 10 * 60_000,
     queryFn: async ({ signal }) => (await getTrending(20, signal)).map(apiToMonologue),
   });
-  return data ?? [];
+}
+
+export function useTrendingList(): Monologue[] {
+  return useTrendingQuery().data ?? [];
 }
 
 /**
@@ -46,14 +65,19 @@ export function useTrendingList(): Monologue[] {
  * shows when you open that house without typing, so tonight's speech on
  * screen is the same for everyone too.
  */
-export function useScreenShelf(): Monologue[] {
-  const { data } = useQuery<Monologue[]>({
+export function useScreenShelfQuery() {
+  const ready = useHasSession();
+  return useQuery<Monologue[]>({
     queryKey: ['screen-shelf'],
+    enabled: ready,
     retry: false,
     staleTime: 10 * 60_000,
     queryFn: ({ signal }) => searchScreen({}, 20, signal),
   });
-  return data ?? [];
+}
+
+export function useScreenShelf(): Monologue[] {
+  return useScreenShelfQuery().data ?? [];
 }
 
 /** The house's shelf: trending for the plays, the screen search for Film & TV. */
@@ -61,6 +85,23 @@ export function useHouseList(medium: Medium): Monologue[] {
   const trending = useTrendingList();
   const screen = useScreenShelf();
   return medium === 'screen' ? screen : trending;
+}
+
+/**
+ * The shelf with its state, for the one screen that is nothing but the shelf.
+ * `settled` is true once the request has answered, either way, so the curtain
+ * can tell "still coming" from "nothing came".
+ */
+export function useHouse(medium: Medium): { list: Monologue[]; settled: boolean; failed: boolean; retry: () => void } {
+  const trending = useTrendingQuery();
+  const screen = useScreenShelfQuery();
+  const q = medium === 'screen' ? screen : trending;
+  return {
+    list: q.data ?? [],
+    settled: q.isSuccess || q.isError,
+    failed: q.isError,
+    retry: () => void q.refetch(),
+  };
 }
 
 export function useTonight(medium: Medium): Monologue | null {

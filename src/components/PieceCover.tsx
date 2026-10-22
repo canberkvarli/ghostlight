@@ -43,6 +43,14 @@ function hash(value: string): number {
   return Math.abs(h);
 }
 
+/** The cloth a play is bound in, keyed to the work so every card agrees. */
+export function clothFor(item: Pick<Monologue, 'source' | 'title'>): string {
+  return CLOTH[hash(item.source || item.title) % CLOTH.length];
+}
+
+/** The purple a screen piece sits on when there is no poster for it. */
+export const SCREEN_BLOCK = '#1f1332';
+
 export function PieceCover({
   item,
   width = 46,
@@ -54,7 +62,7 @@ export function PieceCover({
 }) {
   const screen = item.sourceType === 'film' || item.sourceType === 'tv';
   const key = item.source || item.title;
-  const cloth = useMemo(() => CLOTH[hash(key) % CLOTH.length], [key]);
+  const cloth = useMemo(() => clothFor({ source: key, title: key }), [key]);
   const theme = sketchFor(item);
 
   const frame = {
