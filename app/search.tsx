@@ -36,6 +36,7 @@ import { useStageMotion } from '../src/hooks/useStageMotion';
 import { MediumToggle } from '../src/components/MediumToggle';
 import { FilterSheet } from '../src/components/FilterSheet';
 import { BoardCard } from '../src/components/BoardCard';
+import { RehearseCard } from '../src/components/RehearseCard';
 import { Ticket } from '../src/components/Ticket';
 import { useAuditions } from '../src/hooks/useAuditions';
 import { useNudge } from '../src/hooks/useNudge';
@@ -718,6 +719,11 @@ export default function Search() {
               style={[belowStyle, { width: '100%', marginTop: 26 }]}
             >
               <BoardCard isAuthenticated={isAuthenticated} />
+            </Animated.View>
+
+            {/* The scene partner: the other call sheet. */}
+            <Animated.View pointerEvents={fieldFocused ? 'none' : 'auto'} style={[belowStyle, { width: '100%', marginTop: 12 }]}>
+              <RehearseCard />
             </Animated.View>
 
             {/* The ticket: one sentence on a paper stub, the piece you left or

@@ -26,6 +26,7 @@ import BricolageGrotesque_700Bold from '@expo-google-fonts/bricolage-grotesque/7
 import '../src/global.css';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
+import { SidesInbox } from '../src/components/SidesInbox';
 import { bootstrapSession } from '../src/lib/session';
 import { supabase } from '../src/lib/supabase';
 import { useEntitlement } from '../src/hooks/useEntitlement';
@@ -269,10 +270,16 @@ function Shell() {
         <Stack.Screen name="audition" options={{ presentation: 'modal' }} />
         {/* One audition's file opens like a page turning: a cross-fade from the board. */}
         <Stack.Screen name="prep" options={{ animation: 'fade', animationDuration: 240 }} />
+        {/* The scene partner: the room, the sheet that becomes the run, and sides coming in as a sheet over it. */}
+        <Stack.Screen name="rehearse/index" options={{ animation: 'fade', animationDuration: 240 }} />
+        <Stack.Screen name="rehearse/[id]" options={{ animation: 'fade', animationDuration: 320, gestureEnabled: false }} />
+        <Stack.Screen name="rehearse/add" options={{ presentation: 'modal' }} />
       </Stack>
 
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
       <LaunchOverlay />
+      {/* A file opened into the app from outside goes to the add-sides sheet. */}
+      <SidesInbox />
 
       {/* The note from backstage: rises only after a good moment. */}
       <BackstageNoteHost />

@@ -21,7 +21,20 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSMotionUsageDescription": "Ghost Light uses device motion to move the stage light as you tilt your phone.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Sides",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "com.adobe.pdf",
+              "org.openxmlformats.wordprocessingml.document",
+              "public.plain-text"
+            ]
+          }
+        ],
+        "LSSupportsOpeningDocumentsInPlace": false
       },
       "entitlements": {
         "com.apple.security.application-groups": [
@@ -104,8 +117,19 @@
         }
       ],
       "@bacons/apple-targets",
-      "expo-audio",
-      "expo-speech-recognition"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Ghost Light listens while you run your lines, so the scene moves on when you reach the end of them."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Ghost Light listens while you run your lines, so the scene moves on when you reach the end of them.",
+          "speechRecognitionPermission": "Your words are matched to the script as you say them, so your partner knows when to come in."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

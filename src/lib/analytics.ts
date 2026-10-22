@@ -177,7 +177,15 @@ export type Event =
   | { name: 'app_ticket'; props: { kind: 'audition' | 'left' | 'tonight' | 'board'; action: 'open' | 'dismiss' } }
   | { name: 'app_knock_asked'; props: { yes: boolean; granted: boolean } }
   /** The "what is ActorRise" sheet, and where it was opened from. */
-  | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } };
+  | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } }
+  /** ScenePartner. `from` is how the actor got to the sheet; `source` is what they are running. */
+  | { name: 'app_rehearse_opened'; props: { from: 'home' | 'script' | 'library' | 'guided' | 'link' } }
+  | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }
+  | { name: 'app_rehearse_ended'; props: { source: 'library' | 'script' | 'guided'; how: 'completed' | 'left'; lines: number; seconds: number } }
+  /** The gate stopped a run: the wall, and whether the paywall was opened from it. */
+  | { name: 'app_rehearse_gated'; props: { source: 'library' | 'script'; to_paywall: boolean } }
+  /** Sides came in. `how` is the door; `ok` whether the cast was found. */
+  | { name: 'app_sides_added'; props: { how: 'files' | 'share' | 'paste'; ok: boolean; characters: number } };
 
 export function track<E extends Event>(name: E['name'], props: E['props']): void {
   try {
