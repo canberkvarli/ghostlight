@@ -99,7 +99,7 @@ export interface SceneSummary {
   tone: string | null;
 }
 
-export const listScenes = (signal?: AbortSignal) => call<SceneSummary[]>('/api/scenes/', {}, signal);
+export const listScenes = (signal?: AbortSignal) => call<SceneSummary[]>('/api/scenes/?library_only=true&limit=100', {}, signal);
 
 export interface ScriptSummary {
   id: number;

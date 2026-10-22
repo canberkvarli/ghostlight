@@ -105,7 +105,7 @@ export default function RehearseHub() {
               <Shelf title="Your sides" aside={mine.length ? `(${mine.length}.)` : undefined}>
                 {!isAuthenticated ? (
                   <View style={{ paddingVertical: 4 }}>
-                    <StageDirection numberOfLines={3}>{'(a pdf, a word file or the text itself: it finds the cast\nand splits the scenes. sign in and they stay with you.)'}</StageDirection>
+                    <StageDirection numberOfLines={3}>(a pdf, a word file or the text itself. sign in and your sides stay with you.)</StageDirection>
                     <PrimaryPill label="Sign in" onPress={() => router.push('/auth')} style={{ marginTop: 14, alignSelf: 'flex-start' }} />
                   </View>
                 ) : scripts.isLoading ? (
