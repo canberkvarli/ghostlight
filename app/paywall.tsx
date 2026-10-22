@@ -72,6 +72,8 @@ export default function Paywall() {
   //   copy to clipboard → app/read/[id].tsx:167
   //   tone/emotion/freshness filters → src/data/filters.ts (premium: true)
   //   offline copies    → src/lib/offline.ts, driven by useEntitlement
+  //   scene partner     → the server's gate on POST /api/rehearsal/runs (the
+  //                       monologues tier carries Plus's allowance since 1.1)
   //
   // The catalogue size is the one number in this list that goes stale on its
   // own. It was typed in as "14,000+" and the library had grown past nineteen
@@ -80,6 +82,7 @@ export default function Paywall() {
   const perks = useMemo(
     () => [
       `Unlimited reading, all ${catalogue}`,
+      'A scene partner that reads the other parts',
       'Filter by tone, emotion & freshness',
       'Copy any monologue',
       'Read offline, anywhere',
