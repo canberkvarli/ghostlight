@@ -31,20 +31,23 @@ const TILTS = [-0.5, 0.4, -0.3];
 
 /**
  * Scene partner: your sides first, the library under them. A first run is
- * offered to anyone who has never run one. Signed out, the screen says what
- * this is and asks for the account, because runs and scripts are per person.
+ * offered to anyone who has never run one. Anyone with a session (a stranger
+ * has one) can run the guided scene and the library; bringing your own sides
+ * asks for the account they will live on.
  */
 export default function RehearseHub() {
   const { colors: c } = useTheme();
   const router = useRouter();
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
-  const { isAuthenticated } = useSession();
+  const { session, isAuthenticated } = useSession();
+  // Runs and the library need a session, which every stranger has; your own sides need the account they will live on.
+  const ready = Boolean(session);
   const { isPaid } = useEntitlement();
   const { script: openScript } = useLocalSearchParams<{ script?: string }>();
   const scripts = useScripts(isAuthenticated);
-  const scenes = useScenes(isAuthenticated);
-  const stats = useRunStats(isAuthenticated);
+  const scenes = useScenes(ready);
+  const stats = useRunStats(ready);
   const mine = (scripts.data ?? []).filter(s => !s.is_sample);
   const library = (scenes.data ?? []).filter(s => s.is_library);
   const neverRun = stats.data ? stats.data.runs === 0 : false;
@@ -78,13 +81,10 @@ export default function RehearseHub() {
             </StageDirection>
           </View>
 
-          {!isAuthenticated ? (
+          {!ready ? (
             <View style={{ marginTop: 40, alignItems: 'center' }}>
               <Sketch name="masks" size={96} stroke={c.mutedForeground} accent={c.yellow} />
-              <Text style={{ marginTop: 22, textAlign: 'center', fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>
-                Bring your sides and it speaks the other parts, listens for yours, and moves on the last word. Your scripts and your runs stay with your account.
-              </Text>
-              <PrimaryPill label="Sign in" onPress={() => router.push('/auth')} style={{ marginTop: 22 }} />
+              <StageDirection style={{ marginTop: 22 }}>(the house is dark. check your connection.)</StageDirection>
             </View>
           ) : (
             <>
@@ -103,7 +103,12 @@ export default function RehearseHub() {
               ) : null}
 
               <Shelf title="Your sides" aside={mine.length ? `(${mine.length}.)` : undefined}>
-                {scripts.isLoading ? (
+                {!isAuthenticated ? (
+                  <View style={{ paddingVertical: 4 }}>
+                    <StageDirection numberOfLines={3}>{'(a pdf, a word file or the text itself: it finds the cast\nand splits the scenes. sign in and they stay with you.)'}</StageDirection>
+                    <PrimaryPill label="Sign in" onPress={() => router.push('/auth')} style={{ marginTop: 14, alignSelf: 'flex-start' }} />
+                  </View>
+                ) : scripts.isLoading ? (
                   <StageDirection style={{ paddingVertical: 6 }}>(gathering your scripts…)</StageDirection>
                 ) : mine.length === 0 ? (
                   <View style={{ paddingVertical: 4 }}>
