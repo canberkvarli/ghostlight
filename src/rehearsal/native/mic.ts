@@ -95,7 +95,7 @@ export class Mic {
       requiresOnDeviceRecognition: this.onDevice,
       contextualStrings: this.keywords,
       iosTaskHint: 'dictation',
-      iosCategory: { category: 'playAndRecord', categoryOptions: ['defaultToSpeaker', 'allowBluetooth'], mode: 'measurement' },
+      iosCategory: { category: 'playAndRecord', categoryOptions: ['defaultToSpeaker', 'allowBluetooth'], mode: 'default' },
     };
     try { ExpoSpeechRecognitionModule.start(options); } catch (e) { this.cb.onFailed(e instanceof Error ? e.message : String(e)); }
   }
