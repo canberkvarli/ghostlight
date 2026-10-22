@@ -123,6 +123,9 @@ export default function RehearseHub() {
                 )}
               </Shelf>
 
+              {/* The library shelf only when there is a library: in production today there is
+                  none beyond the guided scene, and an empty heading is a promise the room cannot keep. */}
+              {scenes.isLoading || scenes.isError || library.length > 0 ? (
               <Shelf title="The library" aside={library.length ? `(${library.length} scenes.)` : undefined}>
                 {scenes.isLoading ? (
                   <StageDirection style={{ paddingVertical: 6 }}>(raising the house lights…)</StageDirection>
@@ -132,6 +135,7 @@ export default function RehearseHub() {
                   library.map((s, i) => <SceneRow key={s.id} scene={s} tilt={TILTS[(i + 1) % 3]} locked={!isPaid && !s.is_free_library} />)
                 )}
               </Shelf>
+              ) : null}
             </>
           )}
         </ScrollView>
