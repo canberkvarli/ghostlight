@@ -176,6 +176,9 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
       ) : running ? (
         <Animated.View entering={FadeIn.duration(360)} exiting={FadeOut.duration(200)} style={{ flex: 1 }}>
           <Stage lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
+          {r.readiness.error ? (
+            <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
+          ) : null}
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
       ) : (

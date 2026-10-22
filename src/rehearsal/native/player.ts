@@ -6,6 +6,7 @@
  * take it back.
  */
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import * as Device from 'expo-device';
 
 import type { Clock } from './clock';
 
@@ -20,11 +21,12 @@ export class LinePlayer {
 
   constructor(private clock: Clock) {}
 
-  /** Speaker out, microphone in, nothing else mixed over the scene. Once. */
+  /** Speaker out, microphone in, nothing else mixed over the scene. Once.
+   *  The simulator has no input device and play-and-record fails there outright, so it plays only. */
   session(): Promise<void> {
     return (this.sessionReady ??= setAudioModeAsync({
       playsInSilentMode: true,
-      allowsRecording: true,
+      allowsRecording: Device.isDevice,
       interruptionMode: 'doNotMix',
       shouldPlayInBackground: false,
       shouldRouteThroughEarpiece: false,
@@ -33,15 +35,17 @@ export class LinePlayer {
 
   /** Load one line from a local file. Resolves when the whole file is decoded and its length known. */
   async load(lineIndex: number, uri: string): Promise<void> {
-    if (this.players.has(lineIndex)) return;
+    if (this.durations.has(lineIndex)) return; // decoded already; a player without a duration is a failed one, replaced below
     await this.session();
-    const player = createAudioPlayer({ uri }, { downloadFirst: true, updateInterval: 250, keepAudioSessionActive: true });
+    const stale = this.players.get(lineIndex);
+    if (stale) { try { stale.remove(); } catch { /* gone */ } this.players.delete(lineIndex); }
+    const player = createAudioPlayer({ uri }, { updateInterval: 250, keepAudioSessionActive: true });
     this.players.set(lineIndex, player);
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => { sub.remove(); reject(new Error('audio load timed out')); }, LOAD_TIMEOUT_MS);
-      const settle = (duration: number) => { clearTimeout(timer); sub.remove(); this.durations.set(lineIndex, duration); resolve(); };
+      const settle = (duration: number) => { clearTimeout(timer); sub.remove(); this.durations.set(lineIndex, duration); if (__DEV__) console.log('[player] loaded', lineIndex, 'duration', duration); resolve(); };
       const sub = player.addListener('playbackStatusUpdate', s => {
-        if (s.error) { clearTimeout(timer); sub.remove(); reject(new Error(s.error)); return; }
+        if (s.error) { clearTimeout(timer); sub.remove(); if (__DEV__) console.log('[player] failed', lineIndex, s.error); reject(new Error(s.error)); return; }
         if (s.isLoaded && s.duration > 0) settle(s.duration);
         if (s.didJustFinish) this.sounding.delete(lineIndex);
       });
@@ -56,7 +60,7 @@ export class LinePlayer {
 
   play(lineIndex: number, at: number): boolean {
     const player = this.players.get(lineIndex);
-    if (!player || !this.durations.has(lineIndex)) return false;
+    if (!player || !this.durations.has(lineIndex)) { if (__DEV__) console.log('[player] refuse', lineIndex, 'player', Boolean(player), 'duration', this.durations.get(lineIndex)); return false; }
     const go = () => {
       this.pending.delete(go);
       void player.seekTo(0).catch(() => {});
@@ -64,6 +68,7 @@ export class LinePlayer {
       this.sounding.add(lineIndex);
     };
     const wait = (at - this.clock.now()) * 1000;
+    if (__DEV__) console.log('[player] play', lineIndex, 'in', Math.round(wait), 'ms, duration', this.durations.get(lineIndex));
     if (wait <= 4) { go(); return true; }
     this.pending.add(go);
     const handle = setTimeout(() => { if (this.pending.has(go)) go(); }, wait);

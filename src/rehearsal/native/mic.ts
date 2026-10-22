@@ -52,6 +52,7 @@ export class Mic {
     const M = ExpoSpeechRecognitionModule;
     this.subs = [
       M.addListener('result', e => {
+        if (__DEV__) console.log('[mic] result', e.isFinal, e.results[0]?.transcript?.slice(0, 60));
         if (!this.open) return;
         const best = e.results[0]?.transcript ?? '';
         if (e.isFinal) { this.finals = [this.finals, best].filter(Boolean).join(' '); this.interim = ''; }
@@ -62,6 +63,7 @@ export class Mic {
         if (text) this.cb.onTranscript(text);
       }),
       M.addListener('error', e => {
+        if (__DEV__) console.log('[mic] error', e.error, e.message);
         if (!this.open || e.error === 'aborted' || e.error === 'no-speech') return;
         if (FATAL.has(e.error)) { this.cb.onFailed(e.message || e.error); return; }
         // 'interrupted', 'speech-timeout', 'busy', 'client': the task is over; `end` restarts it.
@@ -97,7 +99,8 @@ export class Mic {
       iosTaskHint: 'dictation',
       iosCategory: { category: 'playAndRecord', categoryOptions: ['defaultToSpeaker', 'allowBluetooth'], mode: 'default' },
     };
-    try { ExpoSpeechRecognitionModule.start(options); } catch (e) { this.cb.onFailed(e instanceof Error ? e.message : String(e)); }
+    if (__DEV__) console.log('[mic] start, keywords', this.keywords.length, 'onDevice', this.onDevice);
+    try { ExpoSpeechRecognitionModule.start(options); } catch (e) { if (__DEV__) console.log('[mic] start threw', e); this.cb.onFailed(e instanceof Error ? e.message : String(e)); }
   }
 
   private bumpQuiet() {

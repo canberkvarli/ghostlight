@@ -132,7 +132,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       setLineError(neededFailure(failedRef.current, at) === null ? null : plainError('line'));
     };
     let last = -1;
-    engine.subscribe(() => { publish(); const at = cursor(); if (at !== last) { last = at; follow(); } });
+    engine.subscribe(() => { if (__DEV__) { const s = engine.snapshot(); console.log('[rehearsal]', s.state, 'line', s.lineIndex, 'sounding', s.sounding, 'pos', s.read.position); } publish(); const at = cursor(); if (at !== last) { last = at; follow(); } });
     engineRef.current = engine;
     publish();
     if (first === null) setBase(b => ({ ...b, line1: true }));
@@ -145,6 +145,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
 
     const failed = (l: number, why: string) => { failedRef.current.set(l, why); follow(); };
     loader.onReady = l => {
+      if (__DEV__) console.log('[loader] ready', l, 'first', first, 'turn0', JSON.stringify(script.turns[0]).slice(0, 120));
       engine.audioReady(l);
       if (failedRef.current.delete(l)) follow();
       if (l === first) setBase(b => ({ ...b, line1: true }));
@@ -156,6 +157,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       .then(src => { loader.set(s.lineIndex, src); loader.ahead(cursor()); },
         e => failed(s.lineIndex, e instanceof Error ? e.message : String(e)));
     const slots = planPartnerAudio(payload, script, run.voices);
+    if (__DEV__) console.log('[plan]', JSON.stringify(slots.map(x => [x.lineIndex, x.voice, Boolean(x.source)])), 'lines', payload.lines.map(l => l.index).join(','));
     const head = slots.find(s => s.lineIndex === first);
     if (head) await set(head);
     await Promise.all(slots.filter(s => s !== head).map(set));

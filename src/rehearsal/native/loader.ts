@@ -11,11 +11,14 @@ import { type LineSource, pollAudio } from '../../api/rehearsal';
 import type { LinePlayer } from './player';
 
 const POLL_MS = 250;
+/** A line is tried this many times, then it stays failed; the run tells the actor rather than spinning. */
+const MAX_ATTEMPTS = 3;
 
 export class LineLoader {
   private order: number[] = [];
   private sources = new Map<number, LineSource>();
   private started = new Set<number>();
+  private attempts = new Map<number, number>();
   private inflight = 0;
   private stopped = false;
   onReady: ((lineIndex: number) => void) | null = null;
@@ -31,7 +34,7 @@ export class LineLoader {
   private pump(from = 0) {
     const room = this.concurrency - this.inflight;
     if (room <= 0 || this.stopped) return;
-    const pending = this.order.filter(i => i >= from && !this.started.has(i) && !this.player.has(i));
+    const pending = this.order.filter(i => i >= from && !this.started.has(i) && !this.player.has(i) && (this.attempts.get(i) ?? 0) < MAX_ATTEMPTS);
     for (const i of pending.slice(0, room)) void this.load(i);
   }
 
@@ -39,6 +42,7 @@ export class LineLoader {
     const src = this.sources.get(i);
     if (!src || this.started.has(i) || this.player.has(i)) return;
     this.started.add(i);
+    this.attempts.set(i, (this.attempts.get(i) ?? 0) + 1);
     this.inflight++;
     let decoded = false;
     try {
