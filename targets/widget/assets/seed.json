@@ -1,0 +1,160 @@
+{
+ "stage": [
+  {
+   "id": "43940",
+   "character": "Mags",
+   "source": "My Own Personal Mermaid",
+   "quote": "I believed those songs held all kinds of hidden messages meant only for me.",
+   "text": "I believed those songs held all kinds of hidden messages meant only for me. But all I got was the fact that Joni’s relationship with men was totally screwed up…",
+   "seconds": 64,
+   "tone": "anguished",
+   "emotion": "despair",
+   "sourceType": "play"
+  },
+  {
+   "id": "43975",
+   "character": "Corvallis Frieslander",
+   "source": "Fried Prawns",
+   "quote": "Actually, it's been over an hour.",
+   "text": "Max called just now. (ALAN: He did? Where?) Actually, it's been over an hour. Maybe twenty minutes. (ALAN: I don't see a phone in here.) There isn't one. He called me at home…",
+   "seconds": 84,
+   "tone": "comedic",
+   "emotion": "anger",
+   "sourceType": "play"
+  },
+  {
+   "id": "12176",
+   "character": "Ellie Dunn",
+   "source": "Heartbreak House",
+   "quote": "Oh, don’t slop and gush and be sentimental.",
+   "text": "Oh, don’t slop and gush and be sentimental. Don’t you see that unless I can be hard -- hard as nails -- I shall go mad?…",
+   "seconds": 88,
+   "tone": "dramatic",
+   "emotion": null,
+   "sourceType": "play"
+  },
+  {
+   "id": "39767",
+   "character": "Cynthia",
+   "source": "The Double Dealer",
+   "quote": "It's impossible; she'll cast beyond you still.",
+   "text": "It's impossible; she'll cast beyond you still. I'll lay my life it will never be a match. (MEL: What?) Between you and me. (MEL: Why so?) My mind gives me it won't, because we are both willing…",
+   "seconds": 55,
+   "tone": "philosophical",
+   "emotion": "anticipation",
+   "sourceType": "play"
+  },
+  {
+   "id": "40474",
+   "character": "Flor",
+   "source": "The Mirror of Taste, and Dramatic Censor, Vol. I, No. 1, January 1810",
+   "quote": "I'm right, by all the household gods!",
+   "text": "I'm right, by all the household gods! 'Twas no goblin of the fen that twinkled to deceive, but a real substantial weatherproof tenement shining with invitation to benighted travellers…",
+   "seconds": 119,
+   "tone": "dramatic",
+   "emotion": "anticipation",
+   "sourceType": "play"
+  },
+  {
+   "id": "43735",
+   "character": "Jack",
+   "source": "101 Breakups",
+   "quote": "I know we’re not even together but I see where this is going.",
+   "text": "We have to break up. (Beat.) Sorry. (Beat.) I know we’re not even together but I see where this is going. (Beat.) And I know we just said we love each other! I know. It was beautiful. I meant it…",
+   "seconds": 142,
+   "tone": "anguished",
+   "emotion": "sadness",
+   "sourceType": "play"
+  },
+  {
+   "id": "44016",
+   "character": "Raina",
+   "source": "Read It Now!",
+   "quote": "Maxwell gets in front of her again, pushes her back.",
+   "text": "(mumbles) It's just my Dad. Maxwell gets in front of her again, pushes her back. (MAXWELL: What was that recruit? Speak up when you're talking to an Officer.) It's just my Dad. He raised me alone. Can I go now?…",
+   "seconds": 62,
+   "tone": "defiant",
+   "emotion": "anger",
+   "sourceType": "play"
+  }
+ ],
+ "screen": [
+  {
+   "id": "18841",
+   "character": "Melanie",
+   "source": "Kajillionaire",
+   "quote": "Ok, should I just say it?",
+   "text": "Ok, should I just say it? Ok. So, I’m not a physician’s assistant – that was...anyway, I work at Abram’s Optics in the Galleria - which, if you don’t know, it’s like the worst branch there is…",
+   "seconds": 66,
+   "tone": "comedic",
+   "emotion": "loneliness",
+   "sourceType": "film"
+  },
+  {
+   "id": "19554",
+   "character": "Clementine",
+   "source": "Eternal Sunshine Of The Spotless Mind",
+   "quote": "There’s this part where the Skin Horse tells the Rabbit what it means to be real.",
+   "text": "It’s my favorite book. Since I was a kid. It’s about these toys. There’s this part where the Skin Horse tells the Rabbit what it means to be real. (crying, then laughing at herself) I can’t believe I’m crying already…",
+   "seconds": 65,
+   "tone": "philosophical",
+   "emotion": "sadness",
+   "sourceType": "film"
+  },
+  {
+   "id": "10775",
+   "character": "Kat",
+   "source": "10 Things I Hate About You",
+   "quote": "I hate the way you talk to me and the way you cut your hair.",
+   "text": "I hate the way you talk to me and the way you cut your hair. I hate the way you drive my car. I hate it when you stare…",
+   "seconds": 62,
+   "tone": "defiant",
+   "emotion": "anger",
+   "sourceType": "film"
+  },
+  {
+   "id": "11919",
+   "character": "GRACE",
+   "source": "Short Term 12",
+   "quote": "Of course she said that, she's fucking scared!",
+   "text": "Of course she said that, she's fucking scared! What the fuck do they teach you guys in grad school?…",
+   "seconds": 57,
+   "tone": "defiant",
+   "emotion": "anger",
+   "sourceType": "film"
+  },
+  {
+   "id": "11990",
+   "character": "RACHEL",
+   "source": "Sentimental Value",
+   "quote": "I was alone in the house again.",
+   "text": "Okay. I had this kind of... crisis. I was alone in the house again. Lying in my bed, crying, I know, everyone lies in bed crying, but…",
+   "seconds": 71,
+   "tone": "anguished",
+   "emotion": "sadness",
+   "sourceType": "film"
+  },
+  {
+   "id": "18530",
+   "character": "Allison",
+   "source": "A Good Person",
+   "quote": "We were going to look at wedding dresses.",
+   "text": "We were going to look at wedding dresses. And then we weren’t. It wasn’t my fault. I wasn’t on drugs or drunk at the time. But, uh…",
+   "seconds": 87,
+   "tone": "anguished",
+   "emotion": "despair",
+   "sourceType": "film"
+  },
+  {
+   "id": "26055",
+   "character": "Kate",
+   "source": "Big Time Adolescence",
+   "quote": "Of course not, we would just smoke pot and watch Top Gun every night until we starved to death.",
+   "text": "Of course not, we would just smoke pot and watch Top Gun every night until we starved to death. You aren’t a kid anymore. But he is. And you aren’t doing him any favors…",
+   "seconds": 64,
+   "tone": "defiant",
+   "emotion": "anger",
+   "sourceType": "film"
+  }
+ ]
+}
