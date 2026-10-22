@@ -33,7 +33,7 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  * and a dock for pause, skip and back. The end is a moment, not a report.
  */
 export default function Rehearse() {
-  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { id, from, go } = useLocalSearchParams<{ id: string; from?: string; go?: string }>();
   const guided = id === 'guided';
   const { data: guidedPick, isError: guidedFailed } = useGuided(guided);
   const sceneId = guided ? guidedPick?.scene_id ?? null : Number(id);
@@ -51,7 +51,7 @@ export default function Rehearse() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       {payload ? (
-        <Run payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} onLeave={goBack} onAgain={() => void refetch()} />
+        <Run payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} go={go === '1'} onLeave={goBack} onAgain={() => void refetch()} />
       ) : (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <TopBar title="" onLeave={goBack} />
@@ -90,8 +90,10 @@ function phoneError(e: string | null): string | null {
     .replace('Allow it in your browser and reload.', 'Allow it in Settings and come back.');
 }
 
-function Run({ payload, guided, guidedPart, onLeave, onAgain }: {
-  payload: ScenePayload; guided: boolean; guidedPart: string | null; onLeave: () => void; onAgain: () => void;
+function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
+  payload: ScenePayload; guided: boolean; guidedPart: string | null;
+  /** `?go=1`, as on the web: begin the moment Begin would light. A link from a reminder, or a test. */
+  go: boolean; onLeave: () => void; onAgain: () => void;
 }) {
   const { colors: c } = useTheme();
   const router = useRouter();
@@ -126,6 +128,11 @@ function Run({ payload, guided, guidedPart, onLeave, onAgain }: {
 
   const state = r.snapshot?.state ?? 'ready';
   const ended = state === 'ended';
+  const wentRef = useRef(false);
+  useEffect(() => {
+    if (go && r.canBegin && state === 'ready' && !wentRef.current) { wentRef.current = true; begin(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [go, r.canBegin, state]);
   useEffect(() => {
     if (!ended || endedRef.current) return;
     endedRef.current = true;
