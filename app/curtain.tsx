@@ -23,10 +23,9 @@ import { ShareCard, sharePiece } from '../src/components/ShareCard';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import type { Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { pickTonight, useHouse } from '../src/hooks/useTonight';
+import { useHouse, useTonight } from '../src/hooks/useTonight';
 import { track } from '../src/lib/analytics';
 import { useSession } from '../src/lib/useSession';
-import { syncWidget } from '../src/lib/widget';
 import { mediumPalette, type Medium } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
 
@@ -67,21 +66,18 @@ export default function Curtain() {
   }, [isAuthenticated, router]);
 
   const { list, settled, failed, retry } = useHouse(medium);
+  const tonight = useTonight(medium);
 
-  // The house, in the order the playbill prints it: tonight's speech, then the
-  // rest of the list after it, wrapping round.
+  // The house, in the order the playbill prints it: tonight's speech, the one
+  // the widget on the home screen is showing, then the rest of the shelf
+  // after it, wrapping round. Tonight's goes in front even when the shelf
+  // does not hold it.
   const house = useMemo(() => {
     const h = list.filter((m) => (medium === 'screen' ? m.sourceType !== 'play' : m.sourceType === 'play'));
-    const t = pickTonight(list, medium);
-    const i = t ? h.findIndex((m) => m.id === t.id) : -1;
-    return i < 0 ? h : [...h.slice(i), ...h.slice(0, i)];
-  }, [list, medium]);
-
-  // The home screen widget reads the same shelf: a week of tonights, written
-  // whenever this house has one.
-  useEffect(() => {
-    syncWidget(list, medium);
-  }, [list, medium]);
+    if (!tonight) return h;
+    const i = h.findIndex((m) => m.id === tonight.id);
+    return i < 0 ? [tonight, ...h] : [...h.slice(i), ...h.slice(0, i)];
+  }, [list, medium, tonight]);
 
   // The deck's geometry comes from the screen, measured once it is laid out.
   const [deckH, setDeckH] = useState(0);

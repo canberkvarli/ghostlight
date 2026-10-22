@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getTrending } from '../api/client';
+import { getTonight, getTrending, type TonightDay } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import type { Monologue } from '../data/monologues';
 import { searchScreen } from '../lib/screen';
@@ -104,7 +104,44 @@ export function useHouse(medium: Medium): { list: Monologue[]; settled: boolean;
   };
 }
 
+/** The local calendar date the way the server keys its run: `YYYY-MM-DD`. */
+export function dayKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * The server's run of tonights for a house. Public, so it does not wait for a
+ * session, and kept for the day: the server's answer does not change until
+ * midnight either.
+ */
+export function useTonightRun(medium: Medium): TonightDay[] {
+  const house = medium === 'screen' ? 'screen' : 'stage';
+  const { data } = useQuery<TonightDay[]>({
+    queryKey: ['tonight', house],
+    retry: 1,
+    staleTime: 60 * 60_000,
+    queryFn: ({ signal }) => getTonight(house, 8, signal),
+  });
+  return data ?? [];
+}
+
+/** The piece the run names for a day, or null if the run does not reach it. */
+export function runPick(run: TonightDay[], day: Date): Monologue | null {
+  const key = dayKey(day);
+  const hit = run.find((d) => d.day === key);
+  return hit ? apiToMonologue(hit.monologue) : null;
+}
+
+/**
+ * Tonight's speech: the server's pick when it has answered, the phone's own
+ * from the shelf when it has not. The two use the same hash of the date, so
+ * on the same pool they agree; the server's pool is the one the widget shows.
+ */
 export function useTonight(medium: Medium): Monologue | null {
+  const run = useTonightRun(medium);
   const list = useHouseList(medium);
-  return pickTonight(list, medium);
+  return runPick(run, new Date()) ?? pickTonight(list, medium);
 }

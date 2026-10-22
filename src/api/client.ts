@@ -238,6 +238,31 @@ export async function getSimilar(
   return (await res.json()) as Monologue[];
 }
 
+/** One day of the house's run (`GET /api/monologues/tonight`). */
+export interface TonightDay {
+  /** Local calendar date, `YYYY-MM-DD`. */
+  day: string;
+  /** The one line a widget shows. */
+  quote: string;
+  /** The piece, with the opening lines only. */
+  monologue: Monologue;
+}
+
+/**
+ * Tonight's speech for a run of days, picked on the server so the phone, the
+ * widget and the evening knock all name the same one. Public: no session
+ * needed, which is why it is the one list that can fill before one exists.
+ */
+export async function getTonight(house: 'stage' | 'screen', days = 8, signal?: AbortSignal): Promise<TonightDay[]> {
+  const res = await fetch(`${API_URL}/api/monologues/tonight?house=${house}&days=${days}`, {
+    headers: { Accept: 'application/json', 'X-Client': CLIENT },
+    signal,
+  });
+  if (!res.ok) throw new ApiError(res.status, `tonight failed (${res.status})`);
+  const j = (await res.json()) as { days: TonightDay[] };
+  return j.days;
+}
+
 /** What other actors are working on (`GET /api/monologues/trending`) — the search screen before a past. */
 export async function getTrending(limit = 20, signal?: AbortSignal): Promise<Monologue[]> {
   const res = await fetch(`${API_URL}/api/monologues/trending?limit=${limit}`, {

@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import type { Audition } from '../api/auditions';
 import type { Monologue } from '../data/monologues';
 import { type Candidates, dayOf, dismissNudge, type Nudge, pickNudge, syncKnocks } from '../lib/nudges';
-import { pickTonight } from './useTonight';
+import { pickTonight, runPick, useTonightRun } from './useTonight';
 
 /**
  * The home's end of the nudge engine: what the ticket says today, and the
@@ -17,6 +17,9 @@ export function useNudge(c: Candidates, auditions: Audition[] | undefined, trend
   const [gen, setGen] = useState(0);
   const latest = useRef(c);
   latest.current = c;
+  // The server's run of tonights, so the evening knock names the piece the
+  // widget is showing; the shelf's own pick stands in until it answers.
+  const run = useTonightRun(c.medium);
   const inputs = [
     c.next?.id,
     c.next?.when,
@@ -49,7 +52,7 @@ export function useNudge(c: Candidates, auditions: Audition[] | undefined, trend
   }, []);
 
   useEffect(() => {
-    if (trending.length === 0 && !c.lastPiece) return;
+    if (trending.length === 0 && run.length === 0 && !c.lastPiece) return;
     const auditionDays = new Set<string>();
     for (const a of auditions ?? []) {
       if (a.scope !== 'upcoming' || !a.when) continue;
@@ -60,13 +63,13 @@ export function useNudge(c: Candidates, auditions: Audition[] | undefined, trend
       auditionDays.add(dayOf(eve));
     }
     void syncKnocks({
-      tonightFor: (day) => pickTonight(trending, latest.current.medium, day),
+      tonightFor: (day) => runPick(run, day) ?? pickTonight(trending, latest.current.medium, day),
       medium: latest.current.medium,
       lastPiece: latest.current.lastPiece,
       auditionDays,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputs, trending, auditions]);
+  }, [inputs, trending, run, auditions]);
 
   return { nudge, dismiss };
 }
