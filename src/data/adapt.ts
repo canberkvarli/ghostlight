@@ -27,6 +27,7 @@ function normalizeSourceType(category: string | null): SourceType {
   const c = (category ?? '').toLowerCase();
   if (c.includes('film') || c.includes('movie')) return 'film';
   if (c.includes('tv') || c.includes('television') || c.includes('series')) return 'tv';
+  if (c === 'screen') return 'film';
   return 'play';
 }
 
@@ -54,7 +55,10 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     ageRange: m.character_age_range ?? '—',
     gender: normalizeGender(m.character_gender),
     tone: normalizeTone(m.tone),
-    sourceType: normalizeSourceType(m.category),
+    // The play's own source type when the route sends it (the shelves do; the
+    // trending route sends only the category, and a film's category can read
+    // "contemporary", which put Batman on the stage).
+    sourceType: normalizeSourceType((m as { source_type?: string | null }).source_type ?? m.category),
     // Kept raw as well as normalised: the source tag needs to know classical
     // from contemporary, and `sourceType` has already thrown that away.
     category: m.category ?? undefined,

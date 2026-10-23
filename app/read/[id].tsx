@@ -106,8 +106,12 @@ const FREE_LINES = 4;
 const BLOCK = 8;
 
 export default function Read() {
-  const { id, medium: mediumParam } = useLocalSearchParams<{ id: string; medium?: string }>();
+  const { id, medium: mediumParam, from } = useLocalSearchParams<{ id: string; medium?: string; from?: string }>();
+  // Where the way back goes. Opened from the widget or a link there is nothing
+  // behind this screen, so the chevron stands alone; from the deck it is only
+  // "Back"; from the results list it names them.
   const router = useRouter();
+  const backLabel = !router.canGoBack() ? '' : from === 'curtain' ? 'Back' : 'Results';
   const goBack = useGoBack('/');
   const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();
@@ -516,19 +520,21 @@ export default function Read() {
               onPress={goBack}
               hitSlop={14}
               accessibilityRole="button"
-              accessibilityLabel="Back to results"
+              accessibilityLabel={backLabel ? `Back to ${backLabel.toLowerCase()}` : 'Back'}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
             >
               <Ionicons name="chevron-back" size={20} color={c.mutedForeground} />
-              <Text
-                style={{
-                  fontFamily: 'BricolageGrotesque_600SemiBold',
-                  fontSize: 13,
-                  color: c.mutedForeground,
-                }}
-              >
-                Results
-              </Text>
+              {backLabel ? (
+                <Text
+                  style={{
+                    fontFamily: 'BricolageGrotesque_600SemiBold',
+                    fontSize: 13,
+                    color: c.mutedForeground,
+                  }}
+                >
+                  {backLabel}
+                </Text>
+              ) : null}
             </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
               {/* The piece as a picture, for a story. The card is the excerpt,

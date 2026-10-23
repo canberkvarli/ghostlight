@@ -12,6 +12,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import { useTheme } from '../theme/ThemeContext';
@@ -27,13 +28,19 @@ const FLY_MS = 320;
  * A deck you throw. One card at a time, the next two waiting behind it, a
  * touch smaller and a touch higher so their heads show. Drag the top card and
  * it tilts with your thumb; past a third of the screen it flies, right to
- * keep, left to pass, and the one behind comes up to full size as it goes.
- * A tap on the card is the card's own business (it opens the speech).
+ * keep, left to pass, and the one behind rises to the top as it goes.
  *
- * Everything that moves is a function of the drag on the UI thread. The index
- * moves on the JS thread once the card has gone. Two round buttons under the
- * deck do the same two things for a thumb that would rather tap, and for
- * anyone with motion reduced, where the throw is a fade.
+ * The deck owns every gesture on the stack: the pan, the tap that opens the
+ * speech and the hold that shares it. They are exclusive, so a throw that
+ * ends over the card is never also a tap, which is what made a pass open the
+ * speech. Cards keep their identity across slots (keyed by the item, not the
+ * slot), so the one behind becomes the one on top without being remounted:
+ * no picture reloads, no gradient redraws, no flicker at the throw.
+ *
+ * Everything that moves is a function of the drag and the rise on the UI
+ * thread. Two round buttons under the deck throw the same way for a thumb
+ * that would rather tap, and for anyone with motion reduced, where the throw
+ * is a fade.
  */
 export function Deck<T>({
   items,
@@ -43,6 +50,8 @@ export function Deck<T>({
   renderCard,
   onKeep,
   onPass,
+  onOpen,
+  onHold,
   reduce,
   keepLabel = 'keep',
   passLabel = 'pass',
@@ -56,6 +65,10 @@ export function Deck<T>({
   renderCard: (item: T, first: boolean) => ReactNode;
   onKeep: (item: T) => void;
   onPass: (item: T) => void;
+  /** A tap on the top card. */
+  onOpen: (item: T) => void;
+  /** A hold on the top card. */
+  onHold?: (item: T) => void;
   reduce: boolean;
   keepLabel?: string;
   passLabel?: string;
@@ -67,22 +80,27 @@ export function Deck<T>({
   const x = useSharedValue(0);
   const y = useSharedValue(0);
   const throwing = useSharedValue(0); // 1 while a card is in the air; the next one may not be grabbed
+  // 1 the instant a card has gone, easing to 0: the card behind rises to the top, rather than snapping.
+  const rise = useSharedValue(0);
 
   // A new house is a new deck.
-  useEffect(() => { setAt(0); x.value = 0; y.value = 0; throwing.value = 0; }, [deckKey, x, y, throwing]);
+  useEffect(() => { setAt(0); x.value = 0; y.value = 0; throwing.value = 0; rise.value = 0; }, [deckKey, x, y, throwing, rise]);
 
-  const top = items.length ? items[at % items.length] : undefined;
-  const second = items.length > 1 ? items[(at + 1) % items.length] : undefined;
-  const third = items.length > 2 ? items[(at + 2) % items.length] : undefined;
+  const n = items.length;
+  const top = n ? items[at % n] : undefined;
+  const second = n > 1 ? items[(at + 1) % n] : undefined;
+  const third = n > 2 ? items[(at + 2) % n] : undefined;
 
   const gone = useCallback((dir: 1 | -1) => {
-    const item = items[at % items.length];
+    const item = items[at % Math.max(1, items.length)];
     if (item) (dir > 0 ? onKeep : onPass)(item);
-    setAt((n) => n + 1);
+    setAt((k) => k + 1);
     x.value = 0;
     y.value = 0;
     throwing.value = 0;
-  }, [at, items, onKeep, onPass, x, y, throwing]);
+    rise.value = 1;
+    rise.value = withTiming(0, { duration: reduce ? 120 : 260, easing: Easing.out(Easing.cubic) });
+  }, [at, items, onKeep, onPass, x, y, throwing, rise, reduce]);
 
   const fly = useCallback((dir: 1 | -1) => {
     'worklet';
@@ -96,10 +114,12 @@ export function Deck<T>({
   }, [gone, reduce, throwing, width, x, y]);
 
   const haptic = useCallback(() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }, []);
+  const openTop = useCallback(() => { if (top) onOpen(top); }, [top, onOpen]);
+  const holdTop = useCallback(() => { if (top && onHold) onHold(top); }, [top, onHold]);
 
   const pan = Gesture.Pan()
-    .activeOffsetX([-14, 14])
-    .failOffsetY([-24, 24])
+    .activeOffsetX([-12, 12])
+    .failOffsetY([-28, 28])
     .onUpdate((e) => {
       if (throwing.value) return;
       x.value = e.translationX;
@@ -118,23 +138,11 @@ export function Deck<T>({
         y.value = withSpring(0, { damping: 18, stiffness: 220 });
       }
     });
+  const tap = Gesture.Tap().maxDuration(300).onEnd((_e, ok) => { if (ok && !throwing.value) runOnJS(openTop)(); });
+  const hold = Gesture.LongPress().minDuration(420).onStart(() => { if (!throwing.value) runOnJS(holdTop)(); });
+  // A pan that activates wins outright; a hold or a tap only counts when no pan did.
+  const gestures = Gesture.Exclusive(pan, hold, tap);
 
-  const topStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: x.value },
-      { translateY: y.value * 0.35 },
-      { rotate: `${interpolate(x.value, [-width, 0, width], [-14, 0, 14], Extrapolation.CLAMP)}deg` },
-    ],
-    opacity: reduce ? interpolate(Math.abs(x.value), [0, width * 0.4], [1, 0], Extrapolation.CLAMP) : 1,
-  }));
-  const secondStyle = useAnimatedStyle(() => {
-    const p = Math.min(1, Math.abs(x.value) / (width * 0.5));
-    return { transform: [{ translateY: interpolate(p, [0, 1], [-DECK_PEEK / 2, 0]) }, { scale: interpolate(p, [0, 1], [0.96, 1]) }], opacity: interpolate(p, [0, 1], [0.92, 1]) };
-  });
-  const thirdStyle = useAnimatedStyle(() => {
-    const p = Math.min(1, Math.abs(x.value) / (width * 0.5));
-    return { transform: [{ translateY: interpolate(p, [0, 1], [-DECK_PEEK, -DECK_PEEK / 2]) }, { scale: interpolate(p, [0, 1], [0.92, 0.96]) }], opacity: interpolate(p, [0, 1], [0.8, 0.92]) };
-  });
   const keepStamp = useAnimatedStyle(() => ({ opacity: interpolate(x.value, [0, width * 0.22], [0, 1], Extrapolation.CLAMP) }));
   const passStamp = useAnimatedStyle(() => ({ opacity: interpolate(x.value, [-width * 0.22, 0], [1, 0], Extrapolation.CLAMP) }));
 
@@ -154,33 +162,65 @@ export function Deck<T>({
   // The dock's throws go through the same flight as a thumb's.
   const throwFrom = (dir: 1 | -1) => () => { if (!top || throwing.value) return; haptic(); fly(dir); };
 
+  const stack = [third, second, top].filter((it): it is T => it !== undefined);
+  const slotOf = (it: T) => (it === top ? 0 : it === second ? 1 : 2);
+
   return (
     <View style={{ height }}>
-      <View style={{ height: cardH + DECK_PEEK, paddingTop: DECK_PEEK }}>
-        {third ? (
-          <Animated.View key={`${keyOf(third)}-3`} pointerEvents="none" style={[thirdStyle, { position: 'absolute', left: 0, right: 0, top: DECK_PEEK, height: cardH, transformOrigin: 'top' }]}>
-            {renderCard(third, false)}
-          </Animated.View>
-        ) : null}
-        {second ? (
-          <Animated.View key={`${keyOf(second)}-2`} pointerEvents="none" style={[secondStyle, { position: 'absolute', left: 0, right: 0, top: DECK_PEEK, height: cardH, transformOrigin: 'top' }]}>
-            {renderCard(second, false)}
-          </Animated.View>
-        ) : null}
-        {top ? (
-          <GestureDetector gesture={pan}>
-            <Animated.View key={`${keyOf(top)}-1`} style={[topStyle, { position: 'absolute', left: 0, right: 0, top: DECK_PEEK, height: cardH }]}>
-              {renderCard(top, at === 0)}
-              <Animated.View pointerEvents="none" style={[keepStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(keepLabel, -14, 'left')}</Animated.View>
-              <Animated.View pointerEvents="none" style={[passStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(passLabel, 14, 'right')}</Animated.View>
-            </Animated.View>
-          </GestureDetector>
-        ) : null}
-      </View>
+      <GestureDetector gesture={gestures}>
+        <View style={{ height: cardH + DECK_PEEK, paddingTop: DECK_PEEK }}>
+          {stack.map((it) => (
+            <DeckSlot key={keyOf(it)} slot={slotOf(it)} x={x} y={y} rise={rise} width={width} cardH={cardH} reduce={reduce}>
+              {renderCard(it, it === top && at === 0)}
+              {it === top ? (
+                <>
+                  <Animated.View pointerEvents="none" style={[keepStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(keepLabel, -14, 'left')}</Animated.View>
+                  <Animated.View pointerEvents="none" style={[passStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(passLabel, 14, 'right')}</Animated.View>
+                </>
+              ) : null}
+            </DeckSlot>
+          ))}
+        </View>
+      </GestureDetector>
       <View style={{ height: DECK_DOCK, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 36 }}>
         {button(passLabel, 'close', throwFrom(-1))}
         {button(keepLabel, 'bookmark', throwFrom(1))}
       </View>
     </View>
+  );
+}
+
+/**
+ * One slot of the stack. Its look is a function of its visual position: the
+ * slot number, plus the rise still to come after a throw, minus how far the
+ * top card has been dragged (the ones behind come up as it goes). Slot 0 also
+ * follows the thumb.
+ */
+function DeckSlot({ slot, x, y, rise, width, cardH, reduce, children }: {
+  slot: number; x: SharedValue<number>; y: SharedValue<number>; rise: SharedValue<number>; width: number; cardH: number; reduce: boolean; children: ReactNode;
+}) {
+  const style = useAnimatedStyle(() => {
+    const drag = slot === 0 ? 0 : Math.min(1, Math.abs(x.value) / (width * 0.5));
+    const vp = Math.max(0, slot + rise.value - drag);
+    const translateY = interpolate(vp, [0, 1, 2], [0, -DECK_PEEK / 2, -DECK_PEEK], Extrapolation.CLAMP);
+    const scale = interpolate(vp, [0, 1, 2], [1, 0.96, 0.92], Extrapolation.CLAMP);
+    const opacity = interpolate(vp, [0, 1, 2], [1, 0.92, 0.8], Extrapolation.CLAMP);
+    if (slot !== 0) return { transform: [{ translateY }, { scale }], opacity, zIndex: 3 - slot };
+    const gone = reduce ? interpolate(Math.abs(x.value), [0, width * 0.4], [1, 0], Extrapolation.CLAMP) : 1;
+    return {
+      transform: [
+        { translateY: translateY + y.value * 0.35 },
+        { translateX: x.value },
+        { rotate: `${interpolate(x.value, [-width, 0, width], [-14, 0, 14], Extrapolation.CLAMP)}deg` },
+        { scale },
+      ],
+      opacity: Math.min(opacity, gone),
+      zIndex: 3,
+    };
+  });
+  return (
+    <Animated.View style={[style, { position: 'absolute', left: 0, right: 0, top: DECK_PEEK, height: cardH, transformOrigin: 'top' }]}>
+      {children}
+    </Animated.View>
   );
 }

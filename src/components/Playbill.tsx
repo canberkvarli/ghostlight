@@ -1,7 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
-import { useSharedValue, withTiming } from 'react-native-reanimated';
 
 import type { Monologue } from '../data/monologues';
 import { clock } from '../lib/segments';
@@ -28,45 +27,30 @@ export function PlaybillCard({
   height,
   first,
   onOpen,
-  onShare,
 }: {
   item: Monologue;
   /** The card's height. */
   height: number;
   first: boolean;
+  /** The "read" word at the foot. The card itself is not a button: the deck owns the tap and the hold. */
   onOpen: () => void;
-  onShare: () => void;
 }) {
   const { colors: c } = useTheme();
-  const pressed = useSharedValue(0);
   const screen = item.sourceType === 'film' || item.sourceType === 'tv';
-  const pictureH = Math.round(height * 0.55);
+  const pictureH = Math.round(height * 0.44);
   // However many lines of the speech fit between the name and the foot of the
   // page, so a tall phone shows more of it and a short one is not crowded.
   const lines = Math.max(3, Math.min(6, Math.floor((height - pictureH - 200) / 22)));
   return (
-    <View style={{ height }}>
-      <Pressable
-        onPress={onOpen}
-        onLongPress={onShare}
-        onPressIn={() => {
-          pressed.value = withTiming(1, { duration: 90 });
-        }}
-        onPressOut={() => {
-          pressed.value = withTiming(0, { duration: 180 });
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.character}, from ${item.source}. Read it`}
-        accessibilityHint="Swipe right to keep it, left for another. Press and hold to share it as a picture"
-        style={{ flex: 1 }}
-      >
-        <PaperCard shadow={8} pressed={pressed} wrapperStyle={{ flex: 1 }} style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
+    <View style={{ height }} accessible accessibilityLabel={`${item.character}, from ${item.source}. Tap to read it`} accessibilityHint="Swipe right to keep it, left for another. Hold to share it as a picture">
+      <View style={{ flex: 1 }}>
+        <PaperCard shadow={8} wrapperStyle={{ flex: 1 }} style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
           {/* The picture. The poster for the screen, the cover of the edition for a play. */}
           <View style={{ height: pictureH, overflow: 'hidden' }}>
             <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
               {screen && item.posterUrl ? (
                 <Image
-                  source={{ uri: sharpPoster(item.posterUrl) }}
+                  source={{ uri: sharpPoster(item.posterUrl, 700) }}
                   style={{ width: '100%', height: '100%', backgroundColor: SCREEN_BLOCK }}
                   contentFit="cover"
                   contentPosition="top"
@@ -142,7 +126,7 @@ export function PlaybillCard({
             </View>
           </View>
         </PaperCard>
-      </Pressable>
+      </View>
     </View>
   );
 }
