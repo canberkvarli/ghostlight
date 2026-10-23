@@ -6,20 +6,20 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
-import { StageBackdrop } from '../src/components/StageBackdrop';
-import { StageDirection } from '../src/components/StageDirection';
-import { BackHeader } from '../src/components/BackHeader';
-import { PrimaryPill } from '../src/components/PrimaryPill';
-import { PaperCard } from '../src/components/PaperCard';
-import { HowItWorksSheet } from '../src/components/HowItWorksSheet';
-import { Sketch } from '../src/components/Sketches';
-import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useAuditions, useCalendarFeed } from '../src/hooks/useAuditions';
-import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../src/api/auditions';
-import { useGoBack } from '../src/lib/nav';
-import { useSession } from '../src/lib/useSession';
-import { eyebrow, stubLabel, whenSentence } from '../src/lib/when';
-import { useTheme } from '../src/theme/ThemeContext';
+import { StageBackdrop } from '../../../src/components/StageBackdrop';
+import { StageDirection } from '../../../src/components/StageDirection';
+import { PrimaryPill } from '../../../src/components/PrimaryPill';
+import { PaperCard } from '../../../src/components/PaperCard';
+import { HowItWorksSheet } from '../../../src/components/HowItWorksSheet';
+import { Sketch } from '../../../src/components/Sketches';
+import { useStageMotion } from '../../../src/hooks/useStageMotion';
+import { useAuditions, useCalendarFeed } from '../../../src/hooks/useAuditions';
+import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../../../src/api/auditions';
+import { useSession } from '../../../src/lib/useSession';
+import { eyebrow, stubLabel, whenSentence } from '../../../src/lib/when';
+import { useTheme } from '../../../src/theme/ThemeContext';
+import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { RoomHeader } from '../../../src/components/RoomHeader';
 
 /**
  * Auditions — "Your week."
@@ -39,7 +39,6 @@ const TILTS = [-0.4, 0.3, -0.25, 0.35];
 export default function Auditions() {
   const { colors: c } = useTheme();
   const router = useRouter();
-  const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
   const { isAuthenticated } = useSession();
   const { data, isLoading, isError } = useAuditions(isAuthenticated);
@@ -140,7 +139,7 @@ export default function Auditions() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <BackHeader label="Search" onPress={goBack} right={headerRight} />
+        <RoomHeader right={headerRight} />
 
         {!isAuthenticated ? (
           <Intro signedIn={false} onPrimary={onSignIn} onSecondary={onSignIn} onHow={() => setHow(true)} />
@@ -161,7 +160,7 @@ export default function Auditions() {
         ) : list.length === 0 ? (
           <Intro signedIn onPrimary={onPaste} onSecondary={onAdd} onHow={() => setHow(true)} />
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 110 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE }}>
             <View style={{ paddingTop: 8, paddingBottom: 18 }}>
               <Text
                 numberOfLines={1}

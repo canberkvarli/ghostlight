@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#e6dfd5;font-family:Montserrat,sans-serif}a{color:#b0400c}a:hover{color:#15110f}</style></helmet>
+
+<section id="turn-1" style="padding:56px 64px 96px;display:flex;flex-direction:column;gap:40px">
+<div style="max-width:820px;display:flex;flex-direction:column;gap:12px">
+  <div style="font:italic 400 15px/1 'Courier Prime',monospace;color:#b0400c">(navigation, second draft.)</div>
+  <h1 style="margin:0;font:400 52px/1 'Instrument Serif',serif;color:#15110f">Four rooms, one <span style="font-style:italic;color:#b0400c">bar.</span></h1>
+  <p style="margin:0;font:400 15px/1.7 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">Today every screen is pushed from Search, so everything says “‹ Search” and the home page has to advertise the other features as cards. This draft gives each feature its own tab: <b>Search</b>, <b>Book</b>, <b>Board</b> (auditions), <b>Scene</b>. Account moves to your initial in the top-right corner of every tab. The home page then only needs to do two things: search, and show what's next.</p>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start">
+
+<!-- A · HOME -->
+<div id="1a" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:10px"><a href="#1a" style="font:700 11px/1 ui-monospace,monospace;color:#15110f;background:#f2e22e;padding:5px 8px;border-radius:4px;text-decoration:none">1a</a><span style="font:600 14px/1 Montserrat,sans-serif;color:#15110f">Search, home</span></div>
+  <div data-screen-label="Home" style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#f2ede6;box-shadow:0 0 0 10px #15110f">
+    <div style="height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;font:600 15px/1 Montserrat,sans-serif;color:#15110f"><span>9:41</span><span style="width:24px;height:11px;border:1.5px solid #15110f;border-radius:3px"></span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 22px 0">
+      <div style="display:flex;align-items:center;gap:8px"><svg viewBox="342 120 340 760" width="10" height="22" style="display:block;overflow:visible;filter:drop-shadow(0 0 5px rgba(243,130,29,.6))"><g transform="translate(342 120) scale(1.3)"><path d="M131 0 C205 0 262 58 262 131 C262 182 232 218 210 246 C198 262 192 272 190 282 L72 282 C70 272 64 262 52 246 C30 218 0 182 0 131 C0 58 57 0 131 0 Z" fill="#f3821d"></path><path d="M112 282 L112 138 M150 282 L150 138" stroke="#7a2e05" stroke-width="9" fill="none"></path><path d="M76 138 L97 112 L118 138 L140 112 L162 138 L186 112" stroke="#7a2e05" stroke-width="14" fill="none" stroke-linejoin="round" stroke-linecap="round"></path></g><rect x="437" y="500" width="150" height="26" rx="13" fill="#cb4b00"></rect><rect x="444" y="536" width="136" height="26" rx="13" fill="#cb4b00"></rect><rect x="452" y="572" width="120" height="26" rx="13" fill="#cb4b00"></rect><rect x="496" y="594" width="32" height="250" fill="#8a3304"></rect><rect x="422" y="838" width="180" height="28" rx="14" fill="#8a3304"></rect></svg><span style="font:700 11px/1 Montserrat,sans-serif;letter-spacing:3px;color:#15110f">GHOST LIGHT</span></div>
+      <div style="width:34px;height:34px;border-radius:50%;background:#15110f;color:#f2e22e;display:flex;align-items:center;justify-content:center;font:400 19px/1 'Instrument Serif',serif">C</div>
+    </div>
+    <div style="padding:30px 22px 0;text-align:center;font:400 44px/1 'Instrument Serif',serif;color:#15110f">Say it the way<br>you would <span style="font-style:italic;color:#b0400c">say it.</span></div>
+    <div style="margin:22px auto 0;width:236px;display:flex;border:2px solid #15110f;border-radius:999px;padding:3px">
+      <div style="flex:1;height:34px;border-radius:999px;background:#15110f;color:#fbf9f5;display:flex;align-items:center;justify-content:center;font:600 13px/1 Montserrat,sans-serif">Plays</div>
+      <div style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;font:600 13px/1 Montserrat,sans-serif;color:#5b534c">Film &amp; TV</div>
+    </div>
+    <div style="margin:18px 22px 0;position:relative">
+      <div style="position:absolute;inset:6px -5px -5px 6px;border-radius:999px;background:#f2e22e"></div>
+      <div style="position:relative;height:56px;border:2px solid #15110f;border-radius:999px;background:#fbf9f5;display:flex;align-items:center;gap:10px;padding:0 6px 0 20px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5b534c" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m16.5 16.5 4 4"></path></svg>
+        <span style="flex:1;font:400 15px/1 Montserrat,sans-serif;color:#8a8178">a grieving mother…</span>
+        <div style="width:42px;height:42px;border-radius:50%;background:#15110f;display:flex;align-items:center;justify-content:center;color:#f2e22e;font:500 19px/1 Montserrat,sans-serif">→</div>
+      </div>
+    </div>
+    <div style="margin:14px 22px 0;display:flex;gap:7px;justify-content:center;flex-wrap:wrap">
+      <span style="border:1.5px solid #d6cdc1;border-radius:999px;padding:8px 13px;font:italic 400 13px/1 'Courier Prime',monospace;color:#5b534c">female</span>
+      <span style="border:1.5px solid #d6cdc1;border-radius:999px;padding:8px 13px;font:italic 400 13px/1 'Courier Prime',monospace;color:#5b534c">20s</span>
+      <span style="border:1.5px solid #d6cdc1;border-radius:999px;padding:8px 13px;font:italic 400 13px/1 'Courier Prime',monospace;color:#5b534c">under 2 min</span>
+      <span style="border:1.5px dashed #c9a58c;border-radius:999px;padding:8px 13px;font:italic 400 13px/1 'Courier Prime',monospace;color:#b0400c">+ more</span>
+    </div>
+    <div style="margin:30px 22px 0;font:italic 400 13px/1 'Courier Prime',monospace;color:#8a8178">(up next.)</div>
+    <div style="margin:10px 22px 0;border:2px solid #15110f;border-radius:20px;background:#fbf9f5;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 16px">
+        <div style="width:46px;flex:none;text-align:center;border-right:1.5px solid #e3dbd0;padding-right:12px"><div style="font:700 10px/1 Montserrat,sans-serif;letter-spacing:1.5px;color:#b0400c">FRI</div><div style="margin-top:3px;font:400 28px/1 'Instrument Serif',serif;color:#15110f">24</div></div>
+        <div style="flex:1;min-width:0"><div style="font:400 20px/1.1 'Instrument Serif',serif;color:#15110f">Mean Girls — Gretchen</div><div style="margin-top:4px;font:400 12px/1.3 Montserrat,sans-serif;color:#5b534c">In the room · 10:00 · in 2 days</div></div>
+        <span style="font:600 16px/1 Montserrat,sans-serif;color:#b0400c">›</span>
+      </div>
+      <div style="height:1.5px;background:#e3dbd0"></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:13px 16px">
+        <div style="width:46px;flex:none;display:flex;justify-content:center"><span style="font:italic 400 24px/1 'Instrument Serif',serif;color:#15110f">&amp;</span></div>
+        <div style="flex:1;min-width:0"><div style="font:400 13px/1.3 Montserrat,sans-serif;color:#15110f">Pick up <b>Almost a Therapist</b></div><div style="margin-top:6px;height:4px;border-radius:2px;background:#e3dbd0"><div style="width:40%;height:4px;border-radius:2px;background:#b0400c"></div></div></div>
+        <span style="font:600 13px/1 Montserrat,sans-serif;color:#b0400c">Resume</span>
+      </div>
+    </div>
+    <div style="position:absolute;left:16px;right:16px;bottom:26px;height:66px;border:2px solid #15110f;border-radius:28px;background:#fbf9f5;display:flex;align-items:center;padding:0 6px">
+      <sc-for list="{{ tabsHome }}" as="t" hint-placeholder-count="4">
+        <div style="flex:1;height:52px;border-radius:22px;background:{{ t.bg }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="{{ t.fg }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.d }}"></path></svg>
+          <span style="font:600 10px/1 Montserrat,sans-serif;letter-spacing:.4px;color:{{ t.fg }}">{{ t.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <p style="margin:0;max-width:390px;font:400 13px/1.6 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">The three promo cards become one <b>Up next</b> card: your next audition, then the scene you left off. Each row deep-links into its tab. When nothing is scheduled the card simply isn't there.</p>
+</div>
+
+<!-- B · BOARD -->
+<div id="1b" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:10px"><a href="#1b" style="font:700 11px/1 ui-monospace,monospace;color:#15110f;background:#f2e22e;padding:5px 8px;border-radius:4px;text-decoration:none">1b</a><span style="font:600 14px/1 Montserrat,sans-serif;color:#15110f">Board, auditions</span></div>
+  <div data-screen-label="Board" style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#f2ede6;box-shadow:0 0 0 10px #15110f">
+    <div style="height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;font:600 15px/1 Montserrat,sans-serif;color:#15110f"><span>9:41</span><span style="width:24px;height:11px;border:1.5px solid #15110f;border-radius:3px"></span></div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;padding:14px 22px 0">
+      <div><div style="font:400 46px/1 'Instrument Serif',serif;color:#15110f">The <span style="font-style:italic;color:#b0400c">board.</span></div><div style="margin-top:8px;font:italic 400 13px/1 'Courier Prime',monospace;color:#5b534c">(3 coming. 1 callback.)</div></div>
+      <div style="width:34px;height:34px;border-radius:50%;background:#15110f;color:#f2e22e;display:flex;align-items:center;justify-content:center;font:400 19px/1 'Instrument Serif',serif;margin-bottom:6px">C</div>
+    </div>
+    <div style="margin:20px 22px 0;display:flex;gap:22px;border-bottom:1.5px solid #ddd5ca">
+      <div style="padding-bottom:10px;border-bottom:2.5px solid #15110f;margin-bottom:-1.5px;font:600 13px/1 Montserrat,sans-serif;color:#15110f">Coming up</div>
+      <div style="padding-bottom:10px;font:600 13px/1 Montserrat,sans-serif;color:#8a8178">Heard back</div>
+      <div style="padding-bottom:10px;font:600 13px/1 Montserrat,sans-serif;color:#8a8178">All</div>
+    </div>
+    <div style="margin:18px 22px 0;position:relative">
+      <div style="position:absolute;inset:7px -6px -6px 7px;border-radius:22px;background:#f2e22e"></div>
+      <div style="position:relative;border:2px solid #15110f;border-radius:22px;background:#fbf9f5;padding:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 10px/1 Montserrat,sans-serif;letter-spacing:2px;color:#b0400c">FRI 24 · 10:00</span><span style="background:#15110f;color:#f2e22e;border-radius:999px;padding:6px 10px;font:600 11px/1 Montserrat,sans-serif">in 2 days</span></div>
+        <div style="margin-top:12px;font:400 30px/1 'Instrument Serif',serif;color:#15110f">Mean Girls</div>
+        <div style="margin-top:5px;font:400 13px/1 Montserrat,sans-serif;color:#5b534c">Gretchen · In the room · Telsey &amp; Co.</div>
+        <div style="margin-top:16px;display:flex;align-items:center;gap:12px;background:#f2ede6;border-radius:14px;padding:10px 12px">
+          <div style="width:30px;height:40px;border-radius:4px;background:#1f3a2a;flex:none"></div>
+          <div style="flex:1;min-width:0"><div style="font:400 16px/1.1 'Instrument Serif',serif;color:#15110f">Gretchen Explains the Rules</div><div style="margin-top:3px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(1:11 · off book.)</div></div>
+          <span style="width:22px;height:22px;border-radius:50%;background:#b0400c;color:#fbf9f5;display:flex;align-items:center;justify-content:center;font:700 12px/1 Montserrat,sans-serif">✓</span>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:18px"><span style="font:600 13px/1 Montserrat,sans-serif;color:#15110f">Rehearse →</span><span style="font:600 13px/1 Montserrat,sans-serif;color:#8a8178">Directions</span></div>
+      </div>
+    </div>
+    <div style="margin:24px 22px 0;font:italic 400 13px/1 'Courier Prime',monospace;color:#8a8178">(next week.)</div>
+    <div style="margin:10px 22px 0;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1.5px solid #e3dbd0">
+        <div style="width:40px;text-align:center"><div style="font:700 10px/1 Montserrat,sans-serif;letter-spacing:1.5px;color:#8a8178">TUE</div><div style="margin-top:3px;font:400 24px/1 'Instrument Serif',serif;color:#15110f">28</div></div>
+        <div style="flex:1"><div style="font:400 18px/1.1 'Instrument Serif',serif;color:#15110f">The Seagull — Nina</div><div style="margin-top:3px;font:400 12px/1 Montserrat,sans-serif;color:#5b534c">Self-tape · due 6pm</div></div>
+        <span style="border:1.5px dashed #c9a58c;border-radius:999px;padding:6px 10px;font:italic 400 12px/1 'Courier Prime',monospace;color:#b0400c">pick a piece</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 0">
+        <div style="width:40px;text-align:center"><div style="font:700 10px/1 Montserrat,sans-serif;letter-spacing:1.5px;color:#8a8178">THU</div><div style="margin-top:3px;font:400 24px/1 'Instrument Serif',serif;color:#15110f">30</div></div>
+        <div style="flex:1"><div style="font:400 18px/1.1 'Instrument Serif',serif;color:#15110f">Billions — callback</div><div style="margin-top:3px;font:400 12px/1 Montserrat,sans-serif;color:#5b534c">Virtual · 2:30</div></div>
+        <span style="font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(ready.)</span>
+      </div>
+    </div>
+    <div style="position:absolute;right:22px;bottom:108px;width:56px;height:56px">
+      <div style="position:absolute;inset:5px -4px -4px 5px;border-radius:50%;background:#f2e22e"></div>
+      <div style="position:relative;width:56px;height:56px;border-radius:50%;background:#15110f;display:flex;align-items:center;justify-content:center;color:#f2e22e;font:300 30px/1 Montserrat,sans-serif">+</div>
+    </div>
+    <div style="position:absolute;left:16px;right:16px;bottom:26px;height:66px;border:2px solid #15110f;border-radius:28px;background:#fbf9f5;display:flex;align-items:center;padding:0 6px">
+      <sc-for list="{{ tabsBoard }}" as="t" hint-placeholder-count="4">
+        <div style="flex:1;height:52px;border-radius:22px;background:{{ t.bg }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="{{ t.fg }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.d }}"></path></svg>
+          <span style="font:600 10px/1 Montserrat,sans-serif;letter-spacing:.4px;color:{{ t.fg }}">{{ t.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <p style="margin:0;max-width:390px;font:400 13px/1.6 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">Tracking lives here. The next audition is the hero, with its piece attached and a prep state. Each row shows what's still missing (<i>pick a piece</i>). <b>Heard back</b> holds outcomes: callback, booked, passed.</p>
+</div>
+
+<!-- C · AUDITION AFTER -->
+<div id="1c" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:10px"><a href="#1c" style="font:700 11px/1 ui-monospace,monospace;color:#15110f;background:#f2e22e;padding:5px 8px;border-radius:4px;text-decoration:none">1c</a><span style="font:600 14px/1 Montserrat,sans-serif;color:#15110f">After the audition</span></div>
+  <div data-screen-label="Audition outcome" style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#cfc7bc;box-shadow:0 0 0 10px #15110f">
+    <div style="height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;font:600 15px/1 Montserrat,sans-serif;color:#15110f"><span>9:41</span><span style="width:24px;height:11px;border:1.5px solid #15110f;border-radius:3px"></span></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:560px;border-radius:34px 34px 0 0;background:#f2ede6;padding:12px 22px 0">
+      <div style="width:40px;height:5px;border-radius:3px;background:#cfc7bc;margin:0 auto"></div>
+      <div style="margin-top:22px;font:italic 400 13px/1 'Courier Prime',monospace;color:#b0400c">(how did it go?)</div>
+      <div style="margin-top:10px;font:400 34px/1.05 'Instrument Serif',serif;color:#15110f">Mean Girls, <span style="font-style:italic">Gretchen.</span></div>
+      <div style="margin-top:6px;font:400 13px/1 Montserrat,sans-serif;color:#5b534c">Friday · In the room</div>
+      <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="border:2px solid #15110f;border-radius:16px;background:#15110f;padding:14px;color:#fbf9f5"><div style="font:400 22px/1 'Instrument Serif',serif">Callback</div><div style="margin-top:6px;font:italic 400 12px/1 'Courier Prime',monospace;color:#f2e22e">(they want more.)</div></div>
+        <div style="border:2px solid #d6cdc1;border-radius:16px;background:#fbf9f5;padding:14px"><div style="font:400 22px/1 'Instrument Serif',serif;color:#15110f">Booked</div><div style="margin-top:6px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(you got it.)</div></div>
+        <div style="border:2px solid #d6cdc1;border-radius:16px;background:#fbf9f5;padding:14px"><div style="font:400 22px/1 'Instrument Serif',serif;color:#15110f">Waiting</div><div style="margin-top:6px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(no word yet.)</div></div>
+        <div style="border:2px solid #d6cdc1;border-radius:16px;background:#fbf9f5;padding:14px"><div style="font:400 22px/1 'Instrument Serif',serif;color:#15110f">Passed</div><div style="margin-top:6px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(next one.)</div></div>
+      </div>
+      <div style="margin-top:22px;font:700 10px/1 Montserrat,sans-serif;letter-spacing:2px;color:#8a8178">A NOTE FOR NEXT TIME</div>
+      <div style="margin-top:10px;border-bottom:1.5px solid #ddd5ca;padding-bottom:12px;font:400 15px/1.4 Montserrat,sans-serif;color:#15110f">Asked for it faster and meaner. Director laughed at “fetch.”</div>
+      <div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font:600 13px/1 Montserrat,sans-serif;color:#8a8178">Later</span>
+        <div style="height:50px;border-radius:999px;background:#15110f;display:flex;align-items:center;gap:14px;padding:0 6px 0 22px"><span style="font:600 14px/1 Montserrat,sans-serif;color:#fbf9f5">Set the callback</span><span style="width:38px;height:38px;border-radius:50%;background:#f2e22e;display:flex;align-items:center;justify-content:center;font:500 17px/1 Montserrat,sans-serif;color:#15110f">→</span></div>
+      </div>
+    </div>
+  </div>
+  <p style="margin:0;max-width:390px;font:400 13px/1.6 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">This sheet comes up by itself the evening after an audition, from the same reminder system as “the night before.” One tap logs the result. Picking <b>Callback</b> turns the button into “Set the callback,” which pre-fills a new board entry.</p>
+</div>
+
+<!-- D · SCENE HUB -->
+<div id="1d" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:10px"><a href="#1d" style="font:700 11px/1 ui-monospace,monospace;color:#15110f;background:#f2e22e;padding:5px 8px;border-radius:4px;text-decoration:none">1d</a><span style="font:600 14px/1 Montserrat,sans-serif;color:#15110f">Scene partner</span></div>
+  <div data-screen-label="Scene hub" style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#f2ede6;box-shadow:0 0 0 10px #15110f">
+    <div style="height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;font:600 15px/1 Montserrat,sans-serif;color:#15110f"><span>9:41</span><span style="width:24px;height:11px;border:1.5px solid #15110f;border-radius:3px"></span></div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;padding:14px 22px 0">
+      <div><div style="font:400 46px/1 'Instrument Serif',serif;color:#15110f">Scene <span style="font-style:italic;color:#b0400c">partner.</span></div><div style="margin-top:8px;font:italic 400 13px/1 'Courier Prime',monospace;color:#5b534c">(it reads the others. you read yours.)</div></div>
+      <div style="width:34px;height:34px;border-radius:50%;background:#15110f;color:#f2e22e;display:flex;align-items:center;justify-content:center;font:400 19px/1 'Instrument Serif',serif;margin-bottom:22px">C</div>
+    </div>
+    <div style="margin:22px 22px 0;position:relative">
+      <div style="position:absolute;inset:7px -6px -6px 7px;border-radius:22px;background:#f2e22e"></div>
+      <div style="position:relative;border:2px solid #15110f;border-radius:22px;background:#15110f;padding:20px;color:#fbf9f5">
+        <div style="font:700 10px/1 Montserrat,sans-serif;letter-spacing:2px;color:#f2e22e">PICK UP WHERE YOU LEFT</div>
+        <div style="margin-top:12px;font:400 30px/1 'Instrument Serif',serif">Mark's Stand-Up Attempt</div>
+        <div style="margin-top:6px;font:italic 400 13px/1 'Courier Prime',monospace;color:#cfc7bc">(you're Mark. Aoede reads Esther.)</div>
+        <div style="margin-top:18px;display:flex;align-items:center;gap:14px">
+          <div style="flex:1;height:4px;border-radius:2px;background:#3a332d"><div style="width:40%;height:4px;border-radius:2px;background:#f2e22e"></div></div>
+          <span style="font:600 12px/1 Montserrat,sans-serif;color:#cfc7bc">line 9 of 24</span>
+        </div>
+        <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between">
+          <span style="font:600 13px/1 Montserrat,sans-serif;color:#cfc7bc">Start over</span>
+          <div style="height:46px;border-radius:999px;background:#f2e22e;display:flex;align-items:center;gap:10px;padding:0 18px"><svg width="14" height="14" viewBox="0 0 24 24" fill="#15110f"><path d="M7 4v16l13-8z"></path></svg><span style="font:700 14px/1 Montserrat,sans-serif;color:#15110f">Resume</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin:30px 22px 0;display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 11px/1 Montserrat,sans-serif;letter-spacing:2px;color:#5b534c">YOUR SIDES</span><span style="font:italic 400 13px/1 'Courier Prime',monospace;color:#8a8178">(2.)</span></div>
+    <div style="margin:10px 22px 0;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1.5px solid #e3dbd0">
+        <div style="width:40px;height:40px;border-radius:12px;background:#fbf9f5;border:1.5px solid #d6cdc1;display:flex;align-items:center;justify-content:center;font:italic 400 22px/1 'Instrument Serif',serif;color:#15110f">&amp;</div>
+        <div style="flex:1"><div style="font:400 19px/1.1 'Instrument Serif',serif;color:#15110f">Almost a Therapist</div><div style="margin-top:3px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(Esther, Mark · 1 scene.)</div></div>
+        <span style="font:600 16px/1 Montserrat,sans-serif;color:#8a8178">›</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1.5px solid #e3dbd0">
+        <div style="width:40px;height:40px;border-radius:12px;background:#fbf9f5;border:1.5px solid #d6cdc1;display:flex;align-items:center;justify-content:center;font:italic 400 22px/1 'Instrument Serif',serif;color:#15110f">&amp;</div>
+        <div style="flex:1"><div style="font:400 19px/1.1 'Instrument Serif',serif;color:#15110f">Mean Girls — callback sides</div><div style="margin-top:3px;font:italic 400 12px/1 'Courier Prime',monospace;color:#b0400c">(for Thu's callback.)</div></div>
+        <span style="font:600 16px/1 Montserrat,sans-serif;color:#8a8178">›</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 0">
+        <div style="width:40px;height:40px;border-radius:12px;border:1.5px dashed #c9a58c;display:flex;align-items:center;justify-content:center;font:300 22px/1 Montserrat,sans-serif;color:#b0400c">+</div>
+        <div style="flex:1"><div style="font:600 14px/1 Montserrat,sans-serif;color:#b0400c">Add sides</div><div style="margin-top:4px;font:400 12px/1 Montserrat,sans-serif;color:#8a8178">PDF, photo, or paste the text</div></div>
+      </div>
+    </div>
+    <div style="position:absolute;left:16px;right:16px;bottom:26px;height:66px;border:2px solid #15110f;border-radius:28px;background:#fbf9f5;display:flex;align-items:center;padding:0 6px">
+      <sc-for list="{{ tabsScene }}" as="t" hint-placeholder-count="4">
+        <div style="flex:1;height:52px;border-radius:22px;background:{{ t.bg }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="{{ t.fg }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.d }}"></path></svg>
+          <span style="font:600 10px/1 Montserrat,sans-serif;letter-spacing:.4px;color:{{ t.fg }}">{{ t.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <p style="margin:0;max-width:390px;font:400 13px/1.6 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">Resume is the first thing you see, with how far you got. Sides linked to an audition say so. “Add sides” becomes a row in the list instead of a lone button.</p>
+</div>
+
+<!-- E · CAST SHEET -->
+<div id="1e" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:10px"><a href="#1e" style="font:700 11px/1 ui-monospace,monospace;color:#15110f;background:#f2e22e;padding:5px 8px;border-radius:4px;text-decoration:none">1e</a><span style="font:600 14px/1 Montserrat,sans-serif;color:#15110f">Who are you?</span></div>
+  <div data-screen-label="Cast sheet" style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#cfc7bc;box-shadow:0 0 0 10px #15110f">
+    <div style="height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;font:600 15px/1 Montserrat,sans-serif;color:#15110f"><span>9:41</span><span style="width:24px;height:11px;border:1.5px solid #15110f;border-radius:3px"></span></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:620px;border-radius:34px 34px 0 0;background:#f2ede6;padding:12px 22px 0">
+      <div style="width:40px;height:5px;border-radius:3px;background:#cfc7bc;margin:0 auto"></div>
+      <div style="margin-top:22px;font:600 11px/1 'Courier Prime',monospace;letter-spacing:2px;color:#5b534c">EPISODE 6</div>
+      <div style="margin-top:8px;font:400 34px/1.05 'Instrument Serif',serif;color:#15110f">Mark's Stand-Up Attempt</div>
+      <div style="margin-top:22px;font:italic 400 13px/1 'Courier Prime',monospace;color:#b0400c">(who are you?)</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="position:relative">
+          <div style="position:absolute;inset:6px -5px -5px 6px;border-radius:18px;background:#f2e22e"></div>
+          <div style="position:relative;border:2px solid #15110f;border-radius:18px;background:#fbf9f5;padding:16px;display:flex;align-items:center;gap:14px">
+            <div style="flex:1"><div style="font:400 28px/1 'Instrument Serif',serif;color:#15110f">Mark</div><div style="margin-top:6px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(you · 12 lines.)</div></div>
+            <span style="width:26px;height:26px;border-radius:50%;background:#15110f;color:#f2e22e;display:flex;align-items:center;justify-content:center;font:700 13px/1 Montserrat,sans-serif">✓</span>
+          </div>
+        </div>
+        <div style="border:2px solid #d6cdc1;border-radius:18px;background:#fbf9f5;padding:16px;display:flex;align-items:center;gap:14px">
+          <div style="flex:1"><div style="font:400 28px/1 'Instrument Serif',serif;color:#15110f">Esther</div><div style="margin-top:6px;font:italic 400 12px/1 'Courier Prime',monospace;color:#5b534c">(read by <span style="color:#b0400c;text-decoration:underline">Aoede</span> · breezy, 30s.)</div></div>
+          <span style="width:26px;height:26px;border-radius:50%;border:2px solid #d6cdc1"></span>
+        </div>
+      </div>
+      <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px">
+        <span style="border:1.5px solid #15110f;border-radius:999px;padding:8px 12px;font:600 12px/1 Montserrat,sans-serif;color:#15110f">Pace · natural</span>
+        <span style="border:1.5px solid #d6cdc1;border-radius:999px;padding:8px 12px;font:600 12px/1 Montserrat,sans-serif;color:#5b534c">Hide my lines</span>
+        <span style="border:1.5px solid #d6cdc1;border-radius:999px;padding:8px 12px;font:600 12px/1 Montserrat,sans-serif;color:#5b534c">Cue on silence</span>
+      </div>
+      <div style="position:absolute;left:22px;right:22px;bottom:40px;height:58px;border-radius:999px;background:#15110f;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 24px">
+        <span style="font:600 16px/1 Montserrat,sans-serif;color:#fbf9f5">Begin as Mark</span>
+        <span style="width:46px;height:46px;border-radius:50%;background:#f2e22e;display:flex;align-items:center;justify-content:center;font:500 20px/1 Montserrat,sans-serif;color:#15110f">→</span>
+      </div>
+    </div>
+  </div>
+  <p style="margin:0;max-width:390px;font:400 13px/1.6 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">Today this is a full screen with a greyed-out Begin until you tap a name. As a sheet it keeps your place, and the role you last played is preselected, so Begin is live straight away and says who you'll be.</p>
+</div>
+
+<!-- F · REHEARSAL -->
+<div id="1f" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:10px"><a href="#1f" style="font:700 11px/1 ui-monospace,monospace;color:#15110f;background:#f2e22e;padding:5px 8px;border-radius:4px;text-decoration:none">1f</a><span style="font:600 14px/1 Montserrat,sans-serif;color:#15110f">In the scene</span></div>
+  <div data-screen-label="Rehearsal" style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#f2ede6;box-shadow:0 0 0 10px #15110f">
+    <div style="height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;font:600 15px/1 Montserrat,sans-serif;color:#15110f"><span>9:41</span><span style="width:24px;height:11px;border:1.5px solid #15110f;border-radius:3px"></span></div>
+    <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 0">
+      <span style="font:400 22px/1 Montserrat,sans-serif;color:#15110f">✕</span>
+      <div style="flex:1;min-width:0"><div style="font:600 12px/1 Montserrat,sans-serif;color:#5b534c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ep 6 · Mark's Stand-Up Attempt</div><div style="margin-top:8px;height:3px;border-radius:2px;background:#ddd5ca"><div style="width:40%;height:3px;border-radius:2px;background:#15110f"></div></div></div>
+      <span style="font:600 12px/1 Montserrat,sans-serif;color:#8a8178">9/24</span>
+    </div>
+    <div style="padding:30px 30px 0;display:flex;flex-direction:column;gap:22px">
+      <div style="opacity:.35"><div style="font:700 11px/1 Montserrat,sans-serif;letter-spacing:2px;color:#5b534c">ESTHER</div><div style="margin-top:8px;font:400 17px/1.5 'Courier Prime',monospace;color:#15110f">So? How was it?</div></div>
+      <div style="opacity:.5"><div style="font:italic 400 13px/1.4 'Courier Prime',monospace;color:#5b534c">(Esther is in the park with Mark.)</div></div>
+      <div style="position:relative;margin:0 -14px;padding:16px 14px;border-radius:18px;background:#fbf9f5;border:2px solid #15110f">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px/1 Montserrat,sans-serif;letter-spacing:2px;color:#b0400c">MARK</span><span style="background:#f2e22e;border-radius:999px;padding:4px 8px;font:600 10px/1 Montserrat,sans-serif;color:#15110f">YOUR LINE</span></div>
+        <div style="margin-top:10px;font:400 21px/1.5 'Courier Prime',monospace;color:#15110f">I nailed it … hit out of the ballpark. And all I did was talk like you talk.</div>
+      </div>
+      <div><div style="font:700 11px/1 Montserrat,sans-serif;letter-spacing:2px;color:#8a8178">ESTHER</div><div style="margin-top:8px;font:400 17px/1.5 'Courier Prime',monospace;color:#8a8178">Do I get royalties?</div></div>
+      <div><div style="font:700 11px/1 Montserrat,sans-serif;letter-spacing:2px;color:#c9a58c">MARK</div><div style="margin-top:8px;font:400 17px/1.5 'Courier Prime',monospace;color:#8a8178">You are my muse.</div></div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:200px;background:linear-gradient(180deg,rgba(242,237,230,0),#f2ede6 38%)"></div>
+    <div style="position:absolute;left:22px;right:22px;bottom:40px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:8px;font:italic 400 13px/1 'Courier Prime',monospace;color:#b0400c"><span style="width:8px;height:8px;border-radius:50%;background:#b0400c"></span>(listening.)</div>
+      <div style="width:100%;display:flex;align-items:center;justify-content:space-between">
+        <div style="width:52px;height:52px;border-radius:50%;border:1.5px solid #d6cdc1;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15110f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg></div>
+        <div style="width:76px;height:76px;border-radius:50%;background:#15110f;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="#f2e22e"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></div>
+        <div style="height:52px;border-radius:999px;border:1.5px solid #d6cdc1;display:flex;align-items:center;gap:8px;padding:0 16px;font:600 13px/1 Montserrat,sans-serif;color:#15110f">Line <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15110f" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg></div>
+      </div>
+    </div>
+  </div>
+  <p style="margin:0;max-width:390px;font:400 13px/1.6 Montserrat,sans-serif;color:#5b534c;text-wrap:pretty">The script starts at the top instead of floating mid-screen. Your current line sits in a card, the lines already said fade out, and <i>(listening.)</i> shows when it's waiting for you. A progress bar and 9/24 replace the empty line in the header. The back button becomes “say it again”; <b>Line</b> skips ahead.</p>
+</div>
+
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const T = [
+      { key: 'search', label: 'Search', d: 'M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM16.5 16.5l4 4' },
+      { key: 'book', label: 'Book', d: 'M6 3h12v18l-6-4-6 4z' },
+      { key: 'board', label: 'Board', d: 'M4 6h16v14H4zM4 10h16M9 3v5M15 3v5' },
+      { key: 'scene', label: 'Scene', d: 'M8 5a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM16 5a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM3 20c0-3 2.5-5 5-5s5 2 5 5M11 20c0-3 2.5-5 5-5s5 2 5 5' },
+    ];
+    const tabs = (active) => T.map(t => ({ ...t, bg: t.key === active ? '#15110f' : 'transparent', fg: t.key === active ? '#f2e22e' : '#5b534c' }));
+    return { tabsHome: tabs('search'), tabsBoard: tabs('board'), tabsScene: tabs('scene') };
+  }
+}
+</script>
+</body>
+</html>

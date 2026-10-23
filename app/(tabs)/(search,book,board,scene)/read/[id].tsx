@@ -16,42 +16,43 @@ import Animated, {
   type EntryAnimationsValues,
 } from 'react-native-reanimated';
 
-import { Sketch } from '../../src/components/Sketches';
-import { StageDirection } from '../../src/components/StageDirection';
-import { StageBackdrop } from '../../src/components/StageBackdrop';
-import { PrimaryPill } from '../../src/components/PrimaryPill';
-import { Mark, sourceTag } from '../../src/components/Marks';
-import { useStageMotion } from '../../src/hooks/useStageMotion';
-import { ReadWall } from '../../src/components/ReadWall';
-import { PageCurl } from '../../src/components/PageCurl';
-import { ShareCard, sharePiece } from '../../src/components/ShareCard';
-import { SimilarRow } from '../../src/components/SimilarRow';
-import { PrivacyShield } from '../../src/components/PrivacyShield';
-import { MonologueText } from '../../src/components/MonologueText';
-import { WorkingPage, type PageMode, type PageView } from '../../src/components/WorkingPage';
-import { applyCut, clock, directionUnits, estimateSeconds, joinUnits, unitsOf } from '../../src/lib/segments';
-import { sketchFor } from '../../src/lib/sketchFor';
-import { getMonologueById, formatDuration, type Monologue } from '../../src/data/monologues';
-import { getMonologue } from '../../src/api/client';
-import { apiToMonologue } from '../../src/data/adapt';
-import { recordRead } from '../../src/lib/reads';
-import { noteRecent, touchRecent } from '../../src/lib/recents';
-import { maybeAskKnock, notePieceOpened } from '../../src/lib/nudges';
-import { recordFinishedRead } from '../../src/lib/reviewMoments';
-import { getOffline, removeOffline, saveOffline } from '../../src/lib/offline';
-import { useSession } from '../../src/lib/useSession';
-import { useGoBack } from '../../src/lib/nav';
-import { useIsFavorited, useMarkStudied, useSavedPiece, useSetCut, useSetOffBook, useToggleFavorite } from '../../src/hooks/useFavorites';
-import { MonologueTextSkeleton } from '../../src/components/MonologueTextSkeleton';
-import { track } from '../../src/lib/analytics';
+import { Sketch } from '../../../../src/components/Sketches';
+import { StageDirection } from '../../../../src/components/StageDirection';
+import { StageBackdrop } from '../../../../src/components/StageBackdrop';
+import { PrimaryPill } from '../../../../src/components/PrimaryPill';
+import { Mark, sourceTag } from '../../../../src/components/Marks';
+import { useStageMotion } from '../../../../src/hooks/useStageMotion';
+import { ReadWall } from '../../../../src/components/ReadWall';
+import { PageCurl } from '../../../../src/components/PageCurl';
+import { ShareCard, sharePiece } from '../../../../src/components/ShareCard';
+import { SimilarRow } from '../../../../src/components/SimilarRow';
+import { PrivacyShield } from '../../../../src/components/PrivacyShield';
+import { MonologueText } from '../../../../src/components/MonologueText';
+import { WorkingPage, type PageMode, type PageView } from '../../../../src/components/WorkingPage';
+import { applyCut, clock, directionUnits, estimateSeconds, joinUnits, unitsOf } from '../../../../src/lib/segments';
+import { sketchFor } from '../../../../src/lib/sketchFor';
+import { getMonologueById, formatDuration, type Monologue } from '../../../../src/data/monologues';
+import { getMonologue } from '../../../../src/api/client';
+import { apiToMonologue } from '../../../../src/data/adapt';
+import { recordRead } from '../../../../src/lib/reads';
+import { noteRecent, touchRecent } from '../../../../src/lib/recents';
+import { maybeAskKnock, notePieceOpened } from '../../../../src/lib/nudges';
+import { recordFinishedRead } from '../../../../src/lib/reviewMoments';
+import { getOffline, removeOffline, saveOffline } from '../../../../src/lib/offline';
+import { useSession } from '../../../../src/lib/useSession';
+import { useGoBack } from '../../../../src/lib/nav';
+import { useIsFavorited, useMarkStudied, useSavedPiece, useSetCut, useSetOffBook, useToggleFavorite } from '../../../../src/hooks/useFavorites';
+import { MonologueTextSkeleton } from '../../../../src/components/MonologueTextSkeleton';
+import { track } from '../../../../src/lib/analytics';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { usePreventCaptureWhileFocused } from '../../src/hooks/usePreventCaptureWhileFocused';
+import { usePreventCaptureWhileFocused } from '../../../../src/hooks/usePreventCaptureWhileFocused';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius } from '../../src/theme/tokens';
-import { mediumPalette, type Medium, type MediumPalette } from '../../src/theme/medium';
-import { useEntitlement } from '../../src/hooks/useEntitlement';
-import { useTheme } from '../../src/theme/ThemeContext';
+import { colors, radius } from '../../../../src/theme/tokens';
+import { mediumPalette, type Medium, type MediumPalette } from '../../../../src/theme/medium';
+import { useEntitlement } from '../../../../src/hooks/useEntitlement';
+import { useTheme } from '../../../../src/theme/ThemeContext';
+import { useRoomName } from '../../../../src/lib/room';
 
 /**
  * Step 4 — Read.
@@ -111,7 +112,8 @@ export default function Read() {
   // behind this screen, so the chevron stands alone; from the deck it is only
   // "Back"; from the results list it names them.
   const router = useRouter();
-  const backLabel = !router.canGoBack() ? '' : from === 'curtain' ? 'Back' : 'Results';
+  const room = useRoomName();
+  const backLabel = !router.canGoBack() ? '' : from === 'curtain' ? 'Back' : room;
   const goBack = useGoBack('/');
   const reduceMotion = useReducedMotion();
   const { height, width } = useWindowDimensions();

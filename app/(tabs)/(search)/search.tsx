@@ -22,34 +22,34 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { GhostLight, ghostLightMetrics } from '../src/components/GhostLight';
+import { GhostLight, ghostLightMetrics } from '../../../src/components/GhostLight';
 import {
   loadSearchHistory,
   pushSearchHistory,
   removeSearchHistory,
   type RecentSearch,
-} from '../src/lib/searchHistory';
-import { StageBackdrop } from '../src/components/StageBackdrop';
-import { StageDirection } from '../src/components/StageDirection';
+} from '../../../src/lib/searchHistory';
+import { StageBackdrop } from '../../../src/components/StageBackdrop';
+import { StageDirection } from '../../../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
-import { useStageMotion } from '../src/hooks/useStageMotion';
-import { MediumToggle } from '../src/components/MediumToggle';
-import { FilterSheet } from '../src/components/FilterSheet';
-import { BoardCard } from '../src/components/BoardCard';
-import { RehearseCard } from '../src/components/RehearseCard';
-import { Ticket } from '../src/components/Ticket';
-import { useAuditions } from '../src/hooks/useAuditions';
-import { useNudge } from '../src/hooks/useNudge';
-import { useHouseList, useTonight } from '../src/hooks/useTonight';
-import { trackNudgeOpen, type Nudge } from '../src/lib/nudges';
-import { isFresh, loadRecents, type RecentPiece } from '../src/lib/recents';
-import { useFavorites } from '../src/hooks/useFavorites';
-import { Trending } from '../src/components/Trending';
-import { track } from '../src/lib/analytics';
-import { useEntitlement } from '../src/hooks/useEntitlement';
-import { useSession } from '../src/lib/useSession';
-import { colors, radius } from '../src/theme/tokens';
-import { pickPromptIndex, promptAt } from '../src/data/prompts';
+import { useStageMotion } from '../../../src/hooks/useStageMotion';
+import { MediumToggle } from '../../../src/components/MediumToggle';
+import { FilterSheet } from '../../../src/components/FilterSheet';
+import { BoardCard } from '../../../src/components/BoardCard';
+import { RehearseCard } from '../../../src/components/RehearseCard';
+import { Ticket } from '../../../src/components/Ticket';
+import { useAuditions } from '../../../src/hooks/useAuditions';
+import { useNudge } from '../../../src/hooks/useNudge';
+import { useHouseList, useTonight } from '../../../src/hooks/useTonight';
+import { trackNudgeOpen, type Nudge } from '../../../src/lib/nudges';
+import { isFresh, loadRecents, type RecentPiece } from '../../../src/lib/recents';
+import { useFavorites } from '../../../src/hooks/useFavorites';
+import { Trending } from '../../../src/components/Trending';
+import { track } from '../../../src/lib/analytics';
+import { useEntitlement } from '../../../src/hooks/useEntitlement';
+import { useSession } from '../../../src/lib/useSession';
+import { colors, radius } from '../../../src/theme/tokens';
+import { pickPromptIndex, promptAt } from '../../../src/data/prompts';
 import {
   FILTER_CHIPS,
   EMPTY_SELECTION,
@@ -59,9 +59,10 @@ import {
   selectionToParams,
   type FilterChip,
   type Selection,
-} from '../src/data/filters';
-import { mediumPalette, type Medium } from '../src/theme/medium';
-import { useTheme } from '../src/theme/ThemeContext';
+} from '../../../src/data/filters';
+import { mediumPalette, type Medium } from '../../../src/theme/medium';
+import { useTheme } from '../../../src/theme/ThemeContext';
+import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
 
 /**
  * Step 2 — Search is home.
@@ -501,7 +502,7 @@ export default function Search() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             style={{ flex: 1 }}
-            contentContainerStyle={{ alignItems: 'center', paddingBottom: 16 }}
+            contentContainerStyle={{ alignItems: 'center', paddingBottom: TAB_BAR_SPACE }}
           >
 
             {/* The greeting. Two lines, each held to one line on purpose, in a

@@ -6,20 +6,20 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
-import { StageBackdrop } from '../../src/components/StageBackdrop';
-import { StageDirection } from '../../src/components/StageDirection';
-import { BackHeader } from '../../src/components/BackHeader';
-import { PrimaryPill } from '../../src/components/PrimaryPill';
-import { PaperCard } from '../../src/components/PaperCard';
-import { Sketch } from '../../src/components/Sketches';
-import { useStageMotion } from '../../src/hooks/useStageMotion';
-import { useEntitlement } from '../../src/hooks/useEntitlement';
-import { useRunStats, useScenes, useScript, useScripts } from '../../src/hooks/useScenePartner';
-import type { SceneSummary, ScriptSummary } from '../../src/api/rehearsal';
-import { useGoBack } from '../../src/lib/nav';
-import { Mic } from '../../src/rehearsal/native/mic';
-import { useSession } from '../../src/lib/useSession';
-import { useTheme } from '../../src/theme/ThemeContext';
+import { StageBackdrop } from '../../../../src/components/StageBackdrop';
+import { StageDirection } from '../../../../src/components/StageDirection';
+import { RoomHeader } from '../../../../src/components/RoomHeader';
+import { PrimaryPill } from '../../../../src/components/PrimaryPill';
+import { PaperCard } from '../../../../src/components/PaperCard';
+import { Sketch } from '../../../../src/components/Sketches';
+import { useStageMotion } from '../../../../src/hooks/useStageMotion';
+import { useEntitlement } from '../../../../src/hooks/useEntitlement';
+import { useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import type { SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
+import { Mic } from '../../../../src/rehearsal/native/mic';
+import { useSession } from '../../../../src/lib/useSession';
+import { useTheme } from '../../../../src/theme/ThemeContext';
+import { TAB_BAR_SPACE } from '../../../../src/components/TabBar';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -39,7 +39,6 @@ const TILTS = [-0.5, 0.4, -0.3];
 export default function RehearseHub() {
   const { colors: c } = useTheme();
   const router = useRouter();
-  const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
   const { session, isAuthenticated } = useSession();
   // Runs and the library need a session, which every stranger has; your own sides need the account they will live on.
@@ -61,7 +60,7 @@ export default function RehearseHub() {
     return () => clearInterval(t);
   }, [reading, scripts]);
 
-  const add = () => { Haptics.selectionAsync().catch(() => {}); router.push('/rehearse/add'); };
+  const add = () => { Haptics.selectionAsync().catch(() => {}); router.push('/sides'); };
   // The microphone and the recogniser are asked for on arrival, with the room in
   // view, rather than at the moment Begin should light.
   useEffect(() => { if (ready) void Mic.permission(); }, [ready]);
@@ -70,8 +69,8 @@ export default function RehearseHub() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="Search" onPress={goBack} />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }}>
+        <RoomHeader />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: TAB_BAR_SPACE }}>
           <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
               Scene <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>partner.</Text>

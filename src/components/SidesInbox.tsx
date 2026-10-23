@@ -14,7 +14,7 @@ export function SidesInbox() {
     const take = (url: string | null) => {
       if (!url || !url.startsWith('file:')) return;
       const name = decodeURIComponent(url.split('/').pop() ?? 'sides.pdf');
-      router.push({ pathname: '/rehearse/add', params: { uri: url, name } });
+      router.push({ pathname: '/sides', params: { uri: url, name } });
     };
     void Linking.getInitialURL().then(take).catch(() => {});
     const sub = Linking.addEventListener('url', e => take(e.url));

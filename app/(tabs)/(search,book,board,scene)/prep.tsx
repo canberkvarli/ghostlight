@@ -17,12 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInUp, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { StageBackdrop } from '../src/components/StageBackdrop';
-import { StageDirection } from '../src/components/StageDirection';
-import { BackHeader } from '../src/components/BackHeader';
-import { PrimaryPill } from '../src/components/PrimaryPill';
-import { Sketch } from '../src/components/Sketches';
-import { useStageMotion } from '../src/hooks/useStageMotion';
+import { StageBackdrop } from '../../../src/components/StageBackdrop';
+import { StageDirection } from '../../../src/components/StageDirection';
+import { BackHeader } from '../../../src/components/BackHeader';
+import { PrimaryPill } from '../../../src/components/PrimaryPill';
+import { Sketch } from '../../../src/components/Sketches';
+import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import {
   useAddCallback,
   useAskAudition,
@@ -34,8 +34,8 @@ import {
   useForgetAsk,
   useLogOutcome,
   usePatchAudition,
-} from '../src/hooks/useAuditions';
-import { ApiError } from '../src/api/client';
+} from '../../../src/hooks/useAuditions';
+import { ApiError } from '../../../src/api/client';
 import {
   KIND_LABEL,
   OUTCOME_LABEL,
@@ -45,18 +45,19 @@ import {
   type BringItem,
   type Outcome,
   type ReminderMoment,
-} from '../src/api/auditions';
+} from '../../../src/api/auditions';
 import {
   hasNotificationPermission,
   phoneRemindersOff,
   requestNotificationPermission,
   setPhoneReminders,
-} from '../src/lib/notifications';
-import { track } from '../src/lib/analytics';
-import { useGoBack } from '../src/lib/nav';
-import { useSession } from '../src/lib/useSession';
-import { clockLabel, dayLabel, eyebrow, timeLabel } from '../src/lib/when';
-import { useTheme } from '../src/theme/ThemeContext';
+} from '../../../src/lib/notifications';
+import { track } from '../../../src/lib/analytics';
+import { useGoBack } from '../../../src/lib/nav';
+import { useSession } from '../../../src/lib/useSession';
+import { clockLabel, dayLabel, eyebrow, timeLabel } from '../../../src/lib/when';
+import { useTheme } from '../../../src/theme/ThemeContext';
+import { useRoomName } from '../../../src/lib/room';
 
 /**
  * One audition as its file: the website's prep room, on a phone.
@@ -82,7 +83,8 @@ const UNREACHABLE = ['@anon.actorrise.com', '@privaterelay.appleid.com'];
 export default function Prep() {
   const { colors: c } = useTheme();
   const router = useRouter();
-  const goBack = useGoBack('/auditions');
+  const room = useRoomName();
+  const goBack = useGoBack(room === 'Board' ? '/auditions' : '/search');
   const { tiltX, tiltY } = useStageMotion();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { isAuthenticated, session } = useSession();
@@ -155,7 +157,7 @@ export default function Prep() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <BackHeader
-          label="Auditions"
+          label={room}
           onPress={goBack}
           right={
             a ? (

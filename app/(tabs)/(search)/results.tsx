@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FlashList, type FlashListProps } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
-import { usePreventCaptureWhileFocused } from '../src/hooks/usePreventCaptureWhileFocused';
+import { usePreventCaptureWhileFocused } from '../../../src/hooks/usePreventCaptureWhileFocused';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
@@ -21,26 +21,26 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { MonologueCard } from '../src/components/MonologueCard';
-import { Sketch } from '../src/components/Sketches';
-import { PrimaryPill } from '../src/components/PrimaryPill';
-import { StageBackdrop } from '../src/components/StageBackdrop';
-import { StageDirection } from '../src/components/StageDirection';
-import { MONOLOGUES, type Monologue } from '../src/data/monologues';
-import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useMonologueSearch } from '../src/hooks/useMonologueSearch';
+import { MonologueCard } from '../../../src/components/MonologueCard';
+import { Sketch } from '../../../src/components/Sketches';
+import { PrimaryPill } from '../../../src/components/PrimaryPill';
+import { StageBackdrop } from '../../../src/components/StageBackdrop';
+import { StageDirection } from '../../../src/components/StageDirection';
+import { MONOLOGUES, type Monologue } from '../../../src/data/monologues';
+import { useStageMotion } from '../../../src/hooks/useStageMotion';
+import { useMonologueSearch } from '../../../src/hooks/useMonologueSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getDiscover, requestContent, type SearchParams } from '../src/api/client';
-import { apiToMonologue } from '../src/data/adapt';
+import { getDiscover, requestContent, type SearchParams } from '../../../src/api/client';
+import { apiToMonologue } from '../../../src/data/adapt';
 import { Image } from 'expo-image';
-import { posterThumb, searchScreen } from '../src/lib/screen';
-import { track } from '../src/lib/analytics';
-import { useGoBack } from '../src/lib/nav';
-import { useSession } from '../src/lib/useSession';
-import { useFavorites } from '../src/hooks/useFavorites';
-import { colors } from '../src/theme/tokens';
-import { mediumPalette, type Medium, type MediumPalette } from '../src/theme/medium';
-import { useTheme } from '../src/theme/ThemeContext';
+import { posterThumb, searchScreen } from '../../../src/lib/screen';
+import { track } from '../../../src/lib/analytics';
+import { useGoBack } from '../../../src/lib/nav';
+import { useSession } from '../../../src/lib/useSession';
+import { useFavorites } from '../../../src/hooks/useFavorites';
+import { colors } from '../../../src/theme/tokens';
+import { mediumPalette, type Medium, type MediumPalette } from '../../../src/theme/medium';
+import { useTheme } from '../../../src/theme/ThemeContext';
 import {
   CARD_GAP,
   CARD_HEIGHT,
@@ -48,7 +48,7 @@ import {
   HEADER_HEIGHT,
   LIST_PADDING_TOP,
   ROW_HEIGHT,
-} from '../src/theme/layout';
+} from '../../../src/theme/layout';
 
 /**
  * Results (spec §5, Steps 0 & 3).

@@ -6,26 +6,28 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-import { StageBackdrop } from '../src/components/StageBackdrop';
-import { StageDirection } from '../src/components/StageDirection';
-import { BackHeader } from '../src/components/BackHeader';
-import { PrimaryPill } from '../src/components/PrimaryPill';
-import { PaperCard } from '../src/components/PaperCard';
-import { PieceCover } from '../src/components/PieceCover';
-import { Sketch } from '../src/components/Sketches';
-import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useFavorites, useSetOffBook, useToggleFavorite } from '../src/hooks/useFavorites';
-import { useAttachPiece, useAudition, useAuditions } from '../src/hooks/useAuditions';
-import { attachedPiece } from '../src/api/auditions';
-import { UndoBar } from '../src/components/UndoBar';
-import { SwipeRow } from '../src/components/SwipeRow';
-import { track } from '../src/lib/analytics';
-import { FIND_FROM, TONE_LABEL, findInBook, rowMeta, shelve, type RoomPiece } from '../src/lib/book';
-import { useGoBack } from '../src/lib/nav';
-import { useSession } from '../src/lib/useSession';
-import { stubLabel } from '../src/lib/when';
-import { useTheme } from '../src/theme/ThemeContext';
-import type { Monologue, Tone } from '../src/data/monologues';
+import { StageBackdrop } from '../../../src/components/StageBackdrop';
+import { StageDirection } from '../../../src/components/StageDirection';
+import { BackHeader } from '../../../src/components/BackHeader';
+import { PrimaryPill } from '../../../src/components/PrimaryPill';
+import { PaperCard } from '../../../src/components/PaperCard';
+import { PieceCover } from '../../../src/components/PieceCover';
+import { Sketch } from '../../../src/components/Sketches';
+import { useStageMotion } from '../../../src/hooks/useStageMotion';
+import { useFavorites, useSetOffBook, useToggleFavorite } from '../../../src/hooks/useFavorites';
+import { useAttachPiece, useAudition, useAuditions } from '../../../src/hooks/useAuditions';
+import { attachedPiece } from '../../../src/api/auditions';
+import { UndoBar } from '../../../src/components/UndoBar';
+import { SwipeRow } from '../../../src/components/SwipeRow';
+import { track } from '../../../src/lib/analytics';
+import { FIND_FROM, TONE_LABEL, findInBook, rowMeta, shelve, type RoomPiece } from '../../../src/lib/book';
+import { useGoBack } from '../../../src/lib/nav';
+import { useSession } from '../../../src/lib/useSession';
+import { stubLabel } from '../../../src/lib/when';
+import { useTheme } from '../../../src/theme/ThemeContext';
+import type { Monologue, Tone } from '../../../src/data/monologues';
+import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { RoomHeader } from '../../../src/components/RoomHeader';
 
 /**
  * Saved — "Your book."
@@ -183,7 +185,7 @@ export default function Saves() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <BackHeader label={picking ? 'Audition' : 'Search'} onPress={goBack} />
+        {picking ? <BackHeader label="Audition" onPress={goBack} /> : <RoomHeader />}
 
         {!isAuthenticated ? (
           <Center>
@@ -226,7 +228,7 @@ export default function Saves() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }}
+            contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: TAB_BAR_SPACE }}
           >
             <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
               <Text

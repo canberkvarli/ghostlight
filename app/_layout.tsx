@@ -292,24 +292,19 @@ function Shell() {
         {/* Results rise and fade up like the lights changing for a new scene,
             rather than sliding in from the side. Read cross-fades, then the
             paper does its curtain rise. */}
+        {/* The signed-in app: four tabs, each its own stack (Search, Book, Board, Scene). */}
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade', animationDuration: 240 }} />
         <Stack.Screen name="curtain" options={{ animation: 'fade', animationDuration: 320 }} />
-        <Stack.Screen name="results" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
-        <Stack.Screen name="read/[id]" options={{ animation: 'fade', animationDuration: 260 }} />
-        {/* The rehearsal room: a sheet that comes up over the page and goes
-            straight to work; pull it down to come back to the words. */}
+        {/* The rehearsal room for a monologue: a sheet over the page; pull it down to come back to the words. */}
         <Stack.Screen name="run/[id]" options={{ presentation: 'modal' }} />
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
         <Stack.Screen name="note" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
-        {/* The audition form is a sheet over the list, like auth over a save. */}
+        {/* The audition form is a sheet over the board, like auth over a save. */}
         <Stack.Screen name="audition" options={{ presentation: 'modal' }} />
-        {/* One audition's file opens like a page turning: a cross-fade from the board. */}
-        <Stack.Screen name="prep" options={{ animation: 'fade', animationDuration: 240 }} />
-        {/* The scene partner: the room, the sheet that becomes the run, and sides coming in as a sheet over it. */}
-        <Stack.Screen name="rehearse/index" options={{ animation: 'fade', animationDuration: 240 }} />
-        <Stack.Screen name="rehearse/[id]" options={{ animation: 'fade', animationDuration: 320, gestureEnabled: false }} />
-        <Stack.Screen name="rehearse/add" options={{ presentation: 'modal' }} />
+        {/* Sides coming in: a sheet over the scene room. */}
+        <Stack.Screen name="sides" options={{ presentation: 'modal' }} />
       </Stack>
 
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
