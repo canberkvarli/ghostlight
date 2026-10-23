@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Pressable, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
   Easing,
   FadeIn,
   FadeOut,
-  useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -18,13 +18,15 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
-import { BlankPage, GAP, PEEK, PlaybillPage } from '../src/components/Playbill';
+import { Deck } from '../src/components/Deck';
+import { BlankPage, PlaybillCard } from '../src/components/Playbill';
 import { ShareCard, sharePiece } from '../src/components/ShareCard';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import type { Monologue } from '../src/data/monologues';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useHouse, useTonight } from '../src/hooks/useTonight';
 import { track } from '../src/lib/analytics';
+import { PENDING_KEEP } from '../src/lib/keep';
 import { useSession } from '../src/lib/useSession';
 import { mediumPalette, type Medium } from '../src/theme/medium';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -32,13 +34,14 @@ import { useTheme } from '../src/theme/ThemeContext';
 /**
  * The curtain: what a stranger sees first.
  *
- * A playbill. One speech to a page, the poster or the cloth of the play at the
- * head of it fading into the paper the words are printed on, and the next page
- * showing under the edge of this one, so the thumb knows what to do without a
- * line telling it. Tonight's speech is the first page. Tap a page and you are
- * reading it. The two houses are two words in the header; a magnifier opens
- * one line of search over the deck for the person who arrived knowing what
- * they want. Nothing else is on.
+ * A deck of playbills you throw. One speech to a card, the poster or the cover
+ * of the play at the head of it fading into the paper the words are printed
+ * on, the next two waiting behind with their heads showing. Swipe right to
+ * keep it (which asks for the account it will be kept in, and keeps it the
+ * moment that exists), left for another, tap to read it. Tonight's speech is
+ * the first card. The two houses are two words in the header; a magnifier
+ * opens one line of search over the deck for the person who arrived knowing
+ * what they want. Nothing else is on.
  *
  * This is the stage door for anyone without an account. Sign in, and the home
  * with your book and your board takes over.
@@ -79,37 +82,31 @@ export default function Curtain() {
     return i < 0 ? [tonight, ...h] : [...h.slice(i), ...h.slice(0, i)];
   }, [list, medium, tonight]);
 
-  // The deck's geometry comes from the screen, measured once it is laid out.
+  // The deck's height comes from the screen, measured once it is laid out.
   const [deckH, setDeckH] = useState(0);
-  const cardH = Math.max(0, deckH - insets.bottom - PEEK - GAP);
-  const page = cardH + GAP;
-
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler((e) => {
-    scrollY.value = e.contentOffset.y;
-  });
   const [at, setAt] = useState(0);
-  const listRef = useRef<Animated.FlatList<Monologue>>(null);
-
-  const settle = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (page <= 0) return;
-      const i = Math.max(0, Math.min(house.length - 1, Math.round(e.nativeEvent.contentOffset.y / page)));
-      if (i === at) return;
-      setAt(i);
-      Haptics.selectionAsync().catch(() => {});
-      track('app_curtain', { action: 'swipe' });
-    },
-    [at, house.length, page],
-  );
-
-  // The next two posters are fetched while this page is up, so a swipe lands
+  // The next two posters are fetched while this card is up, so a throw lands
   // on a picture and not on a block where one is loading.
   useEffect(() => {
-    const urls = [1, 2].map((k) => house[at + k]?.posterUrl).filter((u): u is string => Boolean(u));
+    const urls = [1, 2].map((k) => house[(at + k) % Math.max(1, house.length)]?.posterUrl).filter((u): u is string => Boolean(u));
     if (urls.length) Image.prefetch(urls).catch(() => {});
   }, [house, at]);
-
+  // Keep: the card is kept in the book, which needs the account the book is
+  // in. The piece is remembered on the phone and saved the moment they sign in
+  // (app/_layout.tsx), so the throw is not a promise the app forgets.
+  const keep = useCallback(
+    (piece: Monologue) => {
+      track('app_curtain', { action: 'keep' });
+      setAt((n) => n + 1);
+      void AsyncStorage.setItem(PENDING_KEEP, piece.id).catch(() => {});
+      router.push('/auth');
+    },
+    [router],
+  );
+  const pass = useCallback(() => {
+    track('app_curtain', { action: 'pass' });
+    setAt((n) => n + 1);
+  }, []);
   const changeHouse = useCallback(
     (next: Medium) => {
       if (next === medium) return;
@@ -117,9 +114,8 @@ export default function Curtain() {
       track('app_curtain', { action: 'house' });
       setMedium(next);
       setAt(0);
-      scrollY.value = 0;
     },
-    [medium, scrollY],
+    [medium],
   );
 
   const open = useCallback(
@@ -172,23 +168,6 @@ export default function Curtain() {
     breath.value = reduce ? 0.85 : withRepeat(withTiming(0.55, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, true);
   }, [breath, reduce]);
   const breathStyle = useAnimatedStyle(() => ({ opacity: breath.value }));
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: Monologue; index: number }) => (
-      <PlaybillPage
-        item={item}
-        index={index}
-        scrollY={scrollY}
-        page={page}
-        height={cardH}
-        first={index === 0}
-        reduce={reduce}
-        onOpen={() => open(item)}
-        onShare={() => share(item)}
-      />
-    ),
-    [cardH, open, page, reduce, scrollY, share],
-  );
 
   const houseWord = (h: { key: Medium; label: string }) => {
     const on = h.key === medium;
@@ -266,33 +245,29 @@ export default function Curtain() {
           {deckH > 0 ? (
             <Animated.View key={medium} entering={FadeIn.duration(reduce ? 120 : 360)} exiting={FadeOut.duration(160)} style={{ flex: 1 }}>
               {house.length > 0 ? (
-                <Animated.FlatList
-                  ref={listRef}
-                  data={house}
-                  keyExtractor={(m) => m.id}
-                  renderItem={renderItem}
-                  onScroll={onScroll}
-                  scrollEventThrottle={16}
-                  onMomentumScrollEnd={settle}
-                  snapToInterval={page}
-                  decelerationRate="fast"
-                  disableIntervalMomentum
-                  showsVerticalScrollIndicator={false}
-                  initialNumToRender={2}
-                  windowSize={5}
-                  getItemLayout={(_, i) => ({ length: page, offset: page * i, index: i })}
-                  contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: PEEK + insets.bottom }}
-                  keyboardDismissMode="on-drag"
-                />
+                <View style={{ flex: 1, paddingHorizontal: 20 }}>
+                  <Deck
+                    items={house}
+                    keyOf={(m) => m.id}
+                    deckKey={medium}
+                    height={deckH - insets.bottom - 6}
+                    reduce={reduce}
+                    onKeep={keep}
+                    onPass={pass}
+                    renderCard={(item, first) => (
+                      <PlaybillCard item={item} height={deckH - insets.bottom - 6 - 64 - 22} first={first} onOpen={() => open(item)} onShare={() => share(item)} />
+                    )}
+                  />
+                </View>
               ) : (
                 <View style={{ paddingHorizontal: 20 }}>
                   {!settled ? (
                     <Animated.View style={breathStyle}>
-                      <BlankPage height={cardH} />
+                      <BlankPage height={deckH - insets.bottom - 92} />
                     </Animated.View>
                   ) : (
                     <BlankPage
-                      height={cardH}
+                      height={deckH - insets.bottom - 92}
                       line={failed ? '(the house is dark. tap to try again.)' : '(nothing on tonight.)'}
                       onPress={
                         failed
