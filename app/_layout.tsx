@@ -5,7 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { QueryClient, focusManager } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Imported file-by-file rather than from the package root: the root re-exports
 // every weight and italic, and Metro will happily ship all ~2MB of them.
 // Display and numerals. Instrument Serif ships one weight and its italic, which
@@ -63,7 +66,23 @@ LogBox.ignoreLogs([
   /Error fetching offering/,
 ]);
 
-const queryClient = new QueryClient();
+// Queries outlive the process: the book's count, the board, the shelves and
+// tonight's pick are written to disk as they arrive and read back before the
+// first frame, so a cold start draws the home as it was and then refreshes it,
+// instead of drawing it empty and filling it in ten seconds later. Only the
+// keys named here are kept; the wall and the signed audio links are not.
+const queryClient = new QueryClient({ defaultOptions: { queries: { gcTime: 24 * 60 * 60 * 1000 } } });
+const persister = createAsyncStoragePersister({ storage: AsyncStorage, key: 'ghostlight-queries', throttleTime: 1000 });
+const PERSISTED = new Set(['favorites', 'auditions', 'trending', 'screen-shelf', 'tonight', 'discover', 'catalogue-size', 'scripts', 'scenes', 'run-stats']);
+const persistOptions = {
+  persister,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  buster: 'v1',
+  dehydrateOptions: {
+    shouldDehydrateQuery: (q: { queryKey: readonly unknown[]; state: { status: string } }) =>
+      q.state.status === 'success' && PERSISTED.has(String(q.queryKey[0])),
+  },
+};
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -199,11 +218,11 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <ThemeProvider>
         <Shell />
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
