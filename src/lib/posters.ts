@@ -8,7 +8,7 @@
 const SIZE_TAG = /\._V1_[^./]*\.(jpe?g|png)$/i;
 
 /** The poster at a width that fills a phone card. Links of any other shape pass through untouched. */
-export function sharpPoster(url: string | null | undefined, width = 1200): string | undefined {
+export function sharpPoster(url: string | null | undefined, width = 1000): string | undefined {
   if (!url) return undefined;
   return SIZE_TAG.test(url) ? url.replace(SIZE_TAG, `._V1_SX${width}.$1`) : url;
 }
