@@ -201,7 +201,10 @@ enum Store {
     /// Fetches and keeps a small copy of the poster if there is not one already.
     /// Small, because a widget has a little memory and a poster is a big file.
     static func ensurePoster(_ piece: Piece) async {
-        guard let raw = piece.posterUrl, let url = URL(string: raw) else { return }
+        // The catalogue stores the 300 pixel poster; the thumbnail below is 400 across. The same
+        // link with a larger size tag is the same poster, so ask for one bigger than we keep.
+        guard let raw = piece.posterUrl,
+              let url = URL(string: raw.replacingOccurrences(of: "._V1_SX300.", with: "._V1_SX600.")) else { return }
         let dest = posterURL(piece)
         if FileManager.default.fileExists(atPath: dest.path) { return }
         guard let (data, _) = try? await URLSession.shared.data(from: url),
