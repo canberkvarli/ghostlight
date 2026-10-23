@@ -2,7 +2,6 @@ import { forwardRef } from 'react';
 import { Pressable, Text, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSegments, type Href } from 'expo-router';
-import { TabTrigger } from 'expo-router/ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -18,20 +17,23 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
 
 /** The four rooms, in the order of the bar. */
 export const TAB_ROOMS: { name: string; href: Href; label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap }[] = [
-  { name: 'search', href: '/search', label: 'Search', icon: 'search-outline', active: 'search' },
-  { name: 'book', href: '/saves', label: 'Book', icon: 'bookmark-outline', active: 'bookmark' },
-  { name: 'board', href: '/auditions', label: 'Board', icon: 'calendar-outline', active: 'calendar' },
-  { name: 'scene', href: '/rehearse', label: 'Scene', icon: 'people-outline', active: 'people' },
+  // Group-qualified, so a shared route (the book is in every room) cannot be mistaken for another room's.
+  { name: 'search', href: '/(search)/search' as Href, label: 'Search', icon: 'search-outline', active: 'search' },
+  { name: 'book', href: '/(book)/saves' as Href, label: 'Book', icon: 'bookmark-outline', active: 'bookmark' },
+  { name: 'board', href: '/(board)/auditions' as Href, label: 'Board', icon: 'calendar-outline', active: 'calendar' },
+  { name: 'scene', href: '/(scene)/rehearse' as Href, label: 'Scene', icon: 'people-outline', active: 'people' },
 ];
 
 /**
- * Four rooms, one bar. A floating pill over the stage, inset from the sides,
+ * Four rooms, one bar. The triggers are declared in the layout and handed in as
+ * children, because the navigator reads its rooms from the element tree. A
+ * floating pill over the stage, inset from the sides,
  * lifted above the home indicator, with the active room an ink pill inside it
  * and its icon and label in gel yellow (yellow on ink, which is the one place
  * yellow is for). The reader and the rehearsal take the whole stage; the bar
  * steps out for them.
  */
-export const TabBar = forwardRef<View, ViewProps>(function TabBar(props, ref) {
+export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ...props }, ref) {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useSession();
@@ -39,22 +41,20 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar(props, ref) {
   const leaf = segments[segments.length - 1] ?? '';
   const inReader = segments.includes('read');
   const inRehearsal = segments.includes('rehearse') && leaf === '[id]';
-  if (!isAuthenticated || inReader || inRehearsal) return <View ref={ref} {...props} style={{ display: 'none' }} />;
+  // The triggers stay mounted even while the bar is off: the navigator reads its rooms from them.
+  const hidden = !isAuthenticated || inReader || inRehearsal;
   return (
-    <View ref={ref} {...props} pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT }}>
+    <View ref={ref} {...props} pointerEvents={hidden ? 'none' : 'box-none'} style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT, opacity: hidden ? 0 : 1 }}>
       <View style={{ height: TAB_BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, borderRadius: 28, borderWidth: 2, borderColor: c.ink, backgroundColor: c.card }}>
-        {TAB_ROOMS.map((t) => (
-          <TabTrigger key={t.name} name={t.name} href={t.href} asChild>
-            <RoomButton label={t.label} icon={t.icon} active={t.active} />
-          </TabTrigger>
-        ))}
+        {/* The triggers come in as children, declared in the layout: the navigator reads its rooms from them. */}
+        {children}
       </View>
     </View>
   );
 });
 
 /** One room's button. The trigger hands it `isFocused` and the press. */
-const RoomButton = forwardRef<View, { label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; isFocused?: boolean; onPress?: () => void } & ViewProps>(
+export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; isFocused?: boolean; onPress?: () => void } & ViewProps>(
   function RoomButton({ label, icon, active, isFocused = false, onPress, ...rest }, ref) {
     const { colors: c } = useTheme();
     return (
