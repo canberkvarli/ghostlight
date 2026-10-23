@@ -147,15 +147,15 @@ export function Deck<T>({
   const passStamp = useAnimatedStyle(() => ({ opacity: interpolate(x.value, [-width * 0.22, 0], [1, 0], Extrapolation.CLAMP) }));
 
   const stamp = (label: string, tilt: number, side: 'left' | 'right') => (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 22, [side]: 22, transform: [{ rotate: `${tilt}deg` }], borderWidth: 3, borderColor: c.yellow, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 2 }}>
-      <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 26, letterSpacing: 3, color: c.yellow, textTransform: 'uppercase' }}>{label}</Text>
+    <View pointerEvents="none" style={{ position: 'absolute', top: 22, [side]: 22, transform: [{ rotate: `${tilt}deg` }], borderWidth: 3, borderColor: c.primary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 2 }}>
+      <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 26, letterSpacing: 3, color: c.primary, textTransform: 'uppercase' }}>{label}</Text>
     </View>
   );
 
   const button = (label: string, icon: 'close' | 'bookmark', onPress: () => void) => (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}
       style={({ pressed }) => ({ width: 54, height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
-      <Ionicons name={icon} size={icon === 'close' ? 24 : 20} color={icon === 'bookmark' ? c.yellow : c.mutedForeground} />
+      <Ionicons name={icon} size={icon === 'close' ? 24 : 20} color={icon === 'bookmark' ? c.primary : c.mutedForeground} />
     </Pressable>
   );
 
