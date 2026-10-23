@@ -71,6 +71,20 @@ export const postEvents = (runId: number, events: JournalEvent[]) =>
 export const getGuided = (signal?: AbortSignal) =>
   call<{ scene_id: number; character: string }>('/api/rehearsal/guided', {}, signal);
 
+/** The scene left unfinished most recently, as the pick-up card draws it. Null when there is none. */
+export interface LatestRun {
+  run_id: number;
+  scene_id: number;
+  title: string;
+  play_title: string | null;
+  character: string;
+  partners: { character: string; voice: string }[];
+  line_index: number;
+  line_count: number;
+  is_guided: boolean;
+}
+export const getLatestRun = (signal?: AbortSignal) => call<LatestRun | null>('/api/rehearsal/latest', {}, signal);
+
 export interface RunStats { runs: number; finished: number; lines_read: number; scenes: number }
 export const getRunStats = (signal?: AbortSignal) => call<RunStats>('/api/rehearsal/stats', {}, signal);
 

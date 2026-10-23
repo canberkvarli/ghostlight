@@ -32,12 +32,10 @@ import {
 import { StageBackdrop } from '../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../src/components/StageDirection';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import { MediumToggle } from '../../../src/components/MediumToggle';
 import { FilterSheet } from '../../../src/components/FilterSheet';
-import { BoardCard } from '../../../src/components/BoardCard';
-import { RehearseCard } from '../../../src/components/RehearseCard';
-import { Ticket } from '../../../src/components/Ticket';
 import { useAuditions } from '../../../src/hooks/useAuditions';
 import { useNudge } from '../../../src/hooks/useNudge';
 import { useHouseList, useTonight } from '../../../src/hooks/useTonight';
@@ -63,6 +61,8 @@ import {
 import { mediumPalette, type Medium } from '../../../src/theme/medium';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { Initial } from '../../../src/components/Initial';
+import { UpNext } from '../../../src/components/UpNext';
 
 /**
  * Step 2 — Search is home.
@@ -102,6 +102,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * throws instead. Both dressings are `bare`, which already includes the pole and
  * the foot.
  */
+const MARK = require('../../../assets/ghostlight-mark.svg');
 const LAMP_GLASS_PAID = 16;
 const LAMP_GLASS_FREE = 14;
 
@@ -444,54 +445,15 @@ export default function Search() {
           accessible={false}
           style={{ flex: 1, paddingHorizontal: 24 }}
         >
-          {/* The top row: the book, the lamp, Account. */}
+          {/* The top row: the mark and the name on the left, your initial on the right. */}
           <View style={{ height: HEADER_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pressable
-              onPress={() => {
-                track('app_home_row', { row: 'book' });
-                router.push('/saves');
-              }}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={keptCount ? `Your book, ${keptCount} kept` : 'Your book'}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 44 }}
-            >
-              <Ionicons name={keptCount ? 'bookmark' : 'bookmark-outline'} size={21} color={c.mutedForeground} />
-              {keptCount ? (
-                <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 13, color: c.mutedForeground }}>{keptCount}</Text>
-              ) : null}
+            <Pressable onPress={onLampPress} hitSlop={12} accessibilityRole="image" accessibilityLabel="Ghost Light" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ shadowColor: pal.glow, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }}>
+                <Image source={MARK} style={{ width: 22, height: 22 }} contentFit="contain" accessibilityIgnoresInvertColors />
+              </View>
+              <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 11, letterSpacing: 2.6, color: c.foreground }}>GHOST LIGHT</Text>
             </Pressable>
-
-            {/* The ghost light, small, in the middle of the row. The taller
-                lamp's room is reserved always, and the shorter one is nudged
-                down so its glass lands at the same height, so the bulb does
-                not slide when entitlement resolves a beat after mount. */}
-            <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-              <Pressable onPress={onLampPress} hitSlop={16} accessibilityRole="image" accessibilityLabel="The ghost light">
-                <View style={{ height: LAMP_BOX, alignItems: 'center' }}>
-                  <View style={{ marginTop: LAMP_GLASS - (isPaid ? LAMP_PAID : LAMP_FREE).glassCy }}>
-                    <GhostLight
-                      size={isPaid ? LAMP_GLASS_PAID : LAMP_GLASS_FREE}
-                      dress="bare"
-                      boost={bulbBoost}
-                      glow={pal.glow}
-                      glassStops={pal.glassStops}
-                      neck={pal.neck}
-                    />
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={() => router.push('/account')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Account"
-              style={{ minWidth: 44, alignItems: 'flex-end' }}
-            >
-              <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
-            </Pressable>
+            <Initial />
           </View>
 
           {/* A scroll, under the row. On a tall phone nothing moves; on a short
@@ -714,31 +676,10 @@ export default function Search() {
               </AnimatedPressable>
             </Animated.View>
 
-            {/* The board: the next audition as a call sheet, or the offer of one. */}
-            <Animated.View
-              pointerEvents={fieldFocused ? 'none' : 'auto'}
-              style={[belowStyle, { width: '100%', marginTop: 26 }]}
-            >
-              <BoardCard isAuthenticated={isAuthenticated} />
+            {/* Up next: the next audition and the scene you left, one card, gone when both are empty. */}
+            <Animated.View pointerEvents={fieldFocused ? 'none' : 'auto'} style={[belowStyle, { width: '100%', marginTop: 26 }]}>
+              <UpNext isAuthenticated={isAuthenticated} />
             </Animated.View>
-
-            {/* The scene partner: the other call sheet. */}
-            <Animated.View pointerEvents={fieldFocused ? 'none' : 'auto'} style={[belowStyle, { width: '100%', marginTop: 12 }]}>
-              <RehearseCard />
-            </Animated.View>
-
-            {/* The ticket: one sentence on a paper stub, the piece you left or
-                tonight's speech. Tap to go, slide aside to be quiet for the day. */}
-            {nudge ? (
-              <Animated.View
-                key={nudge.key}
-                exiting={FadeOut.duration(120)}
-                pointerEvents={fieldFocused ? 'none' : 'auto'}
-                style={[belowStyle, { width: '100%', marginTop: 14 }]}
-              >
-                <Ticket nudge={nudge} onPress={() => openNudge(nudge)} onDismiss={() => dismissNudge(nudge)} />
-              </Animated.View>
-            ) : null}
 
             {/* Recent searches: hairline rows, this house's only, each with a
                 way to forget it. They used to be pills, which made four of them

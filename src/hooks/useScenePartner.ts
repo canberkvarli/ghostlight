@@ -7,7 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  deleteScript, getGuided, getRehearsalScene, getRunStats, getScript, listScenes, listScripts, scriptFromText, uploadScript,
+  deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, listScenes, listScripts, scriptFromText, uploadScript,
 } from '../api/rehearsal';
 
 export const SCENES_KEY = ['scenes'] as const;
@@ -69,4 +69,9 @@ export function useDeleteScript() {
     mutationFn: (id: number) => deleteScript(id),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
   });
+}
+
+/** The scene left unfinished most recently, for the pick-up card on the home and in the room. */
+export function useLatestRun(enabled: boolean) {
+  return useQuery({ queryKey: ['latest-run'], queryFn: ({ signal }) => getLatestRun(signal), enabled, staleTime: 30_000, retry: 1 });
 }
