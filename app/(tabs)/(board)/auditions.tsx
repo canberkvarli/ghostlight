@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +16,7 @@ import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import { useAuditions, useCalendarFeed } from '../../../src/hooks/useAuditions';
 import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../../../src/api/auditions';
 import { useSession } from '../../../src/lib/useSession';
-import { eyebrow, stubLabel, whenSentence } from '../../../src/lib/when';
+import { clockLabel, daysUntil, eyebrow, stubLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
 import { RoomHeader } from '../../../src/components/RoomHeader';
@@ -34,7 +34,23 @@ import { RoomHeader } from '../../../src/components/RoomHeader';
  * question mark. The loop that explains it lives behind the question mark.
  */
 
-const TILTS = [-0.4, 0.3, -0.25, 0.35];
+
+type Segment = 'coming' | 'heard' | 'all';
+const HEARD = new Set<Audition['status']>(['callback', 'booked', 'passed']);
+
+/** "(this week.)", "(next week.)", "(later.)": which shelf of the board a date goes on. */
+function weekOf(iso: string | null, now = new Date()): 'this' | 'next' | 'later' | 'undated' {
+  if (!iso) return 'undated';
+  const d = new Date(iso);
+  const day = (x: Date) => { const y = new Date(x); y.setHours(0, 0, 0, 0); return y; };
+  const start = day(now);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); // Monday
+  const diff = Math.floor((day(d).getTime() - start.getTime()) / 86_400_000);
+  if (diff < 7) return 'this';
+  if (diff < 14) return 'next';
+  return 'later';
+}
+const WEEK_LABEL = { this: '(this week.)', next: '(next week.)', later: '(later.)', undated: '(no date yet.)' } as const;
 
 export default function Auditions() {
   const { colors: c } = useTheme();
@@ -44,190 +60,121 @@ export default function Auditions() {
   const { data, isLoading, isError } = useAuditions(isAuthenticated);
   const feed = useCalendarFeed();
   const [how, setHow] = useState(false);
-  const [logbook, setLogbook] = useState(false);
-
+  const [segment, setSegment] = useState<Segment>('coming');
   const list = data ?? [];
-  const { next, alsoUp, waiting, past } = useMemo(() => {
-    const upcoming = list.filter((a) => a.scope === 'upcoming');
-    return {
-      next: upcoming[0] ?? null,
-      alsoUp: upcoming.slice(1),
-      waiting: list.filter((a) => a.scope === 'waiting'),
-      past: list.filter((a) => a.scope === 'past'),
-    };
-  }, [list]);
-
-  const upcomingCount = (next ? 1 : 0) + alsoUp.length;
-  const subhead = upcomingCount === 0 ? '(nothing coming up.)' : `(${upcomingCount} coming up.)`;
-
-  const open = useCallback(
-    (a: Audition) => {
-      Haptics.selectionAsync().catch(() => {});
-      router.push({ pathname: '/prep', params: { id: String(a.id) } });
-    },
-    [router],
-  );
-  const onAdd = useCallback(() => {
+  const { upcoming, heard, callbacks } = useMemo(() => ({
+    upcoming: list.filter((a) => a.scope === 'upcoming'),
+    heard: list.filter((a) => HEARD.has(a.status) && a.scope !== 'upcoming'),
+    callbacks: list.filter((a) => a.status === 'callback').length,
+  }), [list]);
+  const summary = [
+    upcoming.length ? `${upcoming.length} coming.` : 'nothing coming.',
+    callbacks ? `${callbacks} ${callbacks === 1 ? 'callback' : 'callbacks'}.` : null,
+  ].filter(Boolean).join(' ');
+  const open = useCallback((a: Audition) => {
     Haptics.selectionAsync().catch(() => {});
-    router.push('/audition');
+    router.push({ pathname: '/prep', params: { id: String(a.id) } });
   }, [router]);
-  const onPaste = useCallback(() => {
-    Haptics.selectionAsync().catch(() => {});
-    setHow(false);
-    router.push({ pathname: '/audition', params: { paste: '1' } });
-  }, [router]);
-  const onSignIn = useCallback(() => {
-    Haptics.selectionAsync().catch(() => {});
-    setHow(false);
-    router.push('/auth');
-  }, [router]);
+  const onAdd = useCallback(() => { Haptics.selectionAsync().catch(() => {}); router.push('/audition'); }, [router]);
+  const onPaste = useCallback(() => { Haptics.selectionAsync().catch(() => {}); setHow(false); router.push({ pathname: '/audition', params: { paste: '1' } }); }, [router]);
+  const onSignIn = useCallback(() => { Haptics.selectionAsync().catch(() => {}); setHow(false); router.push('/auth'); }, [router]);
   const onCalendar = useCallback(() => {
     if (feed.isPending) return;
     Haptics.selectionAsync().catch(() => {});
-    feed.mutate(undefined, {
-      onError: () => Alert.alert("Couldn't open the feed", 'Check your connection and try again.'),
-    });
+    feed.mutate(undefined, { onError: () => Alert.alert("Couldn't open the feed", 'Check your connection and try again.') });
   }, [feed]);
 
   const headerRight = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-      <Pressable
-        onPress={() => {
-          Haptics.selectionAsync().catch(() => {});
-          setHow(true);
-        }}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="How this works"
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 13,
-          borderWidth: 1.5,
-          borderColor: c.border,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setHow(true); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="How this works"
+        style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 16, lineHeight: 18, color: c.mutedForeground }}>?</Text>
       </Pressable>
       {isAuthenticated && list.length > 0 ? (
         <Pressable onPress={onCalendar} hitSlop={10} accessibilityRole="button" accessibilityLabel="Put the board in your calendar">
-          {feed.isPending ? (
-            <ActivityIndicator size="small" color={c.mutedForeground} />
-          ) : (
-            <Ionicons name="calendar-outline" size={20} color={c.mutedForeground} />
-          )}
-        </Pressable>
-      ) : null}
-      {isAuthenticated ? (
-        <Pressable
-          onPress={onAdd}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Add an audition"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6 }}
-        >
-          <Ionicons name="add" size={20} color={c.accentText} />
-          <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: c.accentText }}>Add</Text>
+          {feed.isPending ? <ActivityIndicator size="small" color={c.mutedForeground} /> : <Ionicons name="calendar-outline" size={20} color={c.mutedForeground} />}
         </Pressable>
       ) : null}
     </View>
   );
+
+  // What the chosen segment shows, the next one lifted out as the hero where it applies.
+  const hero = segment === 'coming' ? upcoming[0] ?? null : null;
+  const rows = segment === 'coming' ? upcoming.slice(1) : segment === 'heard' ? heard : list;
+  const weeks = useMemo(() => {
+    const groups: Record<'this' | 'next' | 'later' | 'undated', Audition[]> = { this: [], next: [], later: [], undated: [] };
+    for (const a of rows) groups[segment === 'coming' ? weekOf(a.when) : 'undated'].push(a);
+    return groups;
+  }, [rows, segment]);
 
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <RoomHeader right={headerRight} />
-
         {!isAuthenticated ? (
           <Intro signedIn={false} onPrimary={onSignIn} onSecondary={onSignIn} onHow={() => setHow(true)} />
         ) : isLoading ? (
           <Center>
             <Sketch name="clapper" size={88} stroke={c.yellow} accent={c.yellow} />
-            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
-              (checking the callboard…)
-            </StageDirection>
+            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>(checking the callboard…)</StageDirection>
           </Center>
         ) : isError ? (
           <Center>
             <Sketch name="footlights" size={96} stroke={c.mutedForeground} />
-            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
-              (couldn&apos;t reach the callboard.)
-            </StageDirection>
+            <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>(couldn&apos;t reach the callboard.)</StageDirection>
           </Center>
         ) : list.length === 0 ? (
           <Intro signedIn onPrimary={onPaste} onSecondary={onAdd} onHow={() => setHow(true)} />
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE }}>
-            <View style={{ paddingTop: 8, paddingBottom: 18 }}>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: 'InstrumentSerif_400Regular',
-                  fontSize: 44,
-                  lineHeight: 52,
-                  letterSpacing: -0.8,
-                  color: c.foreground,
-                }}
-              >
-                Your{' '}
-                <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>week.</Text>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE + 60 }}>
+            <View style={{ paddingTop: 4, paddingBottom: 6 }}>
+              <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
+                The <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>board.</Text>
               </Text>
-              <StageDirection style={{ marginTop: 6 }}>{subhead}</StageDirection>
+              <StageDirection style={{ marginTop: 6 }}>({summary})</StageDirection>
             </View>
-
-            {next ? (
-              <Animated.View entering={FadeIn.duration(360)}>
-                <NextTicket a={next} onPress={() => open(next)} />
-              </Animated.View>
-            ) : (
-              <Animated.View entering={FadeIn.duration(360)} style={{ paddingVertical: 10 }}>
-                <PrimaryPill label="Paste a casting email" onPress={onPaste} block />
-                <Pressable onPress={onAdd} hitSlop={10} accessibilityRole="button" style={{ marginTop: 12, alignSelf: 'center' }}>
-                  <StageDirection>(or fill it in by hand.)</StageDirection>
-                </Pressable>
-              </Animated.View>
-            )}
-
-            <Animated.View layout={LinearTransition.duration(260)}>
-              {alsoUp.length ? <Group label="(also coming up.)" items={alsoUp} onOpen={open} offset={1} /> : null}
-              {waiting.length ? <Group label="(waiting to hear.)" items={waiting} onOpen={open} offset={1 + alsoUp.length} /> : null}
-              {past.length ? (
-                <View style={{ marginTop: 26 }}>
-                  <Pressable
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setLogbook((v) => !v);
-                    }}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: logbook }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                  >
-                    <StageDirection>{logbook ? '(hide the logbook.)' : `(the logbook, ${past.length} done.)`}</StageDirection>
-                    <Ionicons name={logbook ? 'chevron-up' : 'chevron-down'} size={13} color={c.mutedForeground} />
+            {/* The segments: a word each, the chosen one underlined in ink. */}
+            <View style={{ flexDirection: 'row', gap: 22, borderBottomWidth: 1, borderBottomColor: c.divider, marginTop: 18 }}>
+              {([['coming', 'Coming up'], ['heard', 'Heard back'], ['all', 'All']] as [Segment, string][]).map(([key, label]) => {
+                const on = segment === key;
+                return (
+                  <Pressable key={key} onPress={() => { Haptics.selectionAsync().catch(() => {}); setSegment(key); }} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                    style={{ paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: on ? c.foreground : 'transparent', marginBottom: -1 }}>
+                    <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: on ? c.foreground : c.mutedForeground }}>{label}</Text>
                   </Pressable>
-                  {logbook ? <Group items={past} onOpen={open} offset={0} dim /> : null}
+                );
+              })}
+            </View>
+            <Animated.View layout={LinearTransition.duration(240)} style={{ marginTop: 18 }}>
+              {hero ? (
+                <Animated.View entering={FadeIn.duration(320)}>
+                  <Hero a={hero} onOpen={() => open(hero)} />
+                </Animated.View>
+              ) : null}
+              {(['this', 'next', 'later', 'undated'] as const).map((w) => weeks[w].length ? (
+                <View key={w} style={{ marginTop: hero || w !== 'this' ? 24 : 4 }}>
+                  {segment === 'coming' ? <StageDirection style={{ marginBottom: 6 }}>{WEEK_LABEL[w]}</StageDirection> : null}
+                  {weeks[w].map((a) => <Row key={a.id} a={a} onPress={() => open(a)} heard={segment !== 'coming'} />)}
                 </View>
+              ) : null)}
+              {rows.length === 0 && !hero ? (
+                <StageDirection style={{ marginTop: 12 }}>{segment === 'heard' ? '(nothing heard back yet.)' : '(nothing coming up.)'}</StageDirection>
               ) : null}
             </Animated.View>
-
-            <Pressable
-              onPress={onCalendar}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Subscribe to this board in your calendar"
-              style={{ marginTop: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
-              <Ionicons name="calendar-outline" size={14} color={c.mutedForeground} />
-              <StageDirection numberOfLines={1}>(put the board in your calendar.)</StageDirection>
-            </Pressable>
           </ScrollView>
         )}
       </SafeAreaView>
-
+      {/* The plus: ink, a yellow shadow set off down and right, above the bar. */}
+      {isAuthenticated && list.length > 0 ? (
+        <View pointerEvents="box-none" style={{ position: 'absolute', right: 24, bottom: TAB_BAR_SPACE + 10 }}>
+          <View style={{ position: 'absolute', left: 4, top: 4, width: 56, height: 56, borderRadius: 28, backgroundColor: c.yellow }} />
+          <Pressable onPress={onAdd} accessibilityRole="button" accessibilityLabel="Add an audition"
+            style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: pressed ? 2 : 0 }, { translateY: pressed ? 2 : 0 }] })}>
+            <Ionicons name="add" size={28} color={c.yellow} />
+          </Pressable>
+        </View>
+      ) : null}
       <HowItWorksSheet
         open={how}
         onClose={() => setHow(false)}
@@ -242,174 +189,109 @@ export default function Auditions() {
  * The next audition, in full. The eyebrow says how soon, the title wraps as
  * far as it needs to, and the last line says what is coming with you.
  */
-function NextTicket({ a, onPress }: { a: Audition; onPress: () => void }) {
+
+/**
+ * The next audition: the date and time as the eyebrow, how far off as an ink
+ * pill, the project large, the part and the kind and the office under it,
+ * the piece attached with its state, and the two things to do with it.
+ */
+function Hero({ a, onOpen }: { a: Audition; onOpen: () => void }) {
   const { colors: c } = useTheme();
+  const router = useRouter();
   const piece = attachedPiece(a);
-  const role = [a.role?.trim(), a.kind !== 'in_person' ? KIND_LABEL[a.kind] : null].filter(Boolean).join(' · ');
-  const when = whenSentence(a);
-  const place = a.kind === 'self_tape' ? null : a.location?.split(',')[0]?.trim();
-  const packed = a.bring_list.filter((i) => i.done).length;
-  const total = a.bring_list.length;
-
+  const d = a.when ? new Date(a.when) : null;
+  const days = a.when ? daysUntil(a.when) : null;
+  const stamp = d ? `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()} · ${clockLabel(a.when!)}`.toUpperCase() : 'NO DATE YET';
+  const soon = days === null ? null : days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+  const meta = [a.role?.trim(), KIND_LABEL[a.kind], a.casting?.trim()].filter(Boolean).join(' · ');
+  const place = a.location?.trim();
+  const rehearse = () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (piece?.scene_id) router.push({ pathname: '/rehearse/[id]', params: { id: String(piece.scene_id), from: 'script' } });
+    else if (piece?.monologue_id) router.push({ pathname: '/run/[id]', params: { id: String(piece.monologue_id) } });
+    else onOpen();
+  };
+  const directions = () => {
+    if (!place) return;
+    Haptics.selectionAsync().catch(() => {});
+    Linking.openURL(`maps://?q=${encodeURIComponent(place)}`).catch(() => Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(place)}`).catch(() => {}));
+  };
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${eyebrow(a, true)}. ${a.project}${a.role ? `, ${a.role}` : ''}`}
-    >
-      <PaperCard rotate={-0.35} shadow={7} style={{ paddingTop: 18, paddingHorizontal: 18, paddingBottom: 16 }}>
-        <Text
-          style={{
-            fontFamily: 'BricolageGrotesque_700Bold',
-            fontSize: 11,
-            letterSpacing: 1,
-            textTransform: 'uppercase',
-            color: c.primary,
-          }}
-        >
-          {eyebrow(a, true)}
-        </Text>
-        <Text
-          style={{
-            marginTop: 8,
-            fontFamily: 'InstrumentSerif_400Regular',
-            fontSize: 32,
-            lineHeight: 36,
-            letterSpacing: -0.5,
-            color: c.paperInk,
-          }}
-        >
-          {a.project}
-        </Text>
-        {role ? (
-          <Text style={{ marginTop: 6, fontFamily: 'CourierPrime_700Bold', fontSize: 13.5, lineHeight: 19, color: c.paperBody }}>
-            {role}
-          </Text>
-        ) : null}
-        {when || place ? (
-          <Text style={{ marginTop: 10, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14.5, lineHeight: 21, color: c.paperInk }}>
-            {when}
-            {place ? <Text style={{ color: c.paperMuted }}>{when ? ' · ' : ''}{place}</Text> : null}
-          </Text>
-        ) : (
-          <StageDirection on="paper" style={{ marginTop: 10 }}>(no date yet.)</StageDirection>
-        )}
-
-        <View
-          style={{
-            marginTop: 14,
-            paddingTop: 12,
-            borderTopWidth: 1,
-            borderTopColor: c.paperRule,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-            <Ionicons name={piece?.title ? 'bookmark' : 'bookmark-outline'} size={13} color={piece?.title ? c.primary : c.paperFaint} />
+    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${eyebrow(a, true)}. ${a.project}${a.role ? `, ${a.role}` : ''}`}>
+      <PaperCard shadow={7} style={{ paddingTop: 18, paddingHorizontal: 18, paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 12, letterSpacing: 1.4, color: c.primary }}>{stamp}</Text>
+          {soon ? (
+            <View style={{ paddingHorizontal: 12, height: 28, borderRadius: 14, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 12, color: c.yellow }}>{soon}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={{ marginTop: 10, fontFamily: 'InstrumentSerif_400Regular', fontSize: 32, lineHeight: 36, letterSpacing: -0.5, color: c.paperInk }}>{a.project}</Text>
+        {meta ? <Text style={{ marginTop: 4, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14.5, lineHeight: 20, color: c.paperMuted }}>{meta}</Text> : null}
+        <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, backgroundColor: c.paperRule + '66' }}>
+          <View style={{ width: 40, height: 48, borderRadius: 6, backgroundColor: piece ? '#193b26' : c.paperRule }} />
+          <View style={{ flex: 1, minWidth: 0 }}>
             {piece?.title ? (
-              <Text numberOfLines={1} style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, color: c.paperBody, flexShrink: 1 }}>
-                {piece.title}
-              </Text>
+              <>
+                <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 19, lineHeight: 23, color: c.paperInk }}>{piece.title}</Text>
+                <StageDirection on="paper" numberOfLines={1}>({piece.character ? `${piece.character}. ` : ''}{piece.used ? 'ready.' : 'to prepare.'})</StageDirection>
+              </>
             ) : (
-              <StageDirection on="paper" numberOfLines={1} style={{ flexShrink: 1 }}>(no piece yet.)</StageDirection>
+              <StageDirection on="paper" numberOfLines={1}>(no piece yet. tap to pick one.)</StageDirection>
             )}
           </View>
-          {total > 0 ? (
-            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11.5, color: packed === total ? c.primary : c.paperMuted }}>
-              {packed === total ? 'all packed' : `${packed} of ${total} packed`}
-            </Text>
-          ) : (
-            <Ionicons name="chevron-forward" size={15} color={c.paperFaint} />
-          )}
+          {piece?.used ? (
+            <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="checkmark" size={16} color="#fff" />
+            </View>
+          ) : null}
+        </View>
+        <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 22 }}>
+          <Pressable onPress={rehearse} hitSlop={8} accessibilityRole="button">
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.paperInk }}>{piece ? 'Rehearse →' : 'Pick a piece →'}</Text>
+          </Pressable>
+          {place ? (
+            <Pressable onPress={directions} hitSlop={8} accessibilityRole="button">
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.paperMuted }}>Directions</Text>
+            </Pressable>
+          ) : null}
         </View>
       </PaperCard>
     </Pressable>
   );
 }
 
-/** A run of stubs under one stage direction. */
-function Group({
-  label,
-  items,
-  onOpen,
-  offset,
-  dim = false,
-}: {
-  label?: string;
-  items: Audition[];
-  onOpen: (a: Audition) => void;
-  offset: number;
-  dim?: boolean;
-}) {
-  return (
-    <View style={{ marginTop: label ? 26 : 12 }}>
-      {label ? <StageDirection style={{ marginBottom: 12 }}>{label}</StageDirection> : null}
-      {items.map((a, i) => (
-        <Animated.View key={a.id} entering={FadeIn.delay(Math.min(offset + i, 8) * 55).duration(300)}>
-          <Stub a={a} index={offset + i} onPress={() => onOpen(a)} dim={dim} />
-        </Animated.View>
-      ))}
-    </View>
-  );
-}
-
-/**
- * One audition as a ticket stub: the date torn off in the margin, the show
- * and the part beside it. Two lines for the title, which is enough for any
- * title once the date has its own column.
- */
-function Stub({ a, index, onPress, dim }: { a: Audition; index: number; onPress: () => void; dim: boolean }) {
+/** One line of the board: the day, the project and part, the kind and time, and what is still missing. */
+function Row({ a, onPress, heard }: { a: Audition; onPress: () => void; heard: boolean }) {
   const { colors: c } = useTheme();
   const [month, day] = stubLabel(a);
-  const sub = [a.role?.trim(), a.kind !== 'in_person' ? KIND_LABEL[a.kind] : null].filter(Boolean).join(' · ');
-  const chip = a.status === 'callback' || a.status === 'booked' ? STATUS_LABEL[a.status] : null;
-
+  const d = a.when ? new Date(a.when) : null;
+  const sub = [KIND_LABEL[a.kind], a.when ? (a.kind === 'self_tape' ? `due ${clockLabel(a.when)}` : clockLabel(a.when)) : null].filter(Boolean).join(' · ');
+  const piece = attachedPiece(a);
+  const status = a.status === 'callback' || a.status === 'booked' || a.status === 'passed' ? STATUS_LABEL[a.status] : null;
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${a.project}${a.role ? `, ${a.role}` : ''}, ${eyebrow(a)}`}
-      style={{ marginBottom: 10, opacity: dim ? 0.78 : 1 }}
-    >
-      <PaperCard rotate={TILTS[index % TILTS.length]} style={{ padding: 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-          <View
-            style={{
-              width: 58,
-              paddingVertical: 10,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRightWidth: 1,
-              borderRightColor: c.paperRule,
-            }}
-          >
-            <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 10, letterSpacing: 1, color: c.paperMuted }}>{month}</Text>
-            <Text style={{ marginTop: 1, fontFamily: 'InstrumentSerif_400Regular', fontSize: 26, lineHeight: 30, color: c.paperInk }}>{day}</Text>
-          </View>
-          <View style={{ flex: 1, minWidth: 0, paddingVertical: 11, paddingHorizontal: 14, justifyContent: 'center' }}>
-            <Text numberOfLines={2} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 19, lineHeight: 22, letterSpacing: -0.2, color: c.paperInk }}>
-              {a.project}
-            </Text>
-            {sub ? (
-              <Text numberOfLines={1} style={{ marginTop: 3, fontFamily: 'CourierPrime_400Regular', fontSize: 12, lineHeight: 16, color: c.paperMuted }}>
-                {sub}
-              </Text>
-            ) : null}
-          </View>
-          <View style={{ paddingRight: 12, justifyContent: 'center' }}>
-            {chip ? (
-              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: c.primary }}>
-                <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 9, letterSpacing: 0.6, color: '#fff' }}>{chip.toUpperCase()}</Text>
-              </View>
-            ) : (
-              <Ionicons name="chevron-forward" size={15} color={c.paperFaint} />
-            )}
-          </View>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${a.project}${a.role ? `, ${a.role}` : ''}, ${eyebrow(a)}`}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.7 : 1 })}>
+      <View style={{ width: 44, alignItems: 'center' }}>
+        <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 10, letterSpacing: 1.2, color: c.mutedForeground }}>{d ? d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase() : month}</Text>
+        <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 26, lineHeight: 30, color: c.foreground }}>{day}</Text>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 21, lineHeight: 25, color: c.foreground }}>
+          {a.project}{a.role ? <Text style={{ color: c.mutedForeground }}>{` — ${a.role}`}</Text> : null}
+        </Text>
+        <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, color: c.mutedForeground }}>{sub}</Text>
+      </View>
+      {heard && status ? (
+        <StageDirection>({status.toLowerCase()}.)</StageDirection>
+      ) : !piece ? (
+        <View style={{ paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: c.accentText }}>pick a piece</Text>
         </View>
-      </PaperCard>
+      ) : (
+        <StageDirection>({piece.used ? 'ready.' : 'to prepare.'})</StageDirection>
+      )}
     </Pressable>
   );
 }
