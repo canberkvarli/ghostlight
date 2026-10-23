@@ -11,6 +11,8 @@ import * as Device from 'expo-device';
 import type { Clock } from './clock';
 
 const LOAD_TIMEOUT_MS = 20_000;
+/** What the audio queue adds between play() and the first sample out of the speaker. */
+const START_LATENCY_S = 0.2;
 
 export class LinePlayer {
   private players = new Map<number, AudioPlayer>();
@@ -53,10 +55,15 @@ export class LinePlayer {
     });
     // The status listener above is removed once loaded; this one outlives it to keep `sounding` honest.
     player.addListener('playbackStatusUpdate', s => { if (s.didJustFinish) this.sounding.delete(lineIndex); });
+    // Pre-roll, silently: the first play of a fresh player is late by the time the
+    // queue takes to spin up, and that lateness was the glitch at every handover.
+    try { player.volume = 0; player.play(); player.pause(); await player.seekTo(0); player.volume = 1; } catch { /* it will simply start a little late */ }
   }
 
   has(lineIndex: number) { return this.durations.has(lineIndex); }
-  duration(lineIndex: number) { return this.durations.get(lineIndex) ?? null; }
+  /** The decoded length plus the moment the queue takes to start sounding, so the
+   *  handover comes after the voice has finished, not while its last word is still out. */
+  duration(lineIndex: number) { const d = this.durations.get(lineIndex); return d === undefined ? null : d + START_LATENCY_S; }
 
   play(lineIndex: number, at: number): boolean {
     const player = this.players.get(lineIndex);

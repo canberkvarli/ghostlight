@@ -17,6 +17,7 @@ import { useEntitlement } from '../../src/hooks/useEntitlement';
 import { useRunStats, useScenes, useScript, useScripts } from '../../src/hooks/useScenePartner';
 import type { SceneSummary, ScriptSummary } from '../../src/api/rehearsal';
 import { useGoBack } from '../../src/lib/nav';
+import { Mic } from '../../src/rehearsal/native/mic';
 import { useSession } from '../../src/lib/useSession';
 import { useTheme } from '../../src/theme/ThemeContext';
 
@@ -61,16 +62,15 @@ export default function RehearseHub() {
   }, [reading, scripts]);
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push('/rehearse/add'); };
+  // The microphone and the recogniser are asked for on arrival, with the room in
+  // view, rather than at the moment Begin should light.
+  useEffect(() => { if (ready) void Mic.permission(); }, [ready]);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="Search" onPress={goBack} right={isAuthenticated ? (
-          <Pressable onPress={add} hitSlop={12} accessibilityRole="button" accessibilityLabel="Add sides" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="add" size={24} color={c.mutedForeground} />
-          </Pressable>
-        ) : undefined} />
+        <BackHeader label="Search" onPress={goBack} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }}>
           <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>

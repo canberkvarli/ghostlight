@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../../src/components/StageBackdrop';
 import { StageDirection } from '../../src/components/StageDirection';
@@ -76,7 +76,7 @@ export default function Rehearse() {
 
 /** What Begin is waiting on, as one stage direction. */
 function waitingLine(r: { line1: boolean; stt: boolean; mic: boolean }): string | null {
-  if (!r.line1) return 'the first line is warming.';
+  if (!r.line1) return 'recording the partner. the first time takes a moment.';
   if (!r.mic) return 'listening needs the microphone.';
   if (!r.stt) return 'the recogniser is not there yet.';
   return null;
@@ -100,20 +100,18 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
   const r = useRehearsal(payload);
   const [chosen, setChosen] = useState<string | null>(null);
   const [resumed, setResumed] = useState(false);
+  const [armed, setArmed] = useState(false); // Begin was tapped: start the moment the first line is ready
   const begunAt = useRef<number | null>(null);
   const endedRef = useRef(false);
   const source = guided ? 'guided' : payload.scene.is_library ? 'library' : 'script';
 
-  const onChoose = useCallback((character: string, voices: Record<string, string>, pickUp?: { runId: number; lineIndex: number }) => {
-    setChosen(character);
+  const onBeginTap = useCallback((character: string, voices: Record<string, string>, pickUp?: { runId: number; lineIndex: number }) => {
+    setChosen(character || guidedPart || payload.characters[0] || '');
     setResumed(Boolean(pickUp));
-    void r.prepare(character, voices, pickUp ? { resumeRunId: pickUp.runId, resumeLine: pickUp.lineIndex } : undefined);
-  }, [r]);
+    setArmed(true);
+    void r.prepare(character, voices, pickUp ? { resumeRunId: pickUp.runId, resumeLine: pickUp.lineIndex } : guided ? { guided: true } : undefined);
+  }, [r, guided, guidedPart, payload.characters]);
 
-  // The guided run: the server picked the part; the sheet shows the title and Begin.
-  useEffect(() => {
-    if (guided && guidedPart && !chosen) { setChosen(guidedPart); void r.prepare(guidedPart, {}, { guided: true }); }
-  }, [guided, guidedPart, chosen, r]);
 
   useEffect(() => {
     if (r.gated) track('app_rehearse_gated', { source: payload.scene.is_library ? 'library' : 'script', to_paywall: false });
@@ -129,10 +127,15 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
   const state = r.snapshot?.state ?? 'ready';
   const ended = state === 'ended';
   const wentRef = useRef(false);
+  // `?go=1` arms the sheet by itself, with the server's part and the default voices.
   useEffect(() => {
-    if (go && r.canBegin && state === 'ready' && !wentRef.current) { wentRef.current = true; begin(); }
+    if (go && !armed && (guided ? guidedPart : payload.characters[0])) onBeginTap(guided ? '' : payload.characters[0], {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [go, r.canBegin, state]);
+  }, [go, guided, guidedPart]);
+  useEffect(() => {
+    if (armed && r.canBegin && state === 'ready' && !wentRef.current) { wentRef.current = true; begin(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed, r.canBegin, state]);
   useEffect(() => {
     if (!ended || endedRef.current) return;
     endedRef.current = true;
@@ -174,25 +177,23 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
           </View>
         </Animated.View>
       ) : running ? (
-        <Animated.View entering={FadeIn.duration(360)} exiting={FadeOut.duration(200)} style={{ flex: 1 }}>
-          <Stage lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
+        <Animated.View entering={FadeInDown.duration(520).springify().damping(18)} exiting={FadeOut.duration(200)} style={{ flex: 1 }}>
+          <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
           ) : null}
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
       ) : (
-        <Animated.View exiting={FadeOut.duration(220)} style={{ flex: 1 }}>
+        <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(260)} style={{ flex: 1 }}>
           <CastSheet
             payload={payload}
             guided={guided}
-            chosen={chosen}
-            canBegin={r.canBegin}
+            preparing={armed && !r.gated && !r.readiness.error}
             waiting={waitingLine(r.readiness)}
             error={phoneError(r.readiness.error)}
             gated={r.gated}
-            onChoose={onChoose}
-            onBegin={begin}
+            onBegin={onBeginTap}
             onPlans={() => { track('app_rehearse_gated', { source: payload.scene.is_library ? 'library' : 'script', to_paywall: true }); router.push('/paywall'); }}
           />
         </Animated.View>

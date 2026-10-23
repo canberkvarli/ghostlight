@@ -25,7 +25,16 @@ const MONO = 'CourierPrime_400Regular';
 const MONO_I = 'CourierPrime_400Regular_Italic';
 const SANS = 'BricolageGrotesque_500Medium';
 
-const TYPES = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+/** Any file: the server reads it by its bytes and says so if it cannot. */
+const TYPES = '*/*';
+const EXT_OF: Record<string, string> = { 'application/pdf': 'pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx', 'text/plain': 'txt', 'text/rtf': 'rtf', 'application/rtf': 'rtf', 'text/markdown': 'md' };
+/** A name the server can read: the picker's, or one made from the type when the name has no extension. */
+function named(name: string | null | undefined, mimeType?: string | null): string {
+  const n = (name ?? '').trim();
+  if (n.includes('.')) return n;
+  const ext = mimeType ? EXT_OF[mimeType] : undefined;
+  return `${n || 'sides'}.${ext ?? 'txt'}`;
+}
 const STEPS = ['reading the pages.', 'finding the cast.', 'splitting the scenes.', 'setting the lines.'];
 
 /**
@@ -70,7 +79,7 @@ export default function AddSides() {
   useEffect(() => {
     if (!uri || started.current) return;
     started.current = true;
-    sendFile({ uri, name: name ?? uri.split('/').pop() ?? 'sides.pdf' }, 'share');
+    sendFile({ uri, name: named(name ?? uri.split('/').pop()) }, 'share');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
 
@@ -79,7 +88,7 @@ export default function AddSides() {
     const res = await DocumentPicker.getDocumentAsync({ type: TYPES, copyToCacheDirectory: true, multiple: false });
     if (res.canceled || !res.assets?.[0]) return;
     const a = res.assets[0];
-    sendFile({ uri: a.uri, name: a.name, mimeType: a.mimeType ?? undefined }, 'files');
+    sendFile({ uri: a.uri, name: named(a.name, a.mimeType), mimeType: a.mimeType ?? undefined }, 'files');
   };
 
   const sendText = () => {
@@ -101,7 +110,7 @@ export default function AddSides() {
               <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
                 Bring your <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>sides.</Text>
               </Text>
-              <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>(a pdf, a word file, or the text itself.)</StageDirection>
+              <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>(any file with the words in it, or the text itself.)</StageDirection>
             </View>
 
             {pending ? (
@@ -117,7 +126,7 @@ export default function AddSides() {
               </Animated.View>
             ) : mode === 'doors' ? (
               <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} style={{ marginTop: 30, gap: 14 }}>
-                <Door cap="FROM FILES" title="A file on this phone." line="(pdf, word or text. or share one to Ghost Light from Mail.)" onPress={pick} tilt={-0.4} />
+                <Door cap="FROM FILES" title="A file on this phone." line="(pdf, word, text, whatever you were sent. or share it to Ghost Light from Mail.)" onPress={pick} tilt={-0.4} />
                 <Door cap="PASTE" title="The text itself." line="(from a message, an email, anywhere.)" onPress={() => { Haptics.selectionAsync().catch(() => {}); setMode('paste'); }} tilt={0.4} />
               </Animated.View>
             ) : (

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
-import type { RehearsalLine } from '../../rehearsal/contract';
+import type { RehearsalLine, ScenePayload } from '../../rehearsal/contract';
 import type { Snapshot } from '../../rehearsal/engine';
 import { sameCharacter } from '../../rehearsal/contract';
+import { useTheme } from '../../theme/ThemeContext';
+import { StageDirection } from '../StageDirection';
 import { Line, type Speaking, type When } from './Line';
 
 interface Props {
+  scene: ScenePayload['scene'];
   lines: RehearsalLine[];
   actor: string;
   snapshot: Snapshot | null;
@@ -18,19 +22,23 @@ interface Props {
 }
 
 /** Fraction of the stage height where the live line is held: the pool of light. */
-const EYE_LINE = 0.38;
+const EYE_LINE = 0.3;
 /** After the actor scrolls by hand, the script stays where they put it this long. */
 const HANDS_OFF_MS = 3500;
 const NO_WORDS = new Set<number>();
+const SERIF = 'InstrumentSerif_400Regular';
+const MONO = 'CourierPrime_400Regular';
 
 /**
  * The script, full bleed, in the light. The live line sits in the pool at the
- * eye line and the text moves under it. Above and below, the page falls off
- * into the house. Every other line is a target: a tap starts the run there.
- * Scrolling by hand to find a line is left alone for a few seconds, then the
- * script follows the run again on its next move.
+ * eye line and the text moves under it. The room above the first line is not
+ * blank: the play and the scene are printed there, as the head of the sides,
+ * and the lines come in under them. Every other line is a target: a tap
+ * starts the run there. Scrolling by hand to find a line is left alone for a
+ * few seconds, then the script follows the run again on its next move.
  */
-export function Stage({ lines, actor, snapshot, paused, onJump, warming = false }: Props) {
+export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming = false }: Props) {
+  const { colors: c } = useTheme();
   const { height } = useWindowDimensions();
   const scroller = useRef<ScrollView>(null);
   const tops = useRef(new Map<number, number>());
@@ -60,23 +68,31 @@ export function Stage({ lines, actor, snapshot, paused, onJump, warming = false 
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 12 }}
     >
-      <View style={{ height: height * EYE_LINE }} />
-      {lines.map(line => {
+      {/* The head of the sides, in the room above the first line. */}
+      <View style={{ height: height * EYE_LINE, justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 22 }}>
+        <StageDirection>(lights up.)</StageDirection>
+        <Text numberOfLines={2} style={{ marginTop: 8, fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>{scene.title}</Text>
+        {scene.play_title && scene.play_title.trim().toLowerCase() !== scene.title.trim().toLowerCase() ? (
+          <Text style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: c.mutedForeground }}>{scene.play_title}</Text>
+        ) : null}
+      </View>
+      {lines.map((line, i) => {
         const mine = sameCharacter(line.character, actor);
         const when: When = line.index < current ? 'past' : line.index === current ? 'live' : 'next';
         const jump = onJump && line.index !== current ? () => { handsOn.current = 0; onJump(line.index); } : undefined;
         return (
-          <Line
-            key={line.index}
-            line={line}
-            mine={mine}
-            when={when}
-            speaking={when === 'live' ? speakingFor(mine) : undefined}
-            heard={mine ? snapshot?.heard.get(line.index) ?? NO_WORDS : undefined}
-            at={mine && when === 'live' ? next : undefined}
-            onJump={jump}
-            onLayout={e => { tops.current.set(line.index, e.nativeEvent.layout.y); if (line.index === current) follow(false); }}
-          />
+          <Animated.View key={line.index} entering={FadeIn.delay(Math.min(i, 8) * 50).duration(320)}>
+            <Line
+              line={line}
+              mine={mine}
+              when={when}
+              speaking={when === 'live' ? speakingFor(mine) : undefined}
+              heard={mine ? snapshot?.heard.get(line.index) ?? NO_WORDS : undefined}
+              at={mine && when === 'live' ? next : undefined}
+              onJump={jump}
+              onLayout={e => { tops.current.set(line.index, e.nativeEvent.layout.y); if (line.index === current) follow(false); }}
+            />
+          </Animated.View>
         );
       })}
       <View style={{ height: height * (1 - EYE_LINE) }} />
