@@ -33,7 +33,7 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  * and a dock for pause, skip and back. The end is a moment, not a report.
  */
 export default function Rehearse() {
-  const { id, from, go } = useLocalSearchParams<{ id: string; from?: string; go?: string }>();
+  const { id, from, go, resume } = useLocalSearchParams<{ id: string; from?: string; go?: string; resume?: string }>();
   const guided = id === 'guided';
   const { data: guidedPick, isError: guidedFailed } = useGuided(guided);
   const sceneId = guided ? guidedPick?.scene_id ?? null : Number(id);
@@ -51,7 +51,7 @@ export default function Rehearse() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       {payload ? (
-        <Run payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} go={go === '1'} onLeave={goBack} onAgain={() => void refetch()} />
+        <Run payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1'} onLeave={goBack} onAgain={() => void refetch()} />
       ) : (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <TopBar title="" onLeave={goBack} />
@@ -90,10 +90,12 @@ function phoneError(e: string | null): string | null {
     .replace('Allow it in your browser and reload.', 'Allow it in Settings and come back.');
 }
 
-function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
+function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
   payload: ScenePayload; guided: boolean; guidedPart: string | null;
   /** `?go=1`, as on the web: begin the moment Begin would light. A link from a reminder, or a test. */
-  go: boolean; onLeave: () => void; onAgain: () => void;
+  go: boolean;
+  /** `?resume=1` with go: pick the open run up where it was left, from the room's card. */
+  pickUp: boolean; onLeave: () => void; onAgain: () => void;
 }) {
   const { colors: c } = useTheme();
   const router = useRouter();
@@ -129,7 +131,10 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
   const wentRef = useRef(false);
   // `?go=1` arms the sheet by itself, with the server's part and the default voices.
   useEffect(() => {
-    if (go && !armed && (guided ? guidedPart : payload.characters[0])) onBeginTap(guided ? '' : payload.characters[0], {});
+    if (!go || armed || !(guided ? guidedPart : payload.characters[0])) return;
+    const r0 = payload.resume;
+    if (pickUp && r0 && !guided) onBeginTap(payload.characters[0], {}, { runId: r0.run_id, lineIndex: r0.line_index });
+    else onBeginTap(guided ? '' : payload.characters[0], {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [go, guided, guidedPart]);
   useEffect(() => {
@@ -158,7 +163,8 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-      <TopBar title={running || ended ? sceneLine : ''} onLeave={leave} progress={running ? progressOf(r.snapshot?.lineIndex ?? 0, payload.lines.length) : null} />
+      <TopBar title={running || ended ? sceneLine : ''} onLeave={leave} progress={running ? progressOf(r.snapshot?.lineIndex ?? 0, payload.lines.length) : null}
+        counter={running ? `${(r.snapshot?.lineIndex ?? 0) + 1}/${payload.lines.length}` : null} />
       {ended ? (
         <Animated.View entering={FadeIn.duration(420)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <StageDirection>(lights down.)</StageDirection>
@@ -181,11 +187,20 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
           <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
+          ) : state === 'actor' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary }} />
+              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(listening.)</Text>
+            </View>
           ) : null}
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
       ) : (
         <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(260)} style={{ flex: 1 }}>
+          {/* The stage, dark, under the sheet: the lines are there before you have a part. */}
+          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.5 }}>
+            <Stage scene={payload.scene} lines={payload.lines} actor="" snapshot={null} paused={false} />
+          </View>
           <CastSheet
             payload={payload}
             guided={guided}
@@ -194,6 +209,7 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
             error={phoneError(r.readiness.error)}
             gated={r.gated}
             onBegin={onBeginTap}
+            onClose={leave}
             onPlans={() => { track('app_rehearse_gated', { source: payload.scene.is_library ? 'library' : 'script', to_paywall: true }); router.push('/paywall'); }}
           />
         </Animated.View>
@@ -204,40 +220,44 @@ function Run({ payload, guided, guidedPart, go, onLeave, onAgain }: {
 
 const progressOf = (line: number, of: number) => (of > 0 ? Math.min(1, line / of) : 0);
 
-/** The bar across the top: leave, where in the scene. A reading, not a control. */
-function TopBar({ title, onLeave, progress = null }: { title: string; onLeave: () => void; progress?: number | null }) {
+/** The bar across the top: leave, the title with a thin bar of progress under it, and where in the scene as a count. */
+function TopBar({ title, onLeave, progress = null, counter = null }: { title: string; onLeave: () => void; progress?: number | null; counter?: string | null }) {
   const { colors: c } = useTheme();
   return (
-    <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 }}>
+    <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 12 }}>
       <Pressable onPress={onLeave} hitSlop={12} accessibilityRole="button" accessibilityLabel="Leave the scene" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="close" size={22} color={c.mutedForeground} />
+        <Ionicons name="close" size={24} color={c.foreground} />
       </Pressable>
-      <Text numberOfLines={1} style={{ flex: 1, fontFamily: SANS_B, fontSize: 12, letterSpacing: 0.4, color: c.mutedForeground }}>{title}</Text>
-      {progress !== null ? (
-        <View style={{ width: 64, height: 2, backgroundColor: c.divider, borderRadius: 1, overflow: 'hidden' }}>
-          <View style={{ width: `${Math.round(progress * 100)}%`, height: 2, backgroundColor: c.yellow }} />
-        </View>
-      ) : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>{title}</Text>
+        {progress !== null ? (
+          <View style={{ marginTop: 6, height: 3, borderRadius: 1.5, backgroundColor: c.divider, overflow: 'hidden' }}>
+            <View style={{ width: `${Math.round(progress * 100)}%`, height: 3, backgroundColor: c.ink }} />
+          </View>
+        ) : null}
+      </View>
+      {counter ? <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.mutedForeground }}>{counter}</Text> : null}
     </View>
   );
 }
 
-/** Pause in the middle, the last exchange and the next line either side. */
+/** Say it again, a 76pt ink pause with its glyph in gel yellow, and Line to skip ahead. */
 function Dock({ paused, onPause, onResume, onSkip, onBack }: { paused: boolean; onPause: () => void; onResume: () => void; onSkip: () => void; onBack: () => void }) {
   const { colors: c } = useTheme();
   const tap = (fn: () => void) => () => { Haptics.selectionAsync().catch(() => {}); fn(); };
-  const side = { width: 48, height: 48, alignItems: 'center' as const, justifyContent: 'center' as const };
+  const pill = { height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: c.border, alignItems: 'center' as const, justifyContent: 'center' as const, flexDirection: 'row' as const, gap: 6 };
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 26, paddingVertical: 10 }}>
-      <Pressable onPress={tap(onBack)} hitSlop={8} accessibilityRole="button" accessibilityLabel="The last exchange again" style={side}>
-        <Ionicons name="play-skip-back-outline" size={22} color={c.mutedForeground} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 }}>
+      <Pressable onPress={tap(onBack)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Say it again" style={[pill, { width: 54 }]}>
+        <Ionicons name="refresh-outline" size={22} color={c.mutedForeground} />
       </Pressable>
       <Pressable onPress={tap(paused ? onResume : onPause)} accessibilityRole="button" accessibilityLabel={paused ? 'Resume' : 'Pause'}
-        style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 1.5, borderColor: paused ? c.yellow : c.border, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name={paused ? 'play' : 'pause'} size={24} color={paused ? c.yellow : c.foreground} style={paused ? { marginLeft: 3 } : undefined} />
+        style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={paused ? 'play' : 'pause'} size={28} color={c.yellow} style={paused ? { marginLeft: 3 } : undefined} />
       </Pressable>
-      <Pressable onPress={tap(onSkip)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Skip your line" style={side}>
-        <Ionicons name="play-skip-forward-outline" size={22} color={c.mutedForeground} />
+      <Pressable onPress={tap(onSkip)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Skip to the next line" style={[pill, { paddingHorizontal: 20 }]}>
+        <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>Line</Text>
+        <Ionicons name="chevron-forward" size={16} color={c.foreground} />
       </Pressable>
     </View>
   );

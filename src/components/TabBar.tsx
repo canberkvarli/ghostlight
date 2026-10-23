@@ -6,6 +6,7 @@ import { TabTrigger } from 'expo-router/ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
+import { useSession } from '../lib/useSession';
 import { useTheme } from '../theme/ThemeContext';
 
 /** The bar's height, its lift above the home indicator, and the room a root screen leaves for it. */
@@ -33,11 +34,12 @@ export const TAB_ROOMS: { name: string; href: Href; label: string; icon: keyof t
 export const TabBar = forwardRef<View, ViewProps>(function TabBar(props, ref) {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useSession();
   const segments = useSegments() as string[];
   const leaf = segments[segments.length - 1] ?? '';
   const inReader = segments.includes('read');
   const inRehearsal = segments.includes('rehearse') && leaf === '[id]';
-  if (inReader || inRehearsal) return <View ref={ref} {...props} style={{ display: 'none' }} />;
+  if (!isAuthenticated || inReader || inRehearsal) return <View ref={ref} {...props} style={{ display: 'none' }} />;
   return (
     <View ref={ref} {...props} pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT }}>
       <View style={{ height: TAB_BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, borderRadius: 28, borderWidth: 2, borderColor: c.ink, backgroundColor: c.card }}>

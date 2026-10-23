@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
@@ -434,6 +434,8 @@ export default function Search() {
     [router],
   );
 
+  // A stranger's front door is the curtain, not this room.
+  if (!sessionLoading && !isAuthenticated) return <Redirect href="/curtain" />;
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />

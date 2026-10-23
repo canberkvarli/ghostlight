@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import type { RehearsalLine, ScenePayload } from '../../rehearsal/contract';
 import type { Snapshot } from '../../rehearsal/engine';
 import { sameCharacter } from '../../rehearsal/contract';
-import { useTheme } from '../../theme/ThemeContext';
-import { StageDirection } from '../StageDirection';
 import { Line, type Speaking, type When } from './Line';
 
 interface Props {
@@ -22,23 +20,19 @@ interface Props {
 }
 
 /** Fraction of the stage height where the live line is held: the pool of light. */
-const EYE_LINE = 0.3;
+const EYE_LINE = 0.28;
 /** After the actor scrolls by hand, the script stays where they put it this long. */
 const HANDS_OFF_MS = 3500;
 const NO_WORDS = new Set<number>();
-const SERIF = 'InstrumentSerif_400Regular';
-const MONO = 'CourierPrime_400Regular';
 
 /**
  * The script, full bleed, in the light. The live line sits in the pool at the
- * eye line and the text moves under it. The room above the first line is not
- * blank: the play and the scene are printed there, as the head of the sides,
- * and the lines come in under them. Every other line is a target: a tap
+ * eye line once it moves; the script starts at the top, with no room above
+ * the first line. Every other line is a target: a tap
  * starts the run there. Scrolling by hand to find a line is left alone for a
  * few seconds, then the script follows the run again on its next move.
  */
 export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming = false }: Props) {
-  const { colors: c } = useTheme();
   const { height } = useWindowDimensions();
   const scroller = useRef<ScrollView>(null);
   const tops = useRef(new Map<number, number>());
@@ -66,16 +60,9 @@ export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming =
       ref={scroller}
       onScrollBeginDrag={() => { handsOn.current = Date.now(); }}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 12 }}
+      contentContainerStyle={{ paddingHorizontal: 16 }}
     >
-      {/* The head of the sides, in the room above the first line. */}
-      <View style={{ height: height * EYE_LINE, justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 22 }}>
-        <StageDirection>(lights up.)</StageDirection>
-        <Text numberOfLines={2} style={{ marginTop: 8, fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>{scene.title}</Text>
-        {scene.play_title && scene.play_title.trim().toLowerCase() !== scene.title.trim().toLowerCase() ? (
-          <Text style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: c.mutedForeground }}>{scene.play_title}</Text>
-        ) : null}
-      </View>
+      <View style={{ height: 8 }} />
       {lines.map((line, i) => {
         const mine = sameCharacter(line.character, actor);
         const when: When = line.index < current ? 'past' : line.index === current ? 'live' : 'next';

@@ -1,17 +1,14 @@
-import { Redirect } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs } from 'expo-router/ui';
 
 import { TabBar, TAB_ROOMS } from '../../src/components/TabBar';
-import { useSession } from '../../src/lib/useSession';
 
 /**
  * The signed-in app. Four rooms, each its own stack, one bar across them
  * (expo-router's headless tabs: the bar is ours, drawn over the slot). A
- * stranger has no rooms: the curtain is theirs, and this sends them to it.
+ * stranger has no rooms: the home sends them to the curtain and the bar
+ * stays off; the reader and the rest still open for a link from the widget.
  */
 export default function TabsLayout() {
-  const { loading, isAuthenticated } = useSession();
-  if (!loading && !isAuthenticated) return <Redirect href="/curtain" />;
   return (
     <Tabs style={{ flex: 1 }}>
       <TabSlot />

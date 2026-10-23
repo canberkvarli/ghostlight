@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ScenePayload } from '../../rehearsal/contract';
 import { sameCharacter } from '../../rehearsal/contract';
@@ -11,10 +13,12 @@ import { PrimaryPill } from '../PrimaryPill';
 import { StageDirection } from '../StageDirection';
 
 const SERIF = 'InstrumentSerif_400Regular';
-const MONO = 'CourierPrime_400Regular';
 const MONO_I = 'CourierPrime_400Regular_Italic';
 const SANS = 'BricolageGrotesque_500Medium';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
+
+/** Where the part you last played in a scene is kept, so the sheet opens on it. */
+const partKey = (sceneId: number) => `ghostlight:part:${sceneId}`;
 
 interface Props {
   payload: ScenePayload;
@@ -28,157 +32,131 @@ interface Props {
   gated: boolean;
   onBegin: (character: string, voices: Record<string, string>, resume?: { runId: number; lineIndex: number }) => void;
   onPlans: () => void;
+  onClose: () => void;
 }
 
 /**
- * Before the run. The play and the scene; your part, as a row of names to
- * tap; the voice for each of the other parts, chosen from a short list that
- * opens under the name; a few lines of the scene as they are, so you know
- * what you are walking into; Begin. One decision at a time and nothing
- * else on the sheet. Begin opens the run and starts it the moment the first
- * line is ready, so there is one tap, not two.
+ * Who are you: a sheet that rises from the bottom over the dimmed stage. Each
+ * part is a card; the chosen one carries the yellow shadow and an ink check,
+ * the others say who reads them, and tapping that name turns the voice over
+ * to the next one. The part you played last time is chosen on open, so Begin
+ * is never dark. Begin reads "Begin as Mark" and starts the run the moment
+ * the first line is ready.
  */
-export function CastSheet({ payload, guided, preparing, waiting, error, gated, onBegin, onPlans }: Props) {
+export function CastSheet({ payload, guided, preparing, waiting, error, gated, onBegin, onPlans, onClose }: Props) {
   const { colors: c } = useTheme();
+  const insets = useSafeAreaInsets();
   const resume = guided ? null : payload.resume;
   const [mine, setMine] = useState<string | null>(() => (guided ? null : (payload.characters[0] ?? null)));
   const [overrides, setOverrides] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<string | null>(null); // the part whose voice list is open
   const defaults = useMemo(
     () => Object.entries(payload.defaults).find(([k]) => sameCharacter(k, mine ?? payload.characters[0] ?? ''))?.[1] ?? {},
     [payload.defaults, payload.characters, mine],
   );
   const voiceOf = (ch: string) => overrides[ch] ?? Object.entries(defaults).find(([k]) => sameCharacter(k, ch))?.[1] ?? payload.voices[0]?.id ?? '';
-  const labelOf = (id: string) => payload.voices.find(v => v.id === id)?.label ?? id;
-  const others = payload.characters.filter(ch => !mine || !sameCharacter(ch, mine));
-  const minutes = Math.max(1, Math.round(payload.lines.reduce((n, l) => n + l.text.split(/\s+/).length, 0) / 150));
-  const preview = payload.lines.slice(0, 4);
+  const voice = (id: string) => payload.voices.find(v => v.id === id);
+  const linesOf = (ch: string) => payload.lines.filter(l => sameCharacter(l.character, ch)).length;
 
+  // The part played last time opens chosen.
+  useEffect(() => {
+    if (guided) return;
+    void AsyncStorage.getItem(partKey(payload.scene.id)).then(saved => {
+      if (saved && payload.characters.some(ch => sameCharacter(ch, saved))) setMine(saved);
+    }).catch(() => {});
+  }, [guided, payload.scene.id, payload.characters]);
+
+  const cycle = (ch: string) => {
+    if (preparing || payload.voices.length < 2) return;
+    Haptics.selectionAsync().catch(() => {});
+    const ids = payload.voices.map(v => v.id);
+    setOverrides(o => ({ ...o, [ch]: ids[(ids.indexOf(voiceOf(ch)) + 1) % ids.length] }));
+  };
   const begin = (pickUp?: { runId: number; lineIndex: number }) => {
     if (!mine && !guided) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (mine) void AsyncStorage.setItem(partKey(payload.scene.id), mine).catch(() => {});
     const partners = payload.characters.filter(p => !mine || !sameCharacter(p, mine));
     onBegin(mine ?? '', Object.fromEntries(partners.map(p => [p, voiceOf(p)])), pickUp);
   };
 
-  const chip = (label: string, on: boolean, onPress: () => void, disabled = false) => (
-    <Pressable key={label} onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: on }}
-      style={{ paddingHorizontal: 16, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: on ? c.foreground : c.border, backgroundColor: on ? c.foreground : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: SANS_B, fontSize: 14, color: on ? c.background : c.foreground }}>{label}</Text>
-    </Pressable>
-  );
-
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 }}>
-      {payload.scene.play_title && payload.scene.play_title.trim().toLowerCase() !== payload.scene.title.trim().toLowerCase() ? (
-        <Text style={{ fontFamily: MONO, fontSize: 13, color: c.mutedForeground }}>{payload.scene.play_title}</Text>
-      ) : null}
-      <Text style={{ marginTop: 4, fontFamily: SERIF, fontSize: 38, lineHeight: 42, letterSpacing: -0.6, color: c.foreground }}>{payload.scene.title}</Text>
-      <StageDirection style={{ marginTop: 8 }}>({payload.lines.length} lines · about {minutes} min.)</StageDirection>
+    <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+      {/* The stage behind, dimmed. A tap on it is a way out. */}
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#15110f', opacity: 0.22 }} />
+      <Animated.View entering={SlideInDown.duration(420).springify().damping(22)} style={{ maxHeight: '88%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: c.background, paddingBottom: insets.bottom + 12 }}>
+        <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.border, marginTop: 10 }} />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 8 }}>
+          {payload.scene.play_title && payload.scene.play_title.trim().toLowerCase() !== payload.scene.title.trim().toLowerCase() ? (
+            <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: c.mutedForeground }}>{payload.scene.play_title}</Text>
+          ) : null}
+          <Text style={{ marginTop: 4, fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.5, color: c.foreground }}>{payload.scene.title}</Text>
 
-      {guided ? (
-        <Text style={{ marginTop: 22, fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>
-          Two minutes with a partner. Your lines are lit; speak them, and the scene moves on your last word.
-        </Text>
-      ) : (
-        <>
-          <Section title="Your part">
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {payload.characters.map(ch => chip(ch, mine !== null && sameCharacter(ch, mine), () => { Haptics.selectionAsync().catch(() => {}); setMine(ch); setOpen(null); }, preparing))}
-            </View>
-          </Section>
-
-          {others.length > 0 && payload.voices.length > 0 ? (
-            <Section title={others.length === 1 ? 'The other part' : 'The other parts'}>
-              <Animated.View layout={LinearTransition.duration(200)}>
-                {others.map(ch => {
-                  const isOpen = open === ch;
-                  const current = voiceOf(ch);
+          {guided ? (
+            <Text style={{ marginTop: 16, fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>
+              Two minutes with a partner. Your lines are lit; speak them, and the scene moves on your last word.
+            </Text>
+          ) : (
+            <>
+              <Text style={{ marginTop: 18, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(who are you?)</Text>
+              <View style={{ marginTop: 12, gap: 12 }}>
+                {payload.characters.map(ch => {
+                  const on = mine !== null && sameCharacter(ch, mine);
+                  const v = voice(voiceOf(ch));
                   return (
-                    <View key={ch} style={{ borderBottomWidth: 1, borderBottomColor: c.divider }}>
-                      <Pressable onPress={() => { if (preparing) return; Haptics.selectionAsync().catch(() => {}); setOpen(isOpen ? null : ch); }}
-                        accessibilityRole="button" accessibilityLabel={`${ch}, read by ${labelOf(current)}`}
-                        style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ fontFamily: SANS_B, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: c.foreground }}>{ch}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={{ fontFamily: MONO_I, fontSize: 13, color: c.mutedForeground }}>read by</Text>
-                          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.accentText }}>{labelOf(current)}</Text>
-                          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} />
+                    <View key={ch}>
+                      {on ? <View style={{ position: 'absolute', left: 4, top: 4, right: -4, bottom: -4, borderRadius: 16, backgroundColor: c.yellow }} /> : null}
+                      <Pressable onPress={() => { if (preparing) return; Haptics.selectionAsync().catch(() => {}); setMine(ch); }} accessibilityRole="button" accessibilityState={{ selected: on }}
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, borderRadius: 16, borderWidth: on ? 2 : 1.5, borderColor: on ? c.ink : c.border, backgroundColor: c.card }}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 34, color: c.foreground }}>{ch}</Text>
+                          {on ? (
+                            <StageDirection on="paper" numberOfLines={1}>(you · {linesOf(ch)} lines.)</StageDirection>
+                          ) : (
+                            <Pressable onPress={() => cycle(ch)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Voice for ${ch}: ${v?.label ?? ''}. Tap for the next`} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text numberOfLines={1} style={{ fontFamily: MONO_I, fontSize: 13, color: c.paperMuted }}>
+                                (read by <Text style={{ color: c.accentText, textDecorationLine: 'underline' }}>{v?.label ?? '…'}</Text>{v ? ` · ${v.gender === 'female' ? 'f' : 'm'}.` : '.'})
+                              </Text>
+                            </Pressable>
+                          )}
+                        </View>
+                        <View style={{ width: 30, height: 30, borderRadius: 15, borderWidth: on ? 0 : 1.5, borderColor: c.border, backgroundColor: on ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                          {on ? <Ionicons name="checkmark" size={16} color={c.yellow} /> : null}
                         </View>
                       </Pressable>
-                      {isOpen ? (
-                        <Animated.View entering={FadeIn.duration(160)} style={{ paddingBottom: 10, gap: 2 }}>
-                          {payload.voices.map(v => {
-                            const on = v.id === current;
-                            return (
-                              <Pressable key={v.id} onPress={() => { Haptics.selectionAsync().catch(() => {}); setOverrides(o => ({ ...o, [ch]: v.id })); setOpen(null); }}
-                                accessibilityRole="button" accessibilityState={{ selected: on }}
-                                style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12 }}>
-                                <Text style={{ fontFamily: SANS, fontSize: 15, color: on ? c.foreground : c.mutedForeground }}>{v.label}</Text>
-                                <Text style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 1, color: c.mutedForeground }}>{v.gender === 'female' ? 'F' : 'M'}{on ? '  ·  chosen' : ''}</Text>
-                              </Pressable>
-                            );
-                          })}
-                        </Animated.View>
-                      ) : null}
                     </View>
                   );
                 })}
-              </Animated.View>
-            </Section>
-          ) : null}
-
-          <Section title="The scene, as written">
-            <View style={{ gap: 10 }}>
-              {preview.map(l => (
-                <View key={l.index} style={{ opacity: mine && sameCharacter(l.character, mine) ? 1 : 0.6 }}>
-                  <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: mine && sameCharacter(l.character, mine) ? c.accentText : c.mutedForeground }}>{l.character}</Text>
-                  <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: MONO, fontSize: 14, lineHeight: 21, color: c.foreground }}>{l.text}</Text>
-                </View>
-              ))}
-              {payload.lines.length > preview.length ? (
-                <StageDirection>(and {payload.lines.length - preview.length} more.)</StageDirection>
-              ) : null}
-            </View>
-          </Section>
-        </>
-      )}
-
-      <View style={{ marginTop: 30 }}>
-        {gated ? (
-          <>
-            <Text style={{ fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>{error}</Text>
-            <PrimaryPill label="See Premium" onPress={onPlans} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
-          </>
-        ) : (
-          <>
-            {error ? (
-              <StageDirection numberOfLines={3} style={{ marginBottom: 12 }}>({error.toLowerCase()})</StageDirection>
-            ) : preparing && waiting ? (
-              <StageDirection numberOfLines={2} style={{ marginBottom: 12 }}>({waiting})</StageDirection>
-            ) : null}
-            {resume && !preparing ? (
-              <View style={{ gap: 10 }}>
-                <StageDirection>(you left this one at line {resume.line_index + 1}.)</StageDirection>
-                <PrimaryPill label={`Pick up at line ${resume.line_index + 1}`} onPress={() => begin({ runId: resume.run_id, lineIndex: resume.line_index })} height={54} block haptic="medium" />
-                <PrimaryPill label="From the top" variant="outline" onPress={() => begin()} height={50} block />
               </View>
-            ) : (
-              <PrimaryPill label={preparing ? 'Warming up' : 'Begin'} onPress={() => begin()} disabled={preparing || (!mine && !guided)} height={54} block haptic="medium" />
-            )}
-          </>
-        )}
-      </View>
-    </ScrollView>
-  );
-}
+            </>
+          )}
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const { colors: c } = useTheme();
-  return (
-    <View style={{ marginTop: 26 }}>
-      <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: c.mutedForeground, marginBottom: 12 }}>{title}</Text>
-      {children}
+          <View style={{ marginTop: 26 }}>
+            {gated ? (
+              <>
+                <Text style={{ fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>{error}</Text>
+                <PrimaryPill label="See Premium" onPress={onPlans} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+              </>
+            ) : (
+              <>
+                {error ? (
+                  <StageDirection numberOfLines={3} style={{ marginBottom: 12 }}>({error.toLowerCase()})</StageDirection>
+                ) : preparing && waiting ? (
+                  <Animated.View entering={FadeIn.duration(200)}><StageDirection numberOfLines={2} style={{ marginBottom: 12 }}>({waiting})</StageDirection></Animated.View>
+                ) : null}
+                {resume && !preparing ? (
+                  <View style={{ gap: 10 }}>
+                    <StageDirection>(you left this one at line {resume.line_index + 1}.)</StageDirection>
+                    <PrimaryPill label={`Pick up at line ${resume.line_index + 1}`} onPress={() => begin({ runId: resume.run_id, lineIndex: resume.line_index })} height={54} block haptic="medium" />
+                    <PrimaryPill label={mine ? `Begin as ${mine}, from the top` : 'From the top'} variant="outline" onPress={() => begin()} height={50} block />
+                  </View>
+                ) : (
+                  <PrimaryPill label={preparing ? 'Warming up' : guided ? 'Begin' : mine ? `Begin as ${mine}` : 'Begin'} onPress={() => begin()} disabled={preparing || (!mine && !guided)} height={54} block haptic="medium" />
+                )}
+              </>
+            )}
+          </View>
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 }
