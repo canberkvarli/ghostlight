@@ -116,7 +116,7 @@ export function resetIdentity(): void {
  * policy accounts for them, and the callboard promise is explicit that raw
  * queries never travel. Shape of the search, yes; the words, no.
  */
-type ReminderMomentName = 'eve' | 'soon' | 'callboard' | 'tonight' | 'left';
+type ReminderMomentName = 'eve' | 'soon' | 'after' | 'callboard' | 'tonight' | 'left';
 
 export type Event =
   /** Did they search at all, and with what shape of query? */

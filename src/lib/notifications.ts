@@ -29,7 +29,7 @@ const CALLBOARD_KEY = 'gl.callboard.v1';
 /** Auditions whose phone reminders were switched off on the file. */
 const OFF_KEY = 'gl.reminders.off.v1';
 
-export type ReminderMoment = 'eve' | 'soon' | 'callboard' | 'tonight' | 'left';
+export type ReminderMoment = 'eve' | 'soon' | 'after' | 'callboard' | 'tonight' | 'left';
 
 export interface ReminderData {
   moment: ReminderMoment;
@@ -39,6 +39,8 @@ export interface ReminderData {
 }
 
 const EVE_HOUR = 20;
+/** When the evening-after note comes: eight, or two hours after a late call. */
+const AFTER_HOUR = 20;
 const SOON_MS = 2 * 60 * 60 * 1000;
 /** Never schedule something that fires before the user has put the phone down. */
 const MIN_LEAD_MS = 60 * 1000;
@@ -183,6 +185,10 @@ function soonBody(a: Audition, when: Date): string {
   return head + tail;
 }
 
+/** The evening after: one tap to say how it went. */
+function afterBody(a: Audition): string {
+  return a.kind === 'self_tape' ? `Tape sent for ${whatFor(a)}? Say how it went, in one tap.` : `How did ${whatFor(a)} go? One tap to log it.`;
+}
 async function schedule(
   title: string,
   body: string,
@@ -254,6 +260,17 @@ export async function scheduleRemindersFor(a: Audition, { quiet = false } = {}):
     }
   }
 
+  // The evening after: eight o'clock on the day, or two hours after a late one.
+  const after = new Date(when);
+  after.setHours(AFTER_HOUR, 0, 0, 0);
+  if (after.getTime() < when.getTime() + 60 * 60_000) after.setTime(when.getTime() + 2 * 60 * 60_000);
+  if (after.getTime() - now.getTime() > MIN_LEAD_MS) {
+    const id = await schedule(a.project, afterBody(a), after, { ...base, moment: 'after' });
+    if (id) {
+      ids.push(id);
+      if (!quiet) track('app_reminder_scheduled', { moment: 'after', has_piece: Boolean(piece) });
+    }
+  }
   if (ids.length) {
     const map = await loadMap();
     map[String(a.id)] = ids;

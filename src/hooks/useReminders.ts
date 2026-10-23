@@ -67,6 +67,8 @@ export function useReminderTaps() {
       // The night-before note opens the audition's file, where the piece, the
       // bring list and the room are. Two hours out there is one job left:
       // read the piece once more, so that one opens the reader.
+      // The evening after opens the one question: how did it go.
+      if (moment === 'after' && auditionId != null) { router.push({ pathname: '/outcome', params: { id: String(auditionId) } }); return; }
       if (moment === 'soon' && monologueId != null) router.push(`/read/${monologueId}`);
       else if (auditionId != null) router.push({ pathname: '/prep', params: { id: String(auditionId) } });
       else if (monologueId != null) router.push(`/read/${monologueId}`);

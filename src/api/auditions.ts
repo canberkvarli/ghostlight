@@ -125,6 +125,8 @@ export interface AuditionDraft {
 
 /** What the file can change without opening the form. */
 export interface AuditionPatch extends Partial<AuditionDraft> {
+  /** The server edits status directly too: booked, passed, or back to scheduled. */
+  status?: AuditionStatus;
   bring_list?: BringItem[];
   after_notes?: AfterNotes;
   reminders_on?: boolean;
