@@ -48,7 +48,7 @@ import { useTheme } from '../src/theme/ThemeContext';
  */
 
 const HOUSES: { key: Medium; label: string }[] = [
-  { key: 'theatre', label: 'Stage' },
+  { key: 'theatre', label: 'Plays' },
   { key: 'screen', label: 'Film & TV' },
 ];
 
@@ -122,7 +122,7 @@ export default function Curtain() {
     (piece: Monologue) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       track('app_curtain', { action: 'open' });
-      router.push({ pathname: '/read/[id]', params: { id: piece.id, medium } });
+      router.push({ pathname: '/read/[id]', params: { id: piece.id, medium, from: 'curtain' } });
     },
     [medium, router],
   );
@@ -254,8 +254,10 @@ export default function Curtain() {
                     reduce={reduce}
                     onKeep={keep}
                     onPass={pass}
+                    onOpen={open}
+                    onHold={share}
                     renderCard={(item, first) => (
-                      <PlaybillCard item={item} height={deckH - insets.bottom - 6 - 64 - 22} first={first} onOpen={() => open(item)} onShare={() => share(item)} />
+                      <PlaybillCard item={item} height={deckH - insets.bottom - 6 - 64 - 22} first={first} onOpen={() => open(item)} />
                     )}
                   />
                 </View>
