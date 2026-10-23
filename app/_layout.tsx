@@ -44,6 +44,8 @@ import { clearRecents } from '../src/lib/recents';
 import { resetKnocks } from '../src/lib/nudges';
 import { KnockNoteHost } from '../src/components/KnockNote';
 import { useSession } from '../src/lib/useSession';
+import { setFavorite } from '../src/api/client';
+import { PENDING_KEEP } from '../src/lib/keep';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -176,6 +178,8 @@ export default function RootLayout() {
         if (user && !user.is_anonymous) {
           const name = internalName(user.email);
           identify(user.id, name ? { name, is_internal: true } : undefined);
+          // A card thrown right on the curtain before there was a book: kept now.
+          if (event === 'SIGNED_IN') void keepPending();
         }
         void queryClient.invalidateQueries({ queryKey: ['read-wall'] });
         void queryClient.invalidateQueries({ queryKey: ['favorites'] });
@@ -225,6 +229,19 @@ export default function RootLayout() {
       </ThemeProvider>
     </PersistQueryClientProvider>
   );
+}
+
+/** The piece a stranger threw right on the curtain, saved to the book they just made. */
+async function keepPending() {
+  try {
+    const id = await AsyncStorage.getItem(PENDING_KEEP);
+    if (!id) return;
+    await AsyncStorage.removeItem(PENDING_KEEP);
+    await setFavorite(id, true);
+    void queryClient.invalidateQueries({ queryKey: ['favorites'] });
+  } catch {
+    // The book is reachable from the home; a keep that did not land is a tap away.
+  }
 }
 
 function Shell() {

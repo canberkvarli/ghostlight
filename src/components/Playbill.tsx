@@ -1,14 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 
 import type { Monologue } from '../data/monologues';
 import { clock } from '../lib/segments';
@@ -21,42 +14,26 @@ import { StageDirection } from './StageDirection';
 import { WordArrow } from './WordArrow';
 
 /**
- * One page of the playbill: the curtain's deck is a column of these, one per
- * speech, paged by the thumb. The poster, or the cloth of the play, fills the
- * top of the page and fades down into the paper the words are printed on, so
- * the picture and the speech are one sheet, not a thumbnail beside a caption.
- *
- * Everything that moves with the scroll is a function of `scrollY` on the UI
- * thread: the page settles to full size as it arrives, the one leaving shrinks
- * a touch and dims, and the picture drifts slower than the page so it has
- * depth. Nothing here sets state on scroll.
+ * One card of the playbill. The poster, or the cover of the play's edition,
+ * fills the top of the card and fades down into the paper the words are
+ * printed on, so the picture and the speech are one sheet, not a thumbnail
+ * beside a caption. The deck throws these; the card itself only knows how to
+ * be tapped (read it) and held (share it).
  */
-
-/** How much of the next page shows under the current one. The hint that says "swipe" without saying it. */
-export const PEEK = 34;
-/** The dark between two pages. */
+/** The dark between two sheets, where sheets stack. */
 export const GAP = 14;
 
-export function PlaybillPage({
+export function PlaybillCard({
   item,
-  index,
-  scrollY,
-  page,
   height,
   first,
-  reduce,
   onOpen,
   onShare,
 }: {
   item: Monologue;
-  index: number;
-  scrollY: SharedValue<number>;
-  /** The snap interval: a page's height plus the gap. */
-  page: number;
   /** The card's height. */
   height: number;
   first: boolean;
-  reduce: boolean;
   onOpen: () => void;
   onShare: () => void;
 }) {
@@ -67,25 +44,8 @@ export function PlaybillPage({
   // However many lines of the speech fit between the name and the foot of the
   // page, so a tall phone shows more of it and a short one is not crowded.
   const lines = Math.max(3, Math.min(6, Math.floor((height - pictureH - 200) / 22)));
-
-  // d is this page's distance from the top in pages: 0 when it is the one on
-  // stage, 1 when it has scrolled up and out, -1 when it is the next one waiting.
-  const frame = useAnimatedStyle(() => {
-    if (reduce) return {};
-    const d = scrollY.value / page - index;
-    return {
-      opacity: interpolate(d, [-1, 0, 1], [0.78, 1, 0.55], Extrapolation.CLAMP),
-      transform: [{ scale: interpolate(d, [-1, 0, 1], [0.975, 1, 0.955], Extrapolation.CLAMP) }],
-    };
-  });
-  const picture = useAnimatedStyle(() => {
-    if (reduce) return {};
-    const d = scrollY.value / page - index;
-    return { transform: [{ translateY: interpolate(d, [-1, 0, 1], [-26, 0, 26], Extrapolation.CLAMP) }, { scale: 1.1 }] };
-  });
-
   return (
-    <Animated.View style={[frame, { height, marginBottom: GAP }]}>
+    <View style={{ height }}>
       <Pressable
         onPress={onOpen}
         onLongPress={onShare}
@@ -97,13 +57,13 @@ export function PlaybillPage({
         }}
         accessibilityRole="button"
         accessibilityLabel={`${item.character}, from ${item.source}. Read it`}
-        accessibilityHint="Swipe up for another. Press and hold to share it as a picture"
+        accessibilityHint="Swipe right to keep it, left for another. Press and hold to share it as a picture"
         style={{ flex: 1 }}
       >
         <PaperCard shadow={8} pressed={pressed} wrapperStyle={{ flex: 1 }} style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
           {/* The picture. The poster for the screen, the cover of the edition for a play. */}
           <View style={{ height: pictureH, overflow: 'hidden' }}>
-            <Animated.View style={[picture, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>
+            <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
               {screen && item.posterUrl ? (
                 <Image
                   source={{ uri: sharpPoster(item.posterUrl) }}
@@ -117,7 +77,7 @@ export function PlaybillPage({
               ) : (
                 <Cover item={item} height={pictureH} screen={screen} />
               )}
-            </Animated.View>
+            </View>
             {/* The picture fades into the paper. */}
             <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.round(pictureH * 0.55) }}>
               <Rect x={0} y={0} width={2000} height={Math.round(pictureH * 0.55)}>
@@ -183,7 +143,7 @@ export function PlaybillPage({
           </View>
         </PaperCard>
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }
 
