@@ -71,6 +71,12 @@ export function apiToMonologue(m: ApiMonologue): Monologue {
     paywalled: (m as { paywalled?: boolean }).paywalled ?? false,
     // For the theme sketch on a play's cover (src/lib/sketchFor.ts).
     themes: Array.isArray(m.themes) ? m.themes : undefined,
+    // The screen's poster and the year, which the shelf route always carried
+    // (src/lib/screen.ts) and this one never did: a film picked by the server
+    // for tonight came to the playbill with no picture. Read defensively; both
+    // are newer than the OpenAPI snapshot on some routes.
+    posterUrl: (m as { poster_url?: string | null }).poster_url ?? undefined,
+    year: (() => { const y = (m as { year?: number | string | null }).year; const n = typeof y === 'string' ? parseInt(y, 10) : y; return typeof n === 'number' && Number.isFinite(n) ? n : undefined; })(),
     emotion: m.primary_emotion ?? undefined,
     // Only the favourites route fills these; everywhere else they are absent.
     // `saved_at` is newer than the OpenAPI snapshot, so it is read defensively.
