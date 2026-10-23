@@ -8,6 +8,7 @@ import type { Monologue } from '../data/monologues';
 import { track } from '../lib/analytics';
 import { clock } from '../lib/segments';
 import { colors } from '../theme/tokens';
+import { sharpPoster } from '../lib/posters';
 
 /**
  * The share card: a piece as a picture.
@@ -90,7 +91,7 @@ export const ShareCard = forwardRef<View, { piece: Monologue }>(function ShareCa
           <View style={{ flexDirection: 'row', gap: 14 }}>
             {screen && piece.posterUrl ? (
               <View style={{ width: 58, height: 84, borderRadius: 3, overflow: 'hidden', borderWidth: 1.5, borderColor: paper.ink }}>
-                <Image source={{ uri: piece.posterUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                <Image source={{ uri: sharpPoster(piece.posterUrl) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
               </View>
             ) : (
               <View

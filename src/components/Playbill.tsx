@@ -11,12 +11,12 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { Monologue } from '../data/monologues';
-import { sketchFor } from '../lib/sketchFor';
 import { clock } from '../lib/segments';
 import { useTheme } from '../theme/ThemeContext';
 import { PaperCard } from './PaperCard';
-import { clothFor, SCREEN_BLOCK } from './PieceCover';
-import { Sketch } from './Sketches';
+import { Cover } from './Cover';
+import { SCREEN_BLOCK } from './PieceCover';
+import { sharpPoster } from '../lib/posters';
 import { StageDirection } from './StageDirection';
 import { WordArrow } from './WordArrow';
 
@@ -101,12 +101,12 @@ export function PlaybillPage({
         style={{ flex: 1 }}
       >
         <PaperCard shadow={8} pressed={pressed} wrapperStyle={{ flex: 1 }} style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
-          {/* The picture. A poster for the screen, the bound cloth for a play. */}
+          {/* The picture. The poster for the screen, the cover of the edition for a play. */}
           <View style={{ height: pictureH, overflow: 'hidden' }}>
             <Animated.View style={[picture, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>
               {screen && item.posterUrl ? (
                 <Image
-                  source={{ uri: item.posterUrl }}
+                  source={{ uri: sharpPoster(item.posterUrl) }}
                   style={{ width: '100%', height: '100%', backgroundColor: SCREEN_BLOCK }}
                   contentFit="cover"
                   contentPosition="top"
@@ -114,14 +114,8 @@ export function PlaybillPage({
                   transition={240}
                   accessibilityIgnoresInvertColors
                 />
-              ) : screen ? (
-                <View style={{ flex: 1, backgroundColor: SCREEN_BLOCK, alignItems: 'center', justifyContent: 'center' }}>
-                  <Sketch name="clapper" size={120} stroke="#ede8f7" accent="#bd8bff" weight={1.6} />
-                </View>
               ) : (
-                <View style={{ flex: 1, backgroundColor: clothFor(item), alignItems: 'center', justifyContent: 'center' }}>
-                  <Sketch name={sketchFor(item)} size={132} stroke="#f0ebdc" accent="#f2e22bff" weight={1.6} />
-                </View>
+                <Cover item={item} height={pictureH} screen={screen} />
               )}
             </Animated.View>
             {/* The picture fades into the paper. */}
@@ -135,22 +129,6 @@ export function PlaybillPage({
                 />
               </Rect>
             </Canvas>
-            {!screen && item.year ? (
-              <Text
-                style={{
-                  position: 'absolute',
-                  top: 16,
-                  left: 20,
-                  fontFamily: 'CourierPrime_400Regular',
-                  fontSize: 12,
-                  letterSpacing: 1.4,
-                  color: '#f0ebdc',
-                  opacity: 0.6,
-                }}
-              >
-                {String(item.year)}
-              </Text>
-            ) : null}
           </View>
 
           {/* The words, printed on the paper the picture faded into. */}
