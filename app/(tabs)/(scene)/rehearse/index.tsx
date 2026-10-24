@@ -11,6 +11,8 @@ import { StageDirection } from '../../../../src/components/StageDirection';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { PaperCard } from '../../../../src/components/PaperCard';
 import { RoomHeader } from '../../../../src/components/RoomHeader';
+import { HowItWorksSheet } from '../../../../src/components/HowItWorksSheet';
+import { PartnerScene } from '../../../../src/components/PartnerScene';
 import { TAB_BAR_SPACE } from '../../../../src/components/TabBar';
 import { useHideBarOnScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
@@ -69,12 +71,31 @@ export default function RehearseHub() {
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
   const guided = () => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: 'guided', from: 'guided' } }); };
+  // How this works, behind a question mark, as on the board: the loop, one
+  // paragraph, and the guided scene as the one thing to do next.
+  const [how, setHow] = useState(false);
+  const help = (
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); track('app_partner_how', { from: 'scene' }); setHow(true); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="How this works"
+      style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 16, lineHeight: 18, color: c.mutedForeground }}>?</Text>
+    </Pressable>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <RoomHeader />
+        <RoomHeader right={help} />
+        <HowItWorksSheet
+          open={how}
+          onClose={() => setHow(false)}
+          title="It reads the others."
+          accent="You read yours."
+          body="Pick your part and the partner reads everyone else, in a voice you choose. Say your line and the words light up as you go; on your last word the partner comes straight back in. Cut it off whenever you like. Your own sides go in as a photo, a PDF or the text itself."
+          scene={<PartnerScene style={{ marginTop: 16 }} />}
+          primaryLabel="Run the guided scene"
+          onPrimary={() => { setHow(false); guided(); }}
+        />
         <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: TAB_BAR_SPACE }}>
           <View style={{ paddingTop: 4, paddingHorizontal: 2 }}>
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>

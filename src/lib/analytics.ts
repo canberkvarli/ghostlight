@@ -180,6 +180,7 @@ export type Event =
   | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account' | 'settings'; visited: boolean } }
   /** ScenePartner. `from` is how the actor got to the sheet; `source` is what they are running. */
   | { name: 'app_rehearse_opened'; props: { from: 'home' | 'script' | 'library' | 'guided' | 'link' } }
+  | { name: 'app_partner_how'; props: { from: 'scene' } }
   | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }
   | { name: 'app_rehearse_ended'; props: { source: 'library' | 'script' | 'guided'; how: 'completed' | 'left'; lines: number; seconds: number } }
   /** The gate stopped a run: the wall, and whether the paywall was opened from it. */

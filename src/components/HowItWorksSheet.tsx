@@ -19,11 +19,21 @@ export function HowItWorksSheet({
   onClose,
   primaryLabel,
   onPrimary,
+  title = 'Paste the email.',
+  accent = 'The board does the rest.',
+  body = 'The casting email goes in and a ticket comes out: the date, the room, the part, what to bring. The night before, your phone taps you on the shoulder. Or fill it in by hand, that is always free.',
+  scene,
 }: {
   open: boolean;
   onClose: () => void;
   primaryLabel: string;
   onPrimary: () => void;
+  /** The headline, upright, and its italic close. The board's by default. */
+  title?: string;
+  accent?: string;
+  body?: string;
+  /** The looping picture. The board's by default. */
+  scene?: React.ReactNode;
 }) {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -61,13 +71,13 @@ export function HowItWorksSheet({
               color: c.foreground,
             }}
           >
-            Paste the email.{' '}
+            {title}{' '}
             <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>
-              The board does the rest.
+              {accent}
             </Text>
           </Text>
 
-          <AuditionsScene style={{ marginTop: 16 }} />
+          {scene ?? <AuditionsScene style={{ marginTop: 16 }} />}
 
           <Text
             style={{
@@ -78,8 +88,7 @@ export function HowItWorksSheet({
               color: c.mutedForeground,
             }}
           >
-            The casting email goes in and a ticket comes out: the date, the room, the part, what to bring.
-            The night before, your phone taps you on the shoulder. Or fill it in by hand, that is always free.
+            {body}
           </Text>
 
           <PrimaryPill label={primaryLabel} onPress={onPrimary} block style={{ marginTop: 18 }} />
