@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Application from 'expo-application';
@@ -15,10 +15,11 @@ import { useStageMotion } from '../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../src/hooks/useEntitlement';
 import { PRIVACY_URL, TERMS_URL } from '../../src/hooks/useTrialOffer';
 import { useSession } from '../../src/lib/useSession';
-import { useGoBack } from '../../src/lib/nav';
+import { useGoBack, useGuardedPush } from '../../src/lib/nav';
+import { useAuditions } from '../../src/hooks/useAuditions';
 import { supabase } from '../../src/lib/supabase';
 import { getSubscription, manageSubscription, restore } from '../../src/lib/purchases';
-import { hasNotificationPermission, requestNotificationPermission } from '../../src/lib/notifications';
+import { hasNotificationPermission, notificationsDenied, remindersMuted, requestNotificationPermission, setRemindersMuted, syncReminders } from '../../src/lib/notifications';
 import { MAKER, emailMaker, openInstagram, rateGhostLight } from '../../src/lib/maker';
 import { track } from '../../src/lib/analytics';
 import { useTheme, type ThemeMode } from '../../src/theme/ThemeContext';
@@ -46,36 +47,52 @@ export default function Settings() {
   const { data: sub } = useQuery({ queryKey: ['subscription'], queryFn: getSubscription, enabled: isPaid, staleTime: 5 * 60_000 });
   const [about, setAbout] = useState(false);
   const [reminders, setReminders] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState<null | 'restore' | 'signout'>(null);
+  const [busy, setBusy] = useState<null | 'restore' | 'signout' | 'manage'>(null);
+  const { data: auditions } = useAuditions(isAuthenticated);
+  const push = useGuardedPush();
 
   useFocusEffect(useCallback(() => {
     let alive = true;
-    hasNotificationPermission().then(ok => { if (alive) setReminders(ok); }).catch(() => {});
+    // On from the start: the phone is asked the first time an audition is
+    // saved. Off only once the actor has muted it here, or the phone said no.
+    Promise.all([notificationsDenied(), remindersMuted()])
+      .then(([denied, muted]) => { if (alive) setReminders(!denied && !muted); })
+      .catch(() => {});
     return () => { alive = false; };
   }, []));
 
-  const onSubscription = () => {
-    if (!isPaid) { router.push('/paywall'); return; }
-    void manageSubscription();
+  // Apple's own sheet takes its time to come up; the row says so meanwhile,
+  // and a second tap while it is coming is the same tap.
+  const onSubscription = async () => {
+    if (!isPaid) { push('/paywall'); return; }
+    if (busy) return;
+    setBusy('manage');
+    try { await manageSubscription(); } finally { setBusy(null); }
   };
 
-  const onReminders = async () => {
-    if (await hasNotificationPermission()) {
-      Alert.alert(
-        'Audition reminders are on',
-        'The evening before and the morning of, for every audition on your board. Each audition can turn its own off on its page. To silence them all, turn notifications off for Ghost Light in iOS Settings.',
-        [{ text: 'Done', style: 'cancel' }, { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } }],
-      );
+  // The switch: on means the phone may knock, the evening before and the
+  // morning of, for every audition on the board. It is on from the start,
+  // asking the phone the first time it is needed. Off mutes every reminder on
+  // the phone; each audition's own switch on its page still stands when it
+  // comes back on.
+  const onReminders = async (on: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
+    if (!on) {
+      setReminders(false);
+      await setRemindersMuted(true);
       return;
     }
-    const granted = await requestNotificationPermission();
+    await setRemindersMuted(false);
+    const granted = (await hasNotificationPermission()) || (await requestNotificationPermission());
     setReminders(granted);
     if (!granted) {
       Alert.alert('Reminders are off', 'Turn notifications on for Ghost Light in iOS Settings to be reminded the evening before an audition.', [
         { text: 'Not now', style: 'cancel' },
         { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
       ]);
+      return;
     }
+    if (auditions) await syncReminders(auditions);
   };
 
   const onRestore = async () => {
@@ -137,13 +154,13 @@ export default function Settings() {
           <Appearance />
 
           <Group label="ACCOUNT" />
-          <Row label="Subscription" value={planValue} lit onPress={onSubscription} />
+          <Row label="Subscription" value={busy === 'manage' ? 'Opening…' : planValue} lit onPress={() => { void onSubscription(); }} busy={busy === 'manage'} />
           {isAuthenticated ? (
-            <Row label="Email & sign-in" value={email ? maskEmail(email) : 'Apple'} onPress={() => router.push('/settings/signin')} />
+            <Row label="Email & sign-in" value={email ?? 'Apple'} onPress={() => push('/settings/signin')} />
           ) : (
-            <Row label="Email & sign-in" value="Sign in" lit onPress={() => router.push('/auth')} />
+            <Row label="Email & sign-in" value="Sign in" lit onPress={() => push('/auth')} />
           )}
-          <Row label="Audition reminders" value={reminders === null ? '' : reminders ? 'On' : 'Off'} onPress={() => { void onReminders(); }} last />
+          <SwitchRow label="Audition reminders" on={Boolean(reminders)} onChange={(on) => { void onReminders(on); }} last />
 
           <Group label="GHOST LIGHT" />
           <Row label="Help & legal" onPress={onHelp} busy={busy === 'restore'} />
@@ -185,6 +202,17 @@ function Group({ label }: { label: string }) {
 }
 
 /** One line per setting: the label, its state before the chevron. */
+/** A row with a switch at its end: the label, the switch, nothing to open. */
+function SwitchRow({ label, on, onChange, last }: { label: string; on: boolean; onChange: (on: boolean) => void; last?: boolean }) {
+  const { colors: c } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.divider }}>
+      <Text numberOfLines={1} style={{ flex: 1, fontFamily: SANS, fontSize: 15, color: c.foreground }}>{label}</Text>
+      <Switch value={on} onValueChange={onChange} trackColor={{ true: c.accentText, false: c.divider }} thumbColor="#fff" ios_backgroundColor={c.divider} accessibilityLabel={label} />
+    </View>
+  );
+}
+
 function Row({ label, value, lit, onPress, busy, last }: { label: string; value?: string; lit?: boolean; onPress: () => void; busy?: boolean; last?: boolean }) {
   const { colors: c } = useTheme();
   return (

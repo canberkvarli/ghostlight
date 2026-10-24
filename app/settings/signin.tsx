@@ -94,12 +94,13 @@ export default function SignIn() {
   );
 }
 
+/** The label small above the value, so an address of any length is read whole, never cut. */
 function Line({ label, value }: { label: string; value: string }) {
   const { colors: c } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Text style={{ fontFamily: SANS, fontSize: 15, color: c.foreground }}>{label}</Text>
-      <Text numberOfLines={1} style={{ flex: 1, textAlign: 'right', fontFamily: SANS, fontSize: 13, color: c.mutedForeground }}>{value}</Text>
+    <View style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+      <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: c.mutedForeground }}>{label}</Text>
+      <Text selectable style={{ marginTop: 6, fontFamily: SANS, fontSize: 16, lineHeight: 22, color: c.foreground }}>{value}</Text>
     </View>
   );
 }

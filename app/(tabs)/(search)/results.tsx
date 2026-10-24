@@ -20,6 +20,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import { stepBar } from '../../../src/lib/barScroll';
 
 import { MonologueCard } from '../../../src/components/MonologueCard';
 import { Sketch } from '../../../src/components/Sketches';
@@ -244,8 +245,15 @@ export default function Results() {
   }, [hasIntent, searching, searchFailed, medium, params, count, filterCount]);
 
   const scrollY = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler((event) => {
-    scrollY.value = event.contentOffset.y;
+  // The light follows the scroll; the bar steps away as the list goes down
+  // and comes back as it comes up, the same as every other room.
+  const barLast = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onBeginDrag: (event) => { barLast.value = event.contentOffset.y; },
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+      stepBar(barLast, event.contentOffset.y);
+    },
   });
 
   // The index under the light, recomputed on the UI thread. React never sees

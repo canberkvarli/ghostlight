@@ -81,6 +81,22 @@ async function saveOff(off: Set<string>): Promise<void> {
   }
 }
 
+const MUTE_KEY = 'ghostlight:reminders.muted';
+
+/** The one switch in Settings. Muted, nothing is scheduled for any audition. */
+export async function remindersMuted(): Promise<boolean> {
+  try { return (await AsyncStorage.getItem(MUTE_KEY)) === '1'; } catch { return false; }
+}
+
+/** Mute cancels everything on the phone; unmuting is followed by a sync, which puts it back. */
+export async function setRemindersMuted(muted: boolean): Promise<void> {
+  try { await AsyncStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* ignore */ }
+  if (!muted) return;
+  const map = await loadMap();
+  for (const key of Object.keys(map)) await cancelIds(map[key]);
+  await saveMap({});
+}
+
 /** Whether this audition's phone reminders were switched off on its file. */
 export async function phoneRemindersOff(auditionId: number): Promise<boolean> {
   return (await loadOff()).has(String(auditionId));
@@ -117,6 +133,16 @@ export function configureNotifications(): void {
 }
 
 /** True without ever prompting. The launch path uses this and only this. */
+/** The phone has said no. Undetermined is not no: the sheet has simply not been shown yet. */
+export async function notificationsDenied(): Promise<boolean> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'denied';
+  } catch {
+    return false;
+  }
+}
+
 export async function hasNotificationPermission(): Promise<boolean> {
   try {
     const { status } = await Notifications.getPermissionsAsync();
@@ -225,7 +251,7 @@ export async function cancelRemindersFor(auditionId: number): Promise<void> {
  * server's `reminders_on` and skips auditions already in the past or closed.
  */
 export async function scheduleRemindersFor(a: Audition, { quiet = false } = {}): Promise<void> {
-  if (!(await hasNotificationPermission())) return;
+  if (!(await hasNotificationPermission()) || (await remindersMuted())) return;
   await cancelRemindersFor(a.id);
   if (!a.reminders_on || a.scope !== 'upcoming' || !a.when) return;
   if (await phoneRemindersOff(a.id)) return;
@@ -284,7 +310,7 @@ export async function scheduleRemindersFor(a: Audition, { quiet = false } = {}):
  * deleted there loses them. Quiet: a sync is housekeeping, not an event.
  */
 export async function syncReminders(list: Audition[]): Promise<void> {
-  if (!(await hasNotificationPermission())) return;
+  if (!(await hasNotificationPermission()) || (await remindersMuted())) return;
   const map = await loadMap();
   const live = new Set(list.map((a) => String(a.id)));
   for (const key of Object.keys(map)) {

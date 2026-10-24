@@ -32,18 +32,15 @@ export interface MarkSpec {
 /**
  * Where a piece comes from, in the catalogue's own words.
  *
- * Film and TV are certain — the poster table says so. Era is not: the backend's
- * `category` is the only thing that knows whether a play is classical or
- * contemporary, and it does not always say. When it doesn't we print nothing
- * rather than guessing from the author's dates, because a Churchill filed as
- * "classical" is a worse card than a card with one fewer mark on it.
+ * Film and TV are certain, the poster table says so. A play says nothing.
  */
 export function sourceTag(item: Monologue): string | null {
   if (item.sourceType === 'film') return 'film';
   if (item.sourceType === 'tv') return 'tv';
-  const category = (item.category ?? '').toLowerCase();
-  if (category.includes('classic')) return 'classical';
-  if (category.includes('contemporary') || category.includes('modern')) return 'contemporary';
+  // A play carries no era. The catalogue's "classical" and "contemporary"
+  // were dropped from the cards on 25 Oct 2026: the house is mostly the
+  // canon, so the mark said the same thing on nearly every card and the
+  // few it did not fit were filed wrong more often than right.
   return null;
 }
 

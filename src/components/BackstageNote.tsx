@@ -11,7 +11,6 @@ import Animated, {
 
 import { PaperCard } from './PaperCard';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 import { PrimaryPill } from './PrimaryPill';
 import { StageDirection } from './StageDirection';
 import { useTheme } from '../theme/ThemeContext';
@@ -108,11 +107,10 @@ export function BackstageNote({ onDone }: { onDone: () => void }) {
 
   return (
     <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center' }}>
-      {/* The dark: tap it and the note goes away as "not now". */}
-      <AnimatedPressable
-        onPress={() => close('later')}
-        accessibilityRole="button"
-        accessibilityLabel="Not now"
+      {/* The dark. It is not a button: a thumb landing beside the note must not
+          lose it; the note goes away only by its own words. */}
+      <Animated.View
+        pointerEvents="none"
         style={[scrimStyle, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#130b08' }]}
       />
       <Animated.View

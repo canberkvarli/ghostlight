@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -735,10 +735,24 @@ export default function Read() {
                   marginTop: 14,
                 }}
               >
-                {/* The facts of the piece as one line of small type: a tag is read, not tapped. */}
-                <Text style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 11, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: c.paperMuted }}>
-                  {[formatDuration(shown.duration), shown.ageRange && shown.ageRange !== '—' ? shown.ageRange : null, shown.gender && shown.gender !== 'any' ? shown.gender : null, tag].filter(Boolean).join('  ·  ')}
-                </Text>
+                {/* The facts of the piece as one line of small type. A tap says
+                    what the running time means, since "2 min" is read as a
+                    promise and it is an estimate. */}
+                <Pressable
+                  onPress={() => {
+                    Alert.alert(
+                      `About ${formatDuration(shown.duration)}`,
+                      'Timed at 150 words a minute, the pace of a straight read, with no pauses in it. Played, with its silences, it runs longer. Casting calls that say "under two minutes" mean the spoken time.',
+                    );
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="How the running time is measured"
+                >
+                  <Text style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 11, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: c.paperMuted }}>
+                    {[formatDuration(shown.duration), shown.ageRange && shown.ageRange !== '—' ? shown.ageRange : null, shown.gender && shown.gender !== 'any' ? shown.gender : null, tag].filter(Boolean).join('  ·  ')}
+                  </Text>
+                </Pressable>
                 {/* Off book, for a piece in the book. The same tick as the Saves
                     screen and the website: filled once you know it. */}
                 {saved ? (

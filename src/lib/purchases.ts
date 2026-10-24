@@ -58,6 +58,9 @@ export async function configurePurchases(): Promise<void> {
 
   Purchases.setLogLevel(LOG_LEVEL.WARN);
   Purchases.configure({ apiKey: API_KEY, appUserID: userId ?? null });
+  // Warm the offerings now, so the paywall draws its prices the moment it
+  // opens instead of after a round trip; the SDK keeps them in memory.
+  void Purchases.getOfferings().catch(() => {});
   configured = true;
   lastIdentified = userId ?? null;
   // Warm the offering now, at launch, rather than when the paywall opens. The
