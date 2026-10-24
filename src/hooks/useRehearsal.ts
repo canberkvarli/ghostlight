@@ -77,6 +77,9 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
   const prepare = useCallback<Rehearsal['prepare']>(async (character, voices, opts) => {
     if (preparedRef.current) return;
     preparedRef.current = true;
+    // A new attempt starts ungated: the plan may have changed under the sheet.
+    setGated(false);
+    setBase(b => ({ ...b, error: null, upgradeUrl: null }));
     let run: Opened;
     let resumeLine: number | null = opts?.resumeLine ?? null;
     try {

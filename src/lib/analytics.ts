@@ -131,8 +131,8 @@ export type Event =
   /** The wall. How many reads had they spent, and where did it fire? */
   | { name: 'paywall_shown'; props: { reads_used: number; from: string } }
   /** Did the paywall convert, and on which plan? */
-  | { name: 'purchase_started'; props: { plan: 'annual' | 'monthly'; trial: boolean } }
-  | { name: 'purchase_completed'; props: { plan: 'annual' | 'monthly'; trial: boolean } }
+  | { name: 'purchase_started'; props: { plan: 'annual' | 'monthly'; trial: boolean; from: string } }
+  | { name: 'purchase_completed'; props: { plan: 'annual' | 'monthly'; trial: boolean; from: string } }
   /** Saves are the retention signal: someone building a book comes back. */
   | { name: 'monologue_saved'; props: { id: string } }
   /** Sign-in is the other one, and which method matters for what to keep. */
@@ -160,7 +160,7 @@ export type Event =
   /** Someone tapped a reminder, and the app opened from it. */
   | { name: 'app_reminder_opened'; props: { moment: ReminderMomentName; has_piece: boolean } }
   /** The system rating sheet was asked for, and from where. */
-  | { name: 'app_review_prompted'; props: { from: 'third_save' | 'note' | 'account' } }
+  | { name: 'app_review_prompted'; props: { from: 'third_save' | 'note' | 'account' | 'settings' } }
   /** The tick on a saved piece: into the pocket (on) or back to the shelf. */
   | { name: 'app_off_book_toggled'; props: { on: boolean } }
   /** The book was searched. `hits` is how many rows matched, not what was typed. */
@@ -177,7 +177,7 @@ export type Event =
   | { name: 'app_ticket'; props: { kind: 'audition' | 'left' | 'tonight' | 'board'; action: 'open' | 'dismiss' } }
   | { name: 'app_knock_asked'; props: { yes: boolean; granted: boolean } }
   /** The "what is ActorRise" sheet, and where it was opened from. */
-  | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account'; visited: boolean } }
+  | { name: 'app_about_actorrise'; props: { from: 'auth' | 'account' | 'settings'; visited: boolean } }
   /** ScenePartner. `from` is how the actor got to the sheet; `source` is what they are running. */
   | { name: 'app_rehearse_opened'; props: { from: 'home' | 'script' | 'library' | 'guided' | 'link' } }
   | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }

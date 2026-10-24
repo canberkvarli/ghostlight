@@ -1,31 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { searchMonologues } from '../api/client';
+import { getCatalogueCount } from '../api/client';
 
 /**
- * How big the library actually is.
- *
- * The paywall used to promise "all 14,000+", typed by hand. The catalogue has
- * since grown past nineteen thousand, so the one number the offer is built on
- * was understating the product by about a third — and it would have gone on
- * being wrong, quietly, because nothing about a string literal ever tells you it
- * has expired.
- *
- * There is no dedicated count endpoint, but there does not need to be: a search
- * with no query and no filters is "everything", and the response carries `total`
- * alongside the page of results. Ask for a single row and read the total off it.
- *
- * Cached for a day and kept in the query cache besides — the number moves when
- * the ingest runs, not while someone is deciding whether to subscribe.
- */
-
-/**
- * What to say before the network answers, and if it never does.
- *
- * Deliberately a round number BELOW the real one. An offer screen that opens on
- * a precise figure and then corrects itself looks broken; one that opens
- * understated and settles upward does not, and if the request fails the app has
- * still promised less than it delivers. Update it when it starts to embarrass.
+ * How big the library is, for the one line on the paywall that says so.
+ * The count comes off the database stats route: the search endpoint's
+ * `total` is the size of the page it drew, which is how the paywall once
+ * promised "all 1". Cached for a day; nobody needs it fresher.
  */
 export const CATALOGUE_FALLBACK = 19000;
 
@@ -43,9 +24,7 @@ export function useCatalogueSize(): { total: number; label: string } {
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     queryFn: async ({ signal }) => {
-      // One row, because the rows are not the point — `total` is.
-      const res = await searchMonologues({ limit: 1 }, signal);
-      return typeof res.total === 'number' && res.total > 0 ? res.total : CATALOGUE_FALLBACK;
+      return (await getCatalogueCount(signal)) ?? CATALOGUE_FALLBACK;
     },
   });
 

@@ -12,6 +12,8 @@ import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { CastSheet } from '../../../../src/components/rehearse/CastSheet';
 import { Stage } from '../../../../src/components/rehearse/Stage';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
+import { useEntitlement } from '../../../../src/hooks/useEntitlement';
+import { runsSpent } from '../../../../src/api/client';
 import { useRehearsal } from '../../../../src/hooks/useRehearsal';
 import { useGuided, useRehearsalScene } from '../../../../src/hooks/useScenePartner';
 import { track } from '../../../../src/lib/analytics';
@@ -100,6 +102,11 @@ function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
   const { colors: c } = useTheme();
   const router = useRouter();
   const r = useRehearsal(payload);
+  // The meter, read ahead: a free actor with no run left this month meets
+  // the offer on the sheet's foot before a request is wasted. The guided
+  // scene is never metered, and picking an open run back up is not a new one.
+  const { wall, isPaid } = useEntitlement();
+  const spent = !guided && !isPaid && runsSpent(wall) && !payload.resume;
   const [chosen, setChosen] = useState<string | null>(null);
   const [resumed, setResumed] = useState(false);
   const [armed, setArmed] = useState(false); // Begin was tapped: start the moment the first line is ready
@@ -208,10 +215,10 @@ function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
           <CastSheet
             payload={payload}
             guided={guided}
-            preparing={armed && !r.gated && !r.readiness.error}
+            preparing={armed && !r.gated && !spent && !r.readiness.error}
             waiting={waitingLine(r.readiness)}
             error={phoneError(r.readiness.error)}
-            gated={r.gated}
+            gated={r.gated || spent}
             onBegin={onBeginTap}
             onClose={leave}
             onPlans={() => { track('app_rehearse_gated', { source: payload.scene.is_library ? 'library' : 'script', to_paywall: true }); router.push('/paywall'); }}

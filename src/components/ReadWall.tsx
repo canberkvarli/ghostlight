@@ -213,7 +213,7 @@ export function ReadWall({
                 <PrimaryPill label="Try again" haptic="medium" height={50} block onPress={offer.retry} style={{ marginTop: 16 }} />
               ) : (
                 <PrimaryPill
-                  label={offer.trialLabel ? 'Start the trial' : 'Unlock everything'}
+                  label={offer.trialLabel ? `Start the free ${offer.trialDays === 7 ? 'week' : offer.trialLabel}` : 'Unlock everything'}
                   haptic="medium"
                   height={50}
                   block

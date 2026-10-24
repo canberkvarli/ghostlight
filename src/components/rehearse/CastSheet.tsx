@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import type { ScenePayload, Voice } from '../../rehearsal/contract';
 import { sameCharacter } from '../../rehearsal/contract';
+import { useTrialOffer } from '../../hooks/useTrialOffer';
 import { useTheme } from '../../theme/ThemeContext';
 import { PrimaryPill } from '../PrimaryPill';
 import { StageDirection } from '../StageDirection';
@@ -137,10 +139,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
         {/* Begin, pinned at the foot of the sheet, whatever the cast runs to. */}
         <View style={{ paddingHorizontal: 24, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.divider }}>
             {gated ? (
-              <>
-                <Text style={{ fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>{error}</Text>
-                <PrimaryPill label="See Premium" onPress={onPlans} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
-              </>
+              <GateFoot mine={mine} onBought={() => begin()} onPlans={onPlans} />
             ) : (
               <>
                 {error ? (
@@ -188,6 +187,43 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
           </Pressable>
         </Modal>
       </Animated.View>
+    </View>
+  );
+}
+
+/**
+ * The offer, at the foot of the sheet, when the month's free run is spent:
+ * one line that says so and what the week costs after, and the pill that
+ * starts the week and then the scene, in that order. The same head as the
+ * paywall (useTrialOffer), so the two can never disagree about the money.
+ * Buying here begins the run the moment the store answers.
+ */
+function GateFoot({ mine, onBought, onPlans }: { mine: string | null; onBought: () => void; onPlans: () => void }) {
+  const { colors: c } = useTheme();
+  const router = useRouter();
+  const offer = useTrialOffer({ from: 'cast', onDone: onBought, onSignIn: () => router.push('/auth') });
+  const week = offer.trialDays === 7 ? 'week' : offer.trialLabel ?? '';
+  const then = mine ? `, then begin as ${mine}` : ', then begin';
+  const line = offer.storeDown
+    ? '(the app store is out of reach. try again in a moment.)'
+    : offer.trialLabel
+      ? `(your free run this month is spent. free for ${offer.trialLabel}, then ${offer.billed} ${offer.cadence}.)`
+      : `(your free run this month is spent. ${offer.billed} ${offer.cadence}, cancel any time.)`;
+  return (
+    <View>
+      <StageDirection numberOfLines={3} style={{ marginBottom: 12 }}>{line}</StageDirection>
+      {offer.busy ? (
+        <ActivityIndicator color={c.accentText} style={{ height: 54 }} />
+      ) : offer.storeDown ? (
+        <PrimaryPill label="Try again" onPress={offer.retry} height={54} block haptic="medium" />
+      ) : (
+        <PrimaryPill label={offer.trialLabel ? `Start the free ${week}${then}` : `Unlock everything${then}`} onPress={offer.buy} height={54} block haptic="medium" />
+      )}
+      {offer.note ? <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 12, lineHeight: 17, color: c.mutedForeground }}>{offer.note}</Text> : null}
+      <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Pressable onPress={onPlans} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>See the plans</Text></Pressable>
+        <Pressable onPress={offer.onRestore} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{offer.restoring ? 'Restoring…' : 'Restore purchases'}</Text></Pressable>
+      </View>
     </View>
   );
 }

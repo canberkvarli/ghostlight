@@ -152,3 +152,54 @@ export async function restore(): Promise<boolean> {
   const info = await Purchases.restorePurchases();
   return info.entitlements.active[ENTITLEMENT_ID] !== undefined;
 }
+
+export type PlanName = 'annual' | 'monthly';
+
+/** What the phone knows about the subscription it holds, for the plan card on You. */
+export interface SubscriptionInfo {
+  plan: PlanName | null;
+  /** When it renews, or, in a trial, when the trial ends. */
+  renews: Date | null;
+  /** The store's own price string for the product, "$59.99", when the offering names it. */
+  price: string | null;
+  willRenew: boolean;
+  inTrial: boolean;
+}
+
+/**
+ * The active entitlement, read as a plan. The product on the entitlement is
+ * matched against the current offering's two packages for its name and
+ * price; a product the offering no longer sells (the old $4.99 monthly, say)
+ * is still named by its id, so a grandfathered subscriber is not told they
+ * have no plan.
+ */
+export async function getSubscription(): Promise<SubscriptionInfo> {
+  const none: SubscriptionInfo = { plan: null, renews: null, price: null, willRenew: false, inTrial: false };
+  if (!configured) return none;
+  try {
+    const info = await Purchases.getCustomerInfo();
+    const ent = info.entitlements.active[ENTITLEMENT_ID];
+    if (!ent) return none;
+    const offering = await getCurrentOffering();
+    const pid = ent.productIdentifier;
+    const pkg = [offering?.annual, offering?.monthly].find((p) => p?.product.identifier === pid) ?? null;
+    const plan: PlanName | null = pkg
+      ? pkg === offering?.annual ? 'annual' : 'monthly'
+      : /year|annual|12m/i.test(pid) ? 'annual' : /month|1m/i.test(pid) ? 'monthly' : null;
+    return {
+      plan,
+      renews: ent.expirationDate ? new Date(ent.expirationDate) : null,
+      price: pkg?.product.priceString ?? null,
+      willRenew: ent.willRenew,
+      inTrial: String(ent.periodType).toLowerCase() === 'trial',
+    };
+  } catch {
+    return none;
+  }
+}
+
+/** Apple's own manage-subscriptions sheet, over the app. */
+export async function manageSubscription(): Promise<void> {
+  if (!configured) return;
+  await Purchases.showManageSubscriptions();
+}

@@ -100,6 +100,18 @@ export interface ReadState {
   reads_limit: number; // -1 = unlimited (paid)
   is_paid: boolean;
   atWall: boolean; // free user who has spent their lifetime reads
+  /** Scene partner runs this month, and the month's allowance (-1 = unlimited). */
+  runs_used: number;
+  runs_limit: number;
+  /** Scripts of your own sides on the account, and the allowance (-1 = unlimited). */
+  scripts_used: number;
+  scripts_limit: number;
+}
+
+/** The meter and the plan in one place: free, with no run left this month. */
+export function runsSpent(w: ReadState | undefined): boolean {
+  if (!w || w.is_paid || w.runs_limit < 0) return false;
+  return w.runs_used >= w.runs_limit;
 }
 
 /** Lifetime read count + wall state, from GET /api/subscriptions/usage. */
@@ -115,12 +127,16 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
   // signed-out 401 PRESERVED the previous account's `is_paid: true` instead of
   // clearing it. Returning a locked state makes the failure fail closed.
   if (res.status === 401 || res.status === 403) {
-    return { reads_used: 0, reads_limit: FREE_READS, is_paid: false, atWall: false };
+    return { reads_used: 0, reads_limit: FREE_READS, is_paid: false, atWall: false, runs_used: 0, runs_limit: 1, scripts_used: 0, scripts_limit: 1 };
   }
   if (!res.ok) throw new ApiError(res.status, `usage failed (${res.status})`);
   const j = (await res.json()) as {
     monologue_reads_used?: number;
     monologue_reads_limit?: number;
+    scene_partner_used?: number;
+    scene_partner_limit?: number;
+    scripts_used?: number;
+    scripts_limit?: number;
   };
   const used = j.monologue_reads_used ?? 0;
   const serverLimit = j.monologue_reads_limit ?? FREE_READS;
@@ -129,7 +145,18 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
   // first read is the whole product, free. The second is where the trial
   // starts. Clamped here so the count and the wall agree everywhere.
   const limit = isPaid ? serverLimit : Math.min(serverLimit, FREE_READS);
-  return { reads_used: used, reads_limit: limit, is_paid: isPaid, atWall: !isPaid && used >= limit };
+  return {
+    reads_used: used,
+    reads_limit: limit,
+    is_paid: isPaid,
+    atWall: !isPaid && used >= limit,
+    // The partner's meter, straight from the server: runs this month and
+    // scripts on the account. Paid tiers answer -1.
+    runs_used: j.scene_partner_used ?? 0,
+    runs_limit: isPaid ? -1 : (j.scene_partner_limit ?? 1),
+    scripts_used: j.scripts_used ?? 0,
+    scripts_limit: isPaid ? -1 : (j.scripts_limit ?? 1),
+  };
 }
 
 /**
@@ -315,4 +342,17 @@ export async function getMonologue(id: string | number, signal?: AbortSignal): P
     throw new ApiError(res.status, `monologue ${id} failed (${res.status})`);
   }
   return (await res.json()) as Monologue;
+}
+
+/**
+ * How many monologues the house holds. The search endpoint's `total` is the
+ * size of the page it drew, not the library (an empty query with limit 1
+ * answered "1", which is where "all 1" on the paywall came from), so the
+ * count comes off the database stats instead.
+ */
+export async function getCatalogueCount(signal?: AbortSignal): Promise<number | null> {
+  const res = await fetch(`${API_URL}/api/monologues/stats/database`, { headers: await authHeaders(), signal });
+  if (!res.ok) return null;
+  const j = (await res.json()) as { total_monologues?: number };
+  return typeof j.total_monologues === 'number' && j.total_monologues > 0 ? j.total_monologues : null;
 }
