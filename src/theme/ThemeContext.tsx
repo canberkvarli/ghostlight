@@ -80,12 +80,12 @@ function resolve(scheme: Scheme): ThemeColors {
     panel: p.panel,
     // The light scheme's card is the brighter cream, so the paper token follows
     // the scheme here even though everything printed ON it does not.
-    paper: scheme === 'light' ? tokens.paper.backgroundLight : tokens.paper.background,
-    paperInk: tokens.paper.ink,
-    paperBody: tokens.paper.body,
-    paperMuted: tokens.paper.muted,
-    paperFaint: tokens.paper.faint,
-    paperRule: tokens.paper.rule,
+    paper: scheme === 'light' ? tokens.paper.backgroundLight : tokens.paperDark.background,
+    paperInk: scheme === 'light' ? tokens.paper.ink : tokens.paperDark.ink,
+    paperBody: scheme === 'light' ? tokens.paper.body : tokens.paperDark.body,
+    paperMuted: scheme === 'light' ? tokens.paper.muted : tokens.paperDark.muted,
+    paperFaint: scheme === 'light' ? tokens.paper.faint : tokens.paperDark.faint,
+    paperRule: scheme === 'light' ? tokens.paper.rule : tokens.paperDark.rule,
     stageGlow: tokens.stageGlow,
     stageLine: tokens.stageLine,
     primary: tokens.primary,

@@ -60,6 +60,12 @@
       "expo-router",
       "expo-font",
       [
+        "expo-calendar",
+        {
+          "calendarPermission": "Ghost Light adds an audition to your calendar only when you ask it to."
+        }
+      ],
+      [
         "expo-sensors",
         {
           "motionPermission": "Ghost Light uses device motion to move the stage light as you tilt your phone."

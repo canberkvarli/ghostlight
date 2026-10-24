@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * Memorize mode. The speech is broken into lines; with memorize on, tapping a
@@ -52,6 +52,7 @@ function MemorizeLine({
   active: boolean;
   textStyle: TextStyle;
 }) {
+  const { colors: c } = useTheme();
   const [hidden, setHidden] = useState(false);
   const opacity = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -87,7 +88,7 @@ function MemorizeLine({
                 // A blank on the page, so it takes the paper's rule rather than
                 // the light scheme's border — those stopped being one colour
                 // when v2 split the stage from the paper.
-                borderBottomColor: colors.paper.rule,
+                borderBottomColor: c.paperRule,
                 borderStyle: 'dashed',
               }
             : undefined

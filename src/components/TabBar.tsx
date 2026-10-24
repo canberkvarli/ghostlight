@@ -1,10 +1,13 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect } from 'react';
 import { Pressable, Text, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSegments, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
+import { barShift, showBar } from '../lib/barScroll';
 import { useSession } from '../lib/useSession';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -27,11 +30,11 @@ export const TAB_ROOMS: { name: string; href: Href; label: string; icon: keyof t
 /**
  * Four rooms, one bar. The triggers are declared in the layout and handed in as
  * children, because the navigator reads its rooms from the element tree. A
- * floating pill over the stage, inset from the sides,
- * lifted above the home indicator, with the active room an ink pill inside it
- * and its icon and label in gel yellow (yellow on ink, which is the one place
- * yellow is for). The reader and the rehearsal take the whole stage; the bar
- * steps out for them.
+ * floating glass pill over the stage, inset from the sides, lifted above the
+ * home indicator, with the active room an ink pill inside it and its icon and
+ * label in gel yellow (yellow on ink, which is the one place yellow is for).
+ * It steps away when a page scrolls down and is back when it scrolls up. The
+ * reader and the rehearsal take the whole stage; the bar steps out for them.
  */
 export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ...props }, ref) {
   const { colors: c } = useTheme();
@@ -43,13 +46,27 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
   const inRehearsal = segments.includes('rehearse') && leaf === '[id]';
   // The triggers stay mounted even while the bar is off: the navigator reads its rooms from them.
   const hidden = !isAuthenticated || inReader || inRehearsal;
+  const room = segments.join('/');
+  useEffect(() => { showBar(); }, [room]);
+  const away = TAB_BAR_H + TAB_BAR_LIFT + insets.bottom + 12;
+  const shifted = useAnimatedStyle(() => ({
+    transform: [{ translateY: barShift.value * away }],
+    opacity: 1 - barShift.value * 0.4,
+  }));
   return (
-    <View ref={ref} {...props} pointerEvents={hidden ? 'none' : 'box-none'} style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT, opacity: hidden ? 0 : 1 }}>
-      <View style={{ height: TAB_BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, borderRadius: 28, borderWidth: 2, borderColor: c.ink, backgroundColor: c.card }}>
+    <Animated.View ref={ref} {...props} pointerEvents={hidden ? 'none' : 'box-none'}
+      style={[shifted, { position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT, opacity: hidden ? 0 : undefined }]}>
+      <View style={{
+        height: TAB_BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, borderRadius: 28, overflow: 'hidden',
+        borderWidth: 1, borderColor: c.isLight ? 'rgba(21,17,15,0.16)' : 'rgba(247,243,236,0.14)',
+        shadowColor: '#000', shadowOpacity: c.isLight ? 0.12 : 0.4, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
+      }}>
+        <BlurView intensity={c.isLight ? 50 : 40} tint={c.isLight ? 'light' : 'dark'} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: c.isLight ? 'rgba(253,251,247,0.66)' : 'rgba(30,22,18,0.6)' }} />
         {/* The triggers come in as children, declared in the layout: the navigator reads its rooms from them. */}
         {children}
       </View>
-    </View>
+    </Animated.View>
   );
 });
 
@@ -67,8 +84,8 @@ export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof I
         accessibilityLabel={label}
         style={{ flex: 1, height: 52, borderRadius: 26, backgroundColor: isFocused ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center', gap: 2 }}
       >
-        <Ionicons name={isFocused ? active : icon} size={20} color={isFocused ? c.yellow : c.mutedForeground} />
-        <Text style={{ fontFamily: SANS_B, fontSize: 10, color: isFocused ? c.yellow : c.mutedForeground }}>{label}</Text>
+        <Ionicons name={isFocused ? active : icon} size={20} color={isFocused ? c.yellow : c.foreground} style={isFocused ? undefined : { opacity: 0.72 }} />
+        <Text style={{ fontFamily: SANS_B, fontSize: 10, color: isFocused ? c.yellow : c.foreground, opacity: isFocused ? 1 : 0.72 }}>{label}</Text>
       </Pressable>
     );
   },

@@ -74,17 +74,27 @@ export const colors = {
     rule: '#dad3c8',
   },
 
+  /** The page a card is printed on when the stage is dark: a warm dark board, not cream. */
+  paperDark: {
+    background: '#1e1612',
+    ink: '#f7f3ec',
+    body: '#ece5da',
+    muted: '#b5ada3',
+    faint: '#8a8078',
+    rule: '#3d322b',
+  },
+
   dark: {
     /** Warm near-black. Never flat black. */
     background: '#130b08',
-    /** Cards are paper on both schemes. */
-    card: '#f3eee6',
+    /** A card on the dark stage is a dark board; see `paperDark`. */
+    card: '#1e1612',
     foreground: '#f7f3ec',
     mutedForeground: '#b5ada3',
     /** Field / chip / outline border on the stage. */
     border: '#4a4038',
-    /** A card is drawn, not tinted, so its border is ink in both schemes. */
-    cardBorder: '#15110f',
+    /** A dark card on a dark stage is drawn with a light hairline, not ink. */
+    cardBorder: '#4a3e35',
     /** Hairline dividers between rows on the stage. */
     divider: '#31281f',
     /** The unlit segment of a progress / filament meter. */

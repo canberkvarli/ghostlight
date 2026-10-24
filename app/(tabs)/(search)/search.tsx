@@ -61,6 +61,7 @@ import {
 import { mediumPalette, type Medium } from '../../../src/theme/medium';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 import { Initial } from '../../../src/components/Initial';
 import { UpNext } from '../../../src/components/UpNext';
 
@@ -135,6 +136,7 @@ const HEADER_H = 44;
 export default function Search() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
+  const onBarScroll = useHideBarOnScroll();
   const { colors: c } = useTheme();
   const { width } = useWindowDimensions();
   const { loading: sessionLoading, isAuthenticated } = useSession();
@@ -465,6 +467,8 @@ export default function Search() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            onScroll={onBarScroll}
+            scrollEventThrottle={16}
             style={{ flex: 1 }}
             contentContainerStyle={{ alignItems: 'center', paddingBottom: TAB_BAR_SPACE }}
           >

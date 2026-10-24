@@ -21,7 +21,7 @@ import { PaperCard } from './PaperCard';
 import { PrimaryPill } from './PrimaryPill';
 import { Sketch } from './Sketches';
 import { PRIVACY_URL, TERMS_URL, useTrialOffer } from '../hooks/useTrialOffer';
-import { colors, hardShadow } from '../theme/tokens';
+import { hardShadow } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 
 /**
@@ -50,9 +50,8 @@ const SHARP_LINES = 5;
 const RISE_MS = 520;
 const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
-const PAPER = colors.paper.background;
-function paperAlpha(a: number): string {
-  const n = parseInt(PAPER.replace('#', ''), 16);
+function paperAlpha(paper: string, a: number): string {
+  const n = parseInt(paper.replace('#', ''), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
@@ -153,7 +152,7 @@ export function ReadWall({
               <LinearGradient
                 start={vec(0, 0)}
                 end={vec(0, ghostH)}
-                colors={[paperAlpha(0), paperAlpha(0.15), paperAlpha(0.55), paperAlpha(1)]}
+                colors={[paperAlpha(c.paper, 0), paperAlpha(c.paper, 0.15), paperAlpha(c.paper, 0.55), paperAlpha(c.paper, 1)]}
                 positions={[0, 0.3, 0.75, 1]}
               />
             </Rect>

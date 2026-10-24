@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getFromPlay, getSimilar } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import { formatDuration, type Monologue } from '../data/monologues';
-import { colors, radius } from '../theme/tokens';
+import { radius } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * The kin at the foot of the reading page, in two shapes that must not look
@@ -38,6 +39,7 @@ export function SimilarRow({
   kind?: 'similar' | 'play';
   label?: string;
 }) {
+  const { colors: c } = useTheme();
   const router = useRouter();
   const { data } = useQuery<Monologue[]>({
     queryKey: [kind === 'play' ? 'from-play' : 'similar', id],
@@ -59,7 +61,7 @@ export function SimilarRow({
         marginTop: 34,
         paddingTop: 18,
         borderTopWidth: 1.5,
-        borderTopColor: `${colors.paper.ink}40`,
+        borderTopColor: `${c.paperInk}40`,
         borderStyle: 'dashed',
       }}
     >
@@ -68,7 +70,7 @@ export function SimilarRow({
           fontFamily: 'CourierPrime_400Regular_Italic',
           fontSize: 12,
           letterSpacing: 0.8,
-          color: colors.paper.muted,
+          color: c.paperMuted,
         }}
       >
         {label}
@@ -88,6 +90,7 @@ function opening(m: Monologue): string {
 
 /** The rest of the cast, as the front page of a script lists them. */
 function Cast({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) => void }) {
+  const { colors: c } = useTheme();
   return (
     <View style={{ marginTop: 6 }}>
       {items.map((m, i) => {
@@ -104,7 +107,7 @@ function Cast({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
               gap: 12,
               paddingVertical: 11,
               borderTopWidth: i === 0 ? 0 : 1,
-              borderTopColor: `${colors.paper.ink}1f`,
+              borderTopColor: `${c.paperInk}1f`,
             }}
           >
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -115,7 +118,7 @@ function Cast({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
                   fontSize: 12,
                   letterSpacing: 1.6,
                   textTransform: 'uppercase',
-                  color: colors.paper.ink,
+                  color: c.paperInk,
                 }}
               >
                 {m.character}
@@ -128,7 +131,7 @@ function Cast({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
                     fontFamily: 'InstrumentSerif_400Regular_Italic',
                     fontSize: 16,
                     lineHeight: 20,
-                    color: colors.paper.muted,
+                    color: c.paperMuted,
                   }}
                 >
                   “{first}”
@@ -141,7 +144,7 @@ function Cast({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
                 fontFamily: 'CourierPrime_400Regular',
                 fontSize: 11,
                 letterSpacing: 0.6,
-                color: colors.paper.muted,
+                color: c.paperMuted,
               }}
             >
               {formatDuration(m.duration)}
@@ -155,6 +158,7 @@ function Cast({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
 
 /** Two sides from other plays, put down next to yours. */
 function Pair({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) => void }) {
+  const { colors: c } = useTheme();
   return (
     <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }}>
       {items.map((m, i) => (
@@ -170,8 +174,8 @@ function Pair({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
             paddingHorizontal: 14,
             borderRadius: radius.card,
             borderWidth: 1.5,
-            borderColor: colors.paper.ink,
-            backgroundColor: colors.paper.backgroundLight,
+            borderColor: c.paperInk,
+            backgroundColor: c.paper,
             // Tilted away from each other, so two cards read as two things put
             // down rather than as a two-column grid.
             transform: [{ rotate: i === 0 ? '-1deg' : '1deg' }],
@@ -189,7 +193,7 @@ function Pair({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
               fontSize: 17,
               lineHeight: 20,
               letterSpacing: -0.2,
-              color: colors.paper.ink,
+              color: c.paperInk,
             }}
           >
             {m.source}
@@ -201,7 +205,7 @@ function Pair({ items, onOpen }: { items: Monologue[]; onOpen: (m: Monologue) =>
               fontFamily: 'CourierPrime_400Regular',
               fontSize: 11,
               lineHeight: 15,
-              color: colors.paper.muted,
+              color: c.paperMuted,
             }}
           >
             {m.character}

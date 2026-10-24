@@ -29,7 +29,6 @@ import {
   useAssistRead,
   useAttachPiece,
   useAuditions,
-  useCalendarFeed,
   useDeleteAudition,
   useForgetAsk,
   useLogOutcome,
@@ -58,6 +57,9 @@ import { useSession } from '../../../src/lib/useSession';
 import { clockLabel, dayLabel, eyebrow, timeLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { useRoomName } from '../../../src/lib/room';
+import { addAuditionToCalendar } from '../../../src/lib/calendar';
+import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 
 /**
  * One audition as its file: the website's prep room, on a phone.
@@ -94,9 +96,9 @@ export default function Prep() {
   const patch = usePatchAudition();
   const remove = useDeleteAudition();
   const callback = useAddCallback();
-  const feed = useCalendarFeed();
 
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<Animated.ScrollView>(null);
+  const onBarScroll = useHideBarOnScroll();
   const yAfter = useRef(0);
   const yAsk = useRef(0);
   const scrollTo = (y: number) => scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
@@ -141,12 +143,20 @@ export default function Prep() {
     });
   };
 
-  const onCalendar = () => {
-    if (feed.isPending) return;
+  const [adding, setAdding] = useState(false);
+  const onCalendar = async () => {
+    if (!a || adding) return;
     Haptics.selectionAsync().catch(() => {});
-    feed.mutate(undefined, {
-      onError: () => Alert.alert("Couldn't open the feed", 'Check your connection and try again.'),
-    });
+    setAdding(true);
+    const r = await addAuditionToCalendar(a);
+    setAdding(false);
+    if (r === 'added') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      track('app_calendar_feed_opened', {});
+      Alert.alert('In your calendar', `${a.project} is on your calendar, with a reminder two hours before.`);
+    } else if (r === 'denied') Alert.alert('Calendar access is off', 'Allow Ghost Light to add to your calendar in Settings, then try again.');
+    else if (r === 'undated') Alert.alert('No date yet', 'Give the audition a date and time first.');
+    else Alert.alert("Couldn't add it", 'Try again in a moment.');
   };
 
   const email = session?.user.email ?? '';
@@ -177,11 +187,13 @@ export default function Prep() {
           </View>
         ) : (
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ScrollView
+            <Animated.ScrollView
               ref={scroll}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 60 }}
+              onScroll={onBarScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: TAB_BAR_SPACE + 24 }}
             >
               <Head a={a} />
 
@@ -246,7 +258,7 @@ export default function Prep() {
                 <Ionicons name="calendar-outline" size={14} color={c.mutedForeground} />
                 <StageDirection numberOfLines={1}>(add to calendar.)</StageDirection>
               </Pressable>
-            </ScrollView>
+            </Animated.ScrollView>
           </KeyboardAvoidingView>
         )}
       </SafeAreaView>

@@ -27,6 +27,7 @@ import { stubLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import type { Monologue, Tone } from '../../../src/data/monologues';
 import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 import { RoomHeader } from '../../../src/components/RoomHeader';
 
 /**
@@ -63,6 +64,7 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
 const TILTS = [-0.5, 0.4, -0.3];
 
 export default function Saves() {
+  const onBarScroll = useHideBarOnScroll();
   const { colors: c } = useTheme();
   const router = useRouter();
   const { isAuthenticated } = useSession();
@@ -224,10 +226,12 @@ export default function Saves() {
             <PrimaryPill label="Find one" onPress={goBack} style={{ marginTop: 22, alignSelf: 'center' }} />
           </Center>
         ) : (
-          <ScrollView
+          <Animated.ScrollView
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
+            onScroll={onBarScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: TAB_BAR_SPACE }}
           >
             <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
@@ -329,7 +333,7 @@ export default function Saves() {
                 )}
               </Animated.View>
             )}
-          </ScrollView>
+          </Animated.ScrollView>
         )}
 
         {pendingRemoval ? (

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +18,8 @@ import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../../..
 import { useSession } from '../../../src/lib/useSession';
 import { clockLabel, daysUntil, eyebrow, stubLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
-import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { TAB_BAR_H, TAB_BAR_LIFT, TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 import { RoomHeader } from '../../../src/components/RoomHeader';
 
 /**
@@ -53,9 +54,11 @@ function weekOf(iso: string | null, now = new Date()): 'this' | 'next' | 'later'
 const WEEK_LABEL = { this: '(this week.)', next: '(next week.)', later: '(later.)', undated: '(no date yet.)' } as const;
 
 export default function Auditions() {
+  const onBarScroll = useHideBarOnScroll();
   const { colors: c } = useTheme();
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated } = useSession();
   const { data, isLoading, isError } = useAuditions(isAuthenticated);
   const feed = useCalendarFeed();
@@ -78,11 +81,22 @@ export default function Auditions() {
   const onAdd = useCallback(() => { Haptics.selectionAsync().catch(() => {}); router.push('/audition'); }, [router]);
   const onPaste = useCallback(() => { Haptics.selectionAsync().catch(() => {}); setHow(false); router.push({ pathname: '/audition', params: { paste: '1' } }); }, [router]);
   const onSignIn = useCallback(() => { Haptics.selectionAsync().catch(() => {}); setHow(false); router.push('/auth'); }, [router]);
+  // The whole board as a calendar subscription. It leaves the app, so it says so first.
   const onCalendar = useCallback(() => {
     if (feed.isPending) return;
     Haptics.selectionAsync().catch(() => {});
-    feed.mutate(undefined, { onError: () => Alert.alert("Couldn't open the feed", 'Check your connection and try again.') });
+    Alert.alert('Put the board in your calendar?', 'Every audition on the board appears in your calendar and stays in step as it changes. Your phone will ask to add the subscription.', [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Subscribe', onPress: () => feed.mutate(undefined, { onError: () => Alert.alert("Couldn't open the feed", 'Check your connection and try again.') }) },
+    ]);
   }, [feed]);
+  // The last audition that has not said how it went: one question, asked on the board itself.
+  const toCheck = useMemo(() => list.find((a) => a.scope !== 'upcoming' && !HEARD.has(a.status) && a.when) ?? null, [list]);
+  const checkIn = useCallback(() => {
+    if (!toCheck) return;
+    Haptics.selectionAsync().catch(() => {});
+    router.push({ pathname: '/outcome', params: { id: String(toCheck.id) } });
+  }, [toCheck, router]);
 
   const headerRight = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -127,7 +141,7 @@ export default function Auditions() {
         ) : list.length === 0 ? (
           <Intro signedIn onPrimary={onPaste} onSecondary={onAdd} onHow={() => setHow(true)} />
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE + 60 }}>
+          <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE + 60 }}>
             <View style={{ paddingTop: 4, paddingBottom: 6 }}>
               <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
                 The <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>board.</Text>
@@ -147,6 +161,22 @@ export default function Auditions() {
               })}
             </View>
             <Animated.View layout={LinearTransition.duration(240)} style={{ marginTop: 18 }}>
+              {segment === 'coming' && toCheck ? (
+                <Animated.View entering={FadeIn.duration(320)} style={{ marginBottom: 20 }}>
+                  <Pressable onPress={checkIn} accessibilityRole="button" accessibilityLabel={`How did ${toCheck.project} go?`}>
+                    <PaperCard shadow={6} rotate={-0.3} style={{ paddingVertical: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <StageDirection on="paper">(how did it go?)</StageDirection>
+                        <Text numberOfLines={1} style={{ marginTop: 4, fontFamily: 'InstrumentSerif_400Regular', fontSize: 24, lineHeight: 28, color: c.paperInk }}>
+                          {toCheck.project}{toCheck.role ? <Text style={{ color: c.paperMuted }}>{` — ${toCheck.role}`}</Text> : null}
+                        </Text>
+                        <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, color: c.paperMuted }}>Callback, booked, waiting or passed. A note for next time.</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={c.paperMuted} />
+                    </PaperCard>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
               {hero ? (
                 <Animated.View entering={FadeIn.duration(320)}>
                   <Hero a={hero} onOpen={() => open(hero)} />
@@ -162,16 +192,16 @@ export default function Auditions() {
                 <StageDirection style={{ marginTop: 12 }}>{segment === 'heard' ? '(nothing heard back yet.)' : '(nothing coming up.)'}</StageDirection>
               ) : null}
             </Animated.View>
-          </ScrollView>
+          </Animated.ScrollView>
         )}
       </SafeAreaView>
       {/* The plus: ink, a yellow shadow set off down and right, above the bar. */}
       {isAuthenticated && list.length > 0 ? (
-        <View pointerEvents="box-none" style={{ position: 'absolute', right: 24, bottom: TAB_BAR_SPACE + 10 }}>
+        <View pointerEvents="box-none" style={{ position: 'absolute', right: 24, bottom: insets.bottom + TAB_BAR_LIFT + TAB_BAR_H + 16 }}>
           <View style={{ position: 'absolute', left: 4, top: 4, width: 56, height: 56, borderRadius: 28, backgroundColor: c.yellow }} />
           <Pressable onPress={onAdd} accessibilityRole="button" accessibilityLabel="Add an audition"
-            style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: pressed ? 2 : 0 }, { translateY: pressed ? 2 : 0 }] })}>
-            <Ionicons name="add" size={28} color={c.yellow} />
+            style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: c.foreground, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: pressed ? 2 : 0 }, { translateY: pressed ? 2 : 0 }] })}>
+            <Ionicons name="add" size={28} color={c.isLight ? c.yellow : c.ink} />
           </Pressable>
         </View>
       ) : null}
@@ -284,7 +314,10 @@ function Row({ a, onPress, heard }: { a: Audition; onPress: () => void; heard: b
         <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 13, color: c.mutedForeground }}>{sub}</Text>
       </View>
       {heard && status ? (
-        <StageDirection>({status.toLowerCase()}.)</StageDirection>
+        <View style={{ alignItems: 'flex-end', maxWidth: 130 }}>
+          <StageDirection>({status.toLowerCase()}.)</StageDirection>
+          {a.after_notes?.how ? <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 11, color: c.mutedForeground }}>{a.after_notes.how}</Text> : null}
+        </View>
       ) : !piece ? (
         <View style={{ paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: c.accentText }}>pick a piece</Text>

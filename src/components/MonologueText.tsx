@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Text, type TextStyle } from 'react-native';
 
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * The words of the play, set the way a script sets them.
@@ -104,6 +104,7 @@ export const MonologueText = memo(function MonologueText({
   lineHeight?: number;
   style?: TextStyle;
 }) {
+  const { colors: c } = useTheme();
   // Segments describe the WHOLE speech, so the caller must not pass them when
   // it's rendering the walled excerpt — that would hand over the rest of the
   // monologue for free. See the read screen, which passes them only when open.
@@ -121,7 +122,7 @@ export const MonologueText = memo(function MonologueText({
       style={[
         {
           fontFamily: 'CourierPrime_400Regular',
-          color: colors.paper.ink,
+          color: c.paperInk,
           fontSize,
           lineHeight,
         },
@@ -136,7 +137,7 @@ export const MonologueText = memo(function MonologueText({
               key={i}
               style={{
                 fontFamily: 'CourierPrime_400Regular_Italic',
-                color: colors.paper.muted,
+                color: c.paperMuted,
               }}
             >
               {seg.text}
@@ -148,7 +149,7 @@ export const MonologueText = memo(function MonologueText({
             key={i}
             style={{
               fontFamily: 'CourierPrime_700Bold',
-              color: colors.paper.muted,
+              color: c.paperMuted,
               letterSpacing: 0.6,
             }}
           >

@@ -10,7 +10,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * The words, on their way.
@@ -56,6 +56,7 @@ function SkeletonLine({
   pulse: SharedValue<number>;
   still: boolean;
 }) {
+  const { colors: c } = useTheme();
   const style = useAnimatedStyle(() => {
     if (still) return { opacity: 0.16 };
     // Each line lags the one above it, then clamps, so the wave travels down the
@@ -77,7 +78,7 @@ function SkeletonLine({
             // the app's scheme, so this is deliberately not a themed colour — but
             // it is now the system's ink rather than its own near-miss of it, so
             // the bars and the words that replace them are the same black.
-            backgroundColor: colors.paper.ink,
+            backgroundColor: c.paperInk,
           },
         ]}
       />

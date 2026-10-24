@@ -104,10 +104,10 @@ export function PaperCard({
     () => ({
       borderRadius: radius.card,
       borderWidth: 1.5,
-      borderColor: c.ink,
+      borderColor: c.cardBorder,
       backgroundColor: background ?? c.paper,
     }),
-    [c.ink, c.paper, background],
+    [c.cardBorder, c.paper, background],
   );
 
   return (

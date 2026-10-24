@@ -2,7 +2,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * Android has no system blur. Without this prop `expo-blur` falls back to a flat
@@ -45,10 +45,9 @@ export const ANDROID_BLUR = Platform.OS === 'android' ? ('dimezisBlurView' as co
 // until v2 split the stage from the paper, and the shroud has to match the sheet
 // it is sitting on — a wash two shades off reads as a panel, which is precisely
 // the "modal that failed to open" this component was rewritten to stop being.
-const PAPER = colors.paper.background;
 
-function paperAlpha(a: number): string {
-  const h = PAPER.replace('#', '');
+function paperAlpha(paper: string, a: number): string {
+  const h = paper.replace('#', '');
   const n = parseInt(h, 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
@@ -63,6 +62,7 @@ export function PaywallShroud({
   height: number;
   offerTop?: number;
 }) {
+  const { colors: c } = useTheme();
   // Where the wash begins, as a fraction of the shroud. Above it the text is
   // blurred and nothing else; the wash exists only to give the offer a surface.
   const washStart = offerTop != null && height > 0 ? Math.min(0.92, offerTop / height) : 0.55;
@@ -86,7 +86,7 @@ export function PaywallShroud({
           <LinearGradient
             start={vec(0, 0)}
             end={vec(0, height)}
-            colors={[paperAlpha(0), paperAlpha(0), paperAlpha(0.9), paperAlpha(1)]}
+            colors={[paperAlpha(c.paper, 0), paperAlpha(c.paper, 0), paperAlpha(c.paper, 0.9), paperAlpha(c.paper, 1)]}
             positions={[0, Math.max(0, washStart - 0.16), washStart, Math.min(1, washStart + 0.06)]}
           />
         </Rect>
