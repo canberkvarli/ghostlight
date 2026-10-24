@@ -35,33 +35,31 @@ export default function CastingSheet() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
-        <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(who you play.)</Text>
-        <Text style={{ marginTop: 6, fontFamily: SERIF, fontSize: 32, lineHeight: 36, letterSpacing: -0.4, color: c.foreground }}>Search starts here.</Text>
-        <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 13, lineHeight: 19, color: c.mutedForeground }}>
-          Every search opens with these on, until you change them. Leave a row empty to keep it open.
-        </Text>
-        {CASTING_GROUPS.map(g => (
-          <View key={g.key} style={{ marginTop: 22 }}>
-            <Text style={{ fontFamily: MONO_I, fontSize: 12.5, letterSpacing: 0.5, color: c.mutedForeground }}>{g.title}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              {g.chips.map(ch => {
-                const on = draft[g.key] === ch.value;
-                return (
-                  <Pressable key={ch.value} onPress={() => toggle(g.key, ch.value)} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.yellow : 'transparent' }}>
-                    <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: on ? c.ink : c.foreground }}>{ch.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+    // One scrolling child and nothing beside it: the iOS form sheet lays out
+    // a single scroll view, and a footer next to it left the sheet blank.
+    <ScrollView style={{ flex: 1, backgroundColor: c.background }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
+      <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(who you play.)</Text>
+      <Text style={{ marginTop: 6, fontFamily: SERIF, fontSize: 32, lineHeight: 36, letterSpacing: -0.4, color: c.foreground }}>Search starts here.</Text>
+      <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 13, lineHeight: 19, color: c.mutedForeground }}>
+        Every search opens with these on, until you change them. Leave a row empty to keep it open.
+      </Text>
+      {CASTING_GROUPS.map(g => (
+        <View key={g.key} style={{ marginTop: 22 }}>
+          <Text style={{ fontFamily: MONO_I, fontSize: 12.5, letterSpacing: 0.5, color: c.mutedForeground }}>{g.title}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            {g.chips.map(ch => {
+              const on = draft[g.key] === ch.value;
+              return (
+                <Pressable key={ch.value} onPress={() => toggle(g.key, ch.value)} accessibilityRole="button" accessibilityState={{ selected: on }}
+                  style={{ paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.yellow : 'transparent' }}>
+                  <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: on ? c.ink : c.foreground }}>{ch.label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-        ))}
-      </ScrollView>
-      <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.divider }}>
-        <PrimaryPill label="Done" onPress={() => { void done(); }} height={54} block haptic="medium" />
-      </View>
-    </View>
+        </View>
+      ))}
+      <PrimaryPill label="Done" onPress={() => { void done(); }} height={54} block haptic="medium" style={{ marginTop: 30 }} />
+    </ScrollView>
   );
 }
