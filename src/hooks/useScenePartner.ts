@@ -34,12 +34,14 @@ export function useRehearsalScene(sceneId: number | null) {
     enabled: sceneId !== null,
     staleTime: 0, // the audio urls are signed and the resume point moves: refetched behind the cached copy
     gcTime: 30 * 60_000, // the cached copy opens the sheet at once; the lines themselves are files on the phone
-    retry: 1,
+    retry: 2,
+    retryDelay: 900,
   });
 }
 
 export function useGuided(enabled: boolean) {
-  return useQuery({ queryKey: ['guided'], queryFn: ({ signal }) => getGuided(signal), enabled, staleTime: 60 * 60_000, retry: 1 });
+  // A fresh install can open this before its session is minted: a few patient tries, not a wall.
+  return useQuery({ queryKey: ['guided'], queryFn: ({ signal }) => getGuided(signal), enabled, staleTime: 60 * 60_000, retry: 3, retryDelay: 900 });
 }
 
 export function useRunStats(enabled: boolean) {

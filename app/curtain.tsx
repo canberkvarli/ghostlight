@@ -85,7 +85,7 @@ export default function Curtain() {
   // The deck's height comes from the screen, measured once it is laid out, and
   // capped: a card is a page of sides, not a poster, and sits in the middle of the room.
   const [deckH, setDeckH] = useState(0);
-  const deckSpace = Math.min(deckH - insets.bottom - 6, 540);
+  const deckSpace = Math.min(deckH - insets.bottom - 6, 500);
   const [at, setAt] = useState(0);
   // The next two posters are fetched while this card is up, so a throw lands
   // on a picture and not on a block where one is loading.

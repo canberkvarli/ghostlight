@@ -5,7 +5,7 @@ import { useSegments, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { barShift, showBar } from '../lib/barScroll';
 import { useSession } from '../lib/useSession';
@@ -48,14 +48,17 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
   const hidden = !isAuthenticated || inReader || inRehearsal;
   const room = segments.join('/');
   useEffect(() => { showBar(); }, [room]);
+  // Off for the reader and the rehearsal: a fade, on the same thread as the scroll.
+  const gone = useSharedValue(hidden ? 1 : 0);
+  useEffect(() => { gone.value = withTiming(hidden ? 1 : 0, { duration: 200 }); }, [hidden, gone]);
   const away = TAB_BAR_H + TAB_BAR_LIFT + insets.bottom + 12;
   const shifted = useAnimatedStyle(() => ({
-    transform: [{ translateY: barShift.value * away }],
-    opacity: 1 - barShift.value * 0.4,
+    transform: [{ translateY: barShift.value * away + gone.value * 12 }],
+    opacity: (1 - barShift.value * 0.4) * (1 - gone.value),
   }));
   return (
     <Animated.View ref={ref} {...props} pointerEvents={hidden ? 'none' : 'box-none'}
-      style={[shifted, { position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT, opacity: hidden ? 0 : undefined }]}>
+      style={[shifted, { position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR_LIFT }]}>
       <View style={{
         height: TAB_BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, borderRadius: 28, overflow: 'hidden',
         borderWidth: 1, borderColor: c.isLight ? 'rgba(21,17,15,0.16)' : 'rgba(247,243,236,0.14)',

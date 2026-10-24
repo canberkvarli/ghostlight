@@ -35,7 +35,7 @@ export function PlaybillCard({
   const { colors: c } = useTheme();
   // However many lines of the speech fit between the head and the foot of the
   // page, so a tall phone shows more of it and a short one is not crowded.
-  const lines = Math.max(4, Math.min(9, Math.floor((height - 236) / 22)));
+  const lines = Math.max(4, Math.min(8, Math.floor((height - 230) / 25)));
   return (
     <View style={{ height }} accessible accessibilityLabel={`${item.character}, from ${item.source}. Tap to read it`} accessibilityHint="Swipe right to keep it, left for another. Hold to share it as a picture">
       <View style={{ flex: 1 }}>
@@ -63,7 +63,7 @@ export function PlaybillCard({
             {/* The words. */}
             <Text
               numberOfLines={lines}
-              style={{ marginTop: 18, fontFamily: 'CourierPrime_400Regular', fontSize: 14.5, lineHeight: 22, color: c.paperBody }}
+              style={{ marginTop: 18, fontFamily: 'CourierPrime_400Regular', fontSize: 16, lineHeight: 25, color: c.paperBody }}
             >
               {item.excerpt}
             </Text>
