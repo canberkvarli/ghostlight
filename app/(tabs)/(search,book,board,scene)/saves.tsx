@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActionSheetIOS, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,7 +21,7 @@ import { attachedPiece } from '../../../src/api/auditions';
 import { UndoBar } from '../../../src/components/UndoBar';
 import { SwipeRow } from '../../../src/components/SwipeRow';
 import { track } from '../../../src/lib/analytics';
-import { FIND_FROM, TONE_LABEL, findInBook, rowMeta, shelve, type RoomPiece } from '../../../src/lib/book';
+import { BOOK_ORDERS, FIND_FROM, TONE_LABEL, compareBy, findInBook, rowMeta, shelve, type BookOrder, type RoomPiece } from '../../../src/lib/book';
 import { useGoBack } from '../../../src/lib/nav';
 import { useSession } from '../../../src/lib/useSession';
 import { stubLabel } from '../../../src/lib/when';
@@ -62,6 +63,7 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
 
 /** Alternating tilt, so a column of pages reads as paper rather than as rows. */
 const TILTS = [-0.5, 0.4, -0.3];
+const ORDER_KEY = 'ghostlight:book.order';
 
 export default function Saves() {
   const onBarScroll = useHideBarOnScroll();
@@ -84,14 +86,40 @@ export default function Saves() {
   const [find, setFind] = useState('');
   const [tone, setTone] = useState<Tone | null>(null);
 
+  // How the shelf is ordered: the book's own way until the actor picks one,
+  // kept on the phone. The pocket and the room keep their own orders.
+  const [order, setOrder] = useState<BookOrder>('touched');
+  useEffect(() => {
+    AsyncStorage.getItem(ORDER_KEY).then((v) => { if (v && BOOK_ORDERS.some((o) => o.key === v)) setOrder(v as BookOrder); }).catch(() => {});
+  }, []);
+  const pickOrder = () => {
+    Haptics.selectionAsync().catch(() => {});
+    const options = [...BOOK_ORDERS.map((o) => o.label), 'Cancel'];
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: 'Sort the shelf', options, cancelButtonIndex: options.length - 1 },
+      (i) => {
+        const o = BOOK_ORDERS[i];
+        if (!o) return;
+        setOrder(o.key);
+        track('app_book_sorted', { by: o.key });
+        AsyncStorage.setItem(ORDER_KEY, o.key).catch(() => {});
+      },
+    );
+  };
+  const orderLine = BOOK_ORDERS.find((o) => o.key === order)?.line ?? '';
+
   const all = (data ?? []) as Saved[];
   const items = useMemo(
     () => (pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all),
     [all, pendingRemoval],
   );
-  const book = useMemo(() => shelve(items, auditions ?? []), [items, auditions]);
+  const book = useMemo(() => shelve(items, auditions ?? [], Date.now(), order), [items, auditions, order]);
   const finding = find.trim().length > 0;
-  const found = useMemo(() => (finding ? findInBook(items, find) : items), [items, find, finding]);
+  const found = useMemo(() => {
+    const list = finding ? findInBook(items, find) : items;
+    return order === 'touched' ? list : [...list].sort(compareBy(order));
+  }, [items, find, finding, order]);
+  const flat = useMemo(() => (order === 'touched' ? book.flat : [...book.flat].sort(compareBy(order))), [book.flat, order]);
 
   // One event per search, after the typing has stopped, with the count and not the words.
   const findTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,7 +322,7 @@ export default function Saves() {
 
                 {!book.shelved ? (
                   <Reveal order={1}>
-                    <View style={{ marginTop: book.pocket.length ? 28 : 22 }}>{book.flat.map((m, i) => row(m, i))}</View>
+                    <View style={{ marginTop: book.pocket.length ? 28 : 22 }}>{flat.map((m, i) => row(m, i))}</View>
                   </Reveal>
                 ) : (
                   <>
@@ -307,7 +335,7 @@ export default function Saves() {
                     ) : null}
                     {book.stage.length + book.screen.length > 0 ? (
                       <Reveal order={2}>
-                        <Shelf title="The shelf" aside={`(${book.stage.length + book.screen.length}.)`}>
+                        <Shelf title="The shelf" aside={`(${book.stage.length + book.screen.length} · ${orderLine})`} onAside={pickOrder}>
                           {items.length >= FIND_FROM && book.tones.length > 1 ? (
                             <ToneRow tones={book.tones} value={tone} onChange={setTone} />
                           ) : null}
@@ -363,13 +391,18 @@ function Reveal({ order, children }: { order: number; children: React.ReactNode 
   );
 }
 
-function Shelf({ title, aside, first, children }: { title: string; aside?: string; first?: boolean; children: React.ReactNode }) {
+function Shelf({ title, aside, onAside, first, children }: { title: string; aside?: string; onAside?: () => void; first?: boolean; children: React.ReactNode }) {
   const { colors: c } = useTheme();
   return (
     <View style={{ marginTop: first ? 26 : 34 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingBottom: 10, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: c.divider }}>
         <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.foreground }}>{title}</Text>
-        {aside ? (
+        {aside && onAside ? (
+          <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sort the shelf" style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <StageDirection numberOfLines={1} style={{ flexShrink: 1 }}>{aside}</StageDirection>
+            <Ionicons name="swap-vertical-outline" size={13} color={c.mutedForeground} />
+          </Pressable>
+        ) : aside ? (
           <StageDirection numberOfLines={1} style={{ flexShrink: 1 }}>
             {aside}
           </StageDirection>

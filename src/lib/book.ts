@@ -49,7 +49,30 @@ function stamp(iso: string | undefined): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-export function shelve(items: Monologue[], auditions: Audition[], now = Date.now()): Book {
+/** How the shelf is ordered. Touched last first is the book's own way; the rest are the actor's. */
+export type BookOrder = 'touched' | 'newest' | 'title' | 'work' | 'length';
+export const BOOK_ORDERS: { key: BookOrder; label: string; line: string }[] = [
+  { key: 'touched', label: 'What I touched last', line: 'what you touched last.' },
+  { key: 'newest', label: 'Newest first', line: 'newest first.' },
+  { key: 'title', label: 'By title', line: 'title, a to z.' },
+  { key: 'work', label: 'By play or film', line: 'the work, a to z.' },
+  { key: 'length', label: 'Shortest first', line: 'shortest first.' },
+];
+
+/** The comparator for an order, for the shelf and for a found list alike. */
+export function compareBy(order: BookOrder): (a: Monologue, b: Monologue) => number {
+  const touched = (m: Monologue) => Math.max(stamp(m.lastStudiedAt), stamp(m.savedAt));
+  const az = (x: string | undefined, y: string | undefined) => (x ?? '').localeCompare(y ?? '', undefined, { sensitivity: 'base' });
+  switch (order) {
+    case 'newest': return (a, b) => stamp(b.savedAt) - stamp(a.savedAt) || touched(b) - touched(a);
+    case 'title': return (a, b) => az(a.title, b.title) || az(a.character, b.character);
+    case 'work': return (a, b) => az(a.source, b.source) || az(a.title, b.title);
+    case 'length': return (a, b) => a.duration - b.duration || az(a.title, b.title);
+    default: return (a, b) => touched(b) - touched(a);
+  }
+}
+
+export function shelve(items: Monologue[], auditions: Audition[], now = Date.now(), order: BookOrder = 'touched'): Book {
   const pocket = items
     .filter((m) => m.offBook)
     .sort((a, b) => stamp(b.lastStudiedAt) - stamp(a.lastStudiedAt) || stamp(b.savedAt) - stamp(a.savedAt));
@@ -72,8 +95,7 @@ export function shelve(items: Monologue[], auditions: Audition[], now = Date.now
   // on its own as the days passed, which read as the book shuffling itself. The
   // row's own line still says "worked on Tue" or "new"; the shelf just keeps
   // what you touched last at the top.
-  const touched = (m: Monologue) => Math.max(stamp(m.lastStudiedAt), stamp(m.savedAt));
-  const shelf = flat.filter((m) => !inRoom.has(m.id)).sort((a, b) => touched(b) - touched(a));
+  const shelf = flat.filter((m) => !inRoom.has(m.id)).sort(compareBy(order));
   const stage = shelf.filter((m) => m.sourceType === 'play');
   const screen = shelf.filter((m) => m.sourceType !== 'play');
 
