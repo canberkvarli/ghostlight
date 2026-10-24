@@ -8,7 +8,9 @@
  * decides anything.
  *
  * Time is the audio clock, in seconds. A partner beat is scheduled on it to
- * the sample; the microphone opens at the beat's exact end; the handover
+ * the sample; the actor's turn opens at the beat's exact end, but the
+ * recogniser has been listening all along (see overhear), so words that
+ * arrive a breath early, or over the partner, are not lost; the handover
  * fires on the delta that completes the actor's line, not after a wait.
  * Pause stops everything at the clock; resume goes on from the line it was on
  * (mid-beat, the line sounding or the next one due), never from the top.
@@ -33,6 +35,10 @@ export interface EnginePorts {
   mic: {
     /** Tell the transcriber what is coming. Sent when the partner starts. */
     prime: (keywords: string[]) => void;
+    /** The recogniser runs from here until stop(): through the partner's lines too, so a cut-in is heard. */
+    listen: () => void;
+    stop: () => void;
+    /** The actor's turn: words from here on (and a breath before) are the line being read. */
     open: () => void;
     close: () => void;
   };
@@ -98,7 +104,19 @@ export class Engine {
     if (this.state !== 'ready') return;
     this.startedAt = this.ports.clock.now();
     this.ports.journal.emit('started', fromLine ?? null, 0);
+    // One recogniser for the whole run, primed with the whole part: it is
+    // listening while the partner speaks, so the actor can come in over the
+    // partner's last words, or cut the partner off, and lose nothing.
+    this.ports.mic.prime(this.partKeywords());
+    this.ports.mic.listen();
     this.enter(fromLine === undefined ? 0 : this.script.turnOfLine[fromLine] ?? 0);
+  }
+
+  /** Every actor turn's keywords, once each, up to the recogniser's hundred. */
+  private partKeywords(): string[] {
+    const all = new Set<string>();
+    for (const t of this.script.turns) if (t.kind === 'actor') for (const k of t.keywords) all.add(k);
+    return [...all].slice(0, 100);
   }
 
   /** Audio stopped at the clock, mic off; remembers the line resume goes on from. */
@@ -109,6 +127,7 @@ export class Engine {
     // None, in a beat, means it had finished: resume goes on to the next turn.
     this.resumeFrom = this.beat.find(b => b.end > now)?.position ?? this.waiting?.position ?? (this.state === 'partner' ? -1 : 0);
     this.silence();
+    this.ports.mic.stop();
     this.state = 'paused';
     this.ports.journal.emit('paused', this.snapshot().lineIndex, this.atMs());
     this.changed();
@@ -118,6 +137,7 @@ export class Engine {
   resume() {
     if (this.state !== 'paused') return;
     this.ports.journal.emit('resumed', this.snapshot().lineIndex, this.atMs());
+    this.ports.mic.listen();
     if (this.resumeFrom < 0) { this.enter(this.turnIndex + 1); return; } // the beat had finished
     const turn = this.script.turns[this.turnIndex];
     this.read = EMPTY_READ;
@@ -156,6 +176,7 @@ export class Engine {
   abandon(reason?: string) {
     if (this.state === 'ended' || this.state === 'ready') return;
     this.silence();
+    this.ports.mic.stop();
     this.ports.journal.emit('abandoned', this.snapshot().lineIndex, this.atMs(), reason ? { reason } : {});
     this.state = 'ended';
     this.changed();
@@ -184,6 +205,31 @@ export class Engine {
       this.finishActorTurn('last_word');
       return;
     }
+    this.changed();
+  }
+
+  /**
+   * Words heard while the partner is speaking. The actor coming in on their
+   * next line, the first words of it in order, cuts the partner off: the beat
+   * stops where it is and the actor's turn opens with those words already
+   * read. Three words, or the whole line when it is shorter, and one of them
+   * the line's first or second: enough that the partner's own voice through
+   * the speaker, or a word of agreement, never takes the line away.
+   */
+  overhear(transcript: string) {
+    if (this.state !== 'partner') return;
+    const next = this.script.turns[this.turnIndex + 1];
+    if (!next || next.kind !== 'actor') return;
+    const read = liveRead(next.words, transcript, EMPTY_READ);
+    const need = Math.min(3, next.words.length);
+    if (read.matched.size < need || !(read.matched.has(0) || read.matched.has(1))) return;
+    const from = this.snapshot().lineIndex;
+    this.ports.journal.emit('jumped', next.lineIndex, this.atMs(), { from, reason: 'cut_in' });
+    this.silence(); // the partner stops mid-word; the beat's end will not fire
+    this.enter(this.turnIndex + 1);
+    this.read = read;
+    this.timeline.mark('first_delta', this.ports.clock.now());
+    if (shouldHandOver({ ...this.read, turnEnded: false })) { this.finishActorTurn('last_word'); return; }
     this.changed();
   }
 
@@ -307,6 +353,7 @@ export class Engine {
   private end() {
     this.clearTimers();
     this.ports.mic.close();
+    this.ports.mic.stop();
     this.state = 'ended';
     this.ports.journal.emit('completed', this.script.lines.length - 1, this.atMs(), {});
     this.changed();

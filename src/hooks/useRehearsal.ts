@@ -113,6 +113,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
     const flush = makeFlusher(() => journal.flush(), queueMicrotask);
     const mic = (micRef.current ??= new Mic({
       onTranscript: t => engineRef.current?.delta(t),
+      onOverheard: t => engineRef.current?.overhear(t),
       onQuiet: () => engineRef.current?.quiet(),
       onFailed: () => { fail(plainError('stt')); engineRef.current?.abandon('stt_failed'); },
     }));
@@ -121,7 +122,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
     const engine = new Engine(script, {
       clock: { now: () => clock.now(), outputLatency: () => clock.outputLatency() },
       player: { duration: l => player.duration(l), play: (l, at) => player.play(l, at), stopAll: () => player.stopAll() },
-      mic: { prime: k => mic.prime(k), open: () => mic.openTurn(), close: () => mic.closeTurn() },
+      mic: { prime: k => mic.prime(k), listen: () => mic.listen(), stop: () => mic.stop(), open: () => mic.openTurn(), close: () => mic.closeTurn() },
       journal: { emit: (type, line, at, p) => { journal.emit(type, line, at, p ?? {}); flush(); } },
       schedule: (at, fn) => clock.schedule(at, fn),
     });

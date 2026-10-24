@@ -40,7 +40,7 @@ function fakePorts() {
       play: (line, at) => { scheduled.push({ line, at }); calls.push(`play:${line}`); return true; },
       stopAll: vi.fn(),
     },
-    mic: { prime: vi.fn(), open: vi.fn(), close: vi.fn() },
+    mic: { prime: vi.fn(), listen: vi.fn(), stop: vi.fn(), open: vi.fn(), close: vi.fn() },
     journal: { emit: vi.fn() },
     schedule: vi.fn((at: number, fn: () => void) => {
       const timer = { at, fn };
@@ -209,8 +209,11 @@ describe('Engine', () => {
     engine.pause(); engine.resume();
     expect(engine.snapshot()).toMatchObject({ state: 'actor', lineIndex: 2 });
     expect(engine.snapshot().read.score).toBe(0);
-    expect(ports.mic.prime).toHaveBeenCalledTimes(2);
+    expect(ports.mic.prime).toHaveBeenCalledTimes(3); // the whole part at begin, the beat, the resume
     expect(ports.mic.open).toHaveBeenCalledTimes(2);
+    // Paused, the recogniser was torn down; resumed, it listens again.
+    expect(ports.mic.stop).toHaveBeenCalledTimes(1);
+    expect(ports.mic.listen).toHaveBeenCalledTimes(2);
   });
 
   it('a pause cancels the beat: its end never opens the mic', () => {
@@ -232,7 +235,44 @@ describe('Engine', () => {
   it('primes once per actor line: the beat before it does, the line itself does not again', () => {
     engine.begin(); const end = 100 + 1.5 + BREATH_S; ports.tick(end - 100); fire(end);
     expect(engine.snapshot().state).toBe('actor');
-    expect(ports.mic.prime).toHaveBeenCalledTimes(1);
+    expect(ports.mic.prime).toHaveBeenCalledTimes(2); // the whole part at begin, then the beat
+  });
+
+  it('begin primes the whole part and listens from the first beat, through the partner', () => {
+    engine.begin();
+    expect(ports.mic.listen).toHaveBeenCalledTimes(1);
+    expect(ports.mic.prime).toHaveBeenCalledTimes(2); // the whole part, then the first beat's line
+    expect(ports.mic.open).not.toHaveBeenCalled();
+  });
+
+  it('the actor coming in on their line over the partner cuts the beat off and reads on from those words', () => {
+    engine.begin();
+    ports.tick(0.4);
+    engine.overhear('out twenty four');
+    expect(engine.snapshot()).toMatchObject({ state: 'actor', lineIndex: 2 });
+    expect(ports.player.stopAll).toHaveBeenCalled();
+    expect(ports.mic.open).toHaveBeenCalledTimes(1);
+    expect(engine.snapshot().read.matched.size).toBe(3);
+    expect(ports.journal.emit).toHaveBeenCalledWith('jumped', 2, expect.any(Number), expect.objectContaining({ reason: 'cut_in' }));
+    // the cancelled beat's end never opens the turn a second time
+    fire(100 + 1.5 + BREATH_S);
+    expect(ports.mic.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('a word or two overheard, or words from later in the line, do not take the line away', () => {
+    engine.begin();
+    engine.overhear('out');
+    expect(engine.snapshot().state).toBe('partner');
+    engine.overhear('twenty four hours');
+    expect(engine.snapshot().state).toBe('partner');
+  });
+
+  it('a one-word line is taken on its word', () => {
+    engine.begin(); const end = 100 + 1.5 + BREATH_S; ports.tick(end - 100); fire(end);
+    engine.delta('out twenty four hours');
+    expect(engine.snapshot()).toMatchObject({ state: 'partner', lineIndex: 3 });
+    engine.overhear('go');
+    expect(engine.snapshot().state).toBe('ended'); // the last actor line, read on its only word
   });
 
   it('a jump to an actor line primes it again: the mic was closed in between', () => {
