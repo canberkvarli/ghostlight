@@ -33,6 +33,9 @@ import { getMonologueById, type Monologue } from '../../src/data/monologues';
 import { getMonologue } from '../../src/api/client';
 import { apiToMonologue } from '../../src/data/adapt';
 import { getOffline } from '../../src/lib/offline';
+import { Mic } from '../../src/rehearsal/native/mic';
+import { EMPTY_READ, lineWords, liveRead, shouldHandOver, type LiveRead } from '../../src/rehearsal/live-read';
+import { displayRuns } from '../../src/rehearsal/display-words';
 import { noteRecent } from '../../src/lib/recents';
 import { maybeAskKnock } from '../../src/lib/nudges';
 import { track } from '../../src/lib/analytics';
@@ -55,8 +58,13 @@ import { useTheme } from '../../src/theme/ThemeContext';
  * line and every line reads its own distance from it on the UI thread, so a
  * step is a glide and nothing jumps. With a cut set, only the cut runs.
  *
- * The site's room listens and follows your voice. That is a native module
- * and a new build; this room taps until then.
+ * And it listens. With the ear on (the third thing in the dock, on by
+ * itself once the phone has said yes), the lit line's words come up to full
+ * ink as you say them, the one you are on underlined, and on its last word
+ * the light walks to the next line by itself: the same reading the scene
+ * partner does for a line of yours. With the lines hidden, a word you
+ * recall comes out of the dots as you say it. Tapping still works for a
+ * line the ear missed.
  */
 
 /** The shape of a line and nothing else: a dot per letter, the spaces kept. */
@@ -122,6 +130,19 @@ export default function RunScreen() {
   const [curtain, setCurtain] = useState(false);
   const startedAt = useRef(Date.now());
 
+  // The ear. One recogniser for the whole run; each line is a turn of it.
+  const [listening, setListening] = useState(false);
+  const [earOff, setEarOff] = useState(false); // the actor turned it off: do not turn it on by itself again
+  const [read, setRead] = useState<LiveRead>(EMPTY_READ);
+  const readRef = useRef<LiveRead>(EMPTY_READ);
+  const atRef = useRef(0);
+  const wordsRef = useRef<string[][]>([]);
+  const micRef = useRef<Mic | null>(null);
+  const advanceRef = useRef<() => void>(() => {});
+  const wordsOf = useMemo(() => lines.map((l) => lineWords(l)), [lines]);
+  const runsOf = useMemo(() => lines.map((l) => displayRuns(l)), [lines]);
+  wordsRef.current = wordsOf;
+
   // Straight to work: the run starts the moment the words are here.
   const begun = useRef(false);
   useEffect(() => {
@@ -173,6 +194,69 @@ export default function RunScreen() {
     },
     [lines.length, finish],
   );
+  atRef.current = at;
+
+  // Said the whole line: on to the next, the ear's turn with it.
+  advanceRef.current = () => { micRef.current?.closeTurn(); goTo(atRef.current + 1); };
+
+  const stopEar = useCallback(() => {
+    micRef.current?.detach();
+    micRef.current = null;
+    setListening(false);
+  }, []);
+
+  const startEar = useCallback(async () => {
+    if (micRef.current) return;
+    if (!Mic.available() || !(await Mic.permission())) { setListening(false); return; }
+    const mic = new Mic({
+      onTranscript: (text) => {
+        const words = wordsRef.current[atRef.current] ?? [];
+        const r = liveRead(words, text, readRef.current);
+        readRef.current = r;
+        setRead(r);
+        if (shouldHandOver({ ...r, turnEnded: false })) advanceRef.current();
+      },
+      onOverheard: () => {},
+      onQuiet: () => { if (shouldHandOver({ ...readRef.current, turnEnded: true })) advanceRef.current(); },
+      onFailed: () => stopEar(),
+    });
+    mic.attach();
+    mic.prime([...new Set(wordsRef.current.flat())].slice(0, 100));
+    micRef.current = mic;
+    mic.listen();
+    readRef.current = EMPTY_READ;
+    setRead(EMPTY_READ);
+    mic.openTurn();
+    setListening(true);
+  }, [stopEar]);
+
+  const toggleEar = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    if (micRef.current) { setEarOff(true); track('app_run_listen', { on: false }); stopEar(); return; }
+    setEarOff(false);
+    track('app_run_listen', { on: true });
+    void startEar();
+  }, [startEar, stopEar]);
+
+  // On by itself once the words are here, if the phone has already said yes
+  // to the microphone; never asks on its own.
+  useEffect(() => {
+    if (!lines.length || curtain || earOff || micRef.current) return;
+    let alive = true;
+    Mic.permissionGranted().then((ok) => { if (alive && ok && !micRef.current) void startEar(); }).catch(() => {});
+    return () => { alive = false; };
+  }, [lines.length, curtain, earOff, startEar]);
+
+  // A new line is a new turn of the ear: the reading starts over at its first word.
+  useEffect(() => {
+    readRef.current = EMPTY_READ;
+    setRead(EMPTY_READ);
+    if (micRef.current) micRef.current.openTurn();
+  }, [at]);
+
+  // The curtain, and leaving, close the ear.
+  useEffect(() => { if (curtain) stopEar(); }, [curtain, stopEar]);
+  useEffect(() => () => { micRef.current?.detach(); micRef.current = null; }, []);
 
   const onStage = useCallback(() => goTo(at + 1), [goTo, at]);
   const onLine = useCallback(
@@ -200,6 +284,9 @@ export default function RunScreen() {
     setCurtain(false);
     setShown(false);
     setAt(0);
+    readRef.current = EMPTY_READ;
+    setRead(EMPTY_READ);
+    micRef.current?.openTurn();
     startedAt.current = Date.now();
     track('app_run_started', { level: hidden ? 'dark' : 'words', has_cut: Boolean((saved ?? monologue)?.cutStart != null) });
   }, [hidden, saved, monologue]);
@@ -315,10 +402,14 @@ export default function RunScreen() {
                     key={i}
                     index={i}
                     text={line}
+                    runs={runsOf[i]}
                     cursor={cursor}
                     at={at}
                     masked={hidden && (i > at || (i === at && !shown))}
+                    heard={listening && i === at ? read.matched : undefined}
+                    here={listening && i === at ? read.position : undefined}
                     color={fg}
+                    accent={pal.accentText}
                     onPress={onLine}
                     onTop={(y) => {
                       tops.current[i] = y;
@@ -333,6 +424,9 @@ export default function RunScreen() {
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Dock label={hidden ? 'show the lines' : 'hide the lines'} icon={hidden ? 'eye-outline' : 'eye-off-outline'} on={hidden} onPress={toggleHidden} />
                 <Dock label="from the top" icon="refresh-outline" onPress={again} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <Dock label={listening ? 'listening' : 'listen'} icon={listening ? 'mic' : 'mic-outline'} on={listening} onPress={toggleEar} />
               </View>
             </View>
           </Animated.View>
@@ -353,19 +447,29 @@ export default function RunScreen() {
 const Line = memo(function Line({
   index,
   text,
+  runs,
   cursor,
   at,
   masked,
+  heard,
+  here,
   color,
+  accent,
   onPress,
   onTop,
 }: {
   index: number;
   text: string;
+  /** The words as shown, one span each, in step with the ear's words. */
+  runs: { word: string; gap: boolean }[];
   cursor: SharedValue<number>;
   at: number;
   masked: boolean;
+  /** With the ear on the lit line: the words said so far, and the one you are on. */
+  heard?: Set<number>;
+  here?: number;
   color: string;
+  accent: string;
   onPress: (i: number) => void;
   onTop: (y: number) => void;
 }) {
@@ -378,26 +482,42 @@ const Line = memo(function Line({
     };
   });
   const long = text.length > 140;
+  const face = { fontFamily: 'CourierPrime_400Regular', fontSize: long ? 18 : 22, lineHeight: long ? 27 : 32, textAlign: 'center' as const };
   return (
     <Animated.View
       style={[style, { marginBottom: 22 }]}
       onLayout={(e) => onTop(e.nativeEvent.layout.y)}
     >
       <Pressable onPress={() => onPress(index)} accessibilityRole="button" accessibilityLabel={index === at ? 'This line' : `Line ${index + 1}`}>
-        {/* Keyed on what it shows, so dots and words cross-fade instead of swapping. */}
-        <Animated.Text
-          key={masked ? 'shape' : 'words'}
-          entering={FadeIn.duration(220)}
-          style={{
-            fontFamily: 'CourierPrime_400Regular',
-            fontSize: long ? 18 : 22,
-            lineHeight: long ? 27 : 32,
-            textAlign: 'center',
-            color: masked ? `${color}66` : color,
-          }}
-        >
-          {masked ? shapeOf(text) : text}
-        </Animated.Text>
+        {heard ? (
+          /* The ear is on this line: a span a word. Said words in full ink, the
+             one you are on underlined, the rest sat back; hidden, a word comes
+             out of its dots as you say it. */
+          <Animated.Text key="heard" entering={FadeIn.duration(220)} style={[face, { color }]}>
+            {runs.map((w, i) => {
+              const said = heard.has(i);
+              const on = here === i;
+              const shown = said || !masked;
+              return (
+                <Text key={i}>
+                  <Text style={{ color: said ? color : masked ? `${color}66` : `${color}8c`, textDecorationLine: on ? 'underline' : 'none', textDecorationColor: accent }}>
+                    {shown ? w.word : shapeOf(w.word)}
+                  </Text>
+                  {w.gap ? ' ' : ''}
+                </Text>
+              );
+            })}
+          </Animated.Text>
+        ) : (
+          /* Keyed on what it shows, so dots and words cross-fade instead of swapping. */
+          <Animated.Text
+            key={masked ? 'shape' : 'words'}
+            entering={FadeIn.duration(220)}
+            style={[face, { color: masked ? `${color}66` : color }]}
+          >
+            {masked ? shapeOf(text) : text}
+          </Animated.Text>
+        )}
       </Pressable>
     </Animated.View>
   );

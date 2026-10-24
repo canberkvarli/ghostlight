@@ -63,6 +63,11 @@ export class Mic {
     return asked.granted;
   }
 
+  /** Whether the phone has already said yes, without asking. */
+  static async permissionGranted(): Promise<boolean> {
+    try { return (await ExpoSpeechRecognitionModule.getPermissionsAsync()).granted; } catch { return false; }
+  }
+
   static available(): boolean {
     try { return ExpoSpeechRecognitionModule.isRecognitionAvailable(); } catch { return false; }
   }

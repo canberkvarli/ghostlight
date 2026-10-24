@@ -182,6 +182,7 @@ export type Event =
   | { name: 'app_rehearse_opened'; props: { from: 'home' | 'script' | 'library' | 'guided' | 'link' } }
   | { name: 'app_partner_how'; props: { from: 'scene' } }
   | { name: 'app_book_sorted'; props: { by: string } }
+  | { name: 'app_run_listen'; props: { on: boolean } }
   | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }
   | { name: 'app_rehearse_ended'; props: { source: 'library' | 'script' | 'guided'; how: 'completed' | 'left'; lines: number; seconds: number } }
   /** The gate stopped a run: the wall, and whether the paywall was opened from it. */
