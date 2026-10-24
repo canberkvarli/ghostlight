@@ -12,6 +12,7 @@ import { sameCharacter } from '../../rehearsal/contract';
 import { useTrialOffer } from '../../hooks/useTrialOffer';
 import { useTheme } from '../../theme/ThemeContext';
 import { PrimaryPill } from '../PrimaryPill';
+import { playSample, stopSample } from '../../rehearsal/native/sample';
 import { StageDirection } from '../StageDirection';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -69,6 +70,18 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
 
   // Which part's voice is being chosen, or none.
   const [picking, setPicking] = useState<string | null>(null);
+  // The voice being heard, and whether it is still on its way or sounding.
+  const [hearing, setHearing] = useState<{ id: string; state: 'waiting' | 'sounding' } | null>(null);
+  const hear = (v: Voice) => {
+    if (picking === null) return;
+    Haptics.selectionAsync().catch(() => {});
+    if (hearing?.id === v.id) { stopSample(); setHearing(null); return; }
+    // The character's first line, in this voice: the same line the scene will play.
+    const line = payload.lines.find(l => sameCharacter(l.character, picking))?.index ?? payload.lines[0]?.index ?? 0;
+    void playSample(payload.scene.id, line, v.id, st => setHearing(st === 'done' ? null : { id: v.id, state: st }));
+  };
+  useEffect(() => { if (picking === null) { stopSample(); setHearing(null); } }, [picking]);
+  useEffect(() => () => stopSample(), []);
   const pick = (ch: string) => { if (preparing || payload.voices.length < 2) return; Haptics.selectionAsync().catch(() => {}); setPicking(ch); };
   const choose = (id: string) => {
     if (!picking) return;
@@ -179,6 +192,15 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
                         <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: SANS, fontSize: 13, color: c.mutedForeground }}>{asideOf(v)}</Text>
                       </View>
                       {on ? <Ionicons name="checkmark" size={18} color={c.foreground} /> : null}
+                      {/* Hear it: the character's first line in this voice. */}
+                      <Pressable onPress={() => hear(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={hearing?.id === v.id ? `Stop ${nameOf(v)}` : `Hear ${nameOf(v)}`}
+                        style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: hearing?.id === v.id ? c.accentText : c.border, alignItems: 'center', justifyContent: 'center' }}>
+                        {hearing?.id === v.id && hearing.state === 'waiting' ? (
+                          <ActivityIndicator size="small" color={c.accentText} />
+                        ) : (
+                          <Ionicons name={hearing?.id === v.id ? 'stop' : 'volume-medium-outline'} size={17} color={hearing?.id === v.id ? c.accentText : c.foreground} />
+                        )}
+                      </Pressable>
                     </Pressable>
                   );
                 })}
