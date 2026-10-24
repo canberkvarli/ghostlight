@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { ScenePayload } from '../../rehearsal/contract';
+import type { ScenePayload, Voice } from '../../rehearsal/contract';
 import { sameCharacter } from '../../rehearsal/contract';
 import { useTheme } from '../../theme/ThemeContext';
 import { PrimaryPill } from '../PrimaryPill';
@@ -36,10 +36,10 @@ interface Props {
 }
 
 /**
- * Who are you: a sheet that rises from the bottom over the dimmed stage. Each
- * part is a card; the chosen one carries the yellow shadow and an ink check,
- * the others say who reads them, and tapping that name turns the voice over
- * to the next one. The part you played last time is chosen on open, so Begin
+ * Who are you: a sheet at the foot of the dimmed stage. Each part is a card;
+ * the chosen one carries the yellow shadow and an ink check, the others say
+ * who reads them, and tapping that opens the list of voices to choose from.
+ * Begin is pinned at the foot, whatever the cast runs to. The part you played last time is chosen on open, so Begin
  * is never dark. Begin reads "Begin as Mark" and starts the run the moment
  * the first line is ready.
  */
@@ -65,11 +65,14 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
     }).catch(() => {});
   }, [guided, payload.scene.id, payload.characters]);
 
-  const cycle = (ch: string) => {
-    if (preparing || payload.voices.length < 2) return;
+  // Which part's voice is being chosen, or none.
+  const [picking, setPicking] = useState<string | null>(null);
+  const pick = (ch: string) => { if (preparing || payload.voices.length < 2) return; Haptics.selectionAsync().catch(() => {}); setPicking(ch); };
+  const choose = (id: string) => {
+    if (!picking) return;
     Haptics.selectionAsync().catch(() => {});
-    const ids = payload.voices.map(v => v.id);
-    setOverrides(o => ({ ...o, [ch]: ids[(ids.indexOf(voiceOf(ch)) + 1) % ids.length] }));
+    setOverrides(o => ({ ...o, [picking]: id }));
+    setPicking(null);
   };
   const begin = (pickUp?: { runId: number; lineIndex: number }) => {
     if (!mine && !guided) return;
@@ -83,7 +86,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
     <View style={{ flex: 1, justifyContent: 'flex-end' }}>
       {/* The stage behind, dimmed. A tap on it is a way out. */}
       <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#15110f', opacity: 0.22 }} />
-      <Animated.View entering={SlideInDown.duration(420).springify().damping(22)} style={{ maxHeight: '88%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: c.background, paddingBottom: insets.bottom + 12 }}>
+      <Animated.View entering={FadeIn.duration(280)} style={{ maxHeight: '88%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: c.background, paddingBottom: insets.bottom + 12 }}>
         <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.border, marginTop: 10 }} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 8 }}>
           {payload.scene.play_title && payload.scene.play_title.trim().toLowerCase() !== payload.scene.title.trim().toLowerCase() ? (
@@ -110,12 +113,12 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 34, color: c.foreground }}>{ch}</Text>
                           {on ? (
-                            <StageDirection on="paper" numberOfLines={1}>(you · {linesOf(ch)} lines.)</StageDirection>
+                            <StageDirection on="paper" numberOfLines={1}>(you · {linesOf(ch)} {linesOf(ch) === 1 ? 'line' : 'lines'}.)</StageDirection>
                           ) : (
-                            <Pressable onPress={() => cycle(ch)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Voice for ${ch}: ${v?.label ?? ''}. Tap for the next`} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text numberOfLines={1} style={{ fontFamily: MONO_I, fontSize: 13, color: c.paperMuted }}>
-                                (read by <Text style={{ color: c.accentText, textDecorationLine: 'underline' }}>{v?.label ?? '…'}</Text>{v ? ` · ${v.gender === 'female' ? 'f' : 'm'}.` : '.'})
-                              </Text>
+                            <Pressable onPress={() => pick(ch)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Voice for ${ch}: ${v ? nameOf(v) : ''}. Tap to choose another`}
+                              style={{ marginTop: 6, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10, paddingRight: 8, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: c.paperRule }}>
+                              <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 13, color: c.paperInk }}>read by {v ? nameOf(v) : '…'}</Text>
+                              <Ionicons name="chevron-down" size={13} color={c.paperMuted} />
                             </Pressable>
                           )}
                         </View>
@@ -130,7 +133,9 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
             </>
           )}
 
-          <View style={{ marginTop: 26 }}>
+        </ScrollView>
+        {/* Begin, pinned at the foot of the sheet, whatever the cast runs to. */}
+        <View style={{ paddingHorizontal: 24, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.divider }}>
             {gated ? (
               <>
                 <Text style={{ fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>{error}</Text>
@@ -154,9 +159,43 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
                 )}
               </>
             )}
-          </View>
-        </ScrollView>
+        </View>
+        {/* The voices, as a list to choose from. */}
+        <Modal visible={picking !== null} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
+          <Pressable onPress={() => setPicking(null)} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(21,17,15,0.45)' }}>
+            <Pressable onPress={() => {}} style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.background, paddingBottom: insets.bottom + 12, maxHeight: '70%' }}>
+              <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.border, marginTop: 10 }} />
+              <Text style={{ marginTop: 16, marginHorizontal: 24, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(who reads {picking}?)</Text>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                {payload.voices.map(v => {
+                  const on = picking !== null && voiceOf(picking) === v.id;
+                  return (
+                    <Pressable key={v.id} onPress={() => choose(v.id)} accessibilityRole="button" accessibilityState={{ selected: on }}
+                      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, paddingHorizontal: 8, borderRadius: 12, backgroundColor: pressed ? c.panel : 'transparent' })}>
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: on ? c.ink : c.panel, borderWidth: on ? 0 : 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: SERIF, fontSize: 18, color: on ? c.yellow : c.foreground }}>{nameOf(v).slice(0, 1)}</Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ fontFamily: SANS_B, fontSize: 16, color: c.foreground }}>{nameOf(v)}</Text>
+                        <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: SANS, fontSize: 13, color: c.mutedForeground }}>{asideOf(v)}</Text>
+                      </View>
+                      {on ? <Ionicons name="checkmark" size={18} color={c.foreground} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </Animated.View>
     </View>
   );
+}
+
+/** A voice's name: the server's label up to its first dot, "Aoede · breezy, easy, 30s" is Aoede. */
+function nameOf(v: Voice): string { return v.label.split('·')[0].trim(); }
+/** What the server says about it after the dot, or just whether it is a woman's or a man's. */
+function asideOf(v: Voice): string {
+  const rest = v.label.split('·').slice(1).join('·').trim();
+  return rest || (v.gender === 'female' ? 'a woman' : 'a man');
 }

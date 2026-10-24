@@ -38,7 +38,8 @@ export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming =
   const tops = useRef(new Map<number, number>());
   const handsOn = useRef(0);
   const placed = useRef(false);
-  const current = snapshot?.lineIndex ?? 0;
+  // Before Begin, with no part chosen, nothing is live: the script is simply there.
+  const current = snapshot?.lineIndex ?? (actor ? 0 : -1);
   const next = snapshot?.read.position ?? 0;
 
   const follow = useCallback((animated: boolean) => {

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
@@ -183,16 +183,20 @@ function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
           </View>
         </Animated.View>
       ) : running ? (
-        <Animated.View entering={FadeInDown.duration(520).springify().damping(18)} exiting={FadeOut.duration(200)} style={{ flex: 1 }}>
+        <Animated.View entering={FadeIn.duration(360)} exiting={FadeOut.duration(200)} style={{ flex: 1 }}>
           <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
-          ) : state === 'actor' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary }} />
-              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(listening.)</Text>
-            </View>
           ) : null}
+          {/* One line under the script, always the same height, so the dock never moves: listening, or nothing. */}
+          <View style={{ height: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {state === 'actor' && !r.readiness.error ? (
+              <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(160)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary }} />
+                <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(listening.)</Text>
+              </Animated.View>
+            ) : null}
+          </View>
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
       ) : (
@@ -241,24 +245,30 @@ function TopBar({ title, onLeave, progress = null, counter = null }: { title: st
   );
 }
 
-/** Say it again, a 76pt ink pause with its glyph in gel yellow, and Line to skip ahead. */
+/** Say it again, a 76pt ink pause with its glyph in gel yellow in the exact middle, and Next to skip ahead. */
 function Dock({ paused, onPause, onResume, onSkip, onBack }: { paused: boolean; onPause: () => void; onResume: () => void; onSkip: () => void; onBack: () => void }) {
   const { colors: c } = useTheme();
   const tap = (fn: () => void) => () => { Haptics.selectionAsync().catch(() => {}); fn(); };
   const pill = { height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: c.border, alignItems: 'center' as const, justifyContent: 'center' as const, flexDirection: 'row' as const, gap: 6 };
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 }}>
-      <Pressable onPress={tap(onBack)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Say it again" style={[pill, { width: 54 }]}>
-        <Ionicons name="refresh-outline" size={22} color={c.mutedForeground} />
-      </Pressable>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: 6, paddingBottom: 10 }}>
+      {/* Three equal columns, so the pause sits on the centre line whatever the words beside it weigh. */}
+      <View style={{ flex: 1, alignItems: 'flex-start' }}>
+        <Pressable onPress={tap(onBack)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Say it again" style={[pill, { paddingHorizontal: 18 }]}>
+          <Ionicons name="refresh-outline" size={18} color={c.foreground} />
+          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>Again</Text>
+        </Pressable>
+      </View>
       <Pressable onPress={tap(paused ? onResume : onPause)} accessibilityRole="button" accessibilityLabel={paused ? 'Resume' : 'Pause'}
         style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={paused ? 'play' : 'pause'} size={28} color={c.yellow} style={paused ? { marginLeft: 3 } : undefined} />
       </Pressable>
-      <Pressable onPress={tap(onSkip)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Skip to the next line" style={[pill, { paddingHorizontal: 20 }]}>
-        <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>Line</Text>
-        <Ionicons name="chevron-forward" size={16} color={c.foreground} />
-      </Pressable>
+      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+        <Pressable onPress={tap(onSkip)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Skip to the next line" style={[pill, { paddingHorizontal: 18 }]}>
+          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>Next</Text>
+          <Ionicons name="chevron-forward" size={16} color={c.foreground} />
+        </Pressable>
+      </View>
     </View>
   );
 }

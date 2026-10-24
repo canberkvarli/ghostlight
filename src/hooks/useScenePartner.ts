@@ -32,8 +32,8 @@ export function useRehearsalScene(sceneId: number | null) {
     queryKey: ['rehearsal-scene', sceneId],
     queryFn: ({ signal }) => getRehearsalScene(sceneId as number, signal),
     enabled: sceneId !== null,
-    staleTime: 0, // the audio urls are signed and the resume point moves
-    gcTime: 0,
+    staleTime: 0, // the audio urls are signed and the resume point moves: refetched behind the cached copy
+    gcTime: 30 * 60_000, // the cached copy opens the sheet at once; the lines themselves are files on the phone
     retry: 1,
   });
 }

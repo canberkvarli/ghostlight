@@ -31,8 +31,8 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
 
 /**
  * One line of the scene. The cue in small caps, the direction, the words in
- * the typewriter face. Your live line is a card with a YOUR LINE pill and the
- * words at 21pt; every other line sits plain on the stage. Lines already said
+ * the typewriter face. Your live line carries a YOUR LINE pill, a rule of gel
+ * down its left and the words at 21pt; every other line sits plain on the stage. Lines already said
  * fade to about forty percent, lines to come are muted. On your lines every
  * word is its own span: heard words come up to full ink, the word you are on
  * carries a rule in the accent, and neither ever moves back. A line's place
@@ -42,36 +42,40 @@ function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout }: P
   const { colors: c } = useTheme();
   const words = useMemo(() => displayRuns(line.text), [line.text]);
   const live = when === 'live';
-  const card = live && mine;
+  const yours = live && mine;
   const dim = when === 'past' ? 0.42 : when === 'next' ? 0.62 : 1;
   const fade = useSharedValue(dim);
   useEffect(() => { fade.value = withTiming(dim, { duration: 240 }); }, [dim, fade]);
   const faded = useAnimatedStyle(() => ({ opacity: fade.value }));
-  const inkOn = c.foreground;
-  const inkOff = card ? c.mutedForeground : c.foreground;
-  const size = card ? 21 : 17;
+  const size = yours ? 21 : 17;
+  // On your live line the words you have not said yet sit back; a word heard
+  // comes up to full ink and stays; the word you are on carries a rule in gel.
+  // Only colour moves, never weight: a wider word would re-wrap the line.
   const body = (
-    <Text style={{ marginTop: card ? 10 : 4, fontFamily: MONO, fontSize: size, lineHeight: Math.round(size * 1.5), color: inkOff }}>
-      {words.map((w, i) => (
-        <Text key={i}>
-          <Text style={mine ? { color: heard?.has(i) ? inkOn : inkOff, textDecorationLine: live && at === i ? 'underline' : 'none', textDecorationColor: c.accentText } : undefined}>
-            {w.word}
+    <Text style={{ marginTop: yours ? 8 : 4, fontFamily: MONO, fontSize: size, lineHeight: Math.round(size * 1.5), color: c.foreground }}>
+      {words.map((w, i) => {
+        const said = heard?.has(i) ?? false;
+        const here = live && at === i;
+        const style = mine
+          ? { color: said || here || !live ? c.foreground : c.mutedForeground, textDecorationLine: here ? 'underline' as const : 'none' as const, textDecorationColor: c.yellow }
+          : undefined;
+        return (
+          <Text key={i}>
+            <Text style={style}>{w.word}</Text>
+            {w.gap ? ' ' : ''}
           </Text>
-          {w.gap ? ' ' : ''}
-        </Text>
-      ))}
+        );
+      })}
     </Text>
   );
   return (
     <Pressable onPress={onJump} disabled={!onJump} onLayout={onLayout}
       accessibilityRole={onJump ? 'button' : 'text'}
       accessibilityLabel={onJump ? `Start from ${line.character}: ${line.text.slice(0, 40)}` : undefined}>
-      <Animated.View style={[faded, card
-        ? { marginVertical: 10, padding: 18, borderRadius: 18, borderWidth: 2, borderColor: c.ink, backgroundColor: c.card }
-        : { paddingVertical: 12, paddingHorizontal: 8 }]}>
+      <Animated.View style={[faded, { paddingVertical: yours ? 14 : 12, paddingHorizontal: 8, paddingLeft: yours ? 14 : 8, borderLeftWidth: yours ? 3 : 0, borderLeftColor: c.yellow, marginLeft: yours ? -6 : 0 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.6, color: mine ? c.accentText : c.mutedForeground, textTransform: 'uppercase' }}>{line.character}</Text>
-          {card ? (
+          {yours ? (
             <View style={{ paddingHorizontal: 10, height: 22, borderRadius: 11, backgroundColor: c.yellow, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 0.6, color: c.ink }}>YOUR LINE</Text>
             </View>

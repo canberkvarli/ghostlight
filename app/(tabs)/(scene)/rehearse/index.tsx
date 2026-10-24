@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -111,7 +111,7 @@ export default function RehearseHub() {
                   {scripts.isLoading && isAuthenticated ? (
                     <StageDirection style={{ paddingVertical: 10 }}>(gathering your scripts…)</StageDirection>
                   ) : null}
-                  {mine.map((s) => <ScriptRow key={s.id} script={s} startOpen={openScript === String(s.id)} />)}
+                  {mine.map((s) => <ScriptRow key={s.id} script={s} startOpen={openScript === String(s.id)} left={left} />)}
                   {/* Add sides, as the last row of the sides. */}
                   <Pressable onPress={add} accessibilityRole="button" accessibilityLabel="Add sides"
                     style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, opacity: pressed ? 0.7 : 1 })}>
@@ -200,8 +200,12 @@ function Shelf({ title, aside, children }: { title: string; aside?: string; chil
   );
 }
 
-/** One of the actor's scripts, as a row. Tap: one scene goes straight to the sheet; more open under it. */
-function ScriptRow({ script, startOpen }: { script: ScriptSummary; startOpen: boolean }) {
+/**
+ * One of the actor's scripts, as a row: the pages, the title, who is in it.
+ * A tap opens the list of its scenes under it (one scene goes straight to the
+ * sheet the first time); the scene you left carries its bar of progress.
+ */
+function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null }) {
   const { colors: c } = useTheme();
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
@@ -210,8 +214,9 @@ function ScriptRow({ script, startOpen }: { script: ScriptSummary; startOpen: bo
   const broke = script.processing_status === 'failed';
   const cast = script.characters.map(ch => ch.name).filter(Boolean).slice(0, 3).join(', ');
   const go = (sceneId: number) => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: String(sceneId), from: 'script' } }); };
+  const went = useRef(false);
   useEffect(() => {
-    if (open && detail.data && detail.data.scenes.length === 1 && !startOpen) go(detail.data.scenes[0].id);
+    if (open && detail.data && detail.data.scenes.length === 1 && !startOpen && !went.current) { went.current = true; go(detail.data.scenes[0].id); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, detail.data]);
   const line = broke ? `(${script.processing_error?.toLowerCase() ?? 'it could not be read.'})`
@@ -219,28 +224,41 @@ function ScriptRow({ script, startOpen }: { script: ScriptSummary; startOpen: bo
     : `(${cast || `${script.num_characters} parts`} · ${script.num_scenes_extracted} ${script.num_scenes_extracted === 1 ? 'scene' : 'scenes'}.)`;
   return (
     <View style={{ borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} disabled={!ready} accessibilityRole="button"
-        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, opacity: pressed ? 0.7 : 1 })}>
-        <View style={{ width: 54, height: 54, borderRadius: 12, borderWidth: 1.5, borderColor: c.border, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: SERIF_I, fontSize: 28, lineHeight: 32, color: c.foreground }}>&amp;</Text>
+      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} disabled={!ready} accessibilityRole="button" accessibilityState={{ expanded: open }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
+        <View style={{ width: 54, height: 54, alignItems: 'center', justifyContent: 'center' }}>
+          <Sketch name="scriptPages" size={46} stroke={ready ? c.foreground : c.mutedForeground} accent={c.yellow} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 23, lineHeight: 27, color: c.foreground }}>{script.title}</Text>
           <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, color: broke ? c.accentText : c.mutedForeground }}>{line}</Text>
         </View>
-        <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={16} color={c.mutedForeground} />
+        {ready ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} /> : null}
       </Pressable>
-      {open && detail.data && detail.data.scenes.length > 1 ? (
-        <Animated.View entering={FadeIn.duration(220)} style={{ paddingLeft: 70, paddingBottom: 10, gap: 2 }}>
-          {detail.data.scenes.map(sc => (
-            <Pressable key={sc.id} onPress={() => go(sc.id)} accessibilityRole="button" style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 6 }}>
-              <Text numberOfLines={1} style={{ flex: 1, fontFamily: SANS, fontSize: 15, color: c.foreground }}>{sc.title}</Text>
-              <Text style={{ fontFamily: MONO, fontSize: 12, color: c.mutedForeground }}>{Math.max(1, Math.round(sc.estimated_duration_seconds / 60))} min</Text>
-            </Pressable>
-          ))}
+      {open && detail.data ? (
+        <Animated.View entering={FadeIn.duration(220)} style={{ paddingLeft: 68, paddingBottom: 12, gap: 2 }}>
+          {detail.data.scenes.map(sc => {
+            const here = left && left.scene_id === sc.id ? left : null;
+            const progress = here && here.line_count > 0 ? Math.min(1, (here.line_index + 1) / here.line_count) : 0;
+            return (
+              <Pressable key={sc.id} onPress={() => go(sc.id)} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', paddingRight: 6, opacity: pressed ? 0.7 : 1 })}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <Text numberOfLines={1} style={{ flex: 1, fontFamily: SANS, fontSize: 15, color: c.foreground }}>{sc.title}</Text>
+                  <Text style={{ fontFamily: MONO, fontSize: 12, color: c.mutedForeground }}>{here ? `line ${here.line_index + 1} of ${here.line_count}` : `${Math.max(1, Math.round(sc.estimated_duration_seconds / 60))} min`}</Text>
+                </View>
+                {here ? (
+                  <View style={{ marginTop: 6, height: 3, borderRadius: 1.5, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.round(progress * 100)}%`, height: 3, backgroundColor: c.yellow }} />
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
         </Animated.View>
       ) : open && detail.isLoading ? (
-        <StageDirection style={{ paddingLeft: 70, paddingBottom: 10 }}>(opening…)</StageDirection>
+        <StageDirection style={{ paddingLeft: 68, paddingBottom: 12 }}>(opening…)</StageDirection>
+      ) : open && detail.isError ? (
+        <StageDirection style={{ paddingLeft: 68, paddingBottom: 12 }}>(it would not open. try again.)</StageDirection>
       ) : null}
     </View>
   );
