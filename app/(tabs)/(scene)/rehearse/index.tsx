@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,7 +18,8 @@ import { useHideBarOnScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
-import { useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { useGuided, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { KEY_WORDS, firstScenes } from '../../../../src/lib/demo';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
 import { useSession } from '../../../../src/lib/useSession';
@@ -69,6 +70,10 @@ export default function RehearseHub() {
   // The microphone and the recogniser are asked for on arrival, with the room in view.
   useEffect(() => { if (ready) void Mic.permission(); }, [ready]);
 
+  // The three first scenes, for everyone, always: they are guided, so never metered.
+  const guidedList = useGuided(ready);
+  const firstThree = useMemo(() => (guidedList.data?.scenes?.length ? firstScenes(guidedList.data) : []), [guidedList.data]);
+
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
   const guided = () => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: 'guided', from: 'guided' } }); };
   // How this works, behind a question mark, as on the board: the loop, one
@@ -115,7 +120,7 @@ export default function RehearseHub() {
                 <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22 }}>
                   <PickUp r={left} />
                 </Animated.View>
-              ) : neverRun && mine.length === 0 ? (
+              ) : neverRun && mine.length === 0 && !firstThree.length ? (
                 <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22 }}>
                   <Pressable onPress={guided} accessibilityRole="button">
                     <PaperCard rotate={-0.4} shadow={6} style={{ padding: 18 }}>
@@ -125,6 +130,28 @@ export default function RehearseHub() {
                     </PaperCard>
                   </Pressable>
                 </Animated.View>
+              ) : null}
+
+              {firstThree.length ? (
+                <Shelf title="Three to start with" aside="(free. always.)">
+                  {firstThree.map((s) => {
+                    const words = KEY_WORDS[s.key] ?? { eyebrow: s.title.toUpperCase(), tone: s.hook ?? '' };
+                    return (
+                      <Pressable key={s.key} onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/demo', params: { key: s.key, after: '9' } }); }}
+                        accessibilityRole="button" accessibilityLabel={s.title}
+                        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
+                        <View style={{ width: 54, height: 54, borderRadius: 12, backgroundColor: c.yellow, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontFamily: SERIF, fontSize: 24, color: c.ink }}>{s.title.replace(/^A /, '').slice(0, 1).toUpperCase()}</Text>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={{ fontFamily: SANS_B, fontSize: 18, color: c.foreground }}>{s.title}</Text>
+                          <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>{s.characters.map((ch) => ch.name).join(' and ')} · {words.tone}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={c.chevron} />
+                      </Pressable>
+                    );
+                  })}
+                </Shelf>
               ) : null}
 
               <Shelf title="Your sides" aside={mine.length ? `(${mine.length}.)` : undefined}>

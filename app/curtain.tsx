@@ -227,6 +227,13 @@ export default function Curtain() {
           </View>
         </View>
 
+        {/* The door to the first scenes: one line, for the stranger who came for the partner. */}
+        <Pressable onPress={() => { track('app_curtain', { action: 'demo' }); router.push('/demo'); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Run a scene with a partner"
+          style={{ alignSelf: 'center', marginTop: 2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, letterSpacing: 0.6, color: c.accentText }}>(or run a scene with a partner.)</Text>
+          <Ionicons name="arrow-forward" size={12} color={c.accentText} />
+        </Pressable>
+
         {/* The line of search, folded away until asked for. */}
         <Animated.View style={[foldStyle, { marginHorizontal: 20, overflow: 'hidden' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.mutedForeground, paddingBottom: 8, marginTop: 6 }}>

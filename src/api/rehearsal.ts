@@ -63,15 +63,36 @@ export const openRun = (sceneId: number, character: string, voices: Record<strin
     method: 'POST', body: JSON.stringify({ scene_id: sceneId, character, voices }),
   });
 
-export const openGuidedRun = () => call<GuidedRun>('/api/rehearsal/runs/guided', { method: 'POST' });
+/**
+ * The guided run: unmetered, any signed-in actor. With nothing, the server
+ * picks the scene and the part; with one of the phone's first scenes, the
+ * part the actor picked and the voice they heard, it opens that.
+ */
+export const openGuidedRun = (pick?: { sceneId: number; character: string; voices: Record<string, string> }) =>
+  call<GuidedRun>('/api/rehearsal/runs/guided', {
+    method: 'POST',
+    body: JSON.stringify(pick ? { scene_id: pick.sceneId, character: pick.character, voices: pick.voices } : {}),
+  });
 
 export const resumeRun = (runId: number) => call<ResumedRun>(`/api/rehearsal/runs/${runId}/resume`, { method: 'POST' });
 
 export const postEvents = (runId: number, events: JournalEvent[]) =>
   call<void>(`/api/rehearsal/runs/${runId}/events`, { method: 'POST', body: JSON.stringify({ events }) });
 
+/** One of the phone's three first scenes: its key, its two parts with a line of who each is, and where each part's first line is. */
+export interface GuidedScene {
+  key: 'fight' | 'flirt' | 'confession' | string;
+  scene_id: number;
+  title: string;
+  hook: string | null;
+  characters: { name: string; line: string | null; first_line: number | null }[];
+}
+
+/** The guided scene and part the server picks, and the three first scenes (absent from a server that predates them). */
+export interface GuidedPick { scene_id: number; character: string; scenes?: GuidedScene[] }
+
 export const getGuided = (signal?: AbortSignal) =>
-  call<{ scene_id: number; character: string }>('/api/rehearsal/guided', {}, signal);
+  call<GuidedPick>('/api/rehearsal/guided', {}, signal);
 
 /** The scene left unfinished most recently, as the pick-up card draws it. Null when there is none. */
 export interface LatestRun {

@@ -172,7 +172,7 @@ export type Event =
   | { name: 'app_run_finished'; props: { level: 'words' | 'hints' | 'dark'; lines: number; seconds: number } }
   /** A row under the search field was tapped. */
   | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
-  | { name: 'app_curtain'; props: { action: 'open' | 'swipe' | 'keep' | 'pass' | 'search' | 'sign_in' | 'house' | 'retry' } }
+  | { name: 'app_curtain'; props: { action: 'open' | 'swipe' | 'keep' | 'pass' | 'search' | 'sign_in' | 'house' | 'retry' | 'demo' } }
   | { name: 'app_share'; props: { from: 'read' | 'curtain'; medium: 'theatre' | 'screen' } }
   | { name: 'app_ticket'; props: { kind: 'audition' | 'left' | 'tonight' | 'board'; action: 'open' | 'dismiss' } }
   | { name: 'app_knock_asked'; props: { yes: boolean; granted: boolean } }
@@ -183,6 +183,15 @@ export type Event =
   | { name: 'app_partner_how'; props: { from: 'scene' } }
   | { name: 'app_book_sorted'; props: { by: string } }
   | { name: 'app_run_listen'; props: { on: boolean } }
+  | { name: 'demo_shown'; props: { after: number } }
+  | { name: 'demo_card'; props: { key: string } }
+  | { name: 'demo_part'; props: { key: string; character: string } }
+  | { name: 'demo_voice'; props: { key: string; voice: string } }
+  | { name: 'demo_heard'; props: { key: string; voice: string } }
+  | { name: 'demo_begun'; props: { key: string; character: string; after: number } }
+  | { name: 'demo_curtain'; props: { key: string; which: number; heard: number; of: number } }
+  | { name: 'demo_left'; props: { key: string; which: number; to: 'curtain' | 'week' | 'another' } }
+  | { name: 'demo_skipped'; props: { at: 'cards' | 'card'; after: number } }
   | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }
   | { name: 'app_rehearse_ended'; props: { source: 'library' | 'script' | 'guided'; how: 'completed' | 'left'; lines: number; seconds: number } }
   /** The gate stopped a run: the wall, and whether the paywall was opened from it. */

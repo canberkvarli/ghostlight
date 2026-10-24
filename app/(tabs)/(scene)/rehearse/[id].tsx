@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,11 +10,16 @@ import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { CastSheet } from '../../../../src/components/rehearse/CastSheet';
+import { DemoCurtain } from '../../../../src/components/rehearse/DemoCurtain';
+import { firstScenes, markDemoDone } from '../../../../src/lib/demo';
+import { useTrialOffer } from '../../../../src/hooks/useTrialOffer';
+import { useSession } from '../../../../src/lib/useSession';
 import { Stage } from '../../../../src/components/rehearse/Stage';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
 import { runsSpent } from '../../../../src/api/client';
 import { useRehearsal } from '../../../../src/hooks/useRehearsal';
+import { sameCharacter } from '../../../../src/rehearsal/contract';
 import { useGuided, useRehearsalScene } from '../../../../src/hooks/useScenePartner';
 import { track } from '../../../../src/lib/analytics';
 import { useGoBack } from '../../../../src/lib/nav';
@@ -35,8 +40,14 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  * and a dock for pause, skip and back. The end is a moment, not a report.
  */
 export default function Rehearse() {
-  const { id, from, go, resume } = useLocalSearchParams<{ id: string; from?: string; go?: string; resume?: string }>();
+  const { id, from, go, resume, guided: guidedParam, cast, voices: voicesParam, demo, key: demoKey } = useLocalSearchParams<{
+    id: string; from?: string; go?: string; resume?: string; guided?: string; cast?: string; voices?: string; demo?: string; key?: string;
+  }>();
   const guided = id === 'guided';
+  // One of the first scenes, picked on the way in with the part and the voice: a guided run of that scene.
+  const picked = guidedParam === 'pick';
+  const castVoices = useMemo<Record<string, string>>(() => { try { return voicesParam ? JSON.parse(voicesParam) as Record<string, string> : {}; } catch { return {}; } }, [voicesParam]);
+  const demoN: 1 | 2 | null = demo === '1' ? 1 : demo === '2' ? 2 : null;
   const { data: guidedPick, isError: guidedFailed } = useGuided(guided);
   const sceneId = guided ? guidedPick?.scene_id ?? null : Number(id);
   const { data: payload, isLoading, isError, refetch } = useRehearsalScene(Number.isFinite(sceneId as number) ? sceneId : null);
@@ -57,7 +68,7 @@ export default function Rehearse() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       {payload ? (
-        <Run key={take} payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1' && take === 1} onLeave={goBack} onAgain={() => { setTake(t => t + 1); void refetch(); }} />
+        <Run key={take} payload={payload} guided={guided} picked={picked} cast={cast ?? null} castVoices={castVoices} demoN={demoN} demoKey={demoKey ?? null} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1' && take === 1} onLeave={goBack} onAgain={() => { setTake(t => t + 1); void refetch(); }} />
       ) : (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <TopBar title="" onLeave={goBack} />
@@ -96,7 +107,8 @@ function phoneError(e: string | null): string | null {
     .replace('Allow it in your browser and reload.', 'Allow it in Settings and come back.');
 }
 
-function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
+function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guidedPart, go, pickUp, onLeave, onAgain }: {
+  picked: boolean; cast: string | null; castVoices: Record<string, string>; demoN: 1 | 2 | null; demoKey: string | null;
   payload: ScenePayload; guided: boolean; guidedPart: string | null;
   /** `?go=1`, as on the web: begin the moment Begin would light. A link from a reminder, or a test. */
   go: boolean;
@@ -110,7 +122,7 @@ function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
   // the offer on the sheet's foot before a request is wasted. The guided
   // scene is never metered, and picking an open run back up is not a new one.
   const { wall, isPaid } = useEntitlement();
-  const spent = !guided && !isPaid && runsSpent(wall) && !payload.resume;
+  const spent = !guided && !picked && !isPaid && runsSpent(wall) && !payload.resume;
   const [chosen, setChosen] = useState<string | null>(null);
   const [resumed, setResumed] = useState(false);
   const [armed, setArmed] = useState(false); // Begin was tapped: start the moment the first line is ready
@@ -122,8 +134,15 @@ function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
     setChosen(character || guidedPart || payload.characters[0] || '');
     setResumed(Boolean(pickUp));
     setArmed(true);
-    void r.prepare(character, voices, pickUp ? { resumeRunId: pickUp.runId, resumeLine: pickUp.lineIndex } : guided ? { guided: true } : undefined);
-  }, [r, guided, guidedPart, payload.characters]);
+    void r.prepare(character, voices, pickUp ? { resumeRunId: pickUp.runId, resumeLine: pickUp.lineIndex } : guided ? { guided: true } : picked ? { guided: 'pick' } : undefined);
+  }, [r, guided, picked, guidedPart, payload.characters]);
+
+  // A first scene arrives cast: the part and the voice were chosen on the card, so it starts by itself.
+  useEffect(() => {
+    if (!cast || armed) return;
+    onBeginTap(cast, castVoices);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cast]);
 
 
   useEffect(() => {
@@ -172,11 +191,44 @@ function Run({ payload, guided, guidedPart, go, pickUp, onLeave, onAgain }: {
   const actor = chosen ?? payload.characters[0] ?? '';
   const sceneLine = useMemo(() => [payload.scene.play_title, payload.scene.title].filter(Boolean).join(' · '), [payload.scene]);
 
+  // The curtain call of a first scene: their own numbers, then the other keys or the week.
+  const guidedList = useGuided(Boolean(demoN));
+  const { isAuthenticated } = useSession();
+  const offer = useTrialOffer({ from: 'demo', onDone: () => {}, onSignIn: () => router.push('/auth') });
+  const mine = useMemo(() => payload.lines.filter(l => sameCharacter(l.character, actor)), [payload.lines, actor]);
+  const heardCount = mine.filter(l => (r.snapshot?.heard.get(l.index)?.size ?? 0) > 0).length;
+  const others = useMemo(() => firstScenes(guidedList.data).filter(s => s.key !== demoKey), [guidedList.data, demoKey]);
+  useEffect(() => {
+    if (ended && demoN && demoKey) { void markDemoDone(demoKey); track('demo_curtain', { key: demoKey, which: demoN, heard: heardCount, of: mine.length }); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ended, demoN, demoKey]);
+  const leaveDemo = (to: 'curtain' | 'week' | 'another', key?: string) => {
+    track('demo_left', { key: demoKey ?? '', which: demoN ?? 0, to });
+    if (to === 'another' && key) { router.replace({ pathname: '/demo', params: { key, after: String(demoN ?? 1) } }); return; }
+    if (to === 'week') { router.replace(isAuthenticated ? '/search' : '/curtain'); router.push('/paywall'); return; }
+    router.replace(isAuthenticated ? '/search' : '/curtain');
+  };
+
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
       <TopBar title={running || ended ? sceneLine : ''} onLeave={leave} progress={running ? progressOf(r.snapshot?.lineIndex ?? 0, payload.lines.length) : null}
         counter={running ? `${(r.snapshot?.lineIndex ?? 0) + 1}/${payload.lines.length}` : null} />
-      {ended ? (
+      {ended && demoN ? (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+          <DemoCurtain
+            title={payload.scene.title}
+            which={demoN}
+            heard={heardCount}
+            of={mine.length}
+            seconds={begunAt.current ? Math.round((Date.now() - begunAt.current) / 1000) : 0}
+            others={others}
+            termsLine={offer.termsLine ?? null}
+            onAnother={(key) => leaveDemo('another', key)}
+            onWeek={() => leaveDemo('week')}
+            onNotTonight={() => leaveDemo('curtain')}
+          />
+        </ScrollView>
+      ) : ended ? (
         <Animated.View entering={FadeIn.duration(420)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <StageDirection>(lights down.)</StageDirection>
           <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.5, color: c.foreground }}>

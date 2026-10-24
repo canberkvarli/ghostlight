@@ -32,7 +32,7 @@ export interface Rehearsal {
   canBegin: boolean;
   /** The gate said no: the wall, not an error. */
   gated: boolean;
-  prepare: (character: string, voices: Record<string, string>, opts?: { guided?: boolean; resumeRunId?: number; resumeLine?: number }) => Promise<void>;
+  prepare: (character: string, voices: Record<string, string>, opts?: { guided?: boolean | 'pick'; resumeRunId?: number; resumeLine?: number }) => Promise<void>;
   begin: () => void;
   pause: () => void; resume: () => void; skip: () => void; back: () => void; jumpTo: (line: number) => void;
   leave: () => void;
@@ -88,7 +88,9 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
         run = picked;
         resumeLine = picked.line_index;
       } else if (opts?.guided) {
-        run = (await openGuidedRun()) as GuidedRun;
+        // One of the phone's first scenes, with the part and the voice chosen
+        // on the way in; or the server's own pick when the scene is the one it names.
+        run = (await openGuidedRun(opts.guided === 'pick' ? { sceneId: payload.scene.id, character, voices } : undefined)) as GuidedRun;
       } else {
         const opened = await openRun(payload.scene.id, character, voices);
         run = { scene_id: payload.scene.id, character, ...opened };

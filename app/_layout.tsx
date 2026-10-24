@@ -295,6 +295,8 @@ function Shell() {
         {/* The signed-in app: four tabs, each its own stack (Search, Book, Board, Scene). */}
         <Stack.Screen name="(tabs)" options={{ animation: 'fade', animationDuration: 240 }} />
         <Stack.Screen name="curtain" options={{ animation: 'fade', animationDuration: 320 }} />
+        {/* The first scenes: what a stranger meets at the stage door, and a door on the curtain after. */}
+        <Stack.Screen name="demo" options={{ animation: 'fade', animationDuration: 320 }} />
         {/* The rehearsal room for a monologue: a sheet over the page; pull it down to come back to the words. */}
         <Stack.Screen name="run/[id]" options={{ presentation: 'modal' }} />
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
