@@ -10,7 +10,6 @@ import { useQuery } from '@tanstack/react-query';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
-import { GhostLight } from '../src/components/GhostLight';
 import { BackHeader } from '../src/components/BackHeader';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { useStageMotion } from '../src/hooks/useStageMotion';
@@ -19,9 +18,8 @@ import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useRunStats } from '../src/hooks/useScenePartner';
 import type { ReadState } from '../src/api/client';
 import { isAppleAuthAvailable, signInWithApple } from '../src/lib/auth';
-import { castingChips, useCasting } from '../src/lib/casting';
 import { useSession } from '../src/lib/useSession';
-import { useGoBack } from '../src/lib/nav';
+import { useGoBack, useGuardedPush } from '../src/lib/nav';
 import { getSubscription, manageSubscription } from '../src/lib/purchases';
 import { track } from '../src/lib/analytics';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -67,11 +65,11 @@ export default function You() {
 
 function SignedIn({ session }: { session: Session }) {
   const router = useRouter();
+  const push = useGuardedPush();
   const { colors: c } = useTheme();
   const { wall, isPaid, failed: wallFailed, refresh: refreshWall } = useEntitlement();
   const { data: saved } = useFavorites(true);
   const stats = useRunStats(true);
-  const { casting } = useCasting();
 
   // Coming back to this screen asks again if the last answer never came.
   useFocusEffect(useCallback(() => { if (wallFailed) refreshWall(); }, [wallFailed, refreshWall]));
@@ -79,11 +77,10 @@ function SignedIn({ session }: { session: Session }) {
   const who = nameOf(session);
   const letter = (who.first || session.user.email || 'A').trim().charAt(0).toUpperCase();
   const since = sinceLabel(session.user.created_at);
-  const chips = castingChips(casting);
 
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 10, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-      {/* The header: the initial, the name, one Courier line. */}
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 26, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      {/* The header: the initial, the name, one Courier line. The glow needs the room above: the scroll view clips at its edge. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
         <Avatar letter={letter} paid={isPaid} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -97,39 +94,16 @@ function SignedIn({ session }: { session: Session }) {
         </View>
       </View>
 
-      {/* Who you play: the search starts here. */}
-      <View style={{ marginTop: 30 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Eyebrow>YOU PLAY</Eyebrow>
-          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/casting'); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Edit who you play">
-            <Text style={{ fontFamily: SANS_B, fontSize: 12.5, color: c.accentText }}>Edit</Text>
-          </Pressable>
-        </View>
-        {chips.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-            {chips.map(ch => (
-              <View key={ch.key} style={{ paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: c.accentText }}>
-                <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.accentText }}>{ch.label}</Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Pressable onPress={() => router.push('/casting')} accessibilityRole="button" style={{ marginTop: 12 }}>
-            <StageDirection>(nothing yet. say who you play and the search will know.)</StageDirection>
-          </Pressable>
-        )}
-        <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 12, lineHeight: 18, color: c.chevron }}>Search starts here unless you change it.</Text>
+      {/* Your plan: the one card. */}
+      <View style={{ marginTop: 28 }}>
+        {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => push('/paywall')} />}
       </View>
 
       {/* One row, three counts. */}
-      <View style={{ marginTop: 26, flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.divider }}>
+      <View style={{ marginTop: 28, flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.divider }}>
         <Stat n={saved?.length ?? 0} label="(kept.)" onPress={() => router.push('/saves')} />
         <Stat n={wall?.reads_used ?? 0} label="(read.)" divider />
         <Stat n={stats.data?.runs ?? 0} label="(scenes run.)" divider onPress={() => router.push('/rehearse')} />
-      </View>
-
-      <View style={{ marginTop: 26 }}>
-        {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => router.push('/paywall')} />}
       </View>
     </ScrollView>
   );
@@ -276,9 +250,8 @@ function SignedOut() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 24, paddingBottom: 24, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-      <View style={{ alignItems: 'center', marginTop: 28 }}>
-        <GhostLight size={48} dress="full" />
-        <Text style={{ marginTop: 30, textAlign: 'center', fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
+      <View style={{ alignItems: 'center', marginTop: 44 }}>
+        <Text style={{ textAlign: 'center', fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
           Take a <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>seat.</Text>
         </Text>
         <StageDirection style={{ marginTop: 12, textAlign: 'center' }}>(sign in to keep what you find.)</StageDirection>

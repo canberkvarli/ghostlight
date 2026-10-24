@@ -32,13 +32,14 @@ import { WorkingPage, type PageMode, type PageView } from '../../../../src/compo
 import { applyCut, clock, directionUnits, estimateSeconds, joinUnits, unitsOf } from '../../../../src/lib/segments';
 import { sketchFor } from '../../../../src/lib/sketchFor';
 import { getMonologueById, formatDuration, type Monologue } from '../../../../src/data/monologues';
-import { getMonologue } from '../../../../src/api/client';
+import { ApiError, getMonologue } from '../../../../src/api/client';
 import { apiToMonologue } from '../../../../src/data/adapt';
 import { recordRead } from '../../../../src/lib/reads';
 import { noteRecent, touchRecent } from '../../../../src/lib/recents';
 import { maybeAskKnock, notePieceOpened } from '../../../../src/lib/nudges';
 import { recordFinishedRead } from '../../../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../../../src/lib/offline';
+import { supabase } from '../../../../src/lib/supabase';
 import { useSession } from '../../../../src/lib/useSession';
 import { useGoBack } from '../../../../src/lib/nav';
 import { useIsFavorited, useMarkStudied, useSavedPiece, useSetCut, useSetOffBook, useToggleFavorite } from '../../../../src/hooks/useFavorites';
@@ -137,7 +138,7 @@ export default function Read() {
   // Fixtures first (offline, instant); fall to the live fetch for real search
   // results whose id the device has never seen.
   const fixture = id ? getMonologueById(id) : undefined;
-  const { data: fetched, isLoading, isError, refetch } = useQuery<Monologue>({
+  const { data: fetched, isLoading, isError, error: fetchError, refetch } = useQuery<Monologue>({
     queryKey: ['monologue', id],
     enabled: Boolean(id) && !fixture,
     retry: false,
@@ -145,6 +146,14 @@ export default function Read() {
       try {
         return apiToMonologue(await getMonologue(id!, signal));
       } catch (err) {
+        // A stale token answers 401 for a signed-in actor. Refresh the
+        // session once and ask again before calling it a locked door.
+        if (err instanceof ApiError && err.status === 401) {
+          const { data } = await supabase.auth.refreshSession();
+          if (data.session) {
+            try { return apiToMonologue(await getMonologue(id!, signal)); } catch { /* the first error stands */ }
+          }
+        }
         // No signal? Read the offline copy if this one is on the shelf.
         const local = await getOffline(id!);
         if (local) return local;
@@ -152,6 +161,10 @@ export default function Read() {
       }
     },
   });
+  // A locked door, or a dark page: 401 and 403 are the door, and only for a
+  // stranger. Any other failure for anyone, and the door for a signed-in actor
+  // whose token could not be refreshed, is the page not opening.
+  const lockedOut = isError && fetchError instanceof ApiError && (fetchError.status === 401 || fetchError.status === 403);
   // The row the list handed over on the tap. Enough to draw the heading — title,
   // character, source, author, duration — and nothing else. Deliberately NOT
   // used for the body: the list only carries a two-line excerpt, so seeding the
@@ -469,7 +482,7 @@ export default function Read() {
     return (
       <StageShell onBack={goBack} pal={pal}>
         <Sketch name="stageDoor" size={96} stroke={c.mutedForeground} accent={c.yellow} />
-        {isError ? (
+        {isError && lockedOut && !isAuthenticated ? (
           <>
             <StageDirection style={{ marginTop: 24, textAlign: 'center' }}>
               (this one&apos;s behind the stage door.)
@@ -477,6 +490,21 @@ export default function Read() {
             <PrimaryPill
               label="Sign in to read"
               onPress={() => router.push('/auth')}
+              style={{ marginTop: 26, alignSelf: 'center' }}
+            />
+            <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 18 }} accessibilityRole="button">
+              <StageDirection>(back to the list.)</StageDirection>
+            </Pressable>
+          </>
+        ) : isError ? (
+          <>
+            <StageDirection style={{ marginTop: 24, textAlign: 'center' }}>
+              (that page would not open. check the signal and try again.)
+            </StageDirection>
+            <PrimaryPill
+              label="Try again"
+              variant="outline"
+              onPress={() => { void refetch(); }}
               style={{ marginTop: 26, alignSelf: 'center' }}
             />
             <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 18 }} accessibilityRole="button">

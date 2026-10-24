@@ -45,7 +45,6 @@ import { useFavorites } from '../../../src/hooks/useFavorites';
 import { Trending } from '../../../src/components/Trending';
 import { track } from '../../../src/lib/analytics';
 import { useEntitlement } from '../../../src/hooks/useEntitlement';
-import { castingToSelection, useCasting } from '../../../src/lib/casting';
 import { useSession } from '../../../src/lib/useSession';
 import { colors, radius } from '../../../src/theme/tokens';
 import { pickPromptIndex, promptAt } from '../../../src/data/prompts';
@@ -210,21 +209,6 @@ export default function Search() {
 
   const advanced = advancedCount(selected);
 
-  // Who you play (the You screen) is where a search starts: once, on a fresh
-  // search, and never over filters the actor has already touched. The key
-  // (tone) is a premium filter, so it is left off for a free actor rather
-  // than sending their first tap to the paywall.
-  const { casting, loaded: castingLoaded } = useCasting();
-  const seeded = useRef(false);
-  useEffect(() => {
-    if (seeded.current || !castingLoaded) return;
-    seeded.current = true;
-    const start = castingToSelection(casting, isPaid);
-    if (Object.keys(start).length > 0) {
-      setSelected((s) => (Object.values(s).some(Boolean) ? s : { ...EMPTY_SELECTION, ...start }));
-    }
-    if (casting.medium) setMediumState(casting.medium);
-  }, [casting, castingLoaded, isPaid]);
 
   const openMoreFilters = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});

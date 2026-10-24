@@ -15,3 +15,23 @@ export function useGoBack(fallback: Href = '/search') {
     else router.replace(fallback);
   }, [router, fallback]);
 }
+
+let lastPushed = '';
+let lastPushedAt = 0;
+
+/**
+ * A push that cannot double. A thumb that taps a row twice while the screen
+ * is still coming up used to stack two paywalls; the second tap on the same
+ * destination inside a second is the same tap.
+ */
+export function useGuardedPush() {
+  const router = useRouter();
+  return useCallback((href: Href) => {
+    const key = typeof href === 'string' ? href : JSON.stringify(href);
+    const now = Date.now();
+    if (key === lastPushed && now - lastPushedAt < 1200) return;
+    lastPushed = key;
+    lastPushedAt = now;
+    router.push(href);
+  }, [router]);
+}

@@ -307,8 +307,6 @@ function Shell() {
         <Stack.Screen name="sides" options={{ presentation: 'modal' }} />
         {/* The evening after an audition: how did it go, as a sheet that stops short of the top. */}
         <Stack.Screen name="outcome" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.72], sheetGrabberVisible: true }} />
-        {/* Who you play: a sheet over You, the same chips as the filter sheet. */}
-        <Stack.Screen name="casting" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.86], sheetGrabberVisible: true }} />
       </Stack>
 
       {/* The launch sequence, over the booted app; it fades and unmounts itself. */}
