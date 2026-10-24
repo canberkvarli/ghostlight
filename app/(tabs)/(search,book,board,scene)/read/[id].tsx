@@ -40,6 +40,7 @@ import { maybeAskKnock, notePieceOpened } from '../../../../src/lib/nudges';
 import { recordFinishedRead } from '../../../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../../../src/lib/offline';
 import { supabase } from '../../../../src/lib/supabase';
+import { UndoBar } from '../../../../src/components/UndoBar';
 import { useSession } from '../../../../src/lib/useSession';
 import { useGoBack } from '../../../../src/lib/nav';
 import { useIsFavorited, useMarkStudied, useSavedPiece, useSetCut, useSetOffBook, useToggleFavorite } from '../../../../src/hooks/useFavorites';
@@ -290,12 +291,21 @@ export default function Read() {
     setView('cut');
     setMode('read');
   };
+  // The five seconds after a tap that takes something away: clearing the cut,
+  // or the bookmark coming out. One bar, the same as the book's.
+  const [undo, setUndo] = useState<{ key: number; label: string; restore: () => void } | null>(null);
   const clearCut = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (monologue && cut) {
+      const was = { start: cut.start, end: cut.end };
+      const item = monologue;
       setCutM.mutate({ id: monologue.id, start: null, end: null, item: monologue });
       void noteRecent(monologue.id, { cutSeconds: null });
       track('app_cut_set', { seconds: 0, of: fullSeconds, cleared: true });
+      setUndo({ key: Date.now(), label: 'Cut cleared', restore: () => {
+        setCutM.mutate({ id: item.id, start: was.start, end: was.end, item });
+        setView('cut');
+      } });
     }
     setPick({ start: null, end: null });
     setMode('read');
@@ -377,6 +387,10 @@ export default function Read() {
     // POST, which is what made this button feel dead (see useToggleFavorite).
     toggleFavorite.mutate({ id: monologue.id, on: willSave, item: monologue });
     if (willSave) void maybeAskKnock('save');
+    if (!willSave) {
+      const item = monologue;
+      setUndo({ key: Date.now(), label: 'Taken out of your book', restore: () => { toggleFavorite.mutate({ id: item.id, on: true, item }); void saveOffline(item); } });
+    }
     // A bookmark filling in is easy to miss and easy to misread as a tap that
     // didn't land — especially since the same button un-saves. One word, and it
     // says which of the two just happened.
@@ -1046,6 +1060,10 @@ export default function Read() {
           </View>
         </Animated.View>
       </SafeAreaView>
+
+      {undo ? (
+        <UndoBar key={undo.key} label={undo.label} onUndo={() => { undo.restore(); setUndo(null); }} onExpire={() => setUndo(null)} />
+      ) : null}
 
       {/* The save acknowledgement — a beat over the page, then gone. */}
       {saveNote ? (
