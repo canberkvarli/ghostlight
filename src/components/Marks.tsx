@@ -88,9 +88,11 @@ export function Mark({ spec }: { spec: MarkSpec }) {
           ? { bg: colors.ink, fg: '#f3eee6', bd: colors.ink }
           : { bg: 'transparent', fg: tint ?? colors.primary, bd: tint ?? colors.primary };
 
+  // A source tag is a label, not a button: plain type, no edge round it.
+  const plain = kind === 'source' || kind === undefined;
   return (
     <View
-      style={{
+      style={plain ? { paddingVertical: 2 } : {
         borderRadius: 999,
         borderWidth: 1.5,
         borderColor: skin.bd,

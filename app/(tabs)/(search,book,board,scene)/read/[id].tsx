@@ -20,7 +20,7 @@ import { Sketch } from '../../../../src/components/Sketches';
 import { StageDirection } from '../../../../src/components/StageDirection';
 import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
-import { Mark, sourceTag } from '../../../../src/components/Marks';
+import { sourceTag } from '../../../../src/components/Marks';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { ReadWall } from '../../../../src/components/ReadWall';
 import { PageCurl } from '../../../../src/components/PageCurl';
@@ -707,12 +707,10 @@ export default function Read() {
                   marginTop: 14,
                 }}
               >
-                <MetaPill>{formatDuration(shown.duration)}</MetaPill>
-                {shown.ageRange && shown.ageRange !== '—' ? <MetaPill>{shown.ageRange}</MetaPill> : null}
-                {shown.gender && shown.gender !== 'any' ? <MetaPill>{shown.gender}</MetaPill> : null}
-                {tag ? (
-                  <Mark spec={{ label: tag, kind: 'source', tint: ink.tagInk }} />
-                ) : null}
+                {/* The facts of the piece as one line of small type: a tag is read, not tapped. */}
+                <Text style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 11, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: c.paperMuted }}>
+                  {[formatDuration(shown.duration), shown.ageRange && shown.ageRange !== '—' ? shown.ageRange : null, shown.gender && shown.gender !== 'any' ? shown.gender : null, tag].filter(Boolean).join('  ·  ')}
+                </Text>
                 {/* Off book, for a piece in the book. The same tick as the Saves
                     screen and the website: filled once you know it. */}
                 {saved ? (
@@ -1185,33 +1183,6 @@ function WorkButton({
 }
 
 /** A durable fact about the piece — length, age, gender. Quiet, on paper. */
-function MetaPill({ children }: { children: React.ReactNode }) {
-  const { colors: c } = useTheme();
-  return (
-    <View
-      style={{
-        height: 26,
-        justifyContent: 'center',
-        borderRadius: 999,
-        borderWidth: 1.5,
-        borderColor: c.paperRule,
-        paddingHorizontal: 11,
-      }}
-    >
-      <Text
-        numberOfLines={1}
-        style={{
-          fontFamily: 'BricolageGrotesque_600SemiBold',
-          fontSize: 11,
-          textTransform: 'lowercase',
-          color: c.paperMuted,
-        }}
-      >
-        {children}
-      </Text>
-    </View>
-  );
-}
 
 /**
  * The dark stage the loading / can't-reach states stand on — so those moments

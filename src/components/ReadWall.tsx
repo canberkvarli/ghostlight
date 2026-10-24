@@ -44,7 +44,9 @@ import { useTheme } from '../theme/ThemeContext';
  */
 
 /** How much blurred page sits under the offer. Tall enough for the card and its small print. */
-const GHOST_LINES = 22;
+const GHOST_LINES = 16;
+/** How many lines of the opening stay sharp. The offer has to be on the first screen, however long the first speech runs. */
+const SHARP_LINES = 5;
 const RISE_MS = 520;
 const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 
@@ -125,7 +127,9 @@ export function ReadWall({
 
   return (
     <View>
-      <MonologueText body={visible} lineHeight={lineHeight} fontSize={fontSize} />
+      <View style={{ maxHeight: lineHeight * SHARP_LINES, overflow: 'hidden' }}>
+        <MonologueText body={visible} lineHeight={lineHeight} fontSize={fontSize} />
+      </View>
 
       <View style={{ height: ghostH, marginTop: 2, overflow: 'hidden' }}>
         <Animated.View style={[StyleSheet.absoluteFill, ghostStyle]} pointerEvents="none">

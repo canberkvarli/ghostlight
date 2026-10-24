@@ -328,11 +328,8 @@ export default function RunScreen() {
               </Pressable>
             </ScrollView>
 
-            {/* The dock: one line of help, two things to press. */}
-            <View style={{ alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 8, gap: 12 }}>
-              <Text style={caps}>
-                {hidden && !shown ? 'tap the line to see it · tap the stage to move on' : 'tap the stage to move on'}
-              </Text>
+            {/* The dock: two things to press, each the same width whatever it says. */}
+            <View style={{ alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 8 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Dock label={hidden ? 'show the lines' : 'hide the lines'} icon={hidden ? 'eye-outline' : 'eye-off-outline'} on={hidden} onPress={toggleHidden} />
                 <Dock label="from the top" icon="refresh-outline" onPress={again} />
@@ -441,7 +438,8 @@ function Dock({
       accessibilityState={{ selected: Boolean(on) }}
       style={({ pressed }) => ({
         height: 38,
-        paddingHorizontal: 16,
+        width: 156,
+        justifyContent: 'center',
         borderRadius: 999,
         borderWidth: 1.5,
         borderColor: on ? c.foreground : c.border,

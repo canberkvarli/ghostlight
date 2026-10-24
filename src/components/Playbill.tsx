@@ -1,23 +1,20 @@
 import { Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
 import type { Monologue } from '../data/monologues';
 import { clock } from '../lib/segments';
 import { useTheme } from '../theme/ThemeContext';
 import { PaperCard } from './PaperCard';
-import { Cover } from './Cover';
-import { SCREEN_BLOCK } from './PieceCover';
-import { sharpPoster } from '../lib/posters';
+import { PieceCover } from './PieceCover';
 import { StageDirection } from './StageDirection';
 import { WordArrow } from './WordArrow';
 
 /**
- * One card of the playbill. The poster, or the cover of the play's edition,
- * fills the top of the card and fades down into the paper the words are
- * printed on, so the picture and the speech are one sheet, not a thumbnail
- * beside a caption. The deck throws these; the card itself only knows how to
- * be tapped (read it) and held (share it).
+ * One card of the playbill: a page of sides. The cover of the edition, the
+ * line drawing on cloth that the book and the shelves use, sits at the top
+ * right of the sheet with the name and the play beside it, and the speech is
+ * printed under them. Nothing fades into anything: ink on paper. The deck
+ * throws these; the card itself only knows how to be tapped (read it) and
+ * held (share it).
  */
 /** The dark between two sheets, where sheets stack. */
 export const GAP = 14;
@@ -36,94 +33,46 @@ export function PlaybillCard({
   onOpen: () => void;
 }) {
   const { colors: c } = useTheme();
-  const screen = item.sourceType === 'film' || item.sourceType === 'tv';
-  const pictureH = Math.round(height * 0.44);
-  // However many lines of the speech fit between the name and the foot of the
+  // However many lines of the speech fit between the head and the foot of the
   // page, so a tall phone shows more of it and a short one is not crowded.
-  const lines = Math.max(3, Math.min(6, Math.floor((height - pictureH - 200) / 22)));
+  const lines = Math.max(4, Math.min(9, Math.floor((height - 236) / 22)));
   return (
     <View style={{ height }} accessible accessibilityLabel={`${item.character}, from ${item.source}. Tap to read it`} accessibilityHint="Swipe right to keep it, left for another. Hold to share it as a picture">
       <View style={{ flex: 1 }}>
-        <PaperCard shadow={8} wrapperStyle={{ flex: 1 }} style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
-          {/* The picture. The poster for the screen, the cover of the edition for a play. */}
-          <View style={{ height: pictureH, overflow: 'hidden' }}>
-            <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
-              {screen && item.posterUrl ? (
-                <Image
-                  source={{ uri: sharpPoster(item.posterUrl, 700) }}
-                  style={{ width: '100%', height: '100%', backgroundColor: SCREEN_BLOCK }}
-                  contentFit="cover"
-                  contentPosition="top"
-                  cachePolicy="memory-disk"
-                  transition={240}
-                  accessibilityIgnoresInvertColors
-                />
-              ) : (
-                <Cover item={item} height={pictureH} screen={screen} />
-              )}
+        <PaperCard shadow={8} wrapperStyle={{ flex: 1 }} style={{ flex: 1, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18, justifyContent: 'space-between' }}>
+          <View>
+            {/* The head: who, from what, and the cover of the edition beside it. */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <StageDirection on="paper">{first ? '(tonight.)' : '(another.)'}</StageDirection>
+                <Text
+                  numberOfLines={2}
+                  style={{ marginTop: 6, fontFamily: 'InstrumentSerif_400Regular', fontSize: 32, lineHeight: 35, letterSpacing: -0.5, color: c.paperInk }}
+                >
+                  {item.character}
+                </Text>
+                <Text
+                  numberOfLines={2}
+                  style={{ marginTop: 4, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, lineHeight: 17, letterSpacing: 0.4, color: c.paperMuted }}
+                >
+                  {`from ${item.source}${item.author ? ` · ${item.author}` : ''}`}
+                </Text>
+              </View>
+              <PieceCover item={item} width={66} height={94} />
             </View>
-            {/* The picture fades into the paper. */}
-            <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.round(pictureH * 0.55) }}>
-              <Rect x={0} y={0} width={2000} height={Math.round(pictureH * 0.55)}>
-                <LinearGradient
-                  start={vec(0, 0)}
-                  end={vec(0, Math.round(pictureH * 0.55))}
-                  colors={[`${c.paper}00`, `${c.paper}cc`, c.paper]}
-                  positions={[0, 0.62, 1]}
-                />
-              </Rect>
-            </Canvas>
+            {/* The words. */}
+            <Text
+              numberOfLines={lines}
+              style={{ marginTop: 18, fontFamily: 'CourierPrime_400Regular', fontSize: 14.5, lineHeight: 22, color: c.paperBody }}
+            >
+              {item.excerpt}
+            </Text>
           </View>
-
-          {/* The words, printed on the paper the picture faded into. */}
-          <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 18, marginTop: -8, justifyContent: 'space-between' }}>
-            <View>
-              <StageDirection on="paper">{first ? '(tonight.)' : '(another.)'}</StageDirection>
-              <Text
-                numberOfLines={2}
-                style={{
-                  marginTop: 6,
-                  fontFamily: 'InstrumentSerif_400Regular',
-                  fontSize: 34,
-                  lineHeight: 37,
-                  letterSpacing: -0.5,
-                  color: c.paperInk,
-                }}
-              >
-                {item.character}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{
-                  marginTop: 4,
-                  fontFamily: 'CourierPrime_400Regular_Italic',
-                  fontSize: 13,
-                  lineHeight: 17,
-                  letterSpacing: 0.4,
-                  color: c.paperMuted,
-                }}
-              >
-                {`from ${item.source}`}
-              </Text>
-              <Text
-                numberOfLines={lines}
-                style={{
-                  marginTop: 12,
-                  fontFamily: 'CourierPrime_400Regular',
-                  fontSize: 14.5,
-                  lineHeight: 22,
-                  color: c.paperBody,
-                }}
-              >
-                {item.excerpt}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 12, letterSpacing: 0.6, color: c.paperMuted }}>
-                {item.duration ? clock(item.duration) : ''}
-              </Text>
-              <WordArrow label="read" onPress={onOpen} tint={c.accentText} />
-            </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontFamily: 'CourierPrime_400Regular', fontSize: 12, letterSpacing: 0.6, color: c.paperMuted }}>
+              {item.duration ? clock(item.duration) : ''}
+            </Text>
+            <WordArrow label="read" onPress={onOpen} tint={c.accentText} />
           </View>
         </PaperCard>
       </View>

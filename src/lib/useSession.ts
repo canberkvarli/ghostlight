@@ -39,9 +39,16 @@ export interface SessionInfo {
   loading: boolean;
 }
 
+/**
+ * The session as the last hook saw it. A room mounting later starts from it,
+ * so the book does not say "sign in" for a frame before it knows you.
+ */
+let known: { session: Session | null } | null = null;
+
 export function useSession(): SessionInfo {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSessionState] = useState<Session | null>(() => known?.session ?? null);
+  const [loading, setLoading] = useState(known === null);
+  const setSession = (next: Session | null) => { known = { session: next }; setSessionState(next); };
 
   useEffect(() => {
     let alive = true;

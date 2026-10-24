@@ -82,8 +82,10 @@ export default function Curtain() {
     return i < 0 ? [tonight, ...h] : [...h.slice(i), ...h.slice(0, i)];
   }, [list, medium, tonight]);
 
-  // The deck's height comes from the screen, measured once it is laid out.
+  // The deck's height comes from the screen, measured once it is laid out, and
+  // capped: a card is a page of sides, not a poster, and sits in the middle of the room.
   const [deckH, setDeckH] = useState(0);
+  const deckSpace = Math.min(deckH - insets.bottom - 6, 540);
   const [at, setAt] = useState(0);
   // The next two posters are fetched while this card is up, so a throw lands
   // on a picture and not on a block where one is loading.
@@ -243,21 +245,21 @@ export default function Curtain() {
         {/* The deck. */}
         <View style={{ flex: 1, marginTop: 6 }} onLayout={(e) => setDeckH(e.nativeEvent.layout.height)}>
           {deckH > 0 ? (
-            <Animated.View key={medium} entering={FadeIn.duration(reduce ? 120 : 360)} exiting={FadeOut.duration(160)} style={{ flex: 1 }}>
+            <Animated.View key={medium} entering={FadeIn.duration(reduce ? 120 : 360)} exiting={FadeOut.duration(160)} style={{ flex: 1, justifyContent: 'center' }}>
               {house.length > 0 ? (
-                <View style={{ flex: 1, paddingHorizontal: 20 }}>
+                <View style={{ paddingHorizontal: 20 }}>
                   <Deck
                     items={house}
                     keyOf={(m) => m.id}
                     deckKey={medium}
-                    height={deckH - insets.bottom - 6}
+                    height={deckSpace}
                     reduce={reduce}
                     onKeep={keep}
                     onPass={pass}
                     onOpen={open}
                     onHold={share}
                     renderCard={(item, first) => (
-                      <PlaybillCard item={item} height={deckH - insets.bottom - 6 - 64 - 22} first={first} onOpen={() => open(item)} />
+                      <PlaybillCard item={item} height={deckSpace - 64 - 22} first={first} onOpen={() => open(item)} />
                     )}
                   />
                 </View>
@@ -265,11 +267,11 @@ export default function Curtain() {
                 <View style={{ paddingHorizontal: 20 }}>
                   {!settled ? (
                     <Animated.View style={breathStyle}>
-                      <BlankPage height={deckH - insets.bottom - 92} />
+                      <BlankPage height={deckSpace - 86} />
                     </Animated.View>
                   ) : (
                     <BlankPage
-                      height={deckH - insets.bottom - 92}
+                      height={deckSpace - 86}
                       line={failed ? '(the house is dark. tap to try again.)' : '(nothing on tonight.)'}
                       onPress={
                         failed
