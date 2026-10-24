@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
@@ -77,45 +77,47 @@ export default function OutcomeSheet() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.background }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 32 }}>
-        <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(how did it go?)</Text>
-        <Text style={{ marginTop: 8, fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.5, color: c.foreground }}>
-          {a ? a.project : '…'}{a?.role ? <Text style={{ fontFamily: SERIF_I }}>{`, ${a.role}.`}</Text> : a ? '.' : ''}
-        </Text>
-        {when ? <Text style={{ marginTop: 4, fontFamily: SANS, fontSize: 15, color: c.mutedForeground }}>{when}</Text> : null}
+    // One scrolling child and nothing around it: the iOS form sheet lays out a
+    // single scroll view, and a keyboard view wrapping it left the sheet blank
+    // (the same shape that blanked the casting sheet). The sheet itself rises
+    // for the keyboard; the insets keep the note's field above it.
+    <ScrollView style={{ flex: 1, backgroundColor: c.background }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 32 }}>
+      <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(how did it go?)</Text>
+      <Text style={{ marginTop: 8, fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.5, color: c.foreground }}>
+        {a ? a.project : '…'}{a?.role ? <Text style={{ fontFamily: SERIF_I }}>{`, ${a.role}.`}</Text> : a ? '.' : ''}
+      </Text>
+      {when ? <Text style={{ marginTop: 4, fontFamily: SANS, fontSize: 15, color: c.mutedForeground }}>{when}</Text> : null}
 
-        <View style={{ marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {WORDS.map((w) => {
-            const on = word === w.key;
-            return (
-              <Pressable key={w.key} onPress={() => { Haptics.selectionAsync().catch(() => {}); setWord(w.key); }} accessibilityRole="button" accessibilityState={{ selected: on }}
-                style={{ width: '47%', flexGrow: 1, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.ink : c.card }}>
-                <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, color: on ? c.card : c.foreground }}>{w.label}</Text>
-                <Text style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12, color: on ? c.yellow : c.mutedForeground }}>{w.line}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      <View style={{ marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+        {WORDS.map((w) => {
+          const on = word === w.key;
+          return (
+            <Pressable key={w.key} onPress={() => { Haptics.selectionAsync().catch(() => {}); setWord(w.key); }} accessibilityRole="button" accessibilityState={{ selected: on }}
+              style={{ width: '47%', flexGrow: 1, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.ink : c.card }}>
+              <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, color: on ? c.card : c.foreground }}>{w.label}</Text>
+              <Text style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12, color: on ? c.yellow : c.mutedForeground }}>{w.line}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
-        <Text style={{ marginTop: 26, fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: c.mutedForeground }}>A note for next time</Text>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          multiline
-          placeholder="What they asked for. What landed."
-          placeholderTextColor={c.mutedForeground}
-          selectionColor={c.accentText}
-          style={{ marginTop: 8, minHeight: 64, fontFamily: SANS, fontSize: 16, lineHeight: 23, color: c.foreground, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.divider }}
-        />
+      <Text style={{ marginTop: 26, fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: c.mutedForeground }}>A note for next time</Text>
+      <TextInput
+        value={note}
+        onChangeText={setNote}
+        multiline
+        placeholder="What they asked for. What landed."
+        placeholderTextColor={c.mutedForeground}
+        selectionColor={c.accentText}
+        style={{ marginTop: 8, minHeight: 64, fontFamily: SANS, fontSize: 16, lineHeight: 23, color: c.foreground, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.divider }}
+      />
 
-        <View style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={goBack} hitSlop={10} accessibilityRole="button">
-            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.mutedForeground }}>Later</Text>
-          </Pressable>
-          <PrimaryPill label={word === 'callback' ? 'Set the callback' : 'Done'} onPress={done} disabled={!a || !word || busy} height={52} haptic="medium" />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <View style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Pressable onPress={goBack} hitSlop={10} accessibilityRole="button">
+          <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.mutedForeground }}>Later</Text>
+        </Pressable>
+        <PrimaryPill label={word === 'callback' ? 'Set the callback' : 'Done'} onPress={done} disabled={!a || !word || busy} height={52} haptic="medium" />
+      </View>
+    </ScrollView>
   );
 }
