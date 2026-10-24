@@ -28,6 +28,25 @@ const SANS = 'BricolageGrotesque_500Medium';
 /** Any file: the server reads it by its bytes and says so if it cannot. */
 const TYPES = '*/*';
 const EXT_OF: Record<string, string> = { 'application/pdf': 'pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx', 'text/plain': 'txt', 'text/rtf': 'rtf', 'application/rtf': 'rtf', 'text/markdown': 'md' };
+/**
+ * What went wrong, in the phone's words. The server's 400s are already
+ * sentences ("File too large (max 10MB)"); a dead network and the uploader's
+ * own refusals are not.
+ */
+function inWords(e: unknown): string {
+  const m = e instanceof Error ? e.message : '';
+  if (e instanceof RehearsalApiError) {
+    if (e.gated) return m.toLowerCase();
+    if (e.status === 400) return m.toLowerCase();
+    if (e.status === 401 || e.status === 403) return 'sign in first, then send it again.';
+    if (e.status === 413) return 'that file is too big. under 10 mb, please.';
+    if (e.status >= 500) return 'the house is dark for a moment. try again.';
+  }
+  if (/network|timed out|offline/i.test(m)) return 'no signal. try again when there is one.';
+  if (/formdata|unsupported|blob/i.test(m)) return 'that file could not be sent. a pdf, a word file or plain text will.';
+  return 'it could not be read. a pdf, a word file or plain text will.';
+}
+
 /** A name the server can read: the picker's, or one made from the type when the name has no extension. */
 function named(name: string | null | undefined, mimeType?: string | null): string {
   const n = (name ?? '').trim();
@@ -85,7 +104,13 @@ export default function AddSides() {
 
   const pick = async () => {
     Haptics.selectionAsync().catch(() => {});
-    const res = await DocumentPicker.getDocumentAsync({ type: TYPES, copyToCacheDirectory: true, multiple: false });
+    let res: DocumentPicker.DocumentPickerResult;
+    try {
+      res = await DocumentPicker.getDocumentAsync({ type: TYPES, copyToCacheDirectory: true, multiple: false });
+    } catch {
+      // The picker would not come up (it was still closing, or the phone refused): the door stays a door.
+      return;
+    }
     if (res.canceled || !res.assets?.[0]) return;
     const a = res.assets[0];
     sendFile({ uri: a.uri, name: named(a.name, a.mimeType), mimeType: a.mimeType ?? undefined }, 'files');
@@ -117,7 +142,7 @@ export default function AddSides() {
               <Working />
             ) : error ? (
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: 36 }}>
-                <StageDirection numberOfLines={4}>({(error instanceof RehearsalApiError || error instanceof Error ? error.message : 'it could not be read.').toLowerCase()})</StageDirection>
+                <StageDirection numberOfLines={4}>({inWords(error)})</StageDirection>
                 {error instanceof RehearsalApiError && error.gated ? (
                   <PrimaryPill label="See Premium" onPress={() => router.push('/paywall')} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 ) : (

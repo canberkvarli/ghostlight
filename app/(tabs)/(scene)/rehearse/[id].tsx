@@ -43,6 +43,10 @@ export default function Rehearse() {
   const { colors: c } = useTheme();
   const { tiltX, tiltY } = useStageMotion();
   const goBack = useGoBack('/rehearse');
+  // Again is a new run: the room is remounted, so the engine, the microphone
+  // and the players start clean. Refetching alone changed nothing when the
+  // scene came back the same, and the ended run stayed ended under the pill.
+  const [take, setTake] = useState(1);
 
   useEffect(() => {
     track('app_rehearse_opened', { from: guided ? 'guided' : from === 'script' || from === 'library' || from === 'home' || from === 'link' ? from : 'library' });
@@ -53,7 +57,7 @@ export default function Rehearse() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       {payload ? (
-        <Run payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1'} onLeave={goBack} onAgain={() => void refetch()} />
+        <Run key={take} payload={payload} guided={guided} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1' && take === 1} onLeave={goBack} onAgain={() => { setTake(t => t + 1); void refetch(); }} />
       ) : (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <TopBar title="" onLeave={goBack} />

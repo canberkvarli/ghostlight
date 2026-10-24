@@ -4,6 +4,8 @@
  * itself never calls the server between one line and the next; everything
  * here is before a run, after it, or fire-and-forget beside it.
  */
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { API_URL, ApiError, authHeaders } from './client';
 import type { GuidedRun, JournalEvent, ResumedRun, ScenePayload } from '../rehearsal/contract';
 
@@ -148,13 +150,33 @@ export const listScripts = (signal?: AbortSignal) => call<ScriptSummary[]>('/api
 export const getScript = (id: number, signal?: AbortSignal) => call<ScriptDetail>(`/api/scripts/${id}`, {}, signal);
 export const deleteScript = (id: number) => call<void>(`/api/scripts/${id}`, { method: 'DELETE' });
 
-/** A file from the share sheet or Files: PDF, Word or text. The server reads it and splits the cast. */
+/**
+ * A file from the share sheet or Files: PDF, Word or text. The server reads it
+ * and splits the cast. Sent by the file system's own uploader, not fetch:
+ * React Native 0.86's fetch refuses the {uri, name, type} part the old
+ * FormData took ("unsupported FormData parts"), and a Blob of a 10 MB PDF
+ * would be read into JavaScript first. The uploader streams it.
+ */
 export async function uploadScript(file: { uri: string; name: string; mimeType?: string }, title?: string): Promise<ScriptDetail> {
-  const form = new FormData();
-  // React Native's FormData takes a file descriptor object, not a Blob.
-  form.append('file', { uri: file.uri, name: file.name, type: file.mimeType ?? 'application/octet-stream' } as unknown as Blob);
-  if (title) form.append('title', title);
-  return call<ScriptDetail>('/api/scripts/upload', { method: 'POST', body: form });
+  const res = await FileSystem.uploadAsync(`${API_URL}/api/scripts/upload`, file.uri, {
+    httpMethod: 'POST',
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    fieldName: 'file',
+    mimeType: file.mimeType ?? 'application/octet-stream',
+    parameters: title ? { title } : {},
+    headers: await authHeaders(),
+  });
+  if (res.status < 200 || res.status >= 300) {
+    let detail = `upload failed (${res.status})`;
+    let upgrade: string | null = null;
+    try {
+      const j = JSON.parse(res.body) as { detail?: string | { message?: string; upgrade_url?: string } };
+      if (typeof j.detail === 'string') detail = j.detail;
+      else if (j.detail?.message) { detail = j.detail.message; upgrade = j.detail.upgrade_url ?? null; }
+    } catch { /* no body */ }
+    throw new RehearsalApiError(res.status, detail, upgrade);
+  }
+  return JSON.parse(res.body) as ScriptDetail;
 }
 
 /** Sides pasted as text. */
