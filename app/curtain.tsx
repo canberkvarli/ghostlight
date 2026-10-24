@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GhostLight } from '../src/components/GhostLight';
-import { Deck } from '../src/components/Deck';
+import { Deck, DECK_DOCK, DECK_PEEK } from '../src/components/Deck';
 import { BlankPage, PlaybillCard } from '../src/components/Playbill';
 import { ShareCard, sharePiece } from '../src/components/ShareCard';
 import { StageBackdrop } from '../src/components/StageBackdrop';
@@ -85,7 +85,10 @@ export default function Curtain() {
   // The deck's height comes from the screen, measured once it is laid out, and
   // capped: a card is a page of sides, not a poster, and sits in the middle of the room.
   const [deckH, setDeckH] = useState(0);
-  const deckSpace = Math.min(deckH - insets.bottom - 6, 500);
+  // The deck fills the room down to the home indicator; the buttons sit at its
+  // foot and the card takes the rest, no taller than a playbill needs.
+  const deckSpace = Math.max(0, deckH - insets.bottom - 6);
+  const cardH = Math.max(0, Math.min(deckSpace - DECK_DOCK - DECK_PEEK, 420));
   const [at, setAt] = useState(0);
   // The next two posters are fetched while this card is up, so a throw lands
   // on a picture and not on a block where one is loading.
@@ -253,13 +256,14 @@ export default function Curtain() {
                     keyOf={(m) => m.id}
                     deckKey={medium}
                     height={deckSpace}
+                    cardHeight={cardH}
                     reduce={reduce}
                     onKeep={keep}
                     onPass={pass}
                     onOpen={open}
                     onHold={share}
                     renderCard={(item, first) => (
-                      <PlaybillCard item={item} height={deckSpace - 64 - 22} first={first} onOpen={() => open(item)} />
+                      <PlaybillCard item={item} height={cardH} first={first} onOpen={() => open(item)} />
                     )}
                   />
                 </View>
@@ -267,11 +271,11 @@ export default function Curtain() {
                 <View style={{ paddingHorizontal: 20 }}>
                   {!settled ? (
                     <Animated.View style={breathStyle}>
-                      <BlankPage height={deckSpace - 86} />
+                      <BlankPage height={cardH} />
                     </Animated.View>
                   ) : (
                     <BlankPage
-                      height={deckSpace - 86}
+                      height={cardH}
                       line={failed ? '(the house is dark. tap to try again.)' : '(nothing on tonight.)'}
                       onPress={
                         failed

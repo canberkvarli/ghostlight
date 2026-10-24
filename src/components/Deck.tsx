@@ -19,8 +19,8 @@ import { useTheme } from '../theme/ThemeContext';
 
 /** The two cards waiting behind the top one show this much at the head. */
 export const DECK_PEEK = 22;
-/** The row of the two buttons under the deck. */
-export const DECK_DOCK = 64;
+/** The row of the two buttons at the foot of the deck. */
+export const DECK_DOCK = 72;
 
 const FLY_MS = 320;
 
@@ -33,20 +33,30 @@ const FLY_MS = 320;
  * The deck owns every gesture on the stack: the pan, the tap that opens the
  * speech and the hold that shares it. They are exclusive, so a throw that
  * ends over the card is never also a tap, which is what made a pass open the
- * speech. Cards keep their identity across slots (keyed by the item, not the
- * slot), so the one behind becomes the one on top without being remounted:
- * no picture reloads, no gradient redraws, no flicker at the throw.
+ * speech.
+ *
+ * Where each card sits is decided on the UI thread, not by React. Every card
+ * knows its number in the deal, and one shared count says how many have gone;
+ * the difference is its place in the stack. When a card finishes flying the
+ * count goes up, the drag resets and the rise starts in the same UI frame, so
+ * the thrown card is already behind the count (and invisible) the instant the
+ * next one is on top. React catches up a frame later and only adds the next
+ * card at the back. Resetting the drag from JavaScript, before React had
+ * removed the thrown card, was the flicker on every swipe: for one frame the
+ * card that had gone snapped back to the middle.
  *
  * Everything that moves is a function of the drag and the rise on the UI
- * thread. Two round buttons under the deck throw the same way for a thumb
- * that would rather tap, and for anyone with motion reduced, where the throw
- * is a fade.
+ * thread. Two round buttons at the foot throw the same way for a thumb that
+ * would rather tap, and for anyone with motion reduced, where the throw is a
+ * fade. The cards sit centred in the room above the buttons and never over
+ * them: each card clips its own words at its own foot.
  */
 export function Deck<T>({
   items,
   keyOf,
   deckKey,
   height,
+  cardHeight,
   renderCard,
   onKeep,
   onPass,
@@ -62,6 +72,8 @@ export function Deck<T>({
   deckKey: string;
   /** The whole deck's height, dock included. */
   height: number;
+  /** The card's own height. Defaults to all the room above the dock. */
+  cardHeight?: number;
   renderCard: (item: T, first: boolean) => ReactNode;
   onKeep: (item: T) => void;
   onPass: (item: T) => void;
@@ -75,43 +87,52 @@ export function Deck<T>({
 }) {
   const { colors: c } = useTheme();
   const { width } = useWindowDimensions();
-  const [at, setAt] = useState(0);
-  const cardH = Math.max(0, height - DECK_DOCK - DECK_PEEK);
+  const [at, setAt] = useState(0); // React's count of cards gone; the UI thread's is `atUI`
+  const room = Math.max(0, height - DECK_DOCK);
+  const cardH = Math.max(0, Math.min(cardHeight ?? room - DECK_PEEK, room - DECK_PEEK));
   const x = useSharedValue(0);
   const y = useSharedValue(0);
   const throwing = useSharedValue(0); // 1 while a card is in the air; the next one may not be grabbed
   // 1 the instant a card has gone, easing to 0: the card behind rises to the top, rather than snapping.
   const rise = useSharedValue(0);
+  const atUI = useSharedValue(0);
 
   // A new house is a new deck.
-  useEffect(() => { setAt(0); x.value = 0; y.value = 0; throwing.value = 0; rise.value = 0; }, [deckKey, x, y, throwing, rise]);
+  useEffect(() => { setAt(0); atUI.value = 0; x.value = 0; y.value = 0; throwing.value = 0; rise.value = 0; }, [deckKey, x, y, throwing, rise, atUI]);
 
   const n = items.length;
-  const top = n ? items[at % n] : undefined;
-  const second = n > 1 ? items[(at + 1) % n] : undefined;
-  const third = n > 2 ? items[(at + 2) % n] : undefined;
+  const dealt = (k: number) => (n ? items[k % n] : undefined);
+  const top = dealt(at);
 
-  const gone = useCallback((dir: 1 | -1) => {
-    const item = items[at % Math.max(1, items.length)];
+  // On the JS thread, after the UI thread has already moved on: tell the room, deal the next card.
+  const gone = useCallback((dir: 1 | -1, k: number) => {
+    const item = dealt(k);
     if (item) (dir > 0 ? onKeep : onPass)(item);
-    setAt((k) => k + 1);
-    x.value = 0;
-    y.value = 0;
-    throwing.value = 0;
-    rise.value = 1;
-    rise.value = withTiming(0, { duration: reduce ? 120 : 260, easing: Easing.out(Easing.cubic) });
-  }, [at, items, onKeep, onPass, x, y, throwing, rise, reduce]);
+    setAt(k + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, onKeep, onPass]);
 
   const fly = useCallback((dir: 1 | -1) => {
     'worklet';
     throwing.value = 1;
+    const landed = () => {
+      'worklet';
+      const k = atUI.value;
+      atUI.value = k + 1;
+      x.value = 0;
+      y.value = 0;
+      throwing.value = 0;
+      rise.value = 1;
+      rise.value = withTiming(0, { duration: reduce ? 120 : 260, easing: Easing.out(Easing.cubic) });
+      runOnJS(gone)(dir, k);
+    };
     if (reduce) {
-      x.value = withTiming(dir * width * 0.4, { duration: 160 }, () => runOnJS(gone)(dir));
+      x.value = withTiming(dir * width * 0.4, { duration: 160 }, landed);
       return;
     }
-    x.value = withTiming(dir * width * 1.5, { duration: FLY_MS, easing: Easing.in(Easing.cubic) }, () => runOnJS(gone)(dir));
+    x.value = withTiming(dir * width * 1.5, { duration: FLY_MS, easing: Easing.in(Easing.cubic) }, landed);
     y.value = withTiming(y.value + 40, { duration: FLY_MS });
-  }, [gone, reduce, throwing, width, x, y]);
+  }, [gone, reduce, throwing, width, x, y, rise, atUI]);
 
   const haptic = useCallback(() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }, []);
   const openTop = useCallback(() => { if (top) onOpen(top); }, [top, onOpen]);
@@ -154,7 +175,7 @@ export function Deck<T>({
 
   const button = (label: string, icon: 'close' | 'bookmark', onPress: () => void) => (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}
-      style={({ pressed }) => ({ width: 54, height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+      style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
       <Ionicons name={icon} size={icon === 'close' ? 24 : 20} color={icon === 'bookmark' ? c.primary : c.mutedForeground} />
     </Pressable>
   );
@@ -162,27 +183,34 @@ export function Deck<T>({
   // The dock's throws go through the same flight as a thumb's.
   const throwFrom = (dir: 1 | -1) => () => { if (!top || throwing.value) return; haptic(); fly(dir); };
 
-  const stack = [third, second, top].filter((it): it is T => it !== undefined);
-  const slotOf = (it: T) => (it === top ? 0 : it === second ? 1 : 2);
+  // The card that has just gone stays mounted, behind the count and unseen,
+  // until the next deal; then the two behind the top one. Back to front.
+  const window: number[] = [];
+  for (let k = at + 2; k >= Math.max(0, at - 1); k--) if (dealt(k) !== undefined) window.push(k);
 
   return (
     <View style={{ height }}>
-      <GestureDetector gesture={gestures}>
-        <View style={{ height: cardH + DECK_PEEK, paddingTop: DECK_PEEK }}>
-          {stack.map((it) => (
-            <DeckSlot key={keyOf(it)} slot={slotOf(it)} x={x} y={y} rise={rise} width={width} cardH={cardH} reduce={reduce}>
-              {renderCard(it, it === top && at === 0)}
-              {it === top ? (
-                <>
-                  <Animated.View pointerEvents="none" style={[keepStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(keepLabel, -14, 'left')}</Animated.View>
-                  <Animated.View pointerEvents="none" style={[passStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(passLabel, 14, 'right')}</Animated.View>
-                </>
-              ) : null}
-            </DeckSlot>
-          ))}
-        </View>
-      </GestureDetector>
-      <View style={{ height: DECK_DOCK, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 36 }}>
+      <View style={{ height: room, justifyContent: 'center' }}>
+        <GestureDetector gesture={gestures}>
+          <View style={{ height: cardH + DECK_PEEK }}>
+            {window.map((k) => {
+              const it = dealt(k)!;
+              return (
+                <DeckSlot key={k} idx={k} atUI={atUI} x={x} y={y} rise={rise} width={width} cardH={cardH} reduce={reduce}>
+                  {renderCard(it, k === 0)}
+                  {k === at ? (
+                    <>
+                      <Animated.View pointerEvents="none" style={[keepStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(keepLabel, -14, 'left')}</Animated.View>
+                      <Animated.View pointerEvents="none" style={[passStamp, { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }]}>{stamp(passLabel, 14, 'right')}</Animated.View>
+                    </>
+                  ) : null}
+                </DeckSlot>
+              );
+            })}
+          </View>
+        </GestureDetector>
+      </View>
+      <View style={{ height: DECK_DOCK, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 40 }}>
         {button(passLabel, 'close', throwFrom(-1))}
         {button(keepLabel, 'bookmark', throwFrom(1))}
       </View>
@@ -191,21 +219,25 @@ export function Deck<T>({
 }
 
 /**
- * One slot of the stack. Its look is a function of its visual position: the
- * slot number, plus the rise still to come after a throw, minus how far the
- * top card has been dragged (the ones behind come up as it goes). Slot 0 also
- * follows the thumb.
+ * One card of the deal. Its look is a function of its visual position, all
+ * of it on the UI thread: its number minus how many have gone is its slot,
+ * plus the rise still to come after a throw, minus how far the top card has
+ * been dragged (the ones behind come up as it goes). A card behind the count
+ * has gone: unseen, off the stack. Slot 0 also follows the thumb.
  */
-function DeckSlot({ slot, x, y, rise, width, cardH, reduce, children }: {
-  slot: number; x: SharedValue<number>; y: SharedValue<number>; rise: SharedValue<number>; width: number; cardH: number; reduce: boolean; children: ReactNode;
+function DeckSlot({ idx, atUI, x, y, rise, width, cardH, reduce, children }: {
+  idx: number; atUI: SharedValue<number>; x: SharedValue<number>; y: SharedValue<number>; rise: SharedValue<number>;
+  width: number; cardH: number; reduce: boolean; children: ReactNode;
 }) {
   const style = useAnimatedStyle(() => {
+    const slot = idx - atUI.value;
+    if (slot < 0) return { opacity: 0, zIndex: 0, transform: [{ translateX: width * 2 }] };
     const drag = slot === 0 ? 0 : Math.min(1, Math.abs(x.value) / (width * 0.5));
     const vp = Math.max(0, slot + rise.value - drag);
     const translateY = interpolate(vp, [0, 1, 2], [0, -DECK_PEEK / 2, -DECK_PEEK], Extrapolation.CLAMP);
     const scale = interpolate(vp, [0, 1, 2], [1, 0.96, 0.92], Extrapolation.CLAMP);
     const opacity = interpolate(vp, [0, 1, 2], [1, 0.92, 0.8], Extrapolation.CLAMP);
-    if (slot !== 0) return { transform: [{ translateY }, { scale }], opacity, zIndex: 3 - slot };
+    if (slot !== 0) return { transform: [{ translateY }, { scale }], opacity, zIndex: 3 - Math.min(slot, 2) };
     const gone = reduce ? interpolate(Math.abs(x.value), [0, width * 0.4], [1, 0], Extrapolation.CLAMP) : 1;
     return {
       transform: [
@@ -219,7 +251,7 @@ function DeckSlot({ slot, x, y, rise, width, cardH, reduce, children }: {
     };
   });
   return (
-    <Animated.View style={[style, { position: 'absolute', left: 0, right: 0, top: DECK_PEEK, height: cardH, transformOrigin: 'top' }]}>
+    <Animated.View style={[style, { position: 'absolute', left: 0, right: 0, top: DECK_PEEK, height: cardH, overflow: 'hidden', transformOrigin: 'top' }]}>
       {children}
     </Animated.View>
   );
