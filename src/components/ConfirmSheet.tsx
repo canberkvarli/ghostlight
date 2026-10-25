@@ -94,3 +94,57 @@ export function Tooltip({ open, at, title, body, onClose }: {
     </Modal>
   );
 }
+
+/**
+ * One choice from a short list, as a sheet of our own: each row is the
+ * choice's name and one Courier line on what it does, and the one in force
+ * carries a gel dot. A tap picks and closes. The dark behind it is not a
+ * button, like the other sheets; "(leave it.)" is the way out.
+ */
+export function ChoiceSheet<K extends string>({ open, title, accent, options, value, onPick, onClose }: {
+  open: boolean;
+  title: string;
+  accent: string;
+  options: { key: K; label: string; line: string }[];
+  value: K;
+  onPick: (key: K) => void;
+  onClose: () => void;
+}) {
+  const { colors: c } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={open} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,7,4,0.66)' }}>
+        <Animated.View
+          entering={FadeIn.duration(240).delay(40)}
+          style={{
+            backgroundColor: c.panel, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: c.border,
+            paddingHorizontal: 24, paddingTop: 22, paddingBottom: Math.max(insets.bottom, 16) + 6,
+          }}
+        >
+          <Text style={{ fontFamily: SERIF, fontSize: 32, lineHeight: 36, letterSpacing: -0.4, color: c.foreground }}>
+            {title} <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{accent}</Text>
+          </Text>
+          <View style={{ marginTop: 14 }}>
+            {options.map((o) => {
+              const on = o.key === value;
+              return (
+                <Pressable key={o.key} onPress={() => { onPick(o.key); onClose(); }} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.7 : 1 })}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? c.yellow : 'transparent', borderWidth: on ? 0 : 1, borderColor: c.chevron }} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontFamily: on ? SANS_B : SANS, fontSize: 16, color: c.foreground }}>{o.label}</Text>
+                    <Text style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>({o.line})</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 8 }}>
+            <StageDirection>(leave it.)</StageDirection>
+          </Pressable>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}

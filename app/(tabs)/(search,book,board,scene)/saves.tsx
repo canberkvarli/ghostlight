@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { PrimaryPill } from '../../../src/components/PrimaryPill';
 import { PaperCard } from '../../../src/components/PaperCard';
 import { PieceCover } from '../../../src/components/PieceCover';
 import { Sketch } from '../../../src/components/Sketches';
+import { ChoiceSheet } from '../../../src/components/ConfirmSheet';
 import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import { useFavorites, useSetOffBook, useToggleFavorite } from '../../../src/hooks/useFavorites';
 import { useAttachPiece, useAudition, useAuditions } from '../../../src/hooks/useAuditions';
@@ -103,19 +104,12 @@ export default function Saves() {
   useEffect(() => {
     AsyncStorage.getItem(ORDER_KEY).then((v) => { if (v && BOOK_ORDERS.some((o) => o.key === v)) setOrder(v as BookOrder); }).catch(() => {});
   }, []);
-  const pickOrder = () => {
-    Haptics.selectionAsync().catch(() => {});
-    const options = [...BOOK_ORDERS.map((o) => o.label), 'Cancel'];
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: 'Sort the shelf', options, cancelButtonIndex: options.length - 1 },
-      (i) => {
-        const o = BOOK_ORDERS[i];
-        if (!o) return;
-        setOrder(o.key);
-        track('app_book_sorted', { by: o.key });
-        AsyncStorage.setItem(ORDER_KEY, o.key).catch(() => {});
-      },
-    );
+  const [sorting, setSorting] = useState(false);
+  const pickOrder = () => { Haptics.selectionAsync().catch(() => {}); setSorting(true); };
+  const setOrderTo = (key: BookOrder) => {
+    setOrder(key);
+    track('app_book_sorted', { by: key });
+    AsyncStorage.setItem(ORDER_KEY, key).catch(() => {});
   };
   const orderLine = BOOK_ORDERS.find((o) => o.key === order)?.line ?? '';
 
@@ -383,6 +377,7 @@ export default function Saves() {
           <UndoBar key={pendingRemoval.id} label={`Removed “${pendingRemoval.title}”`} onUndo={onUndo} onExpire={onExpire} />
         ) : null}
       </SafeAreaView>
+      <ChoiceSheet open={sorting} title="Sort the" accent="shelf." options={BOOK_ORDERS} value={order} onPick={setOrderTo} onClose={() => setSorting(false)} />
     </View>
   );
 }
