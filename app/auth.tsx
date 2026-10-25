@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -61,6 +61,11 @@ export default function Auth() {
   const [resetting, setResetting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [about, setAbout] = useState(false);
+  // The field you tap comes up above the keyboard: its place on the page is
+  // noted as it lays out, and a focus scrolls there.
+  const scroller = useRef<ScrollView>(null);
+  const place = useRef<Record<string, number>>({});
+  const bring = (key: string) => () => { scroller.current?.scrollTo({ y: Math.max(0, (place.current[key] ?? 0) - 28), animated: true }); };
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
@@ -147,6 +152,7 @@ export default function Auth() {
         </View>
 
         <ScrollView
+          ref={scroller}
           contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 10, paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
@@ -184,11 +190,13 @@ export default function Auth() {
                 </Pressable>
               );
             })}
-            <Text style={{ flex: 1, textAlign: 'right', paddingBottom: 11, fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.6, color: c.mutedForeground }}>with email</Text>
           </View>
 
+          <View onLayout={(e) => { place.current.email = e.nativeEvent.layout.y; }} />
           <LabelledField
             label="Email"
+            placeholder="you@somewhere.com"
+            onFocus={bring('email')}
             value={email}
             onChangeText={(t) => { setEmail(t); clear(); }}
             autoCapitalize="none"
@@ -199,8 +207,11 @@ export default function Auth() {
             returnKeyType="next"
             style={{ marginTop: 20 }}
           />
+          <View onLayout={(e) => { place.current.password = e.nativeEvent.layout.y; }} />
           <LabelledField
             label="Password"
+            placeholder={creating ? 'six characters or more' : 'your password'}
+            onFocus={bring('password')}
             value={password}
             onChangeText={(t) => { setPassword(t); clear(); }}
             secureTextEntry={!reveal}
@@ -255,7 +266,7 @@ export default function Auth() {
             style={{ marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 6 }}
           >
             <Ionicons name="help-circle-outline" size={15} color={c.mutedForeground} />
-            <StageDirection>(actorrise accounts work here too. what is actorrise?)</StageDirection>
+            <StageDirection>(what is actorrise?)</StageDirection>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

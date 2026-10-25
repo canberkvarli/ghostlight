@@ -90,8 +90,9 @@ export default function Demo() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 0, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* The bar of the house, the same as the curtain's: a way in on the left, the lamp, the way past on the right. */}
-        <View style={{ height: 48, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           {isAuthenticated ? <View style={{ width: 44 }} /> : (
             <Pressable onPress={() => { stopSample(); router.push('/auth'); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sign in">
               <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>sign in</Text>
@@ -104,7 +105,7 @@ export default function Demo() {
             <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>not tonight</Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 6, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
           <Text style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 50, letterSpacing: -0.8, color: c.foreground }}>
             {done ? 'Another, in a' : 'Run a scene.'}{'\n'}
             <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{done ? 'different key?' : 'Right now.'}</Text>
@@ -226,8 +227,7 @@ function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 
             <Pressable key={ch.name} onPress={() => { Haptics.selectionAsync().catch(() => {}); setMe(ch.name); setVoice(null); stopSample(); setHearing(null); track('demo_part', { key: scene.key, character: ch.name }); }}
               accessibilityRole="button" accessibilityState={{ selected: on }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.paperRule, backgroundColor: on ? c.yellow : 'transparent' }}>
-              <Text style={{ fontFamily: SANS_B, fontSize: 15, letterSpacing: 0.4, color: c.ink }}>{ch.name}</Text>
-              {ch.line ? <Text numberOfLines={1} style={{ flex: 1, fontFamily: MONO_I, fontSize: 13, color: on ? c.ink : c.paperMuted }}>({ch.line}.)</Text> : null}
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, letterSpacing: 0.4, color: c.paperInk }}>{ch.name}</Text>
               {on ? <Ionicons name="checkmark" size={16} color={c.ink} /> : null}
             </Pressable>
           );
@@ -248,8 +248,8 @@ function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 
                   <Pressable key={v.id} onPress={() => { Haptics.selectionAsync().catch(() => {}); setVoice(v.id); track('demo_voice', { key: scene.key, voice: v.id }); }}
                     accessibilityRole="button" accessibilityState={{ selected: on }}
                     style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.paperRule, backgroundColor: on ? c.yellow : 'transparent', alignItems: 'center' }}>
-                    <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 14, color: c.ink }}>{nameOf(v)}</Text>
-                    <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SANS, fontSize: 11, color: on ? c.ink : c.paperMuted }}>{asideOf(v)}</Text>
+                    <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 14, color: c.paperInk }}>{nameOf(v)}</Text>
+                    <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: SANS, fontSize: 11, lineHeight: 14, color: on ? c.paperInk : c.paperMuted }}>{asideOf(v)}</Text>
                     <Pressable onPress={() => hear(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={busy ? `Stop ${nameOf(v)}` : `Hear ${nameOf(v)}`}
                       style={{ marginTop: 10, width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: busy ? c.accentText : on ? c.ink : c.paperRule, alignItems: 'center', justifyContent: 'center' }}>
                       {busy && hearing?.state === 'waiting' ? (

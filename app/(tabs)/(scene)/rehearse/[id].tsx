@@ -10,6 +10,7 @@ import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { CastSheet } from '../../../../src/components/rehearse/CastSheet';
+import { WarmUp } from '../../../../src/components/rehearse/WarmUp';
 import { DemoCurtain } from '../../../../src/components/rehearse/DemoCurtain';
 import { firstScenes, markDemoDone } from '../../../../src/lib/demo';
 import { useTrialOffer } from '../../../../src/hooks/useTrialOffer';
@@ -273,6 +274,9 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           </View>
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
+      ) : cast && armed && !r.gated && !spent && !r.readiness.error ? (
+        /* A first scene arrives cast: no sheet to read, only the house getting ready. */
+        <WarmUp title={sceneLine} waiting={waitingLine(r.readiness)} />
       ) : (
         <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(260)} style={{ flex: 1 }}>
           {/* The stage, dark, under the sheet: the lines are there before you have a part. */}

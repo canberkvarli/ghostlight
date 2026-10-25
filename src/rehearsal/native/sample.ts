@@ -4,7 +4,7 @@
  * cached audio the scene will use, synthesised once per voice and never
  * again. One sample sounds at a time; asking for another stops the last.
  */
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 
 import { pollAudio, requestAudio } from '../../api/rehearsal';
 
@@ -25,6 +25,12 @@ export function stopSample() {
  * Plays the line and resolves when it has finished, or when it could not be
  * had. `onState` reports the wait and the sounding so a button can show them.
  */
+let modeSet: Promise<void> | null = null;
+/** A phone on silent plays nothing unless the session says so; the run sets its own mode later. */
+function playableOnSilent(): Promise<void> {
+  return (modeSet ??= setAudioModeAsync({ playsInSilentMode: true }).catch(() => { modeSet = null; }));
+}
+
 export async function playSample(
   sceneId: number,
   lineIndex: number,
@@ -46,6 +52,8 @@ export async function playSample(
     url = null;
   }
   if (!url || mine !== asked) { onState('done'); return; }
+  await playableOnSilent();
+  if (mine !== asked) { onState('done'); return; }
   const player = createAudioPlayer({ uri: url }, { updateInterval: 250 });
   await new Promise<void>(resolve => {
     const finish = () => { sub.remove(); if (current?.player === player) current = null; try { player.remove(); } catch { /* gone */ } onState('done'); resolve(); };

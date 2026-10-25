@@ -316,7 +316,9 @@ function SceneRow({ scene, locked }: { scene: SceneSummary; locked: boolean }) {
     <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: String(scene.id), from: 'library' } }); }}
       accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.7 : 1 })}>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={2} style={{ fontFamily: MONO, fontSize: 12, lineHeight: 16, color: c.mutedForeground }}>{scene.play_title}</Text>
+        {scene.play_title && scene.play_title.trim().toLowerCase() !== scene.title.trim().toLowerCase() ? (
+          <Text numberOfLines={2} style={{ fontFamily: MONO, fontSize: 12, lineHeight: 16, color: c.mutedForeground }}>{scene.play_title}</Text>
+        ) : null}
         <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: SERIF, fontSize: 22, lineHeight: 26, color: c.foreground }}>{scene.title}</Text>
         <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>({scene.character_1_name} and {scene.character_2_name} · {minutes} min.)</Text>
       </View>

@@ -132,7 +132,7 @@ export default function Curtain() {
     (piece: Monologue) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       track('app_curtain', { action: 'open' });
-      router.push({ pathname: '/read/[id]', params: { id: piece.id, medium, from: 'curtain' } });
+      router.push({ pathname: '/peek/[id]', params: { id: piece.id, medium, from: 'curtain' } });
     },
     [medium, router],
   );
@@ -230,16 +230,6 @@ export default function Curtain() {
           </Pressable>
         </View>
 
-        {/* The bill: the two houses on one line, the door to the first scenes on the next, a rule under each. */}
-        <View style={{ marginHorizontal: 20, marginTop: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 18, paddingBottom: 9, borderBottomWidth: 1, borderBottomColor: c.divider }}>{HOUSES.map(houseWord)}</View>
-          <Pressable onPress={() => { track('app_curtain', { action: 'demo' }); router.push('/demo'); }} hitSlop={6} accessibilityRole="button" accessibilityLabel="Run a scene with a partner"
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.5, color: c.accentText }}>or run a scene with a partner</Text>
-            <Ionicons name="arrow-forward" size={13} color={c.accentText} />
-          </Pressable>
-        </View>
-
         {/* The line of search, folded away until asked for. */}
         <Animated.View style={[foldStyle, { marginHorizontal: 20, overflow: 'hidden' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.mutedForeground, paddingBottom: 8, marginTop: 6 }}>
@@ -257,6 +247,16 @@ export default function Curtain() {
             />
           </View>
         </Animated.View>
+
+        {/* The bill: the two houses on one line, the door to the first scenes on the next, a rule under each. */}
+        <View style={{ marginHorizontal: 20, marginTop: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 18, paddingBottom: 9, borderBottomWidth: 1, borderBottomColor: c.divider }}>{HOUSES.map(houseWord)}</View>
+          <Pressable onPress={() => { track('app_curtain', { action: 'demo' }); router.push('/demo'); }} hitSlop={6} accessibilityRole="button" accessibilityLabel="Run a scene with a partner"
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.5, color: c.accentText }}>or run a scene with a partner</Text>
+            <Ionicons name="arrow-forward" size={13} color={c.accentText} />
+          </Pressable>
+        </View>
 
         {/* The deck. */}
         <View style={{ flex: 1, marginTop: 6 }} onLayout={(e) => setDeckH(e.nativeEvent.layout.height)}>

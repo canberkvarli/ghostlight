@@ -16,7 +16,7 @@ export default function TabsLayout() {
       <TabList asChild>
         <TabBar>
           {TAB_ROOMS.map((r) => (
-            <TabTrigger key={r.name} name={r.name} href={r.href} asChild>
+            <TabTrigger key={r.name} name={r.name} href={r.href} resetOnFocus asChild>
               <RoomButton label={r.label} icon={r.icon} active={r.active} />
             </TabTrigger>
           ))}

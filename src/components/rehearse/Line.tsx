@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View, type LayoutChangeEvent, type NativeSyntheticEvent, type TextLayoutEventData } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import type { RehearsalLine } from '../../rehearsal/contract';
 import { displayRuns } from '../../rehearsal/display-words';
@@ -74,17 +74,22 @@ function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout, onC
   }, [yours, onCursor, at, rows, offsets]);
   const dim = when === 'past' ? 0.42 : when === 'next' ? 0.62 : 1;
   const fade = useSharedValue(dim);
-  useEffect(() => { fade.value = withTiming(dim, { duration: 240 }); }, [dim, fade]);
+  useEffect(() => { fade.value = withTiming(dim, { duration: 340, easing: Easing.out(Easing.cubic) }); }, [dim, fade]);
   const faded = useAnimatedStyle(() => ({ opacity: fade.value }));
   const size = yours ? 21 : 17;
+  // Your line comes up a size when it is yours, and goes back when it is
+  // said: a move of a third of a second, not a jump between two pages.
+  const sz = useSharedValue(size);
+  useEffect(() => { sz.value = withTiming(size, { duration: 340, easing: Easing.out(Easing.cubic) }); }, [size, sz]);
+  const sized = useAnimatedStyle(() => ({ fontSize: sz.value, lineHeight: Math.round(sz.value * 1.5) }));
   // On your live line the words you have not said yet sit back; a word heard
   // comes up to full ink and stays; the word you are on carries a rule in gel.
   // Only colour moves, never weight: a wider word would re-wrap the line.
   const body = (
-    <Text
+    <Animated.Text
       onTextLayout={onTextLayout}
       onLayout={yours ? (e) => { bodyTop.current = e.nativeEvent.layout.y; } : undefined}
-      style={{ marginTop: yours ? 8 : 4, fontFamily: MONO, fontSize: size, lineHeight: Math.round(size * 1.5), color: c.foreground }}
+      style={[sized, { marginTop: yours ? 8 : 4, fontFamily: MONO, color: c.foreground }]}
     >
       {words.map((w, i) => {
         const said = heard?.has(i) ?? false;
@@ -99,7 +104,7 @@ function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout, onC
           </Text>
         );
       })}
-    </Text>
+    </Animated.Text>
   );
   return (
     <Pressable onPress={onJump} disabled={!onJump} onLayout={onLayout}

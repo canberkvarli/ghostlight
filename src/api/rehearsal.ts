@@ -219,8 +219,11 @@ export async function uploadScriptStream(
   if ('text' in source) {
     form.append('file', new Blob([source.text], { type: 'text/plain' }), source.name);
   } else {
-    const bytes = await new File(source.uri).arrayBuffer();
-    form.append('file', new Blob([bytes], { type: source.mimeType ?? 'application/octet-stream' }), source.name);
+    // Expo's fetch reads a {uri, name, type} part from disk itself. A Blob
+    // built from the bytes was never possible: React Native's Blob takes
+    // strings and other blobs, not an ArrayBuffer, and that throw was "the
+    // file could not be sent" for every pdf and word file.
+    form.append('file', { uri: source.uri, name: source.name, type: source.mimeType ?? 'application/octet-stream' } as unknown as Blob);
   }
   if (title) form.append('title', title);
   const res = await streamFetch(`${API_URL}/api/scripts/upload-stream`, { method: 'POST', headers: await authHeaders(), body: form, signal });

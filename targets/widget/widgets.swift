@@ -472,63 +472,56 @@ struct LargeTonight: View {
     let poster: UIImage?
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // The picture at the head of the page, fading down into the stage.
-            ZStack(alignment: .bottomLeading) {
-                Group {
-                    if let poster {
-                        Image(uiImage: poster)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } else if piece.isScreen {
-                        screenBlock
-                    } else {
-                        clothFor(piece.source)
-                    }
+            // A poster, when there is one, at the head of the page, fading down
+            // into the stage. Without one the words take the room: a block of
+            // brown with the source stamped on it was a hole where a picture
+            // should have been.
+            if let poster {
+                ZStack(alignment: .bottomLeading) {
+                    Image(uiImage: poster)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 118)
+                        .clipped()
+                    LinearGradient(colors: [stage.opacity(0), stage.opacity(0.85), stage], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 72)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 132)
-                .clipped()
-                LinearGradient(colors: [stage.opacity(0), stage.opacity(0.85), stage], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 80)
-                if poster == nil {
-                    Text(piece.source.uppercased())
-                        .font(courier(10))
-                        .tracking(2)
-                        .foregroundStyle(paper.opacity(0.75))
-                        .padding(.bottom, 10)
-                }
+                .frame(height: 118)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .padding(.bottom, 10)
             }
-            .frame(height: 132)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            .padding(.bottom, 10)
 
             HStack(spacing: 6) {
                 Lamp()
                 Direction(line: "(tonight.)")
                 Spacer(minLength: 0)
+                Text(clock(piece.seconds))
+                    .font(courier(9))
+                    .tracking(0.6)
+                    .foregroundStyle(muted)
             }
             Text(piece.character)
-                .font(serif(26))
+                .font(serif(poster == nil ? 32 : 26))
                 .foregroundStyle(paper)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .padding(.top, 4)
+                .padding(.top, poster == nil ? 10 : 4)
             Text("from \(piece.source)")
                 .font(courierItalic(10))
                 .foregroundStyle(muted)
                 .lineLimit(1)
+            Spacer(minLength: poster == nil ? 14 : 8)
             Text("\u{201C}\(piece.quote)\u{201D}")
-                .font(serifItalic(16))
+                .font(serifItalic(poster == nil ? 22 : 16))
                 .foregroundStyle(paper.opacity(0.94))
-                .lineSpacing(1)
-                .lineLimit(3)
-                .minimumScaleFactor(0.85)
-                .padding(.top, 8)
-            Spacer(minLength: 6)
+                .lineSpacing(poster == nil ? 3 : 1)
+                .lineLimit(poster == nil ? 6 : 3)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 10)
             HStack(spacing: 6) {
                 if let t = piece.tone, !t.isEmpty { Tag(word: t) }
                 if let e = piece.emotion, !e.isEmpty, e.lowercased() != piece.tone?.lowercased() { Tag(word: e) }
-                Tag(word: clock(piece.seconds))
                 Spacer(minLength: 0)
                 Text("GHOST LIGHT")
                     .font(courier(8))

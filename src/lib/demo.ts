@@ -44,9 +44,6 @@ export const KEY_WORDS: Record<string, { eyebrow: string; tone: string }> = {
   late: { eyebrow: 'A FIRST SCENE', tone: 'somebody waited an hour. somebody finally shows up.' },
 };
 
-/** Who is who in the one scene a server without the three always had. */
-const LATE_PARTS: Record<string, string> = { alex: 'the one who is late', riley: 'the one who waited' };
-
 /**
  * The first scenes to offer: the server's three, or the one it always had as a
  * card of its own. That older answer names only the part it would cast; the
@@ -59,7 +56,7 @@ export function firstScenes(pick: GuidedPick | undefined, scene?: ScenePayload |
   const names = scene?.characters?.length ? scene.characters : [pick.character];
   const characters = names.map(name => ({
     name,
-    line: LATE_PARTS[name.toLowerCase()] ?? null,
+    line: null,
     first_line: scene?.lines.find(l => sameCharacter(l.character, name))?.index ?? null,
   }));
   return [{ key: 'late', scene_id: pick.scene_id, title: 'Late', hook: 'Riley waited an hour. Alex finally shows up.', characters }];
