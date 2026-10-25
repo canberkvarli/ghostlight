@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -13,14 +13,7 @@ import { LabelledField } from '../src/components/LabelledField';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { AboutActorRiseSheet } from '../src/components/AboutActorRiseSheet';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import {
-  isAppleAuthAvailable,
-  sendPasswordReset,
-  signInWithApple,
-  signInWithEmail,
-  signInWithGoogle,
-  signUpWithEmail,
-} from '../src/lib/auth';
+import { enterCode, isAppleAuthAvailable, sendCode, signInWithApple, signInWithGoogle } from '../src/lib/auth';
 import { useGoBack } from '../src/lib/nav';
 import { track } from '../src/lib/analytics';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -29,22 +22,24 @@ const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
 const SANS = 'BricolageGrotesque_500Medium';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
+const MONO = 'CourierPrime_400Regular';
 const MONO_I = 'CourierPrime_400Regular_Italic';
+
+const CODE_LENGTH = 6;
+/** Supabase sends one code a minute to an address; the page counts it down rather than letting a tap fail. */
+const RESEND_AFTER = 60;
 
 /**
  * Sign in. One page, read from the top: the name of the thing, Apple, Google,
- * and the email form in full under a hairline, nothing folded away and
- * nothing that has to open. The page never reflows for the keyboard: it
- * starts at the top, so the fields sit in the upper half of any phone, and
- * the scroll view takes the keyboard as an inset and brings the field you
- * are in above it. The old page kept its words at the foot and gave them up
- * to the keyboard with a layout animation, which was the lurch.
+ * and one address under a hairline. The address gets a six-digit code by
+ * email, and typing it back is the whole of signing in: a new actor and a
+ * returning one go through the same door, since the code makes the account
+ * when there is none. No password, nothing to forget, nothing to create.
  *
- * Two things the form can do, the same two fields: enter, or make an account.
- * "New here?" switches the pill between them; a sign-in that meets no account
- * switches it for you, since Supabase answers the same words for a wrong
- * password and no account at all, and a new actor must not be dead-ended on
- * them.
+ * The page never reflows for the keyboard: it starts at the top, so the
+ * field sits in the upper half of any phone, and the scroll view takes the
+ * keyboard as an inset. The code page is the same page with the headline
+ * changed, so the move from one to the other is a fade and not a lurch.
  */
 export default function Auth() {
   const router = useRouter();
@@ -56,15 +51,21 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [reveal, setReveal] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [wait, setWait] = useState(0);
   const [about, setAbout] = useState(false);
 
   useEffect(() => {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
   }, []);
+
+  // The minute until another code may be asked for.
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
 
   const done = (method: 'apple' | 'google' | 'email') => {
     track('signed_in', { method });
@@ -93,48 +94,39 @@ export default function Auth() {
     else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
   };
 
-  const withEmail = async () => {
-    if (!email.trim() || !password) { setError('Your address and your password, both.'); return; }
+  const askForCode = async (again = false) => {
+    const address = email.trim();
+    if (!address) { setError('An address first.'); return; }
     setBusy('email');
     clear();
-    const res = await signInWithEmail(email, password);
+    const res = await sendCode(address);
     setBusy(null);
-    if (res.ok) { done('email'); return; }
-    if (res.noAccount) {
-      setError('No account with that address, or the password is wrong. New here? Make one below.');
-      setCreating(true);
-      return;
-    }
-    setError(res.message ?? 'Could not sign in.');
+    if (!res.ok) { setError(res.message ?? 'Could not send the code.'); return; }
+    Haptics.selectionAsync().catch(() => {});
+    setSentTo(address.toLowerCase());
+    setCode('');
+    setWait(RESEND_AFTER);
+    if (again) setNotice('Another code is on its way.');
   };
 
-  const createAccount = async () => {
-    if (!email.trim()) { setError('An address first.'); return; }
-    if (password.length < 6) { setError('A password of at least six characters.'); return; }
+  const checkCode = async (value: string) => {
+    if (!sentTo || value.length < CODE_LENGTH) return;
     setBusy('email');
     clear();
-    const res = await signUpWithEmail(email, password);
+    const res = await enterCode(sentTo, value);
     setBusy(null);
     if (res.ok) { done('email'); return; }
-    if (res.pending) { setNotice(res.message ?? 'Confirm the address from the email we sent.'); return; }
-    setError(res.message ?? 'Could not create the account.');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    setCode('');
+    setError(res.message ?? 'Could not check the code.');
   };
 
-  const forgotPassword = async () => {
-    if (resetting) return;
-    if (!email.trim()) { setError('Type the address first, then tap this.'); return; }
-    setResetting(true);
+  const anotherAddress = () => {
+    Haptics.selectionAsync().catch(() => {});
     clear();
-    const res = await sendPasswordReset(email);
-    setResetting(false);
-    // Deliberately the same words whether or not that address has an account:
-    // this form must not answer "does this person use Ghost Light" for anyone
-    // who can type.
-    if (res.ok) setNotice('If that address is registered, a reset link is on its way.');
-    else setError(res.message ?? 'Could not send the reset link.');
+    setSentTo(null);
+    setCode('');
   };
-
-  const submit = () => { void (creating ? createAccount() : withEmail()); };
 
   return (
     <View style={{ flex: 1 }}>
@@ -142,9 +134,7 @@ export default function Auth() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 28 }}>
           <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Not now">
-            <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 11, lineHeight: 15, letterSpacing: 2.2, textTransform: 'uppercase', color: c.mutedForeground }}>
-              Not now
-            </Text>
+            <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>not now</Text>
           </Pressable>
         </View>
 
@@ -155,89 +145,79 @@ export default function Auth() {
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
-          <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
-            Keep <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>this one.</Text>
-          </Text>
-          <StageDirection style={{ marginTop: 8 }}>(sign in to save. nothing you did is lost.)</StageDirection>
-
-          {/* The two slabs. Apple's is the one its guidelines require to be the prominent one. */}
-          <View style={{ marginTop: 28, gap: 12 }}>
-            {Platform.OS === 'ios' && appleReady ? (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={c.isLight ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={27}
-                style={{ height: 54, width: '100%', opacity: busy === 'apple' ? 0.6 : 1 }}
-                onPress={() => { if (!busy) void withApple(); }}
-              />
-            ) : null}
-            <OutlineButton label="Continue with Google" icon="logo-google" onPress={() => { if (!busy) void withGoogle(); }} busy={busy === 'google'} />
-          </View>
-
-          {/* The hairline, with "or" sat in it, and the form in full under it. */}
-          <View style={{ marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: c.divider }} />
-            <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.6, color: c.mutedForeground }}>or with email</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: c.divider }} />
-          </View>
-
-          <LabelledField
-            label="Email"
-            value={email}
-            onChangeText={(t) => { setEmail(t); clear(); }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            autoComplete="email"
-            textContentType="username"
-            returnKeyType="next"
-            style={{ marginTop: 20 }}
-          />
-          <LabelledField
-            label="Password"
-            value={password}
-            onChangeText={(t) => { setPassword(t); clear(); }}
-            secureTextEntry={!reveal}
-            autoComplete={creating ? 'new-password' : 'password'}
-            textContentType={creating ? 'newPassword' : 'password'}
-            returnKeyType="go"
-            onSubmitEditing={submit}
-            style={{ marginTop: 18 }}
-            accessory={
-              <Pressable onPress={() => setReveal((v) => !v)} hitSlop={12} accessibilityRole="button" accessibilityLabel={reveal ? 'Hide password' : 'Show password'}>
-                <Ionicons name={reveal ? 'eye-off-outline' : 'eye-outline'} size={18} color={c.mutedForeground} />
-              </Pressable>
-            }
-          />
-
-          {busy === 'email' ? (
-            <View style={{ height: 54, marginTop: 24, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={c.accentText} />
-            </View>
-          ) : (
-            <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={54} block haptic="medium" style={{ marginTop: 24 }} />
-          )}
-
-          {/* The other thing the same two fields can do, and the way back for a lost password. */}
-          <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setCreating((v) => !v); clear(); }} hitSlop={10} accessibilityRole="button">
-              <Text style={{ fontFamily: SANS, fontSize: 13, color: c.mutedForeground }}>
-                {creating ? 'Have an account? ' : 'New here? '}
-                <Text style={{ fontFamily: SANS_B, color: c.accentText }}>{creating ? 'Sign in' : 'Create one'}</Text>
+          {sentTo ? (
+            <Animated.View key="code" entering={FadeIn.duration(260)}>
+              <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
+                Check <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>your mail.</Text>
               </Text>
-            </Pressable>
-            {creating ? null : (
-              <Pressable onPress={() => { void forgotPassword(); }} hitSlop={10} accessibilityRole="button" disabled={resetting}>
-                {resetting ? <ActivityIndicator color={c.mutedForeground} /> : (
-                  <Text style={{ fontFamily: SANS, fontSize: 13, color: c.mutedForeground, textDecorationLine: 'underline' }}>Forgot it?</Text>
-                )}
-              </Pressable>
-            )}
-          </View>
+              <StageDirection style={{ marginTop: 8 }}>(a six-digit code went to {sentTo}.)</StageDirection>
 
-          {creating ? (
-            <StageDirection style={{ marginTop: 14 }}>(this address, that password. your saves come with you.)</StageDirection>
-          ) : null}
+              <CodeCells value={code} busy={busy === 'email'} onChange={(v) => { clear(); setCode(v); if (v.length === CODE_LENGTH) void checkCode(v); }} />
+
+              <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Pressable onPress={() => { if (wait <= 0 && !busy) void askForCode(true); }} hitSlop={10} accessibilityRole="button" disabled={wait > 0 || Boolean(busy)}>
+                  <Text style={{ fontFamily: SANS, fontSize: 13, color: c.mutedForeground }}>
+                    {wait > 0 ? `Another code in ${wait}s` : <Text style={{ fontFamily: SANS_B, color: c.accentText }}>Send another</Text>}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={anotherAddress} hitSlop={10} accessibilityRole="button">
+                  <Text style={{ fontFamily: SANS, fontSize: 13, color: c.mutedForeground, textDecorationLine: 'underline' }}>Another address</Text>
+                </Pressable>
+              </View>
+              <StageDirection style={{ marginTop: 14 }}>(not there? the spam folder, or a minute.)</StageDirection>
+            </Animated.View>
+          ) : (
+            <Animated.View key="address" entering={FadeIn.duration(260)}>
+              <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
+                Keep <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>this one.</Text>
+              </Text>
+              <StageDirection style={{ marginTop: 8 }}>(sign in to save. nothing you did is lost.)</StageDirection>
+
+              {/* The two slabs. Apple's is the one its guidelines require to be the prominent one. */}
+              <View style={{ marginTop: 28, gap: 12 }}>
+                {Platform.OS === 'ios' && appleReady ? (
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={c.isLight ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={27}
+                    style={{ height: 54, width: '100%', opacity: busy === 'apple' ? 0.6 : 1 }}
+                    onPress={() => { if (!busy) void withApple(); }}
+                  />
+                ) : null}
+                <OutlineButton label="Continue with Google" icon="logo-google" onPress={() => { if (!busy) void withGoogle(); }} busy={busy === 'google'} />
+              </View>
+
+              {/* The hairline, with "or" sat in it, and the one field under it. */}
+              <View style={{ marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: c.divider }} />
+                <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.6, color: c.mutedForeground }}>or with email</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: c.divider }} />
+              </View>
+
+              <LabelledField
+                label="Email"
+                value={email}
+                onChangeText={(t) => { setEmail(t); clear(); }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="send"
+                onSubmitEditing={() => { if (!busy) void askForCode(); }}
+                style={{ marginTop: 20 }}
+              />
+
+              {busy === 'email' ? (
+                <View style={{ height: 54, marginTop: 24, alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator color={c.accentText} />
+                </View>
+              ) : (
+                <PrimaryPill label="Email me a code" onPress={() => { void askForCode(); }} height={54} block haptic="medium" style={{ marginTop: 24 }} />
+              )}
+              <StageDirection style={{ marginTop: 14 }}>(new here or back again, the same door. no password.)</StageDirection>
+            </Animated.View>
+          )}
 
           {error ? (
             <Animated.Text entering={FadeIn.duration(200)} style={{ marginTop: 18, fontFamily: SANS, fontSize: 13, lineHeight: 19, color: c.accentText }}>
@@ -265,6 +245,60 @@ export default function Auth() {
       </SafeAreaView>
       <AboutActorRiseSheet open={about} onClose={() => setAbout(false)} from="auth" />
     </View>
+  );
+}
+
+/**
+ * Six cells for the code, over one invisible field that does the typing: the
+ * keyboard is the number pad, the phone offers the code from the mail above
+ * it, and the cell being filled carries the accent. Tapping the row brings
+ * the keyboard back.
+ */
+function CodeCells({ value, busy, onChange }: { value: string; busy: boolean; onChange: (v: string) => void }) {
+  const { colors: c } = useTheme();
+  const input = useRef<TextInput>(null);
+  const digits = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
+  const at = Math.min(digits.length, CODE_LENGTH - 1);
+  return (
+    <Pressable onPress={() => input.current?.focus()} accessibilityRole="none" style={{ marginTop: 26 }}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {Array.from({ length: CODE_LENGTH }, (_, i) => {
+          const filled = i < digits.length;
+          const live = i === at && !busy;
+          return (
+            <View
+              key={i}
+              style={{
+                flex: 1, height: 58, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+                borderWidth: live ? 1.5 : 1, borderColor: live ? c.accentText : filled ? c.foreground : c.divider,
+                backgroundColor: c.panel, opacity: busy ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ fontFamily: MONO, fontSize: 26, color: c.foreground }}>{digits[i] ?? ''}</Text>
+            </View>
+          );
+        })}
+      </View>
+      <TextInput
+        ref={input}
+        value={digits}
+        onChangeText={(t) => onChange(t.replace(/\D/g, '').slice(0, CODE_LENGTH))}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        autoComplete="one-time-code"
+        autoFocus
+        editable={!busy}
+        maxLength={CODE_LENGTH}
+        caretHidden
+        accessibilityLabel="The six-digit code"
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.01, fontSize: 1, color: 'transparent' }}
+      />
+      {busy ? (
+        <View style={{ marginTop: 16, alignItems: 'center' }}>
+          <ActivityIndicator color={c.accentText} />
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 

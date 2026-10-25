@@ -261,3 +261,43 @@ function randomNonce(): string {
   const bytes = Crypto.getRandomBytes(16);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * The door by email: a six-digit code, sent to the address, typed back. One
+ * form for a new actor and a returning one; the code makes the account when
+ * there is none. The anonymous session is not carried over: whatever a
+ * stranger kept on this phone is saved into the account the moment it exists
+ * (app/_layout.tsx), and nothing of theirs lives on the server to lose.
+ */
+const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function sendCode(email: string): Promise<AuthResult> {
+  try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
+    const address = email.trim().toLowerCase();
+    if (!ADDRESS.test(address)) return { ok: false, message: 'That does not look like an address.' };
+    const { error } = await supabase.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } });
+    if (error) {
+      if (error.status === 429) return { ok: false, message: 'One code a minute. Check the last one, or wait a moment.' };
+      return { ok: false, message: error.message };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message ?? 'Could not send the code.' };
+  }
+}
+
+export async function enterCode(email: string, code: string): Promise<AuthResult> {
+  try {
+    if (configMissing) return { ok: false, message: CONFIG_ERROR };
+    const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.replace(/\D/g, ''), type: 'email' });
+    if (error) {
+      if (/expired|invalid|not found/i.test(error.message)) return { ok: false, message: 'That code is not right, or it has expired. Ask for another.' };
+      return { ok: false, message: error.message };
+    }
+    if (!data.session) return { ok: false, message: 'The code was taken but no session came back. Ask for another.' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message ?? 'Could not check the code.' };
+  }
+}
