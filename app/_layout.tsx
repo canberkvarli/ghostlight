@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { AppState, LogBox } from 'react-native';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -86,6 +86,24 @@ const persistOptions = {
       q.state.status === 'success' && PERSISTED.has(String(q.queryKey[0])),
   },
 };
+
+// A push that cannot double, for the whole app. `useRouter()` hands every
+// screen this one object, so guarding its push here guards all of them: a
+// thumb tapping a row twice while the screen is still coming up used to open
+// Settings twice. The same destination inside a second is the same tap.
+{
+  const rawPush = router.push;
+  let lastHref = '';
+  let lastAt = 0;
+  router.push = ((href: Parameters<typeof rawPush>[0], options?: Parameters<typeof rawPush>[1]) => {
+    const key = typeof href === 'string' ? href : JSON.stringify(href);
+    const now = Date.now();
+    if (key === lastHref && now - lastAt < 1000) return;
+    lastHref = key;
+    lastAt = now;
+    return rawPush(href, options);
+  }) as typeof rawPush;
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

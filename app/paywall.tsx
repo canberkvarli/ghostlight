@@ -68,7 +68,7 @@ export default function Paywall() {
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 4, paddingBottom: 12, flexGrow: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 12, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
           <View style={{ alignItems: 'center' }}>

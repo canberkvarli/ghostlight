@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { PrimaryPill } from '../src/components/PrimaryPill';
+import { waitAWeek } from '../src/lib/outcomeWait';
 import { StageDirection } from '../src/components/StageDirection';
 import { useAddCallback, useAudition, useLogOutcome, usePatchAudition } from '../src/hooks/useAuditions';
 import { track } from '../src/lib/analytics';
@@ -60,6 +61,7 @@ export default function OutcomeSheet() {
     if (w === 'callback') outcome.mutate({ id: a.id, outcome: 'callback' });
     else if (w === 'passed') outcome.mutate({ id: a.id, outcome: 'no' });
     else if (w === 'booked') patch.mutate({ id: a.id, patch: { status: 'booked' } });
+    else if (w === 'waiting') { void waitAWeek(a.id); return; } // nothing to log: asked again in a week
     else outcome.mutate({ id: a.id, outcome: 'good' });
     track('app_audition_outcome', { outcome: w === 'callback' ? 'callback' : w === 'passed' ? 'no' : 'good' });
   };
@@ -93,9 +95,9 @@ export default function OutcomeSheet() {
           const on = word === w.key;
           return (
             <Pressable key={w.key} onPress={() => { Haptics.selectionAsync().catch(() => {}); setWord(w.key); }} accessibilityRole="button" accessibilityState={{ selected: on }}
-              style={{ width: '47%', flexGrow: 1, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.ink : c.card }}>
-              <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, color: on ? c.card : c.foreground }}>{w.label}</Text>
-              <Text style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12, color: on ? c.yellow : c.mutedForeground }}>{w.line}</Text>
+              style={{ width: '47%', flexGrow: 1, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.yellow : c.card }}>
+              <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, color: on ? c.ink : c.paperInk }}>{w.label}</Text>
+              <Text style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12, color: on ? c.ink : c.paperMuted }}>{w.line}</Text>
             </Pressable>
           );
         })}

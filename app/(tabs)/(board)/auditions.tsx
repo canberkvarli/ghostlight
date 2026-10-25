@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
@@ -11,6 +11,7 @@ import { StageDirection } from '../../../src/components/StageDirection';
 import { PrimaryPill } from '../../../src/components/PrimaryPill';
 import { PaperCard } from '../../../src/components/PaperCard';
 import { HowItWorksSheet } from '../../../src/components/HowItWorksSheet';
+import { waitingOn } from '../../../src/lib/outcomeWait';
 import { Sketch } from '../../../src/components/Sketches';
 import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import { useAuditions, useCalendarFeed } from '../../../src/hooks/useAuditions';
@@ -91,7 +92,9 @@ export default function Auditions() {
     ]);
   }, [feed]);
   // The last audition that has not said how it went: one question, asked on the board itself.
-  const toCheck = useMemo(() => list.find((a) => a.scope !== 'upcoming' && !HEARD.has(a.status) && a.when) ?? null, [list]);
+  const [waiting, setWaiting] = useState<Record<string, number>>({});
+  useFocusEffect(useCallback(() => { let alive = true; waitingOn().then((w) => { if (alive) setWaiting(w); }).catch(() => {}); return () => { alive = false; }; }, []));
+  const toCheck = useMemo(() => list.find((a) => a.scope !== 'upcoming' && !HEARD.has(a.status) && a.when && !((waiting[String(a.id)] ?? 0) > Date.now())) ?? null, [list, waiting]);
   const checkIn = useCallback(() => {
     if (!toCheck) return;
     Haptics.selectionAsync().catch(() => {});
@@ -265,10 +268,10 @@ function Hero({ a, onOpen }: { a: Audition; onOpen: () => void }) {
             {piece?.title ? (
               <>
                 <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 19, lineHeight: 23, color: c.paperInk }}>{piece.title}</Text>
-                <StageDirection on="paper" numberOfLines={1}>({piece.character ? `${piece.character}. ` : ''}{piece.used ? 'ready.' : 'to prepare.'})</StageDirection>
+                <StageDirection on="paper" numberOfLines={2}>({piece.character ? `${piece.character}. ` : ''}{piece.used ? 'ready.' : 'to prepare.'})</StageDirection>
               </>
             ) : (
-              <StageDirection on="paper" numberOfLines={1}>(no piece yet. tap to pick one.)</StageDirection>
+              <StageDirection on="paper" numberOfLines={2}>(no piece yet. tap to pick one.)</StageDirection>
             )}
           </View>
           {piece?.used ? (

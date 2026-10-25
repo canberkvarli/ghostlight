@@ -448,10 +448,10 @@ export default function Search() {
         <Pressable
           onPress={() => Keyboard.dismiss()}
           accessible={false}
-          style={{ flex: 1, paddingHorizontal: 24 }}
+          style={{ flex: 1 }}
         >
           {/* The top row: the mark and the name on the left, your initial on the right. */}
-          <View style={{ height: HEADER_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ height: HEADER_H, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Pressable onPress={onLampPress} hitSlop={12} accessibilityRole="image" accessibilityLabel="Ghost Light" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ shadowColor: pal.glow, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }}>
                 <Image source={MARK} style={{ width: 22, height: 22 }} contentFit="contain" accessibilityIgnoresInvertColors />
@@ -471,7 +471,9 @@ export default function Search() {
             onScroll={onBarScroll}
             scrollEventThrottle={16}
             style={{ flex: 1 }}
-            contentContainerStyle={{ alignItems: 'center', paddingBottom: TAB_BAR_SPACE }}
+            // The side padding is the content's, not the frame's: a field shaking
+            // at an empty search used to push its right edge past the frame and lose it.
+            contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE }}
           >
 
             {/* The greeting. Two lines, each held to one line on purpose, in a
