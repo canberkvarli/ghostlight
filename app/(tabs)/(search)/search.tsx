@@ -60,7 +60,7 @@ import {
 } from '../../../src/data/filters';
 import { mediumPalette, type Medium } from '../../../src/theme/medium';
 import { useTheme } from '../../../src/theme/ThemeContext';
-import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 import { Initial } from '../../../src/components/Initial';
 import { UpNext } from '../../../src/components/UpNext';
@@ -137,6 +137,7 @@ export default function Search() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
   const onBarScroll = useHideBarOnScroll();
+  const tabSpace = useTabBarSpace();
   const { colors: c } = useTheme();
   const { width } = useWindowDimensions();
   const { loading: sessionLoading, isAuthenticated } = useSession();
@@ -473,7 +474,7 @@ export default function Search() {
             style={{ flex: 1 }}
             // The side padding is the content's, not the frame's: a field shaking
             // at an empty search used to push its right edge past the frame and lose it.
-            contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE }}
+            contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: tabSpace }}
           >
 
             {/* The greeting. Two lines, each held to one line on purpose, in a

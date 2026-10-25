@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../src/components/StageDirection';
@@ -27,9 +27,9 @@ import { useSession } from '../../../src/lib/useSession';
 import { stubLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import type { Monologue, Tone } from '../../../src/data/monologues';
-import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
-import { useHideBarOnScroll } from '../../../src/lib/barScroll';
-import { RoomHeader } from '../../../src/components/RoomHeader';
+import { useTabBarSpace } from '../../../src/components/TabBar';
+import { useRoomScroll } from '../../../src/lib/barScroll';
+import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
 
 /**
  * Saved — "Your book."
@@ -66,7 +66,8 @@ const TILTS = [-0.5, 0.4, -0.3];
 const ORDER_KEY = 'ghostlight:book.order';
 
 export default function Saves() {
-  const onBarScroll = useHideBarOnScroll();
+  const { onScroll: onBarScroll, scrollY } = useRoomScroll();
+  const tabSpace = useTabBarSpace();
   const { colors: c } = useTheme();
   const router = useRouter();
   const { isAuthenticated } = useSession();
@@ -85,6 +86,16 @@ export default function Saves() {
   const [pendingRemoval, setPendingRemoval] = useState<Saved | null>(null);
   const [find, setFind] = useState('');
   const [tone, setTone] = useState<Tone | null>(null);
+  // A tone chip shortens the shelf; the page used to snap to the top as the
+  // content shrank under it. Now it glides to the shelf's head instead.
+  const scroller = useAnimatedRef<Animated.ScrollView>();
+  const shelfY = useRef(0);
+  const toneTouched = useRef(false);
+  useEffect(() => {
+    if (!toneTouched.current) return;
+    scroller.current?.scrollTo({ y: Math.max(0, shelfY.current - 10), animated: true });
+  }, [tone, scroller]);
+  const pickTone = useCallback((t: Tone | null) => { toneTouched.current = true; setTone(t); }, []);
 
   // How the shelf is ordered: the book's own way until the actor picks one,
   // kept on the phone. The pocket and the room keep their own orders.
@@ -215,7 +226,7 @@ export default function Saves() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {picking ? <BackHeader label="Audition" onPress={goBack} /> : <RoomHeader />}
+        {picking ? <BackHeader label="Audition" onPress={goBack} /> : <RoomHeader title="Your book" scrollY={scrollY} />}
 
         {!isAuthenticated ? (
           <Center>
@@ -255,14 +266,15 @@ export default function Saves() {
           </Center>
         ) : (
           <Animated.ScrollView
+            ref={scroller}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
             onScroll={onBarScroll}
             scrollEventThrottle={16}
-            contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: TAB_BAR_SPACE }}
+            contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: tabSpace }}
           >
-            <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
+            <RoomTitle scrollY={scrollY} style={{ paddingTop: 8, paddingHorizontal: 2 }}>
               <Text
                 numberOfLines={1}
                 style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}
@@ -273,7 +285,7 @@ export default function Saves() {
               <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>
                 {subhead}
               </StageDirection>
-            </View>
+            </RoomTitle>
 
             {items.length >= FIND_FROM ? (
               <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>
@@ -335,9 +347,10 @@ export default function Saves() {
                     ) : null}
                     {book.stage.length + book.screen.length > 0 ? (
                       <Reveal order={2}>
+                        <View onLayout={(e) => { shelfY.current = e.nativeEvent.layout.y; }} />
                         <Shelf title="The shelf" aside={`(${book.stage.length + book.screen.length} · ${orderLine})`} onAside={pickOrder}>
                           {items.length >= FIND_FROM && book.tones.length > 1 ? (
-                            <ToneRow tones={book.tones} value={tone} onChange={setTone} />
+                            <ToneRow tones={book.tones} value={tone} onChange={pickTone} />
                           ) : null}
                           {toneFilter(book.stage).length > 0 ? (
                             <>

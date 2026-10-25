@@ -10,11 +10,11 @@ import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { PaperCard } from '../../../../src/components/PaperCard';
-import { RoomHeader } from '../../../../src/components/RoomHeader';
+import { RoomHeader, RoomTitle } from '../../../../src/components/RoomHeader';
 import { HowItWorksSheet } from '../../../../src/components/HowItWorksSheet';
 import { PartnerScene } from '../../../../src/components/PartnerScene';
-import { TAB_BAR_SPACE } from '../../../../src/components/TabBar';
-import { useHideBarOnScroll } from '../../../../src/lib/barScroll';
+import { useTabBarSpace } from '../../../../src/components/TabBar';
+import { useRoomScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
@@ -42,7 +42,8 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  * guided scene; bringing your own sides asks for the account they live on.
  */
 export default function RehearseHub() {
-  const onBarScroll = useHideBarOnScroll();
+  const { onScroll: onBarScroll, scrollY } = useRoomScroll();
+  const tabSpace = useTabBarSpace();
   const { colors: c } = useTheme();
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
@@ -101,13 +102,13 @@ export default function RehearseHub() {
           primaryLabel="Run the guided scene"
           onPrimary={() => { setHow(false); guided(); }}
         />
-        <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: TAB_BAR_SPACE }}>
-          <View style={{ paddingTop: 4, paddingHorizontal: 2 }}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: tabSpace }}>
+          <RoomTitle scrollY={scrollY} style={{ paddingTop: 4, paddingHorizontal: 2 }}>
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
               Scene <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>partner.</Text>
             </Text>
             <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>(it reads the others. you read yours.)</StageDirection>
-          </View>
+          </RoomTitle>
 
           {!ready ? (
             <View style={{ marginTop: 40, alignItems: 'center' }}>

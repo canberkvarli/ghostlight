@@ -1,4 +1,4 @@
-import { makeMutable, useAnimatedScrollHandler, useSharedValue, withTiming } from 'react-native-reanimated';
+import { makeMutable, useAnimatedScrollHandler, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
 /**
  * How far the bar has stepped away, 0 to 1. A room's scroll drives it: down
@@ -29,4 +29,19 @@ export function useHideBarOnScroll() {
     onBeginDrag: (e) => { last.value = e.contentOffset.y; },
     onScroll: (e) => { stepBar(last, e.contentOffset.y); },
   });
+}
+
+/**
+ * A room's scroll: the bar steps away as it goes down, and the room's big
+ * title knows how far it has gone, so it can shrink into the header row
+ * instead of sliding under it.
+ */
+export function useRoomScroll(): { onScroll: ReturnType<typeof useAnimatedScrollHandler>; scrollY: SharedValue<number> } {
+  const last = useSharedValue(0);
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler({
+    onBeginDrag: (e) => { last.value = e.contentOffset.y; },
+    onScroll: (e) => { scrollY.value = e.contentOffset.y; stepBar(last, e.contentOffset.y); },
+  });
+  return { onScroll, scrollY };
 }

@@ -58,7 +58,7 @@ import { clockLabel, dayLabel, eyebrow, timeLabel } from '../../../src/lib/when'
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { useRoomName } from '../../../src/lib/room';
 import { addAuditionToCalendar } from '../../../src/lib/calendar';
-import { TAB_BAR_SPACE } from '../../../src/components/TabBar';
+import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 
 /**
@@ -99,6 +99,7 @@ export default function Prep() {
 
   const scroll = useRef<Animated.ScrollView>(null);
   const onBarScroll = useHideBarOnScroll();
+  const tabSpace = useTabBarSpace();
   const yAfter = useRef(0);
   const yAsk = useRef(0);
   const scrollTo = (y: number) => scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
@@ -193,7 +194,7 @@ export default function Prep() {
               showsVerticalScrollIndicator={false}
               onScroll={onBarScroll}
               scrollEventThrottle={16}
-              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: TAB_BAR_SPACE + 24 }}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: tabSpace + 24 }}
             >
               <Head a={a} />
 

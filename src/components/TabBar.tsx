@@ -16,6 +16,12 @@ export const TAB_BAR_H = 66;
 export const TAB_BAR_LIFT = 26;
 export const TAB_BAR_SPACE = TAB_BAR_H + TAB_BAR_LIFT + 14;
 
+/** The room a scrolling list leaves under itself for the bar: the bar's height, its lift and the home indicator under it. */
+export function useTabBarSpace(): number {
+  const insets = useSafeAreaInsets();
+  return TAB_BAR_SPACE + insets.bottom;
+}
+
 const SANS_B = 'BricolageGrotesque_600SemiBold';
 
 /** The four rooms, in the order of the bar. */

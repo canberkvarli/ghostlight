@@ -19,9 +19,9 @@ import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../../..
 import { useSession } from '../../../src/lib/useSession';
 import { clockLabel, daysUntil, eyebrow, stubLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
-import { TAB_BAR_H, TAB_BAR_LIFT, TAB_BAR_SPACE } from '../../../src/components/TabBar';
-import { useHideBarOnScroll } from '../../../src/lib/barScroll';
-import { RoomHeader } from '../../../src/components/RoomHeader';
+import { TAB_BAR_H, TAB_BAR_LIFT, useTabBarSpace } from '../../../src/components/TabBar';
+import { useRoomScroll } from '../../../src/lib/barScroll';
+import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
 
 /**
  * Auditions — "Your week."
@@ -55,7 +55,8 @@ function weekOf(iso: string | null, now = new Date()): 'this' | 'next' | 'later'
 const WEEK_LABEL = { this: '(this week.)', next: '(next week.)', later: '(later.)', undated: '(no date yet.)' } as const;
 
 export default function Auditions() {
-  const onBarScroll = useHideBarOnScroll();
+  const { onScroll: onBarScroll, scrollY } = useRoomScroll();
+  const tabSpace = useTabBarSpace();
   const { colors: c } = useTheme();
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
@@ -128,7 +129,7 @@ export default function Auditions() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <RoomHeader right={headerRight} />
+        <RoomHeader right={headerRight} title="The board" scrollY={scrollY} />
         {!isAuthenticated ? (
           <Intro signedIn={false} onPrimary={onSignIn} onSecondary={onSignIn} onHow={() => setHow(true)} />
         ) : isLoading ? (
@@ -144,13 +145,13 @@ export default function Auditions() {
         ) : list.length === 0 ? (
           <Intro signedIn onPrimary={onPaste} onSecondary={onAdd} onHow={() => setHow(true)} />
         ) : (
-          <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_SPACE + 60 }}>
-            <View style={{ paddingTop: 4, paddingBottom: 6 }}>
+          <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: tabSpace + 60 }}>
+            <RoomTitle scrollY={scrollY} style={{ paddingTop: 4, paddingBottom: 6 }}>
               <Text numberOfLines={1} style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
                 The <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>board.</Text>
               </Text>
               <StageDirection style={{ marginTop: 6 }}>({summary})</StageDirection>
-            </View>
+            </RoomTitle>
             {/* The segments: a word each, the chosen one underlined in ink. */}
             <View style={{ flexDirection: 'row', gap: 22, borderBottomWidth: 1, borderBottomColor: c.divider, marginTop: 18 }}>
               {([['coming', 'Coming up'], ['heard', 'Heard back'], ['all', 'All']] as [Segment, string][]).map(([key, label]) => {
