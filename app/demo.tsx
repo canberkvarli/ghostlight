@@ -53,6 +53,11 @@ export default function Demo() {
   const scenes = useMemo(() => firstScenes(guided.data), [guided.data]);
   const [open, setOpen] = useState<string | null>(keyParam ?? null);
   const done = Number(after ?? '0') || 0;
+  // Where the stranger is: a key, a part, a voice. The rule at the top fills
+  // a third at a time and the caption under the headline says what is next,
+  // so the demo is its own onboarding and no page has to come before it.
+  const [stage, setStage] = useState<1 | 2 | 3>(keyParam ? 2 : 1);
+  useEffect(() => { if (open === null) setStage(1); }, [open]);
 
   useEffect(() => { void markDemoSeen(); track('demo_shown', { after: done }); }, [done]);
   useEffect(() => { if (keyParam && scenes.some(s => s.key === keyParam)) setOpen(keyParam); }, [keyParam, scenes]);
@@ -88,7 +93,7 @@ export default function Demo() {
             {done ? 'Another, in a' : 'Run a scene.'}{'\n'}
             <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{done ? 'different key?' : 'Right now.'}</Text>
           </Text>
-          <StageDirection style={{ marginTop: 10 }}>{done ? '(the partner is warmed up. so are you.)' : '(a partner who listens. pick a scene, pick a part, speak.)'}</StageDirection>
+          <Steps stage={stage} />
 
           {guided.isLoading && !scenes.length ? (
             <View style={{ marginTop: 60, alignItems: 'center' }}>
@@ -108,7 +113,8 @@ export default function Demo() {
                   scene={s}
                   tilt={TILTS[i % TILTS.length]}
                   open={open === s.key}
-                  onOpen={() => { Haptics.selectionAsync().catch(() => {}); stopSample(); setOpen(open === s.key ? null : s.key); if (open !== s.key) track('demo_card', { key: s.key }); }}
+                  onOpen={() => { Haptics.selectionAsync().catch(() => {}); stopSample(); setOpen(open === s.key ? null : s.key); if (open !== s.key) { setStage(2); track('demo_card', { key: s.key }); } }}
+                  onStage={setStage}
                   onBegin={(ch, v) => begin(s, ch, v)}
                 />
               ))}
@@ -121,8 +127,27 @@ export default function Demo() {
 }
 
 /** One scene as a card: the key, the hook, the two names; open, the parts and the voices. */
-function Card({ scene, tilt, open, onOpen, onBegin }: {
-  scene: GuidedScene; tilt: number; open: boolean; onOpen: () => void; onBegin: (character: string, voices: Record<string, string>) => void;
+/** The rule and the caption: which of the three choices is next. */
+function Steps({ stage }: { stage: 1 | 2 | 3 }) {
+  const { colors: c } = useTheme();
+  const lines = ['pick a key.', 'pick your part.', 'who plays opposite? then begin.'];
+  return (
+    <View style={{ marginTop: 14 }}>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {[1, 2, 3].map(n => (
+          <View key={n} style={{ flex: 1, height: 3, borderRadius: 1.5, backgroundColor: n <= stage ? c.accentText : c.divider }} />
+        ))}
+      </View>
+      <Animated.View key={stage} entering={FadeIn.duration(220)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{stage} OF 3</Text>
+        <StageDirection numberOfLines={2} style={{ flex: 1 }}>({lines[stage - 1]})</StageDirection>
+      </Animated.View>
+    </View>
+  );
+}
+
+function Card({ scene, tilt, open, onOpen, onStage, onBegin }: {
+  scene: GuidedScene; tilt: number; open: boolean; onOpen: () => void; onStage: (s: 2 | 3) => void; onBegin: (character: string, voices: Record<string, string>) => void;
 }) {
   const { colors: c } = useTheme();
   const words = KEY_WORDS[scene.key] ?? { eyebrow: scene.title.toUpperCase(), tone: scene.hook ?? '' };
@@ -136,14 +161,14 @@ function Card({ scene, tilt, open, onOpen, onBegin }: {
         </View>
         <Text style={{ marginTop: 8, fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.paperInk }}>{scene.hook ?? scene.title}</Text>
         <Text style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, letterSpacing: 1.2, textTransform: 'uppercase', color: c.paperMuted }}>{names.join('  ·  ')}</Text>
-        {open ? <Inside scene={scene} onBegin={onBegin} /> : null}
+        {open ? <Inside scene={scene} onStage={onStage} onBegin={onBegin} /> : null}
       </PaperCard>
     </Pressable>
   );
 }
 
 /** The open card: who you are, who plays the other, and Begin. */
-function Inside({ scene, onBegin }: { scene: GuidedScene; onBegin: (character: string, voices: Record<string, string>) => void }) {
+function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 2 | 3) => void; onBegin: (character: string, voices: Record<string, string>) => void }) {
   const { colors: c } = useTheme();
   const payload = useRehearsalScene(scene.scene_id);
   const [me, setMe] = useState<string | null>(scene.characters.length === 1 ? scene.characters[0].name : null);
@@ -163,6 +188,7 @@ function Inside({ scene, onBegin }: { scene: GuidedScene; onBegin: (character: s
   const chosen = voice ?? voices[0]?.id ?? null;
 
   useEffect(() => () => stopSample(), []);
+  useEffect(() => { onStage(me ? 3 : 2); }, [me, onStage]);
 
   const hear = (v: Voice) => {
     Haptics.selectionAsync().catch(() => {});

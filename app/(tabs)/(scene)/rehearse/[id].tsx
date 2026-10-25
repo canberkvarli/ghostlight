@@ -251,6 +251,14 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
           ) : null}
+          {/* A first scene says, once, what is about to happen, until the first word of yours is heard. */}
+          {demoN && !(r.snapshot && r.snapshot.heard.size > 0) && !(r.snapshot?.read.matched.size) ? (
+            <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(200)} style={{ paddingHorizontal: 24, paddingBottom: 6 }}>
+              <StageDirection numberOfLines={2} style={{ textAlign: 'center' }}>
+                {state === 'actor' ? '(your line. say it; the words light as you go.)' : `(it reads ${payload.characters.filter(ch => !sameCharacter(ch, actor)).join(' and ').toLowerCase() || 'the others'}. your line is lit when it is yours.)`}
+              </StageDirection>
+            </Animated.View>
+          ) : null}
           {/* One line under the script, always the same height, so the dock never moves: listening, or nothing. */}
           <View style={{ height: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {state === 'actor' && !r.readiness.error ? (

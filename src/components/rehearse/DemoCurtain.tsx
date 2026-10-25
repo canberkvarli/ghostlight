@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -12,6 +13,7 @@ import { useTheme } from '../../theme/ThemeContext';
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
 const SANS = 'BricolageGrotesque_500Medium';
+const SANS_B = 'BricolageGrotesque_600SemiBold';
 const CAP = 'BricolageGrotesque_700Bold';
 const MONO_I = 'CourierPrime_400Regular_Italic';
 
@@ -25,6 +27,13 @@ const MONO_I = 'CourierPrime_400Regular_Italic';
  * paywall itself unchanged behind it. "Not tonight" is always there and
  * says they will be back.
  */
+/** The rest of the house, one card each, so the stranger knows what the week opens. */
+const HOUSE: { icon: React.ComponentProps<typeof Ionicons>['name']; name: string; line: string }[] = [
+  { icon: 'search-outline', name: 'Search', line: 'thousands of monologues, by who you are and what you need.' },
+  { icon: 'bookmark-outline', name: 'Your book', line: 'keep them, cut them, run them off book.' },
+  { icon: 'calendar-outline', name: 'Your board', line: 'paste the casting email; the night before, it knocks.' },
+];
+
 export function DemoCurtain({ title, which, heard, of, seconds, others, termsLine, onAnother, onWeek, onNotTonight }: {
   title: string;
   /** Which first scene this was: the first or the second. */
@@ -86,8 +95,21 @@ export function DemoCurtain({ title, which, heard, of, seconds, others, termsLin
           <Text style={{ fontFamily: SERIF, fontSize: 28, lineHeight: 32, letterSpacing: -0.3, color: c.foreground }}>
             The whole <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
           </Text>
-          <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 14.5, lineHeight: 21, color: c.mutedForeground }}>
-            Every scene in the library, your own sides, and a partner for all of them. The three you just met are in your house for good.
+          <View style={{ marginTop: 14, gap: 10 }}>
+            {HOUSE.map(h => (
+              <View key={h.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={h.icon} size={17} color={c.accentText} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>{h.name}</Text>
+                  <Text style={{ marginTop: 1, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>({h.line})</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+          <Text style={{ marginTop: 14, fontFamily: SANS, fontSize: 14.5, lineHeight: 21, color: c.mutedForeground }}>
+            And a partner for every scene in the library and every side of your own. The three you just met are in your house for good.
           </Text>
           <PrimaryPill label="Start the free week" onPress={onWeek} height={54} block haptic="medium" style={{ marginTop: 18 }} />
           {termsLine ? <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS, fontSize: 11.5, lineHeight: 16, color: c.chevron }}>{termsLine}</Text> : null}
