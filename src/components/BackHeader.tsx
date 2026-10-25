@@ -13,12 +13,26 @@ export function BackHeader({
   label,
   onPress,
   right,
+  close = false,
 }: {
   label: string;
   onPress: () => void;
   right?: React.ReactNode;
+  /** A page that came up from below goes down again: a cross, no destination named. */
+  close?: boolean;
 }) {
   const { colors: c } = useTheme();
+  if (close) {
+    return (
+      <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"
+          style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginLeft: -6 }}>
+          <Ionicons name="close" size={24} color={c.foreground} />
+        </Pressable>
+        {right ?? null}
+      </View>
+    );
+  }
   return (
     <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
       <Pressable

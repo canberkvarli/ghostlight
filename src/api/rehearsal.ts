@@ -219,14 +219,27 @@ export async function uploadScriptStream(
   if ('text' in source) {
     form.append('file', new Blob([source.text], { type: 'text/plain' }), source.name);
   } else {
-    // Expo's fetch reads a {uri, name, type} part from disk itself. A Blob
-    // built from the bytes was never possible: React Native's Blob takes
-    // strings and other blobs, not an ArrayBuffer, and that throw was "the
-    // file could not be sent" for every pdf and word file.
-    form.append('file', { uri: source.uri, name: source.name, type: source.mimeType ?? 'application/octet-stream' } as unknown as Blob);
+    // Expo's fetch reads a file part through bytes(), which the file system's
+    // File has. A Blob built from the bytes was never possible (React
+    // Native's Blob takes strings and other blobs, not an ArrayBuffer) and a
+    // bare {uri} part is not read by this fetch either; both threw before
+    // the file left the phone, which was "the file could not be sent" for
+    // every pdf and word file.
+    form.append('file', new File(source.uri) as unknown as Blob, source.name);
   }
   if (title) form.append('title', title);
-  const res = await streamFetch(`${API_URL}/api/scripts/upload-stream`, { method: 'POST', headers: await authHeaders(), body: form, signal });
+  let res: Awaited<ReturnType<typeof streamFetch>>;
+  try {
+    res = await streamFetch(`${API_URL}/api/scripts/upload-stream`, { method: 'POST', headers: await authHeaders(), body: form, signal });
+  } catch (e) {
+    // Whatever this fetch makes of the part, the old multipart upload takes
+    // the file as a path and always did. No map on the way, but the script.
+    if ('uri' in source && e instanceof Error && /formdata|blob|unsupported|bytes/i.test(e.message)) {
+      onStep('Sending the file');
+      return uploadScript({ uri: source.uri, name: source.name, mimeType: source.mimeType }, title);
+    }
+    throw e;
+  }
   if (!res.ok) {
     let detail = `upload failed (${res.status})`;
     let upgrade: string | null = null;

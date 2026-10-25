@@ -321,6 +321,8 @@ function Shell() {
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
+        {/* You comes up from below over whichever room you are in, and goes down again: no room is named on the way back. */}
+        <Stack.Screen name="account" options={{ presentation: 'modal' }} />
         <Stack.Screen name="note" options={{ animation: 'fade_from_bottom', animationDuration: 340 }} />
         {/* The audition form is a sheet over the board, like auth over a save. */}
         <Stack.Screen name="audition" options={{ presentation: 'modal' }} />

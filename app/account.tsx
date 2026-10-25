@@ -54,7 +54,7 @@ export default function You() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="Search" onPress={goBack} right={gear} />
+        <BackHeader label="Search" close onPress={goBack} right={gear} />
         {isAuthenticated && session ? <SignedIn session={session} /> : <SignedOut />}
       </SafeAreaView>
     </View>

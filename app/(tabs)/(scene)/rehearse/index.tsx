@@ -76,7 +76,8 @@ export default function RehearseHub() {
   const firstThree = useMemo(() => (guidedList.data?.scenes?.length ? firstScenes(guidedList.data) : []), [guidedList.data]);
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
-  const guided = () => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: 'guided', from: 'guided' } }); };
+  // The first scenes, the three on cards: the help's one thing to do goes there, not to the one scene a server used to have.
+  const guided = () => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/demo', params: { after: '9' } }); };
   // How this works, behind a question mark, as on the board: the loop, one
   // paragraph, and the guided scene as the one thing to do next.
   const [how, setHow] = useState(false);
@@ -91,7 +92,7 @@ export default function RehearseHub() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <RoomHeader right={help} />
+        <RoomHeader title="Scene partner" scrollY={scrollY} right={help} />
         <HowItWorksSheet
           open={how}
           onClose={() => setHow(false)}
@@ -99,7 +100,7 @@ export default function RehearseHub() {
           accent="You read yours."
           body="Your sides in, your part picked, a voice heard. Then it listens, and answers on your last word."
           scene={<PartnerScene style={{ marginTop: 16 }} />}
-          primaryLabel="Run the guided scene"
+          primaryLabel="Pick a first scene"
           onPrimary={() => { setHow(false); guided(); }}
         />
         <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: tabSpace }}>
