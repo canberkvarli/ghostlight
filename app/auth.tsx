@@ -195,7 +195,6 @@ export default function Auth() {
           <View onLayout={(e) => { place.current.email = e.nativeEvent.layout.y; }} />
           <LabelledField
             label="Email"
-            placeholder="you@somewhere.com"
             onFocus={bring('email')}
             value={email}
             onChangeText={(t) => { setEmail(t); clear(); }}
@@ -210,7 +209,6 @@ export default function Auth() {
           <View onLayout={(e) => { place.current.password = e.nativeEvent.layout.y; }} />
           <LabelledField
             label="Password"
-            placeholder={creating ? 'six characters or more' : 'your password'}
             onFocus={bring('password')}
             value={password}
             onChangeText={(t) => { setPassword(t); clear(); }}

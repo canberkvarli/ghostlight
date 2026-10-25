@@ -81,7 +81,7 @@ export default function Demo() {
     track('demo_begun', { key: scene.key, character, after: done });
     stopSample();
     router.push({
-      pathname: '/rehearse/[id]',
+      pathname: '/play/[id]',
       params: { id: String(scene.scene_id), from: 'demo', guided: 'pick', cast: character, voices: JSON.stringify(voices), demo: String(done + 1), key: scene.key },
     });
   };
@@ -240,24 +240,27 @@ function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 
           {payload.isLoading && !voices.length ? (
             <ActivityIndicator color={c.paperMuted} style={{ marginTop: 14 }} />
           ) : (
-            <View style={{ marginTop: 10, flexDirection: 'row', gap: 8 }}>
+            <View style={{ marginTop: 10, gap: 8 }}>
               {voices.map(v => {
                 const on = chosen === v.id;
                 const busy = hearing?.id === v.id;
                 return (
                   <Pressable key={v.id} onPress={() => { Haptics.selectionAsync().catch(() => {}); setVoice(v.id); track('demo_voice', { key: scene.key, voice: v.id }); }}
                     accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.paperRule, backgroundColor: on ? c.yellow : 'transparent', alignItems: 'center' }}>
-                    <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 14, color: c.paperInk }}>{nameOf(v)}</Text>
-                    <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: SANS, fontSize: 11, lineHeight: 14, color: on ? c.paperInk : c.paperMuted }}>{asideOf(v)}</Text>
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.paperRule, backgroundColor: on ? c.yellow : 'transparent' }}>
                     <Pressable onPress={() => hear(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={busy ? `Stop ${nameOf(v)}` : `Hear ${nameOf(v)}`}
-                      style={{ marginTop: 10, width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: busy ? c.accentText : on ? c.ink : c.paperRule, alignItems: 'center', justifyContent: 'center' }}>
+                      style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: busy ? c.accentText : on ? c.ink : c.paperRule, alignItems: 'center', justifyContent: 'center' }}>
                       {busy && hearing?.state === 'waiting' ? (
                         <ActivityIndicator size="small" color={c.accentText} />
                       ) : (
                         <Ionicons name={busy ? 'stop' : 'volume-medium-outline'} size={16} color={busy ? c.accentText : c.ink} />
                       )}
                     </Pressable>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 15, color: c.paperInk }}>{nameOf(v)}</Text>
+                      {asideOf(v) ? <Text numberOfLines={2} style={{ marginTop: 1, fontFamily: SANS, fontSize: 12.5, lineHeight: 16, color: on ? c.paperInk : c.paperMuted }}>{asideOf(v)}</Text> : null}
+                    </View>
+                    {on ? <Ionicons name="checkmark" size={18} color={c.ink} /> : null}
                   </Pressable>
                 );
               })}
@@ -272,7 +275,6 @@ function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 
             haptic="medium"
             style={{ marginTop: 18 }}
           />
-          <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>(free. two minutes. it listens for you.)</StageDirection>
         </Animated.View>
       ) : me ? (
         <PrimaryPill label="Begin" onPress={() => onBegin(me, {})} height={54} block haptic="medium" style={{ marginTop: 18 }} />

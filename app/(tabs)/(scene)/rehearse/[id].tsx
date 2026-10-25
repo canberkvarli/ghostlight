@@ -274,7 +274,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           </View>
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
-      ) : cast && armed && !r.gated && !spent && !r.readiness.error ? (
+      ) : cast && !r.gated && !spent && !r.readiness.error ? (
         /* A first scene arrives cast: no sheet to read, only the house getting ready. */
         <WarmUp title={sceneLine} waiting={waitingLine(r.readiness)} />
       ) : (

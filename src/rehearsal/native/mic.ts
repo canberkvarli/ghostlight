@@ -164,11 +164,12 @@ export class Mic {
       requiresOnDeviceRecognition: this.onDevice,
       contextualStrings: this.keywords,
       iosTaskHint: 'dictation',
-      // Video chat: the phone cancels its own speaker out of the microphone,
-      // so the partner is not heard back while the actor is being listened
-      // to, and the speaker stays at full volume. Voice chat cancels the
-      // same way but turns the speaker down, which was the partner gone quiet.
-      iosCategory: { category: 'playAndRecord', categoryOptions: ['defaultToSpeaker', 'allowBluetooth'], mode: 'videoChat' },
+      // The plain mode: the speaker at its full volume. The chat modes cancel
+      // the speaker out of the microphone but run the sound through voice
+      // processing, which left the partner too quiet to act against. What
+      // the microphone hears of the partner is kept out by the engine's own
+      // rule for a cut-in: three of the actor's words, in order.
+      iosCategory: { category: 'playAndRecord', categoryOptions: ['defaultToSpeaker', 'allowBluetooth'], mode: 'default' },
     };
     if (__DEV__) console.log('[mic] start, keywords', this.keywords.length, 'onDevice', this.onDevice);
     try { ExpoSpeechRecognitionModule.start(options); } catch (e) { if (__DEV__) console.log('[mic] start threw', e); this.cb.onFailed(e instanceof Error ? e.message : String(e)); }
