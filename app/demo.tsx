@@ -227,7 +227,7 @@ function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 
             <Pressable key={ch.name} onPress={() => { Haptics.selectionAsync().catch(() => {}); setMe(ch.name); setVoice(null); stopSample(); setHearing(null); track('demo_part', { key: scene.key, character: ch.name }); }}
               accessibilityRole="button" accessibilityState={{ selected: on }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1.5, borderColor: on ? c.ink : c.paperRule, backgroundColor: on ? c.yellow : 'transparent' }}>
-              <Text style={{ fontFamily: SANS_B, fontSize: 15, letterSpacing: 0.4, color: c.paperInk }}>{ch.name}</Text>
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, letterSpacing: 0.4, color: on ? c.ink : c.paperInk }}>{ch.name}</Text>
               {on ? <Ionicons name="checkmark" size={16} color={c.ink} /> : null}
             </Pressable>
           );
@@ -257,8 +257,8 @@ function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 
                       )}
                     </Pressable>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 15, color: c.paperInk }}>{nameOf(v)}</Text>
-                      {asideOf(v) ? <Text numberOfLines={2} style={{ marginTop: 1, fontFamily: SANS, fontSize: 12.5, lineHeight: 16, color: on ? c.paperInk : c.paperMuted }}>{asideOf(v)}</Text> : null}
+                      <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 15, color: on ? c.ink : c.paperInk }}>{nameOf(v)}</Text>
+                      {asideOf(v) ? <Text numberOfLines={2} style={{ marginTop: 1, fontFamily: SANS, fontSize: 12.5, lineHeight: 16, color: on ? c.ink : c.paperMuted }}>{asideOf(v)}</Text> : null}
                     </View>
                     {on ? <Ionicons name="checkmark" size={18} color={c.ink} /> : null}
                   </Pressable>
