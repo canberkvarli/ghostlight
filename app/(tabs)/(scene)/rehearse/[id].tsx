@@ -22,6 +22,7 @@ import { useRehearsal } from '../../../../src/hooks/useRehearsal';
 import { sameCharacter } from '../../../../src/rehearsal/contract';
 import { useGuided, useRehearsalScene } from '../../../../src/hooks/useScenePartner';
 import { track } from '../../../../src/lib/analytics';
+import { recordFinishedRun } from '../../../../src/lib/reviewMoments';
 import { useGoBack } from '../../../../src/lib/nav';
 import type { ScenePayload } from '../../../../src/rehearsal/contract';
 import { useTheme } from '../../../../src/theme/ThemeContext';
@@ -176,7 +177,9 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
     endedRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     track('app_rehearse_ended', { source, how: 'completed', lines: payload.lines.length, seconds: begunAt.current ? Math.round((Date.now() - begunAt.current) / 1000) : 0 });
-  }, [ended, source, payload.lines.length]);
+    // A scene they brought, run to the end: a rating moment. The first scenes and the guided run are the lesson, not the habit.
+    if (!guided && !picked && !demoN) void recordFinishedRun();
+  }, [ended, source, payload.lines.length, guided, picked, demoN]);
 
   const leave = () => {
     if (begunAt.current && !endedRef.current) {

@@ -43,6 +43,7 @@ import { clearAllReminders, configureNotifications } from '../src/lib/notificati
 import { clearRecents } from '../src/lib/recents';
 import { resetKnocks } from '../src/lib/nudges';
 import { KnockNoteHost } from '../src/components/KnockNote';
+import { WhatsNewHost } from '../src/components/WhatsNew';
 import { useSession } from '../src/lib/useSession';
 import { setFavorite } from '../src/api/client';
 import { PENDING_KEEP } from '../src/lib/keep';
@@ -337,6 +338,8 @@ function Shell() {
       {/* The note from backstage: rises only after a good moment. */}
       <BackstageNoteHost />
       <KnockNoteHost />
+      {/* Once per release, for someone who updated: what is new, and a way to the store. */}
+      <WhatsNewHost />
     </GestureHandlerRootView>
     </NavThemeProvider>
   );

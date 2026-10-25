@@ -7,8 +7,8 @@ import { rateGhostLight } from './maker';
  * When to ask for a rating, and when not to.
  *
  * The note from backstage only appears straight after something went right:
- * a third save, a speech read to the end on a second day, a third day of
- * coming back. Never on the first day, never in a session that hit the
+ * a third save, a speech read to the end on a second day, a second scene run
+ * to its last line, a third day of coming back. Never on the first day, never in a session that hit the
  * paywall or an empty search, never twice inside 60 days, never more than
  * three times a year, and never again after someone has rated.
  *
@@ -31,7 +31,7 @@ const AFTER_OPEN_MS = 6000;
 const NEW_SESSION_AFTER_MS = 30 * 60 * 1000;
 
 export type NoteOutcome = 'rated' | 'later' | 'hi';
-export type NoteReason = 'save' | 'read' | 'open';
+export type NoteReason = 'save' | 'read' | 'open' | 'scene';
 
 interface State {
   firstOpenAt: number | null;
@@ -41,12 +41,16 @@ interface State {
   finishedReads: number;
   readDays: number;
   lastReadDay: string | null;
+  /** Scenes run to the end with the partner. The guided first run is not one. */
+  finishedRuns: number;
+  /** The second-run moment fires once, like the third save. */
+  runMomentUsed: boolean;
   openDays: number;
   lastOpenDay: string | null;
   /** Timestamps of every time the note was shown, trimmed to the last year. */
   shownAt: number[];
   rated: boolean;
-  /** The automatic system rating sheet after the third save. Once per install. */
+  /** The automatic system rating sheet after the third save or the second run. Once per install. */
   reviewPrompted: boolean;
 }
 
@@ -57,6 +61,8 @@ const EMPTY: State = {
   finishedReads: 0,
   readDays: 0,
   lastReadDay: null,
+  finishedRuns: 0,
+  runMomentUsed: false,
   openDays: 0,
   lastOpenDay: null,
   shownAt: [],
@@ -224,6 +230,40 @@ export function recordFinishedRead(): Promise<void> {
   });
 }
 
+/**
+ * A scene the actor brought, run to its last line with the partner.
+ *
+ * The second one is the scene partner's third save: proof it is a habit, not a
+ * try. Same two things, each once: the note where its rules allow, otherwise
+ * Apple's sheet if it has never been asked for. Someone who only rehearses and
+ * never saves would otherwise never be asked at all.
+ */
+export function recordFinishedRun(): Promise<void> {
+  const now = Date.now();
+  return update((s) => {
+    s.finishedRuns += 1;
+    let out: 'note' | 'review' | null = null;
+    if (!s.runMomentUsed && s.finishedRuns >= 2 && eligible(s, now)) {
+      s.runMomentUsed = true;
+      out = 'note';
+    }
+    if (!s.reviewPrompted && s.finishedRuns >= 2 && !suppressed) {
+      s.reviewPrompted = true;
+      out = out ?? 'review';
+    }
+    return out;
+  }).then((fire) => {
+    if (fire === 'note') request('scene', AFTER_MOMENT_MS);
+    if (fire === 'review') {
+      setTimeout(() => {
+        if (suppressed) return;
+        track('app_review_prompted', { from: 'second_run' });
+        void rateGhostLight({ inApp: true });
+      }, AFTER_MOMENT_MS);
+    }
+  });
+}
+
 /** The paywall, an error, an empty search: not a session to ask in. */
 export function suppressThisSession() {
   suppressed = true;
@@ -231,6 +271,26 @@ export function suppressThisSession() {
     clearTimeout(pending);
     pending = null;
   }
+}
+
+/**
+ * Someone who was here before this launch. The first open is stamped on the
+ * very first launch, so an install has it only from this session on.
+ */
+export function isReturning(): Promise<boolean> {
+  // Through the queue, so it answers after this launch's recordAppOpen.
+  return update((s) => s.firstOpenAt != null && !sessionIsInstall);
+}
+
+export async function hasRated(): Promise<boolean> {
+  return (await load()).rated;
+}
+
+/** A rating asked for outside the note (the What's New card): never ask again. */
+export function markRated(): Promise<void> {
+  return update((s) => {
+    s.rated = true;
+  });
 }
 
 export async function shouldOfferNote(): Promise<boolean> {

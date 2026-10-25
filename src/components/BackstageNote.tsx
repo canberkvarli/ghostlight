@@ -19,6 +19,7 @@ import {
   onNoteRequested,
   suppressThisSession,
   type NoteOutcome,
+  type NoteReason,
 } from '../lib/reviewMoments';
 import { openInstagram, rateGhostLight } from '../lib/maker';
 import { track } from '../lib/analytics';
@@ -42,7 +43,7 @@ export function BackstageNoteHost() {
   const pathname = usePathname();
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<NoteReason | null>(null);
 
   // Seeing the paywall takes the rest of the session out of the running. Done
   // here off the route rather than inside the paywall screen, so every way of
@@ -53,21 +54,21 @@ export function BackstageNoteHost() {
 
   useEffect(
     () =>
-      onNoteRequested(() => {
+      onNoteRequested((reason) => {
         if (QUIET_ROUTES.has(pathRef.current)) return;
         // Counted the moment it appears, so a killed app still respects the
         // cooldown. The answer, if one comes, refines it.
         void markNoteShown('later');
-        setOpen(true);
+        setOpen(reason);
       }),
     [],
   );
 
   if (!open) return null;
-  return <BackstageNote onDone={() => setOpen(false)} />;
+  return <BackstageNote reason={open} onDone={() => setOpen(null)} />;
 }
 
-export function BackstageNote({ onDone }: { onDone: () => void }) {
+export function BackstageNote({ reason, onDone }: { reason: NoteReason; onDone: () => void }) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
   const shown = useSharedValue(0);
@@ -129,7 +130,8 @@ export function BackstageNote({ onDone }: { onDone: () => void }) {
             }}
           >
             Hi, I&apos;m Canberk. I&apos;m an actor, and I build Ghost Light on my own. If it
-            found you a speech, a rating helps more than you&apos;d think.
+            {reason === 'scene' ? ' ran a scene with you' : ' found you a speech'}, a rating helps more
+            than you&apos;d think.
           </Text>
 
           <PrimaryPill
