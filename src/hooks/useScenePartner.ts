@@ -8,6 +8,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, listScenes, listScripts, uploadScriptStream,
+  editSceneLines,
+  type EditedLine,
 } from '../api/rehearsal';
 
 export const SCENES_KEY = ['scenes'] as const;
@@ -80,4 +82,17 @@ export function useDeleteScript() {
 /** The scene left unfinished most recently, for the pick-up card on the home and in the room. */
 export function useLatestRun(enabled: boolean) {
   return useQuery({ queryKey: ['latest-run'], queryFn: ({ signal }) => getLatestRun(signal), enabled, staleTime: 30_000, retry: 1 });
+}
+
+/** The actor's own lines, rewritten: the scene, the scripts and the scenes all read again. */
+export function useEditSceneLines(sceneId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (lines: EditedLine[]) => editSceneLines(sceneId, lines),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['rehearsal-scene', sceneId] });
+      void qc.invalidateQueries({ queryKey: ['scripts'] });
+      void qc.invalidateQueries({ queryKey: ['scenes'] });
+    },
+  });
 }

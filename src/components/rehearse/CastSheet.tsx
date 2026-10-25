@@ -47,6 +47,7 @@ interface Props {
  * the first line is ready.
  */
 export function CastSheet({ payload, guided, preparing, waiting, error, gated, onBegin, onPlans, onClose }: Props) {
+  const router = useRouter();
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const resume = guided ? null : payload.resume;
@@ -108,6 +109,14 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
             <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: c.mutedForeground }}>{payload.scene.play_title}</Text>
           ) : null}
           <Text style={{ marginTop: 4, fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.5, color: c.foreground }}>{payload.scene.title}</Text>
+          {!guided && !payload.scene.is_library ? (
+            /* Your own sides can be read through and put right before the run: a speaker, a direction, a line split in two. */
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/edit/[id]', params: { id: String(payload.scene.id) } }); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Read and fix the sides"
+              style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+              <Ionicons name="create-outline" size={14} color={c.accentText} />
+              <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.accentText }}>(read the sides, fix what the reader got wrong.)</Text>
+            </Pressable>
+          ) : null}
 
           {guided ? (
             <Text style={{ marginTop: 16, fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>

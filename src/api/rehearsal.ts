@@ -9,7 +9,7 @@ import { File } from 'expo-file-system';
 import { fetch as streamFetch } from 'expo/fetch';
 
 import { API_URL, ApiError, authHeaders } from './client';
-import type { GuidedRun, JournalEvent, ResumedRun, ScenePayload } from '../rehearsal/contract';
+import type { GuidedRun, JournalEvent, RehearsalLine, ResumedRun, ScenePayload } from '../rehearsal/contract';
 
 async function call<T>(path: string, init: RequestInit = {}, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -277,3 +277,16 @@ export async function uploadScriptStream(
 /** Sides pasted as text. */
 export const scriptFromText = (text: string, title?: string) =>
   call<ScriptDetail>('/api/scripts/from-text', { method: 'POST', body: JSON.stringify({ body: text, title }) });
+
+/** A line as the actor rewrote it: who, the words, a direction if there is one. */
+export interface EditedLine { character: string; text: string; direction: string | null }
+
+/**
+ * The lines of a scene of the actor's own, replaced in order. The parts and
+ * the length follow on the server; the partner's audio follows by itself,
+ * keyed by the words; a run left open on the old lines is closed.
+ */
+export const editSceneLines = (sceneId: number, lines: EditedLine[]) =>
+  call<{ lines: RehearsalLine[]; characters: string[]; line_count: number }>(`/api/rehearsal/scenes/${sceneId}/lines`, {
+    method: 'PUT', body: JSON.stringify({ lines }),
+  });
