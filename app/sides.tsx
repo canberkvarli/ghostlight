@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -17,6 +18,7 @@ import type { ScriptDetail } from '../src/api/rehearsal';
 import { RehearsalApiError } from '../src/api/rehearsal';
 import { track } from '../src/lib/analytics';
 import { useGoBack } from '../src/lib/nav';
+import { SCRIPT_STEPS, stepOf } from '../src/lib/scriptSteps';
 import { useTheme } from '../src/theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -26,6 +28,7 @@ const MONO_I = 'CourierPrime_400Regular_Italic';
 const SANS = 'BricolageGrotesque_500Medium';
 
 /** Any file: the server reads it by its bytes and says so if it cannot. */
+const SANS_B = 'BricolageGrotesque_600SemiBold';
 const TYPES = '*/*';
 const EXT_OF: Record<string, string> = { 'application/pdf': 'pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx', 'text/plain': 'txt', 'text/rtf': 'rtf', 'application/rtf': 'rtf', 'text/markdown': 'md' };
 /**
@@ -54,7 +57,7 @@ function named(name: string | null | undefined, mimeType?: string | null): strin
   const ext = mimeType ? EXT_OF[mimeType] : undefined;
   return `${n || 'sides'}.${ext ?? 'txt'}`;
 }
-const STEPS = ['reading the pages.', 'finding the cast.', 'splitting the scenes.', 'setting the lines.'];
+
 
 /**
  * Sides in. Two doors: a file from Files (the share sheet lands here too, with
@@ -89,9 +92,14 @@ export default function AddSides() {
     track('app_sides_added', { how: door, ok: false, characters: 0 });
   };
 
+  // The map: which step the server is on, as it reads the script aloud.
+  const [step, setStep] = useState(0);
+  const onStep = (raw: string) => { const n = stepOf(raw); if (n !== null) setStep(s => Math.max(s, n)); };
+
   const sendFile = (file: { uri: string; name: string; mimeType?: string }, door: 'files' | 'share') => {
     setHow(door);
-    upload.mutate({ ...file, title: title.trim() || undefined }, { onSuccess: s => arrived(s, door), onError: () => failed(door) });
+    setStep(0);
+    upload.mutate({ ...file, title: title.trim() || undefined, onStep }, { onSuccess: s => arrived(s, door), onError: () => failed(door) });
   };
 
   // From the share sheet or "Open in": the file is already chosen.
@@ -121,7 +129,8 @@ export default function AddSides() {
     if (body.length < 40) return;
     Haptics.selectionAsync().catch(() => {});
     setHow('paste');
-    paste.mutate({ text: body, title: title.trim() || undefined }, { onSuccess: s => arrived(s, 'paste'), onError: () => failed('paste') });
+    setStep(0);
+    paste.mutate({ text: body, title: title.trim() || undefined, onStep }, { onSuccess: s => arrived(s, 'paste'), onError: () => failed('paste') });
   };
 
   return (
@@ -139,7 +148,7 @@ export default function AddSides() {
             </View>
 
             {pending ? (
-              <Working />
+              <TheMap step={step} />
             ) : error ? (
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: 36 }}>
                 <StageDirection numberOfLines={4}>({inWords(error)})</StageDirection>
@@ -205,19 +214,46 @@ function Door({ cap, title, line, onPress, tilt }: { cap: string; title: string;
 }
 
 /** While the server reads: the steps as stage directions, one at a time. */
-function Working() {
+/**
+ * The map. The server reads the script aloud as it goes and the phone draws
+ * the same few steps the website does: the ones done ticked, the one it is
+ * on breathing, the rest waiting. Honest to the second: nothing here is a
+ * timer.
+ */
+function TheMap({ step }: { step: number }) {
   const { colors: c } = useTheme();
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setStep(s => Math.min(STEPS.length - 1, s + 1)), 2600);
-    return () => clearInterval(t);
-  }, []);
   return (
-    <View style={{ marginTop: 60, alignItems: 'center' }}>
-      <ActivityIndicator color={c.mutedForeground} />
-      <Animated.View key={step} entering={FadeIn.duration(300)}>
-        <StageDirection style={{ marginTop: 16 }}>({STEPS[step]})</StageDirection>
-      </Animated.View>
+    <View style={{ marginTop: 36 }}>
+      <StageDirection>(reading your sides.)</StageDirection>
+      <View style={{ marginTop: 16, gap: 2 }}>
+        {SCRIPT_STEPS.map((label, i) => {
+          const done = i < step;
+          const on = i === step;
+          return (
+            <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 7 }}>
+              <View style={{ width: 22, alignItems: 'center' }}>
+                {done ? (
+                  <Ionicons name="checkmark" size={15} color={c.accentText} />
+                ) : on ? (
+                  <Breath color={c.accentText} />
+                ) : (
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.divider }} />
+                )}
+              </View>
+              <Text style={{ fontFamily: on ? SANS_B : SANS, fontSize: 15, lineHeight: 21, color: on ? c.foreground : done ? c.mutedForeground : c.chevron }}>{label.replace(/\.$/, '')}</Text>
+            </View>
+          );
+        })}
+      </View>
+      <StageDirection style={{ marginTop: 18 }}>(a long script takes a minute. stay on the page.)</StageDirection>
     </View>
   );
+}
+
+/** The dot beside the step it is on: it breathes. */
+function Breath({ color }: { color: string }) {
+  const k = useSharedValue(0);
+  useEffect(() => { k.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, true); return () => cancelAnimation(k); }, [k]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: 0.75 + 0.45 * k.value }], opacity: 0.55 + 0.45 * k.value }));
+  return <Animated.View style={[{ width: 9, height: 9, borderRadius: 5, backgroundColor: color }, style]} />;
 }

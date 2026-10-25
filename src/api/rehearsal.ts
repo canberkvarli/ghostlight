@@ -5,6 +5,8 @@
  * here is before a run, after it, or fire-and-forget beside it.
  */
 import * as FileSystem from 'expo-file-system/legacy';
+import { File } from 'expo-file-system';
+import { fetch as streamFetch } from 'expo/fetch';
 
 import { API_URL, ApiError, authHeaders } from './client';
 import type { GuidedRun, JournalEvent, ResumedRun, ScenePayload } from '../rehearsal/contract';
@@ -198,6 +200,75 @@ export async function uploadScript(file: { uri: string; name: string; mimeType?:
     throw new RehearsalApiError(res.status, detail, upgrade);
   }
   return JSON.parse(res.body) as ScriptDetail;
+}
+
+/**
+ * The same upload, read aloud: the server sends its progress as it goes,
+ * one `data:` line at a time, then the script or an error. The phone draws
+ * the map from it. Streamed through Expo's fetch, which can read a response
+ * as it arrives; the file is read into a Blob first (a script is small).
+ * Pasted text goes the same way, as a text file, so it gets the map too.
+ */
+export async function uploadScriptStream(
+  source: { uri: string; name: string; mimeType?: string } | { text: string; name: string },
+  title: string | undefined,
+  onStep: (raw: string) => void,
+  signal?: AbortSignal,
+): Promise<ScriptDetail> {
+  const form = new FormData();
+  if ('text' in source) {
+    form.append('file', new Blob([source.text], { type: 'text/plain' }), source.name);
+  } else {
+    const bytes = await new File(source.uri).arrayBuffer();
+    form.append('file', new Blob([bytes], { type: source.mimeType ?? 'application/octet-stream' }), source.name);
+  }
+  if (title) form.append('title', title);
+  const res = await streamFetch(`${API_URL}/api/scripts/upload-stream`, { method: 'POST', headers: await authHeaders(), body: form, signal });
+  if (!res.ok) {
+    let detail = `upload failed (${res.status})`;
+    let upgrade: string | null = null;
+    try {
+      const j = (await res.json()) as { detail?: string | { message?: string; upgrade_url?: string; error?: string } };
+      if (typeof j.detail === 'string') detail = j.detail;
+      else if (j.detail?.message) { detail = j.detail.message; upgrade = j.detail.upgrade_url ?? null; }
+      else if (j.detail?.error === 'feature_not_available') detail = 'Your plan has its scripts. The next one needs the whole stage.';
+    } catch { /* no body */ }
+    throw new RehearsalApiError(res.status, detail, upgrade);
+  }
+  // Lines arrive as `data: {...}` separated by blank lines; the last word is done or error.
+  let buffer = '';
+  let result: ScriptDetail | null = null;
+  let failure: string | null = null;
+  const take = (chunk: string) => {
+    buffer += chunk;
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const ev = JSON.parse(line.slice(6)) as { type: string; step?: string; data?: ScriptDetail; detail?: string };
+        if (ev.type === 'progress' && ev.step) onStep(ev.step);
+        else if (ev.type === 'done' && ev.data) result = ev.data;
+        else if (ev.type === 'error') failure = ev.detail ?? 'The script could not be read.';
+      } catch { /* a torn line; the next one is whole */ }
+    }
+  };
+  const body = res.body;
+  if (body && typeof body.getReader === 'function') {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) take(decoder.decode(value, { stream: true }));
+      if (done || result || failure) break;
+    }
+    try { await reader.cancel(); } catch { /* finished */ }
+  } else {
+    take((await res.text()) + '\n');
+  }
+  if (failure) throw new RehearsalApiError(422, failure, null);
+  if (!result) throw new RehearsalApiError(502, 'The script could not be read.', null);
+  return result;
 }
 
 /** Sides pasted as text. */

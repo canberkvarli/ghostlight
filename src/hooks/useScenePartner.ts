@@ -7,7 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, listScenes, listScripts, scriptFromText, uploadScript,
+  deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, listScenes, listScripts, uploadScriptStream,
 } from '../api/rehearsal';
 
 export const SCENES_KEY = ['scenes'] as const;
@@ -49,18 +49,22 @@ export function useRunStats(enabled: boolean) {
 }
 
 /** A file from Files or the share sheet. Resolves with the script, its cast split. */
+/** A file goes up and is read aloud: `onStep` gets the server's lines as they come. */
 export function useUploadScript() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { uri: string; name: string; mimeType?: string; title?: string }) => uploadScript(v, v.title),
+    mutationFn: (v: { uri: string; name: string; mimeType?: string; title?: string; onStep?: (raw: string) => void }) =>
+      uploadScriptStream({ uri: v.uri, name: v.name, mimeType: v.mimeType }, v.title, v.onStep ?? (() => {})),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
   });
 }
 
+/** Pasted text goes the same way, as a text file, and gets the same map. */
 export function useScriptFromText() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { text: string; title?: string }) => scriptFromText(v.text, v.title),
+    mutationFn: (v: { text: string; title?: string; onStep?: (raw: string) => void }) =>
+      uploadScriptStream({ text: v.text, name: `${(v.title ?? 'sides').replace(/[^\w-]+/g, '-').slice(0, 40) || 'sides'}.txt` }, v.title, v.onStep ?? (() => {})),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
   });
 }
