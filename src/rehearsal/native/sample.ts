@@ -5,6 +5,7 @@
  * again. One sample sounds at a time; asking for another stops the last.
  */
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { Directory, File, Paths } from 'expo-file-system';
 
 import { pollAudio, requestAudio } from '../../api/rehearsal';
 
@@ -12,6 +13,49 @@ const WAIT_MS = 900;
 const TRIES = 10;
 
 let current: { player: AudioPlayer; stop: () => void } | null = null;
+
+/** Samples pulled down ahead of the tap, by scene, line and voice. */
+const primed = new Map<string, string>();
+const priming = new Map<string, Promise<string | null>>();
+const sampleDir = () => { const d = new Directory(Paths.cache, 'samples'); if (!d.exists) d.create(); return d; };
+
+async function resolveUrl(sceneId: number, lineIndex: number, voice: string): Promise<string | null> {
+  try {
+    const first = await requestAudio(sceneId, lineIndex, voice);
+    let url = first.url;
+    for (let i = 0; !url && i < TRIES; i++) {
+      await new Promise(r => setTimeout(r, WAIT_MS));
+      url = await pollAudio(first.key);
+    }
+    return url ?? null;
+  } catch { return null; }
+}
+
+/**
+ * Pull a sample into the cache before anyone asks for it, so the hear icon
+ * plays at once. Quiet on failure: the tap falls back to the network.
+ */
+export function primeSample(sceneId: number, lineIndex: number, voice: string): Promise<string | null> {
+  const key = `${sceneId}-${lineIndex}-${voice}`;
+  const have = primed.get(key);
+  if (have) return Promise.resolve(have);
+  const going = priming.get(key);
+  if (going) return going;
+  const p = (async () => {
+    try {
+      const file = new File(sampleDir(), `${key}.mp3`);
+      if (!file.exists) {
+        const url = await resolveUrl(sceneId, lineIndex, voice);
+        if (!url) return null;
+        await File.downloadFileAsync(url, file);
+      }
+      primed.set(key, file.uri);
+      return file.uri;
+    } catch { return null; } finally { priming.delete(key); }
+  })();
+  priming.set(key, p);
+  return p;
+}
 let asked = 0; // each request is a generation; an older one still waiting gives up
 
 export function stopSample() {
@@ -40,17 +84,8 @@ export async function playSample(
   stopSample();
   const mine = ++asked;
   onState('waiting');
-  let url: string | null = null;
-  try {
-    const first = await requestAudio(sceneId, lineIndex, voice);
-    url = first.url;
-    for (let i = 0; !url && i < TRIES && mine === asked; i++) {
-      await new Promise(r => setTimeout(r, WAIT_MS));
-      url = await pollAudio(first.key);
-    }
-  } catch {
-    url = null;
-  }
+  // From the cache when it was primed; else the network, and the cache for next time.
+  const url: string | null = primed.get(`${sceneId}-${lineIndex}-${voice}`) ?? await primeSample(sceneId, lineIndex, voice) ?? await resolveUrl(sceneId, lineIndex, voice);
   if (!url || mine !== asked) { onState('done'); return; }
   await playableOnSilent();
   if (mine !== asked) { onState('done'); return; }

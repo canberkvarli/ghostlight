@@ -56,6 +56,7 @@ export default function Rehearse() {
   const { colors: c } = useTheme();
   const { tiltX, tiltY } = useStageMotion();
   const goBack = useGoBack('/rehearse');
+  const router = useRouter();
   // Again is a new run: the room is remounted, so the engine, the microphone
   // and the players start clean. Refetching alone changed nothing when the
   // scene came back the same, and the ended run stayed ended under the pill.
@@ -70,7 +71,7 @@ export default function Rehearse() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       {payload ? (
-        <Run key={take} payload={payload} guided={guided} picked={picked} cast={cast ?? null} castVoices={castVoices} demoN={demoN} demoKey={demoKey ?? null} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1' && take === 1} onLeave={goBack} onAgain={() => { setTake(t => t + 1); void refetch(); }} />
+        <Run key={take} payload={payload} guided={guided} picked={picked} cast={cast ?? null} castVoices={castVoices} demoN={demoN} demoKey={demoKey ?? null} guidedPart={guidedPick?.character ?? null} go={go === '1'} pickUp={resume === '1' && take === 1} from={from} onLeave={goBack} onDone={() => router.replace('/rehearse')} onAgain={() => { setTake(t => t + 1); void refetch(); }} />
       ) : (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <TopBar title="" onLeave={goBack} />
@@ -109,13 +110,13 @@ function phoneError(e: string | null): string | null {
     .replace('Allow it in your browser and reload.', 'Allow it in Settings and come back.');
 }
 
-function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guidedPart, go, pickUp, onLeave, onAgain }: {
+function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guidedPart, go, pickUp, from, onLeave, onDone, onAgain }: {
   picked: boolean; cast: string | null; castVoices: Record<string, string>; demoN: 1 | 2 | null; demoKey: string | null;
   payload: ScenePayload; guided: boolean; guidedPart: string | null;
   /** `?go=1`, as on the web: begin the moment Begin would light. A link from a reminder, or a test. */
   go: boolean;
   /** `?resume=1` with go: pick the open run up where it was left, from the room's card. */
-  pickUp: boolean; onLeave: () => void; onAgain: () => void;
+  pickUp: boolean; from: string | undefined; onLeave: () => void; onDone: () => void; onAgain: () => void;
 }) {
   const { colors: c } = useTheme();
   const router = useRouter();
@@ -233,7 +234,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           />
         </ScrollView>
       ) : ended ? (
-        <Animated.View entering={FadeIn.duration(420)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+        <Animated.View entering={FadeIn.duration(700).delay(500)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <StageDirection>(lights down.)</StageDirection>
           <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.5, color: c.foreground }}>
             {payload.scene.title}
@@ -246,11 +247,12 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           </Text>
           <View style={{ marginTop: 26, flexDirection: 'row', gap: 12 }}>
             <PrimaryPill label="Again" onPress={() => { track('app_rehearse_opened', { from: 'library' }); onAgain(); }} />
-            <PrimaryPill label="Done" variant="outline" onPress={leave} />
+            <PrimaryPill label="Done" variant="outline" onPress={from === 'demo' ? onDone : leave} />
           </View>
         </Animated.View>
       ) : running ? (
-        <Animated.View entering={FadeIn.duration(360)} exiting={FadeOut.duration(200)} style={{ flex: 1 }}>
+        /* At the end the stage goes down slowly, not out: the last line is still there while the lights fade. */
+        <Animated.View entering={FadeIn.duration(360)} exiting={FadeOut.duration(900)} style={{ flex: 1 }}>
           <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>

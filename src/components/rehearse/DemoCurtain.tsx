@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -55,23 +56,23 @@ export function DemoCurtain({ title, which, heard, of, seconds, others, termsLin
   const secs = seconds % 60;
   const ran = mins ? `${mins}:${String(secs).padStart(2, '0')}` : `${secs} seconds`;
   return (
-    <Animated.View entering={FadeIn.duration(420)} style={{ flex: 1, paddingHorizontal: 28, paddingTop: 36 }}>
+    <Animated.View entering={FadeIn.duration(700).delay(500)} style={{ flex: 1, paddingHorizontal: 28, paddingTop: 36 }}>
       <StageDirection>(lights down.)</StageDirection>
       <Text style={{ marginTop: 12, fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.5, color: c.foreground }}>{title}</Text>
 
-      {/* Their numbers. */}
-      <View style={{ marginTop: 26, flexDirection: 'row', gap: 18 }}>
-        <Figure n={of ? `${heard}/${of}` : '–'} line={all ? 'lines heard. every one.' : 'of your lines heard.'} />
+      {/* Their numbers, counting up once the title has settled. */}
+      <Animated.View entering={FadeIn.duration(500).delay(1200)} style={{ marginTop: 26, flexDirection: 'row', gap: 18 }}>
+        <Figure n={of ? `${heard}/${of}` : '–'} countTo={of ? heard : null} countOf={of} line={all ? 'lines heard. every one.' : 'of your lines heard.'} />
         <Figure n={ran} line="the scene ran." />
-      </View>
-      <Text style={{ marginTop: 18, fontFamily: SANS, fontSize: 14.5, lineHeight: 21, color: c.mutedForeground }}>
+      </Animated.View>
+      <Animated.Text entering={FadeIn.duration(500).delay(2000)} style={{ marginTop: 18, fontFamily: SANS, fontSize: 14.5, lineHeight: 21, color: c.mutedForeground }}>
         {all
           ? 'It waited for you and came in on your last word, every time. That is what a partner does.'
           : 'It waited for you and came in on your last word. The lines it missed, say a little louder next time; it learns your room.'}
-      </Text>
+      </Animated.Text>
 
       {which === 1 && others.length ? (
-        <View style={{ marginTop: 30 }}>
+        <Animated.View entering={FadeIn.duration(600).delay(2600)} style={{ marginTop: 30 }}>
           <Text style={{ fontFamily: SERIF, fontSize: 28, lineHeight: 32, letterSpacing: -0.3, color: c.foreground }}>
             Another, <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>in a different key?</Text>
           </Text>
@@ -89,9 +90,9 @@ export function DemoCurtain({ title, which, heard, of, seconds, others, termsLin
               );
             })}
           </View>
-        </View>
+        </Animated.View>
       ) : (
-        <View style={{ marginTop: 30 }}>
+        <Animated.View entering={FadeIn.duration(600).delay(2600)} style={{ marginTop: 30 }}>
           <Text style={{ fontFamily: SERIF, fontSize: 28, lineHeight: 32, letterSpacing: -0.3, color: c.foreground }}>
             The whole <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
           </Text>
@@ -113,21 +114,36 @@ export function DemoCurtain({ title, which, heard, of, seconds, others, termsLin
           </Text>
           <PrimaryPill label="Start the free week" onPress={onWeek} height={54} block haptic="medium" style={{ marginTop: 18 }} />
           {termsLine ? <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS, fontSize: 11.5, lineHeight: 16, color: c.chevron }}>{termsLine}</Text> : null}
-        </View>
+        </Animated.View>
       )}
 
-      <Pressable onPress={onNotTonight} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 26, paddingVertical: 8 }}>
-        <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>(not tonight.)</Text>
-      </Pressable>
+      <Animated.View entering={FadeIn.duration(500).delay(3200)} style={{ alignSelf: 'center', marginTop: 26 }}>
+        <Pressable onPress={onNotTonight} hitSlop={12} accessibilityRole="button" style={{ paddingVertical: 8 }}>
+          <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>(not tonight.)</Text>
+        </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }
 
-function Figure({ n, line }: { n: string; line: string }) {
+function Figure({ n, line, countTo = null, countOf = 0 }: { n: string; line: string; countTo?: number | null; countOf?: number }) {
   const { colors: c } = useTheme();
+  // The count climbs from nothing to the number over a second, once it is on.
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    if (countTo === null) return;
+    const started = Date.now() + 1200;
+    const t = setInterval(() => {
+      const k = Math.min(1, Math.max(0, (Date.now() - started) / 1000));
+      setAt(Math.round(countTo * (1 - Math.pow(1 - k, 3))));
+      if (k >= 1) clearInterval(t);
+    }, 40);
+    return () => clearInterval(t);
+  }, [countTo]);
+  const shown = countTo === null ? n : `${at}/${countOf}`;
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 44, letterSpacing: -0.6, color: c.accentText }}>{n}</Text>
+      <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 44, letterSpacing: -0.6, color: c.accentText }}>{shown}</Text>
       <Text style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, letterSpacing: 0.4, color: c.mutedForeground }}>({line})</Text>
     </View>
   );
