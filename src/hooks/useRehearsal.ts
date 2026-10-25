@@ -90,7 +90,11 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       } else if (opts?.guided) {
         // One of the phone's first scenes, with the part and the voice chosen
         // on the way in; or the server's own pick when the scene is the one it names.
-        run = (await openGuidedRun(opts.guided === 'pick' ? { sceneId: payload.scene.id, character, voices } : undefined)) as GuidedRun;
+        // The part picked on the way in is the part, whatever the server
+        // writes in the run: a server older than the three scenes casts its
+        // own actor, and the engine would read the wrong lines aloud.
+        const opened = (await openGuidedRun(opts.guided === 'pick' ? { sceneId: payload.scene.id, character, voices } : undefined)) as GuidedRun;
+        run = opts.guided === 'pick' ? { ...opened, character } : opened;
       } else {
         const opened = await openRun(payload.scene.id, character, voices);
         run = { scene_id: payload.scene.id, character, ...opened };

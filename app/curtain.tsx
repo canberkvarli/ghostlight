@@ -177,7 +177,8 @@ export default function Curtain() {
   const houseWord = (h: { key: Medium; label: string }) => {
     const on = h.key === medium;
     return (
-      <Pressable key={h.key} onPress={() => changeHouse(h.key)} hitSlop={10} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+      <Pressable key={h.key} onPress={() => changeHouse(h.key)} hitSlop={10} accessibilityRole="tab" accessibilityState={{ selected: on }}
+        style={{ paddingBottom: 2, borderBottomWidth: 1.5, borderBottomColor: on ? c.foreground : 'transparent' }}>
         <Text
           style={{
             fontFamily: on ? 'CourierPrime_700Bold' : 'CourierPrime_400Regular',
@@ -201,38 +202,38 @@ export default function Curtain() {
         </View>
       ) : null}
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* The header: the two houses, the lamp, a magnifier, the way in. */}
+        {/* The header: the lamp in the middle, a magnifier and the way in at the sides. */}
         <View style={{ height: 48, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>{HOUSES.map(houseWord)}</View>
+          <Pressable onPress={toggleFind} hitSlop={10} accessibilityRole="button" accessibilityLabel={finding ? 'Close search' : 'Search'} style={{ width: 36, alignItems: 'flex-start' }}>
+            <Ionicons name={finding ? 'close-outline' : 'search-outline'} size={20} color={c.foreground} />
+          </Pressable>
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }}>
             <GhostLight size={18} />
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-            <Pressable onPress={toggleFind} hitSlop={10} accessibilityRole="button" accessibilityLabel={finding ? 'Close search' : 'Search'}>
-              <Ionicons name={finding ? 'close-outline' : 'search-outline'} size={20} color={c.foreground} />
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                track('app_curtain', { action: 'sign_in' });
-                router.push('/auth');
-              }}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in"
-            >
-              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>
-                sign in
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => {
+              track('app_curtain', { action: 'sign_in' });
+              router.push('/auth');
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+          >
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>
+              sign in
+            </Text>
+          </Pressable>
         </View>
 
-        {/* The door to the first scenes: one line, for the stranger who came for the partner. */}
-        <Pressable onPress={() => { track('app_curtain', { action: 'demo' }); router.push('/demo'); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Run a scene with a partner"
-          style={{ alignSelf: 'center', marginTop: 2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, letterSpacing: 0.6, color: c.accentText }}>(or run a scene with a partner.)</Text>
-          <Ionicons name="arrow-forward" size={12} color={c.accentText} />
-        </Pressable>
+        {/* The bill: the two houses on one line, the door to the first scenes on the next, a rule under each. */}
+        <View style={{ marginHorizontal: 20, marginTop: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 18, paddingBottom: 9, borderBottomWidth: 1, borderBottomColor: c.divider }}>{HOUSES.map(houseWord)}</View>
+          <Pressable onPress={() => { track('app_curtain', { action: 'demo' }); router.push('/demo'); }} hitSlop={6} accessibilityRole="button" accessibilityLabel="Run a scene with a partner"
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.5, color: c.accentText }}>or run a scene with a partner</Text>
+            <Ionicons name="arrow-forward" size={13} color={c.accentText} />
+          </Pressable>
+        </View>
 
         {/* The line of search, folded away until asked for. */}
         <Animated.View style={[foldStyle, { marginHorizontal: 20, overflow: 'hidden' }]}>

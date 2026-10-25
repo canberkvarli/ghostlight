@@ -50,7 +50,10 @@ export default function Demo() {
   const { tiltX, tiltY } = useStageMotion();
   const { isAuthenticated } = useSession();
   const guided = useGuided(true);
-  const scenes = useMemo(() => firstScenes(guided.data), [guided.data]);
+  // A server that lists no scenes named one part; the scene itself names both.
+  const lone = guided.data && !guided.data.scenes?.length ? guided.data.scene_id : null;
+  const loneScene = useRehearsalScene(lone);
+  const scenes = useMemo(() => firstScenes(guided.data, loneScene.data), [guided.data, loneScene.data]);
   const [open, setOpen] = useState<string | null>(keyParam ?? null);
   const done = Number(after ?? '0') || 0;
   // Where the stranger is: a key, a part, a voice. The rule at the top fills
@@ -171,7 +174,9 @@ function Card({ scene, tilt, open, onOpen, onStage, onBegin }: {
 function Inside({ scene, onStage, onBegin }: { scene: GuidedScene; onStage: (s: 2 | 3) => void; onBegin: (character: string, voices: Record<string, string>) => void }) {
   const { colors: c } = useTheme();
   const payload = useRehearsalScene(scene.scene_id);
-  const [me, setMe] = useState<string | null>(scene.characters.length === 1 ? scene.characters[0].name : null);
+  const [me, setMe] = useState<string | null>(null);
+  // One part only (the cast not yet known, or a scene for one): it is yours.
+  useEffect(() => { if (scene.characters.length === 1) setMe(scene.characters[0].name); }, [scene.characters]);
   const [voice, setVoice] = useState<string | null>(null);
   const [hearing, setHearing] = useState<{ id: string; state: 'waiting' | 'sounding' } | null>(null);
   const other = me ? scene.characters.find(ch => !sameCharacter(ch.name, me)) ?? null : null;

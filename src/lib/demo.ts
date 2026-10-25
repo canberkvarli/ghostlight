@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { GuidedPick, GuidedScene } from '../api/rehearsal';
+import type { ScenePayload } from '../rehearsal/contract';
+import { sameCharacter } from '../rehearsal/contract';
 
 /**
  * The first scenes: what the phone remembers about them, and how each key is
@@ -42,9 +44,23 @@ export const KEY_WORDS: Record<string, { eyebrow: string; tone: string }> = {
   late: { eyebrow: 'A FIRST SCENE', tone: 'somebody waited an hour. somebody finally shows up.' },
 };
 
-/** The first scenes to offer: the server's three, or the one it always had, as a card of its own. */
-export function firstScenes(pick: GuidedPick | undefined): GuidedScene[] {
+/** Who is who in the one scene a server without the three always had. */
+const LATE_PARTS: Record<string, string> = { alex: 'the one who is late', riley: 'the one who waited' };
+
+/**
+ * The first scenes to offer: the server's three, or the one it always had as a
+ * card of its own. That older answer names only the part it would cast; the
+ * scene itself, once fetched, names both, so the actor can be the one who
+ * waited as well as the one who is late.
+ */
+export function firstScenes(pick: GuidedPick | undefined, scene?: ScenePayload | null): GuidedScene[] {
   if (!pick) return [];
   if (pick.scenes && pick.scenes.length) return pick.scenes;
-  return [{ key: 'late', scene_id: pick.scene_id, title: 'Late', hook: 'Riley waited an hour. Alex finally shows up.', characters: [{ name: pick.character, line: 'the one who is late', first_line: null }] }];
+  const names = scene?.characters?.length ? scene.characters : [pick.character];
+  const characters = names.map(name => ({
+    name,
+    line: LATE_PARTS[name.toLowerCase()] ?? null,
+    first_line: scene?.lines.find(l => sameCharacter(l.character, name))?.index ?? null,
+  }));
+  return [{ key: 'late', scene_id: pick.scene_id, title: 'Late', hook: 'Riley waited an hour. Alex finally shows up.', characters }];
 }
