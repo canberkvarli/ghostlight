@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { StageBackdrop } from '../../src/components/StageBackdrop';
 import { BackHeader } from '../../src/components/BackHeader';
 import { AboutActorRiseSheet } from '../../src/components/AboutActorRiseSheet';
+import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { useStageMotion } from '../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../src/hooks/useEntitlement';
 import { PRIVACY_URL, TERMS_URL } from '../../src/hooks/useTrialOffer';
@@ -117,25 +118,19 @@ export default function Settings() {
 
   // Confirm first, then say what happens: signing out of a library app looks
   // like it might take your saves with it, and it does not.
-  const onSignOut = () => {
-    Alert.alert('Sign out?', 'Your saved monologues stay on your account. Sign back in any time to pick them up.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          setBusy('signout');
-          try {
-            // The cache clear and the fresh anonymous session are handled by the SIGNED_OUT listener in app/_layout.tsx.
-            await supabase.auth.signOut();
-            if (router.canDismiss()) router.dismissAll();
-            else router.replace('/');
-          } finally {
-            setBusy(null);
-          }
-        },
-      },
-    ]);
+  const [askingOut, setAskingOut] = useState(false);
+  const onSignOut = () => { Haptics.selectionAsync().catch(() => {}); setAskingOut(true); };
+  const signOut = async () => {
+    setBusy('signout');
+    try {
+      // The cache clear and the fresh anonymous session are handled by the SIGNED_OUT listener in app/_layout.tsx.
+      await supabase.auth.signOut();
+      setAskingOut(false);
+      if (router.canDismiss()) router.dismissAll();
+      else router.replace('/');
+    } finally {
+      setBusy(null);
+    }
   };
 
   const email = session?.user.email ?? null;
@@ -192,6 +187,16 @@ export default function Settings() {
         </ScrollView>
       </SafeAreaView>
       <AboutActorRiseSheet open={about} onClose={() => setAbout(false)} from="account" />
+      <ConfirmSheet
+        open={askingOut}
+        title="Sign"
+        accent="out?"
+        body="Your book, your board and your scenes stay on your account. Sign back in any time and they are where you left them."
+        confirm="Sign out"
+        busy={busy === 'signout'}
+        onConfirm={() => { void signOut(); }}
+        onCancel={() => setAskingOut(false)}
+      />
     </View>
   );
 }

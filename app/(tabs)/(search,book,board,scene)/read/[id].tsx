@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,7 @@ import { recordFinishedRead } from '../../../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../../../src/lib/offline';
 import { supabase } from '../../../../src/lib/supabase';
 import { UndoBar } from '../../../../src/components/UndoBar';
+import { Tooltip } from '../../../../src/components/ConfirmSheet';
 import { useSession } from '../../../../src/lib/useSession';
 import { useGoBack } from '../../../../src/lib/nav';
 import { useIsFavorited, useMarkStudied, useSavedPiece, useSetCut, useSetOffBook, useToggleFavorite } from '../../../../src/hooks/useFavorites';
@@ -294,6 +295,9 @@ export default function Read() {
   // The five seconds after a tap that takes something away: clearing the cut,
   // or the bookmark coming out. One bar, the same as the book's.
   const [undo, setUndo] = useState<{ key: number; label: string; restore: () => void } | null>(null);
+  // The running time's note, anchored under the facts line it was tapped on.
+  const factsRef = useRef<View>(null);
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
   const clearCut = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (monologue && cut) {
@@ -753,11 +757,9 @@ export default function Read() {
                     what the running time means, since "2 min" is read as a
                     promise and it is an estimate. */}
                 <Pressable
+                  ref={factsRef}
                   onPress={() => {
-                    Alert.alert(
-                      `About ${formatDuration(shown.duration)}`,
-                      'Timed at 150 words a minute, the pace of a straight read, with no pauses in it. Played, with its silences, it runs longer. Casting calls that say "under two minutes" mean the spoken time.',
-                    );
+                    factsRef.current?.measureInWindow((x, y, _w, h) => { setTip({ x, y: y + h }); });
                   }}
                   hitSlop={8}
                   accessibilityRole="button"
@@ -1064,6 +1066,13 @@ export default function Read() {
       {undo ? (
         <UndoBar key={undo.key} label={undo.label} onUndo={() => { undo.restore(); setUndo(null); }} onExpire={() => setUndo(null)} />
       ) : null}
+      <Tooltip
+        open={tip !== null}
+        at={tip}
+        title={`About ${formatDuration(shown.duration)}, spoken.`}
+        body='Timed at 150 words a minute, a straight read with no pauses. Played, with its silences, it runs longer. A call that says "under two minutes" means the spoken time.'
+        onClose={() => setTip(null)}
+      />
 
       {/* The save acknowledgement — a beat over the page, then gone. */}
       {saveNote ? (
