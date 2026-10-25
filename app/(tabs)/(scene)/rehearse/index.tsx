@@ -97,7 +97,7 @@ export default function RehearseHub() {
           onClose={() => setHow(false)}
           title="It reads the others."
           accent="You read yours."
-          body="Pick your part and the partner reads everyone else, in a voice you choose. Say your line and the words light up as you go; on your last word the partner comes straight back in. Cut it off whenever you like. Your own sides go in as a photo, a PDF or the text itself."
+          body="Your sides in, your part picked, a voice heard. Then it listens, and answers on your last word."
           scene={<PartnerScene style={{ marginTop: 16 }} />}
           primaryLabel="Run the guided scene"
           onPrimary={() => { setHow(false); guided(); }}

@@ -103,7 +103,10 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * throws instead. Both dressings are `bare`, which already includes the pole and
  * the foot.
  */
-const MARK = require('../../../assets/ghostlight-mark.svg');
+// The lamp as a bitmap, not the SVG: the vector mark rendered as a blank
+// square in a release bundle, which left the name floating a step to the
+// right of nothing, as if something were missing. Something was.
+const MARK = require('../../../assets/ghostlight-lamp.png');
 const LAMP_GLASS_PAID = 16;
 const LAMP_GLASS_FREE = 14;
 
