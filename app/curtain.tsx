@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -63,10 +63,15 @@ export default function Curtain() {
   const pal = mediumPalette(medium, c.isLight);
 
   // Sign in from here and the home takes over, with the book and the board.
+  // Only while this is the room on top: the sign-in page sits over the
+  // curtain, and the moment the session arrived this used to replace the
+  // page on top, the sign-in page itself, with the home; the page's own
+  // "back" then popped the home away and left the actor signed in on the
+  // curtain, with nothing left to move them on.
   const { isAuthenticated } = useSession();
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (isAuthenticated) router.replace('/search');
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router]));
 
   const { list, settled, failed, retry } = useHouse(medium);
   const tonight = useTonight(medium);

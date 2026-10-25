@@ -32,7 +32,7 @@ const CONFIG_ERROR =
 
 export type AuthResult =
   | { ok: true }
-  | { ok: false; canceled?: boolean; message?: string; noAccount?: boolean };
+  | { ok: false; canceled?: boolean; message?: string; noAccount?: boolean; pending?: boolean };
 
 const redirectTo = Linking.createURL('auth-callback');
 
@@ -139,6 +139,15 @@ export async function signUpWithEmail(email: string, password: string): Promise<
     if (isAnon) {
       const { error } = await supabase.auth.updateUser({ email: address, password });
       if (error) return { ok: false, message: error.message };
+      // Where the project asks for the address to be confirmed, the user is
+      // still the anonymous one until the link is tapped. The app must not
+      // call that signed in: it would leave them on the stranger's path with
+      // a form that says it worked.
+      const { data: fresh } = await supabase.auth.refreshSession();
+      const user = fresh.session?.user ?? fresh.user;
+      if (!user || user.is_anonymous) {
+        return { ok: false, pending: true, message: `A link is on its way to ${address}. Tap it, and this phone is yours.` };
+      }
       return { ok: true };
     }
 

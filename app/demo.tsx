@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
+import { GhostLight } from '../src/components/GhostLight';
 import { StageDirection } from '../src/components/StageDirection';
 import { PaperCard } from '../src/components/PaperCard';
 import { PrimaryPill } from '../src/components/PrimaryPill';
@@ -48,11 +49,14 @@ export default function Demo() {
   const { key: keyParam, after } = useLocalSearchParams<{ key?: string; after?: string }>();
   const { colors: c } = useTheme();
   const { tiltX, tiltY } = useStageMotion();
-  const { isAuthenticated } = useSession();
-  const guided = useGuided(true);
+  const { isAuthenticated, session } = useSession();
+  // Nothing is asked before the phone has a session: on a first launch this
+  // room is up before the anonymous one is minted, and a question asked
+  // then is answered with a locked door.
+  const guided = useGuided(Boolean(session));
   // A server that lists no scenes named one part; the scene itself names both.
   const lone = guided.data && !guided.data.scenes?.length ? guided.data.scene_id : null;
-  const loneScene = useRehearsalScene(lone);
+  const loneScene = useRehearsalScene(session ? lone : null);
   const scenes = useMemo(() => firstScenes(guided.data, loneScene.data), [guided.data, loneScene.data]);
   const [open, setOpen] = useState<string | null>(keyParam ?? null);
   const done = Number(after ?? '0') || 0;
@@ -86,9 +90,18 @@ export default function Demo() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24 }}>
-          <Pressable onPress={notTonight} hitSlop={14} accessibilityRole="button" accessibilityLabel="Not tonight">
-            <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 11, lineHeight: 15, letterSpacing: 2.2, textTransform: 'uppercase', color: c.mutedForeground }}>Not tonight</Text>
+        {/* The bar of the house, the same as the curtain's: a way in on the left, the lamp, the way past on the right. */}
+        <View style={{ height: 48, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {isAuthenticated ? <View style={{ width: 44 }} /> : (
+            <Pressable onPress={() => { stopSample(); router.push('/auth'); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sign in">
+              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>sign in</Text>
+            </Pressable>
+          )}
+          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }}>
+            <GhostLight size={18} />
+          </View>
+          <Pressable onPress={notTonight} hitSlop={10} accessibilityRole="button" accessibilityLabel="Not tonight">
+            <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>not tonight</Text>
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 6, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
@@ -98,7 +111,7 @@ export default function Demo() {
           </Text>
           <Steps stage={stage} />
 
-          {guided.isLoading && !scenes.length ? (
+          {guided.isPending && !guided.isError && !scenes.length ? (
             <View style={{ marginTop: 60, alignItems: 'center' }}>
               <ActivityIndicator color={c.mutedForeground} />
               <StageDirection style={{ marginTop: 14 }}>(raising the house lights.)</StageDirection>

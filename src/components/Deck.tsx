@@ -118,11 +118,14 @@ export function Deck<T>({
     const landed = () => {
       'worklet';
       const k = atUI.value;
+      // How far the drag had already raised the cards behind: the next one
+      // goes on from there, not from the bottom again (that was the flicker).
+      const raised = Math.min(1, Math.abs(x.value) / (width * 0.5));
       atUI.value = k + 1;
       x.value = 0;
       y.value = 0;
       throwing.value = 0;
-      rise.value = 1;
+      rise.value = 1 - raised;
       rise.value = withTiming(0, { duration: reduce ? 120 : 260, easing: Easing.out(Easing.cubic) });
       runOnJS(gone)(dir, k);
     };
@@ -186,7 +189,9 @@ export function Deck<T>({
   // The card that has just gone stays mounted, behind the count and unseen,
   // until the next deal; then the two behind the top one. Back to front.
   const window: number[] = [];
-  for (let k = at + 2; k >= Math.max(0, at - 1); k--) if (dealt(k) !== undefined) window.push(k);
+  // One more than is seen: the card after next is already under the deck
+  // when a throw lands, instead of appearing in the same frame.
+  for (let k = at + 3; k >= Math.max(0, at - 1); k--) if (dealt(k) !== undefined) window.push(k);
 
   return (
     <View style={{ height }}>

@@ -116,6 +116,7 @@ export default function Auth() {
     const res = await signUpWithEmail(email, password);
     setBusy(null);
     if (res.ok) { done('email'); return; }
+    if (res.pending) { setNotice(res.message ?? 'Confirm the address from the email we sent.'); return; }
     setError(res.message ?? 'Could not create the account.');
   };
 
