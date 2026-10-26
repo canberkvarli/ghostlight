@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
@@ -74,6 +74,11 @@ function SignedIn({ session }: { session: Session }) {
   const { wall, isPaid, failed: wallFailed, refresh: refreshWall } = useEntitlement();
   const { data: saved } = useFavorites(true);
   const stats = useRunStats(true);
+  // The profile is a sheet over a room: a count opens its tab, with the sheet put away first, never a page stacked on the sheet.
+  const toRoom = (href: string) => {
+    if (router.canGoBack()) router.back();
+    setTimeout(() => router.navigate(href as Href), 260);
+  };
 
   // Coming back to this screen asks again if the last answer never came.
   useFocusEffect(useCallback(() => { if (wallFailed) refreshWall(); }, [wallFailed, refreshWall]));
@@ -108,9 +113,9 @@ function SignedIn({ session }: { session: Session }) {
 
       {/* One row, three counts. */}
       <View style={{ marginTop: 28, flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.divider }}>
-        <Stat n={saved?.length ?? 0} label="(kept.)" onPress={() => router.push('/saves')} />
+        <Stat n={saved?.length ?? 0} label="(kept.)" onPress={() => toRoom('/(book)/saves')} />
         <Stat n={wall?.reads_used ?? 0} label="(read.)" divider />
-        <Stat n={stats.data?.runs ?? 0} label="(scenes run.)" divider onPress={() => router.push('/rehearse')} />
+        <Stat n={stats.data?.runs ?? 0} label="(scenes run.)" divider onPress={() => toRoom('/(scene)/rehearse')} />
       </View>
     </ScrollView>
   );
@@ -155,40 +160,25 @@ function Stat({ n, label, divider, onPress }: { n: number; label: string; divide
 function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | undefined; failed: boolean; onRetry: () => void; onPaywall: () => void }) {
   const { colors: c } = useTheme();
   const loaded = wall !== undefined;
-  const limit = wall && wall.reads_limit > 0 ? wall.reads_limit : 1;
-  const used = Math.min(wall?.reads_used ?? 0, limit);
-  const left = Math.max(0, limit - used);
-  const runsLimit = wall ? wall.runs_limit : 1;
-  const runsLeft = runsLimit < 0 ? null : Math.max(0, runsLimit - (wall?.runs_used ?? 0));
   return (
     <View>
       <View pointerEvents="none" style={{ position: 'absolute', left: 6, top: 6, right: -6, bottom: -6, borderRadius: 18, backgroundColor: c.yellow }} />
       <View style={{ borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, padding: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Eyebrow lit>FREE PLAN</Eyebrow>
-          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>{runsLimit < 0 ? '' : `(runs reset ${firstOfNextMonth()}.)`}</Text>
+          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>(what is left.)</Text>
         </View>
         {!loaded && failed ? (
           <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel="Check your plan again" hitSlop={8} style={{ marginTop: 14 }}>
             <StageDirection link>(couldn&apos;t reach the house. tap to ask again.)</StageDirection>
           </Pressable>
         ) : (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 14 }}>
-              <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 44, color: c.foreground }}>{loaded ? left : '·'}</Text>
-              <Text style={{ fontFamily: SANS, fontSize: 15, color: c.mutedForeground }}>{`free read${left === 1 ? '' : 's'} left`}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 12 }}>
-              {Array.from({ length: limit }, (_, i) => (
-                <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: loaded && i >= used ? c.accentText : c.divider }} />
-              ))}
-            </View>
-            {runsLeft !== null ? (
-              <Text style={{ marginTop: 12, fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>
-                {`(${runsLeft} of ${runsLimit} scene run${runsLimit === 1 ? '' : 's'} left this month. the first scenes are always free.)`}
-              </Text>
-            ) : null}
-          </>
+          <View style={{ marginTop: 14, gap: 14 }}>
+            <Meter label="Speeches to read" used={wall?.reads_used ?? 0} limit={wall?.reads_limit ?? 0} loaded={loaded} note="on the free plan" />
+            <Meter label="Scene runs" used={wall?.runs_used ?? 0} limit={wall?.runs_limit ?? 0} loaded={loaded} note={`this month, back ${firstOfNextMonth()}`} />
+            <Meter label="Your own sides" used={wall?.scripts_used ?? 0} limit={wall?.scripts_limit ?? 0} loaded={loaded} note="scripts on the account" />
+            <StageDirection>(the first scenes never count.)</StageDirection>
+          </View>
         )}
         <ArrowRow label="Read without limits" onPress={onPaywall} />
       </View>
@@ -385,6 +375,31 @@ function StreakCard() {
           );
         })}
       </View>
+    </View>
+  );
+}
+
+/** One allowance: what it is, how many are left of how many, a thin bar, and when it comes back. */
+function Meter({ label, used, limit, loaded, note }: { label: string; used: number; limit: number; loaded: boolean; note: string }) {
+  const { colors: c } = useTheme();
+  const unlimited = limit < 0;
+  const left = unlimited ? 0 : Math.max(0, limit - used);
+  const frac = unlimited || limit <= 0 ? 0 : Math.min(1, used / limit);
+  const out = !unlimited && limit > 0 && left === 0;
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>{label}</Text>
+        <Text style={{ fontFamily: SANS_B, fontSize: 15, color: out ? c.accentText : c.foreground }}>
+          {!loaded ? '·' : unlimited ? 'unlimited' : `${left} of ${limit} left`}
+        </Text>
+      </View>
+      {unlimited ? null : (
+        <View style={{ marginTop: 7, height: 4, borderRadius: 2, backgroundColor: c.divider, overflow: 'hidden' }}>
+          <View style={{ width: `${Math.round((1 - frac) * 100)}%`, height: 4, borderRadius: 2, backgroundColor: out ? c.chevron : c.accentText }} />
+        </View>
+      )}
+      <Text style={{ marginTop: 5, fontFamily: MONO_I, fontSize: 11.5, color: c.mutedForeground }}>({note}.)</Text>
     </View>
   );
 }
