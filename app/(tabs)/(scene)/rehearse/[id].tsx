@@ -194,7 +194,11 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
   const running = state !== 'ready' && !ended;
   const paused = state === 'paused';
   const actor = chosen ?? payload.characters[0] ?? '';
-  const sceneLine = useMemo(() => [payload.scene.play_title, payload.scene.title].filter(Boolean).join(' · '), [payload.scene]);
+  // The play and the scene, unless they are the same words: an uploaded scene is titled after its script.
+  const sceneLine = useMemo(() => {
+    const play = payload.scene.play_title?.trim(); const title = payload.scene.title.trim();
+    return play && play.toLowerCase() !== title.toLowerCase() ? `${play} · ${title}` : title;
+  }, [payload.scene]);
 
   // The curtain call of a first scene: their own numbers, then the other keys or the week.
   const guidedList = useGuided(Boolean(demoN));
@@ -210,6 +214,9 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
   const leaveDemo = (to: 'curtain' | 'week' | 'another', key?: string) => {
     track('demo_left', { key: demoKey ?? '', which: demoN ?? 0, to });
     if (to === 'another' && key) { router.replace({ pathname: '/demo', params: { key, after: String(demoN ?? 1) } }); return; }
+    // Everything under this run, the cards included, goes: back from the
+    // home must never find the stranger's path again.
+    try { router.dismissAll(); } catch { /* nothing under it */ }
     if (to === 'week') { router.replace(isAuthenticated ? '/search' : '/curtain'); router.push('/paywall'); return; }
     router.replace(isAuthenticated ? '/search' : '/curtain');
   };

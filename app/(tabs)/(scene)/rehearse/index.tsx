@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { PaperCard } from '../../../../src/components/PaperCard';
+import { GhostLight } from '../../../../src/components/GhostLight';
 import { RoomHeader, RoomTitle } from '../../../../src/components/RoomHeader';
 import { HowItWorksSheet } from '../../../../src/components/HowItWorksSheet';
 import { PartnerScene } from '../../../../src/components/PartnerScene';
@@ -19,7 +20,7 @@ import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
 import { useGuided, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
-import { KEY_WORDS, firstScenes } from '../../../../src/lib/demo';
+import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
 import { useSession } from '../../../../src/lib/useSession';
@@ -74,6 +75,15 @@ export default function RehearseHub() {
   // The three first scenes, for everyone, always: they are guided, so never metered.
   const guidedList = useGuided(ready);
   const firstThree = useMemo(() => (guidedList.data?.scenes?.length ? firstScenes(guidedList.data) : []), [guidedList.data]);
+  // The room comes up whole: the first scenes, your sides and the library
+  // together, or a lamp until they are, never one shelf and then the next.
+  const settling = !ready || guidedList.isPending || scenes.isPending || (isAuthenticated && scripts.isPending);
+  // The three first scenes fold away once there is a shelf of your own or
+  // one of them has been run; a tap on the aside opens them again.
+  const [done, setDone] = useState<string[] | null>(null);
+  useEffect(() => { demoDone().then(setDone).catch(() => setDone([])); }, []);
+  const [showStarters, setShowStarters] = useState<boolean | null>(null);
+  const startersOpen = showStarters ?? (mine.length === 0 && (done?.length ?? 0) === 0);
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
   // The first scenes, the three on cards: the help's one thing to do goes there, not to the one scene a server used to have.
@@ -108,8 +118,14 @@ export default function RehearseHub() {
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
               Scene <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>partner.</Text>
             </Text>
-            <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>(it reads the others. you read yours.)</StageDirection>
           </RoomTitle>
+          {settling ? (
+            <View style={{ marginTop: 80, alignItems: 'center' }}>
+              <GhostLight size={34} />
+              <StageDirection style={{ marginTop: 18 }}>(raising the house lights.)</StageDirection>
+            </View>
+          ) : (
+            <Animated.View entering={FadeIn.duration(380)}>
 
           {!ready ? (
             <View style={{ marginTop: 40, alignItems: 'center' }}>
@@ -135,8 +151,8 @@ export default function RehearseHub() {
               ) : null}
 
               {firstThree.length ? (
-                <Shelf title="Three to start with" aside="(free. always.)">
-                  {firstThree.map((s) => {
+                <Shelf title="Three to start with" aside={startersOpen ? '(fold.)' : '(open.)'} onAside={() => { Haptics.selectionAsync().catch(() => {}); setShowStarters(!startersOpen); }}>
+                  {startersOpen ? firstThree.map((s) => {
                     const words = KEY_WORDS[s.key] ?? { eyebrow: s.title.toUpperCase(), tone: s.hook ?? '' };
                     return (
                       <Pressable key={s.key} onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/demo', params: { key: s.key, after: '9' } }); }}
@@ -147,12 +163,12 @@ export default function RehearseHub() {
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={{ fontFamily: SANS_B, fontSize: 18, color: c.foreground }}>{s.title}</Text>
-                          <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>{s.characters.map((ch) => ch.name).join(' and ')} · {words.tone}</Text>
+                          <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, lineHeight: 19, color: c.mutedForeground }}>{s.characters.map((ch) => ch.name).join(' and ')}. {words.tone}</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={16} color={c.chevron} />
                       </Pressable>
                     );
-                  })}
+                  }) : null}
                 </Shelf>
               ) : null}
 
@@ -170,9 +186,9 @@ export default function RehearseHub() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontFamily: SANS_B, fontSize: 18, color: c.accentText }}>Add sides</Text>
-                      <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>
-                        {isAuthenticated ? 'PDF, Word, or paste the text' : 'Sign in, then PDF, Word, or paste the text'}
-                      </Text>
+                      {isAuthenticated ? null : (
+                        <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>Sign in first</Text>
+                      )}
                     </View>
                   </Pressable>
                 </Animated.View>
@@ -190,6 +206,8 @@ export default function RehearseHub() {
                 </Shelf>
               ) : null}
             </>
+          )}
+            </Animated.View>
           )}
         </Animated.ScrollView>
       </SafeAreaView>
@@ -237,13 +255,15 @@ function PickUp({ r }: { r: LatestRun }) {
   );
 }
 
-function Shelf({ title, aside, children }: { title: string; aside?: string; children: React.ReactNode }) {
+function Shelf({ title, aside, onAside, children }: { title: string; aside?: string; onAside?: () => void; children: React.ReactNode }) {
   const { colors: c } = useTheme();
   return (
     <View style={{ marginTop: 30 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4, paddingHorizontal: 2 }}>
         <Text style={{ fontFamily: SANS_B, fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: c.mutedForeground }}>{title}</Text>
-        {aside ? <StageDirection>{aside}</StageDirection> : null}
+        {aside && onAside ? (
+          <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button"><StageDirection style={{ color: c.accentText }}>{aside}</StageDirection></Pressable>
+        ) : aside ? <StageDirection>{aside}</StageDirection> : null}
       </View>
       {children}
     </View>
@@ -301,7 +321,10 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
           })}
         </Animated.View>
       ) : open && detail.isLoading ? (
-        <StageDirection style={{ paddingLeft: 68, paddingBottom: 12 }}>(opening…)</StageDirection>
+        <View style={{ paddingLeft: 68, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <ActivityIndicator size="small" color={c.mutedForeground} />
+          <StageDirection>(opening the sides.)</StageDirection>
+        </View>
       ) : open && detail.isError ? (
         <StageDirection style={{ paddingLeft: 68, paddingBottom: 12 }}>(it would not open. try again.)</StageDirection>
       ) : null}

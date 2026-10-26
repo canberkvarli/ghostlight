@@ -28,6 +28,13 @@ const MONO_I = 'CourierPrime_400Regular_Italic';
 type Row = { key: number; character: string; text: string; direction: string };
 
 type RowAct = 'direction' | 'join' | 'below' | 'remove';
+type LeaveAct = 'save' | 'discard' | 'stay';
+const LEAVE: { key: LeaveAct; label: string; line: string }[] = [
+  { key: 'save', label: 'Save and leave', line: 'the partner reads it this way from now on.' },
+  { key: 'discard', label: 'Leave without saving', line: 'the sides stay as the reader had them.' },
+  { key: 'stay', label: 'Keep editing', line: 'nothing happens.' },
+];
+
 const ROW_ACTS: { key: RowAct; label: string; line: string }[] = [
   { key: 'direction', label: 'This is a stage direction', line: 'the words go in brackets on the next line.' },
   { key: 'join', label: 'Join with the line above', line: 'one speech, not two.' },
@@ -56,6 +63,10 @@ export default function EditScene() {
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [touched, setTouched] = useState(false);
+  // Every change is kept, so a wrong tap is one tap back; redo is there until the next change.
+  const [past, setPast] = useState<Row[][]>([]);
+  const [future, setFuture] = useState<Row[][]>([]);
+  const [leaving, setLeaving] = useState(false);
   const [menu, setMenu] = useState<number | null>(null); // the row whose dots were tapped
   const [naming, setNaming] = useState<{ row: number; everywhere: boolean } | null>(null);
   const [speaker, setSpeaker] = useState<number | null>(null); // the row whose name was tapped
@@ -74,7 +85,34 @@ export default function EditScene() {
     return out;
   }, [rows]);
 
-  const change = (fn: (rs: Row[]) => Row[]) => { setRows((rs) => (rs ? fn(rs) : rs)); setTouched(true); setError(null); };
+  const change = (fn: (rs: Row[]) => Row[]) => {
+    if (!rows) return;
+    const next = fn(rows);
+    if (next === rows) return;
+    setPast((p) => [...p.slice(-60), rows]);
+    setFuture([]);
+    setRows(next);
+    setTouched(true); setError(null);
+  };
+  const undo = () => {
+    const prev = past[past.length - 1];
+    if (!prev || !rows) return;
+    Haptics.selectionAsync().catch(() => {});
+    setFuture((f) => [...f, rows]);
+    setPast((p) => p.slice(0, -1));
+    setRows(prev);
+    setTouched(true);
+  };
+  const redo = () => {
+    const next = future[future.length - 1];
+    if (!next || !rows) return;
+    Haptics.selectionAsync().catch(() => {});
+    setPast((p) => [...p, rows]);
+    setFuture((f) => f.slice(0, -1));
+    setRows(next);
+    setTouched(true);
+  };
+  const close = () => { if (touched) setLeaving(true); else goBack(); };
   const nextKey = (rs: Row[]) => Math.max(0, ...rs.map((r) => r.key)) + 1;
 
   const act = (i: number, what: RowAct) => {
@@ -150,11 +188,18 @@ export default function EditScene() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={{ height: 48, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Leave without saving" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable onPress={close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Leave" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={24} color={c.foreground} />
           </Pressable>
           <Text style={{ fontFamily: CAP, fontSize: 10, letterSpacing: 1.8, color: c.mutedForeground }}>THE SIDES</Text>
-          <View style={{ width: 36 }} />
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            <Pressable onPress={undo} disabled={!past.length} hitSlop={8} accessibilityRole="button" accessibilityLabel="Undo" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: past.length ? 1 : 0.3 }}>
+              <Ionicons name="arrow-undo-outline" size={20} color={c.foreground} />
+            </Pressable>
+            <Pressable onPress={redo} disabled={!future.length} hitSlop={8} accessibilityRole="button" accessibilityLabel="Redo" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: future.length ? 1 : 0.3 }}>
+              <Ionicons name="arrow-redo-outline" size={20} color={c.foreground} />
+            </Pressable>
+          </View>
         </View>
 
         {!rows ? (
@@ -231,6 +276,8 @@ export default function EditScene() {
         ) : null}
       </SafeAreaView>
 
+      <ChoiceSheet open={leaving} title="Leave the" accent="sides?" options={LEAVE} value={'' as LeaveAct}
+        onPick={(k) => { if (k === 'save') void submit(); else if (k === 'discard') goBack(); }} onClose={() => setLeaving(false)} />
       <ChoiceSheet open={speaker !== null} title="Who" accent="speaks it?" options={speakerOptions} value={current} onPick={pickSpeaker} onClose={() => setSpeaker(null)} />
       <ChoiceSheet open={menu !== null} title="This" accent="line." options={ROW_ACTS} value={'' as RowAct} onPick={(k) => { if (menu !== null) act(menu, k); }} onClose={() => setMenu(null)} />
 

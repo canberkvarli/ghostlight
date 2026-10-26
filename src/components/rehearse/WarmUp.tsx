@@ -7,7 +7,6 @@ import { StageDirection } from '../StageDirection';
 import { useTheme } from '../../theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
-const SANS = 'BricolageGrotesque_500Medium';
 
 /** What a house does while it waits. One line at a time, in the stage-direction voice. */
 const HOUSE = [
@@ -26,7 +25,7 @@ const HOUSE = [
  * to be the cast sheet, shown for a second with its pill greyed and then
  * taken away, which read as something going wrong.
  */
-export function WarmUp({ title, waiting }: { title: string; waiting: string | null }) {
+export function WarmUp({ title }: { title: string; waiting?: string | null }) {
   const { colors: c } = useTheme();
   const [i, setI] = useState(0);
   useEffect(() => {
@@ -42,9 +41,6 @@ export function WarmUp({ title, waiting }: { title: string; waiting: string | nu
           <StageDirection style={{ textAlign: 'center' }}>({HOUSE[i]})</StageDirection>
         </Animated.View>
       </View>
-      {waiting ? (
-        <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SANS, fontSize: 12.5, lineHeight: 18, color: c.mutedForeground }}>{waiting}</Text>
-      ) : null}
     </Animated.View>
   );
 }

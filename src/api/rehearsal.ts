@@ -214,6 +214,7 @@ export async function uploadScriptStream(
   title: string | undefined,
   onStep: (raw: string) => void,
   signal?: AbortSignal,
+  again = true,
 ): Promise<ScriptDetail> {
   const form = new FormData();
   if ('text' in source) {
@@ -283,6 +284,13 @@ export async function uploadScriptStream(
     take((await res.text()) + '\n');
   }
   if (failure) throw new RehearsalApiError(422, failure, null);
+  if (!result && again && !signal?.aborted) {
+    // The stream closed with no last word: a proxy let go of it in the
+    // middle. The server went on reading and keeps what it read, so the
+    // same file asked for again comes back at once.
+    onStep('Asking again');
+    return uploadScriptStream(source, title, onStep, signal, false);
+  }
   if (!result) throw new RehearsalApiError(502, 'The script could not be read.', null);
   return result;
 }

@@ -236,9 +236,8 @@ export default function Demo() {
                     <Pressable key={ch.name} onPress={() => pickPart(ch.name)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ flex: 1 }}>
                       <PaperCard rotate={i ? 0.4 : -0.4} shadow={on ? 10 : 6} style={{ padding: 16, minHeight: 210 }}>
                         <Text style={{ fontFamily: CAP, fontSize: 10, letterSpacing: 1.8, color: c.accentText }}>{ch.name.toUpperCase()}</Text>
-                        <Text style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 11.5, color: c.paperMuted }}>(first line.)</Text>
                         {line ? (
-                          <Text numberOfLines={6} style={{ marginTop: 10, fontFamily: MONO, fontSize: 14, lineHeight: 21, color: c.paperInk }}>{line}</Text>
+                          <Text numberOfLines={6} style={{ marginTop: 12, fontFamily: MONO, fontSize: 14, lineHeight: 21, color: c.paperInk }}>{line}</Text>
                         ) : (
                           <ActivityIndicator color={c.paperMuted} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                         )}
@@ -252,7 +251,6 @@ export default function Demo() {
                   );
                 })}
               </View>
-              <StageDirection style={{ marginTop: 18, textAlign: 'center' }}>(the other one reads opposite you.)</StageDirection>
             </Animated.View>
           ) : step === 3 && scene && me ? (
             <Animated.View key="s3" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1, paddingTop: 22 }}>

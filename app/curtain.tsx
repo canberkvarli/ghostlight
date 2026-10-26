@@ -70,7 +70,9 @@ export default function Curtain() {
   // curtain, with nothing left to move them on.
   const { isAuthenticated } = useSession();
   useFocusEffect(useCallback(() => {
-    if (isAuthenticated) router.replace('/search');
+    if (!isAuthenticated) return;
+    try { router.dismissAll(); } catch { /* the curtain is the root */ }
+    router.replace('/search');
   }, [isAuthenticated, router]));
 
   const { list, settled, failed, retry } = useHouse(medium);
