@@ -16,6 +16,10 @@ import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useFavorites } from '../src/hooks/useFavorites';
 import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useRunStats } from '../src/hooks/useScenePartner';
+import { useQuery as useRunsQuery } from '@tanstack/react-query';
+import { listRuns } from '../src/api/rehearsal';
+import { loadRecents } from '../src/lib/recents';
+import { streakOf } from '../src/rehearsal/streak';
 import type { ReadState } from '../src/api/client';
 import { isAppleAuthAvailable, signInWithApple } from '../src/lib/auth';
 import { useSession } from '../src/lib/useSession';
@@ -93,6 +97,9 @@ function SignedIn({ session }: { session: Session }) {
           </Text>
         </View>
       </View>
+
+      {/* Nights in the work: the streak and this week. */}
+      <StreakCard />
 
       {/* Your plan: the one card. */}
       <View style={{ marginTop: 28 }}>
@@ -178,7 +185,7 @@ function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | unde
             </View>
             {runsLeft !== null ? (
               <Text style={{ marginTop: 12, fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>
-                {`(${runsLeft} of ${runsLimit} scene run${runsLimit === 1 ? '' : 's'} left this month. the guided scene is always free.)`}
+                {`(${runsLeft} of ${runsLimit} scene run${runsLimit === 1 ? '' : 's'} left this month. the first scenes are always free.)`}
               </Text>
             ) : null}
           </>
@@ -337,4 +344,47 @@ function sinceLabel(iso: string | undefined): string | null {
 function firstOfNextMonth(now = new Date()): string {
   const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   return `${d.toLocaleDateString('en-US', { month: 'short' }).toLowerCase()} 1`;
+}
+
+const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+/**
+ * The streak: nights in a row with a scene run or a speech opened, and the
+ * seven days of this week as seven marks, the lit ones gel. Today with
+ * nothing yet keeps a streak that reached yesterday, and says so.
+ */
+function StreakCard() {
+  const { colors: c } = useTheme();
+  const runs = useRunsQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), staleTime: 60_000 });
+  const recents = useRunsQuery({ queryKey: ['recents-local'], queryFn: loadRecents, staleTime: 30_000 });
+  const s = streakOf([...(runs.data ?? []).map((r) => r.started_at), ...(recents.data ?? []).map((r) => r.openedAt)]);
+  const todayIndex = (new Date().getDay() + 6) % 7;
+  const line = s.days === 0
+    ? '(tonight starts it. one scene, or one speech.)'
+    : s.today
+      ? `(${s.days === 1 ? 'one night' : `${s.days} nights`} in a row. come back tomorrow.)`
+      : '(tonight keeps it going.)';
+  return (
+    <View style={{ marginTop: 26, borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, padding: 18 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+        <Text style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 48, color: s.days ? c.accentText : c.foreground }}>{s.days}</Text>
+        <Text style={{ fontFamily: SERIF_I, fontSize: 22, color: c.foreground }}>{s.days === 1 ? 'night running.' : 'nights running.'}</Text>
+      </View>
+      <Text style={{ marginTop: 4, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>{line}</Text>
+      <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
+        {WEEK.map((d, i) => {
+          const on = s.week[i];
+          const now = i === todayIndex;
+          return (
+            <View key={i} style={{ alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.yellow : 'transparent', borderWidth: on ? 0 : now ? 1.5 : 1, borderColor: now ? c.accentText : c.divider }}>
+                {on ? <Ionicons name="checkmark" size={15} color={c.ink} /> : null}
+              </View>
+              <Text style={{ fontFamily: SANS_X, fontSize: 10, letterSpacing: 1, color: now ? c.accentText : c.chevron }}>{d}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
 }

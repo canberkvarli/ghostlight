@@ -311,3 +311,7 @@ export const editSceneLines = (sceneId: number, lines: EditedLine[]) =>
   call<{ lines: RehearsalLine[]; characters: string[]; line_count: number }>(`/api/rehearsal/scenes/${sceneId}/lines`, {
     method: 'PUT', body: JSON.stringify({ lines }),
   });
+
+/** The actor's runs, newest first: enough of each to count the nights they worked. */
+export interface RunDay { run_id: number; started_at: string | null; finished: boolean }
+export const listRuns = (signal?: AbortSignal) => call<RunDay[]>('/api/rehearsal/runs', {}, signal);
