@@ -260,11 +260,11 @@ function SignedOut() {
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
             buttonStyle={c.isLight ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
             cornerRadius={27}
-            style={{ height: 54, width: '100%', opacity: busy ? 0.6 : 1 }}
+            style={{ height: 46, width: 260, alignSelf: 'center', opacity: busy ? 0.6 : 1 }}
             onPress={() => { if (!busy) void withApple(); }}
           />
         ) : null}
-        <PrimaryPill label="Continue with email" variant="outline" height={54} block onPress={() => router.push('/auth')} />
+        <PrimaryPill label="Continue with email" variant="outline" height={46} onPress={() => router.push('/auth')} style={{ alignSelf: 'center', width: 260 }} />
         {error ? <Text style={{ textAlign: 'center', fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{error}</Text> : null}
       </View>
 

@@ -315,3 +315,7 @@ export const editSceneLines = (sceneId: number, lines: EditedLine[]) =>
 /** The actor's runs, newest first: enough of each to count the nights they worked. */
 export interface RunDay { run_id: number; started_at: string | null; finished: boolean }
 export const listRuns = (signal?: AbortSignal) => call<RunDay[]>('/api/rehearsal/runs', {}, signal);
+
+/** The shelf of your own sides in the order you put it. */
+export const reorderScripts = (scriptIds: number[]) =>
+  call<{ script_ids: number[] }>('/api/scripts/reorder', { method: 'PATCH', body: JSON.stringify({ script_ids: scriptIds }) });

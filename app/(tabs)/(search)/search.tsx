@@ -441,8 +441,8 @@ export default function Search() {
     [router],
   );
 
-  // A stranger's front door is the curtain, not this room.
-  if (!sessionLoading && !isAuthenticated) return <Redirect href="/curtain" />;
+  // A stranger who chose to look around is let in: the room works on the
+  // anonymous session, and the deck is no longer anyone's way in.
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} glowColor={pal.glow} background={pal.background} />

@@ -85,8 +85,13 @@ export default function AddSides() {
   const arrived = (script: ScriptDetail, door: 'files' | 'share' | 'paste') => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     track('app_sides_added', { how: door, ok: true, characters: script.num_characters });
-    if (script.scenes.length === 1) router.replace({ pathname: '/rehearse/[id]', params: { id: String(script.scenes[0].id), from: 'script' } });
-    else router.replace({ pathname: '/rehearse', params: { script: String(script.id) } });
+    // The sheet is put away first and the scene opens over the Scene room,
+    // so its X comes back to the room, not to a page the room's stack had.
+    if (router.canGoBack()) router.back();
+    setTimeout(() => {
+      router.navigate({ pathname: '/rehearse', params: { script: String(script.id) } });
+      if (script.scenes.length === 1) router.push({ pathname: '/play/[id]', params: { id: String(script.scenes[0].id), from: 'script' } });
+    }, 280);
   };
   const failed = (door: 'files' | 'share' | 'paste') => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});

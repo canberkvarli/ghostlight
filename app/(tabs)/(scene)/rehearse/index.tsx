@@ -19,7 +19,10 @@ import { useRoomScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
-import { useGuided, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { useDeleteScript, useGuided, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { useQueryClient } from '@tanstack/react-query';
+import { reorderScripts } from '../../../../src/api/rehearsal';
+import { ChoiceSheet, ConfirmSheet } from '../../../../src/components/ConfirmSheet';
 import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
@@ -58,6 +61,27 @@ export default function RehearseHub() {
   const latest = useLatestRun(ready);
   const mine = (scripts.data ?? []).filter(s => !s.is_sample);
   const library = (scenes.data ?? []).filter(s => s.is_library);
+  // The shelf of your own sides: held to move up, down or to the top, or to be taken off.
+  const qc = useQueryClient();
+  const removeScript = useDeleteScript();
+  const [order, setOrder] = useState<number[] | null>(null);
+  const shelf = useMemo(() => {
+    if (!order) return mine;
+    const at = new Map(order.map((id, i) => [id, i]));
+    return [...mine].sort((a, b) => (at.get(a.id) ?? 1e9) - (at.get(b.id) ?? 1e9));
+  }, [mine, order]);
+  const [holding, setHolding] = useState<ScriptSummary | null>(null);
+  const [dropping, setDropping] = useState<ScriptSummary | null>(null);
+  const move = (id: number, to: 'top' | 'up' | 'down') => {
+    const ids = shelf.map((x) => x.id);
+    const i = ids.indexOf(id);
+    if (i < 0) return;
+    ids.splice(i, 1);
+    const j = to === 'top' ? 0 : to === 'up' ? Math.max(0, i - 1) : Math.min(ids.length, i + 1);
+    ids.splice(j, 0, id);
+    setOrder(ids);
+    void reorderScripts(ids).then(() => qc.invalidateQueries({ queryKey: ['scripts'] })).catch(() => setOrder(null));
+  };
   const neverRun = stats.data ? stats.data.runs === 0 : false;
   const left = latest.data ?? null;
 
@@ -177,7 +201,7 @@ export default function RehearseHub() {
                   {scripts.isLoading && isAuthenticated ? (
                     <StageDirection style={{ paddingVertical: 10 }}>(gathering your scripts…)</StageDirection>
                   ) : null}
-                  {mine.map((s) => <ScriptRow key={s.id} script={s} startOpen={openScript === String(s.id)} left={left} />)}
+                  {shelf.map((s) => <ScriptRow key={s.id} script={s} startOpen={openScript === String(s.id)} left={left} onHold={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); setHolding(s); }} />)}
                   {/* Add sides, as the last row of the sides. */}
                   <Pressable onPress={add} accessibilityRole="button" accessibilityLabel="Add sides"
                     style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, opacity: pressed ? 0.7 : 1 })}>
@@ -211,6 +235,32 @@ export default function RehearseHub() {
           )}
         </Animated.ScrollView>
       </SafeAreaView>
+      <ChoiceSheet
+        open={holding !== null}
+        title={holding?.title ?? ''}
+        accent=""
+        options={[
+          { key: 'top', label: 'Move to the top', line: 'first on the shelf.' },
+          { key: 'up', label: 'Move up', line: 'one place.' },
+          { key: 'down', label: 'Move down', line: 'one place.' },
+          { key: 'delete', label: 'Delete', line: 'the sides and their scenes.' },
+        ]}
+        value={'' as 'top' | 'up' | 'down' | 'delete'}
+        onPick={(k) => { const h = holding; if (!h) return; if (k === 'delete') setTimeout(() => setDropping(h), 280); else move(h.id, k); }}
+        onClose={() => setHolding(null)}
+      />
+      <ConfirmSheet
+        open={dropping !== null}
+        title="Delete these"
+        accent="sides?"
+        body={`${dropping?.title ?? 'These sides'} and every scene in them go, with your runs of them. This cannot be undone.`}
+        confirm="Delete"
+        cancel="Keep them"
+        danger
+        busy={removeScript.isPending}
+        onConfirm={() => { const d = dropping; if (!d) return; removeScript.mutate(d.id, { onSettled: () => setDropping(null) }); }}
+        onCancel={() => setDropping(null)}
+      />
     </View>
   );
 }
@@ -275,7 +325,7 @@ function Shelf({ title, aside, onAside, children }: { title: string; aside?: str
  * A tap opens the list of its scenes under it (one scene goes straight to the
  * sheet the first time); the scene you left carries its bar of progress.
  */
-function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null }) {
+function ScriptRow({ script, startOpen, left, onHold }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null; onHold?: () => void }) {
   const { colors: c } = useTheme();
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
@@ -289,7 +339,7 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
     : `(${cast || `${script.num_characters} parts`} · ${script.num_scenes_extracted} ${script.num_scenes_extracted === 1 ? 'scene' : 'scenes'}.)`;
   return (
     <View style={{ borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} disabled={!ready} accessibilityRole="button" accessibilityState={{ expanded: open }}
+      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} onLongPress={onHold} delayLongPress={380} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityHint="Hold to move or delete"
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
         <View style={{ width: 54, height: 54, alignItems: 'center', justifyContent: 'center' }}>
           <Sketch name="scriptPages" size={46} stroke={ready ? c.foreground : c.mutedForeground} accent={c.yellow} />

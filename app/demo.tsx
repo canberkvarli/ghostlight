@@ -219,7 +219,7 @@ export default function Demo() {
                   <PrimaryPill label="Try again" variant="outline" onPress={() => void guided.refetch()} style={{ marginTop: 14 }} />
                 </View>
               ) : scenes.length ? (
-                <PrimaryPill label="Continue" onPress={beginFront} height={56} block haptic="medium" style={{ marginBottom: 8 }} />
+                <PrimaryPill label="Continue" onPress={beginFront} height={48} haptic="medium" style={{ marginBottom: 12, alignSelf: 'center', paddingHorizontal: 16 }} />
               ) : (
                 <View style={{ height: 56, marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.mutedForeground} /></View>
               )}
