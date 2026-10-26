@@ -259,7 +259,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
         </Animated.View>
       ) : running ? (
         /* At the end the stage goes down slowly, not out: the last line is still there while the lights fade. */
-        <Animated.View entering={FadeIn.duration(360)} exiting={FadeOut.duration(900)} style={{ flex: 1 }}>
+        <Animated.View entering={FadeIn.duration(700).delay(200)} exiting={FadeOut.duration(900)} style={{ flex: 1 }}>
           <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
@@ -283,7 +283,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           </View>
           <Dock paused={paused} onPause={r.pause} onResume={r.resume} onSkip={r.skip} onBack={r.back} />
         </Animated.View>
-      ) : cast && !r.gated && !spent && !r.readiness.error ? (
+      ) : (cast || armed) && !r.gated && !spent && !r.readiness.error ? (
         /* A first scene arrives cast: no sheet to read, only the house getting ready. */
         <WarmUp title={sceneLine} waiting={waitingLine(r.readiness)} />
       ) : (

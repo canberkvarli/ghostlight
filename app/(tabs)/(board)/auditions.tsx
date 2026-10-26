@@ -392,7 +392,7 @@ function Intro({
         <PrimaryPill label={signedIn ? 'Paste a casting email' : 'Sign in to track auditions'} onPress={onPrimary} block />
         {signedIn ? (
           <Pressable onPress={onSecondary} hitSlop={10} accessibilityRole="button" style={{ marginTop: 14, alignSelf: 'center' }}>
-            <StageDirection>(or fill it in by hand.)</StageDirection>
+            <StageDirection link>(or fill it in by hand.)</StageDirection>
           </Pressable>
         ) : null}
       </View>

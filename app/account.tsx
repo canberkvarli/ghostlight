@@ -163,7 +163,7 @@ function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | unde
         </View>
         {!loaded && failed ? (
           <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel="Check your plan again" hitSlop={8} style={{ marginTop: 14 }}>
-            <StageDirection>(couldn&apos;t reach the house. tap to ask again.)</StageDirection>
+            <StageDirection link>(couldn&apos;t reach the house. tap to ask again.)</StageDirection>
           </Pressable>
         ) : (
           <>
@@ -203,7 +203,7 @@ function PaidCard() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 22, lineHeight: 26, color: c.foreground }}>{line}</Text>
-          <Text numberOfLines={1} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>{price}</Text>
+          <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 12, lineHeight: 16, letterSpacing: 0.3, color: c.mutedForeground }}>{price}</Text>
         </View>
         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); void manageSubscription(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Manage subscription" style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
           <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>Manage</Text>

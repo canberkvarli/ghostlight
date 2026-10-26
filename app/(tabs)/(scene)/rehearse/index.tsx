@@ -262,7 +262,7 @@ function Shelf({ title, aside, onAside, children }: { title: string; aside?: str
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4, paddingHorizontal: 2 }}>
         <Text style={{ fontFamily: SANS_B, fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: c.mutedForeground }}>{title}</Text>
         {aside && onAside ? (
-          <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button"><StageDirection style={{ color: c.accentText }}>{aside}</StageDirection></Pressable>
+          <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button"><StageDirection link style={{ color: c.accentText }}>{aside}</StageDirection></Pressable>
         ) : aside ? <StageDirection>{aside}</StageDirection> : null}
       </View>
       {children}

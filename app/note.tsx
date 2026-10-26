@@ -9,7 +9,8 @@ import { PrimaryPill } from '../src/components/PrimaryPill';
 import { GhostLight } from '../src/components/GhostLight';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useGoBack } from '../src/lib/nav';
-import { MAKER, emailMaker, openInstagram } from '../src/lib/maker';
+import { Ionicons } from '@expo/vector-icons';
+import { MAKER, emailMaker, openInstagram, rateGhostLight } from '../src/lib/maker';
 import { useTheme } from '../src/theme/ThemeContext';
 
 /**
@@ -76,12 +77,17 @@ export default function Note() {
             onPress={() => emailMaker('Ghost Light')}
           />
           <PrimaryPill
-            label={`Instagram @${MAKER.instagram}`}
+            label="Rate Ghost Light"
             variant="outline"
             block
             style={{ marginTop: 12 }}
-            onPress={openInstagram}
+            onPress={() => { void rateGhostLight({ inApp: true }); }}
           />
+          <Pressable onPress={openInstagram} hitSlop={10} accessibilityRole="link" accessibilityLabel={`Instagram @${MAKER.instagram}`}
+            style={{ alignSelf: 'center', marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="logo-instagram" size={15} color={c.accentText} />
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: c.accentText }}>@{MAKER.instagram}</Text>
+          </Pressable>
 
           <Pressable
             onPress={goBack}

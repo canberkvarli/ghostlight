@@ -28,6 +28,7 @@ import BricolageGrotesque_700Bold from '@expo-google-fonts/bricolage-grotesque/7
 
 import '../src/global.css';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
+import { getGuided, listScenes, listScripts } from '../src/api/rehearsal';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
 import { SidesInbox } from '../src/components/SidesInbox';
 import { bootstrapSession } from '../src/lib/session';
@@ -77,7 +78,7 @@ LogBox.ignoreLogs([
 // keys named here are kept; the wall and the signed audio links are not.
 const queryClient = new QueryClient({ defaultOptions: { queries: { gcTime: 24 * 60 * 60 * 1000 } } });
 const persister = createAsyncStoragePersister({ storage: AsyncStorage, key: 'ghostlight-queries', throttleTime: 1000 });
-const PERSISTED = new Set(['favorites', 'auditions', 'trending', 'screen-shelf', 'tonight', 'discover', 'catalogue-size', 'scripts', 'scenes', 'run-stats']);
+const PERSISTED = new Set(['favorites', 'auditions', 'trending', 'screen-shelf', 'tonight', 'discover', 'catalogue-size', 'scripts', 'scenes', 'run-stats', 'guided']);
 const persistOptions = {
   persister,
   maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -274,6 +275,13 @@ function Shell() {
   // tapped reminder into the reader.
   const { isAuthenticated, session } = useSession();
   useReminderSync(isAuthenticated, session?.user.id);
+  // The Scene room is fetched as the app opens, so its shelves are there when the tab is.
+  useEffect(() => {
+    if (!session) return;
+    void queryClient.prefetchQuery({ queryKey: ['guided'], queryFn: ({ signal }) => getGuided(signal), staleTime: 60 * 60_000 });
+    void queryClient.prefetchQuery({ queryKey: ['scenes'], queryFn: ({ signal }) => listScenes(signal), staleTime: 10 * 60_000 });
+    if (isAuthenticated) void queryClient.prefetchQuery({ queryKey: ['scripts'], queryFn: ({ signal }) => listScripts(signal), staleTime: 60_000 });
+  }, [session, isAuthenticated]);
   useReminderTaps();
 
   /**

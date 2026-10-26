@@ -12,7 +12,7 @@ import { sameCharacter } from '../../rehearsal/contract';
 import { useTrialOffer } from '../../hooks/useTrialOffer';
 import { useTheme } from '../../theme/ThemeContext';
 import { PrimaryPill } from '../PrimaryPill';
-import { playSample, stopSample } from '../../rehearsal/native/sample';
+import { playSample, primeSample, stopSample } from '../../rehearsal/native/sample';
 import { StageDirection } from '../StageDirection';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -82,6 +82,21 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
     void playSample(payload.scene.id, line, v.id, st => setHearing(st === 'done' ? null : { id: v.id, state: st }));
   };
   useEffect(() => { if (picking === null) { stopSample(); setHearing(null); } }, [picking]);
+  // The voices are pulled down ahead of the tap: each part's own voice as the
+  // sheet opens, the rest of the list the moment a part's voices are opened.
+  useEffect(() => {
+    for (const ch of payload.characters) {
+      const line = payload.lines.find(l => sameCharacter(l.character, ch))?.index;
+      if (line !== undefined) void primeSample(payload.scene.id, line, voiceOf(ch));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload.scene.id]);
+  useEffect(() => {
+    if (picking === null) return;
+    const line = payload.lines.find(l => sameCharacter(l.character, picking))?.index;
+    if (line === undefined) return;
+    for (const v of payload.voices) void primeSample(payload.scene.id, line, v.id);
+  }, [picking, payload]);
   useEffect(() => () => stopSample(), []);
   const pick = (ch: string) => { if (preparing || payload.voices.length < 2) return; Haptics.selectionAsync().catch(() => {}); setPicking(ch); };
   const choose = (id: string) => {
@@ -114,7 +129,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
             <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/edit/[id]', params: { id: String(payload.scene.id) } }); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Read and fix the sides"
               style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
               <Ionicons name="create-outline" size={14} color={c.accentText} />
-              <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.accentText }}>(read the sides, fix what the reader got wrong.)</Text>
+              <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>Fix the sides</Text>
             </Pressable>
           ) : null}
 

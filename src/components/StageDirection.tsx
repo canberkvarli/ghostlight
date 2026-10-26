@@ -22,8 +22,9 @@ export function StageDirection({
   children,
   className = '',
   on = 'stage',
+  link = false,
   ...rest
-}: TextProps & { on?: 'stage' | 'paper' }) {
+}: TextProps & { on?: 'stage' | 'paper'; /** A direction you can tap: in the accent, so it reads as a way somewhere. */ link?: boolean }) {
   const { colors: c } = useTheme();
   return (
     <Text
@@ -34,7 +35,7 @@ export function StageDirection({
           fontFamily: 'CourierPrime_400Regular_Italic',
           letterSpacing: 1.04,
           lineHeight: 19,
-          color: on === 'paper' ? c.paperMuted : c.mutedForeground,
+          color: link ? c.accentText : on === 'paper' ? c.paperMuted : c.foreground,
         },
         rest.style,
       ]}

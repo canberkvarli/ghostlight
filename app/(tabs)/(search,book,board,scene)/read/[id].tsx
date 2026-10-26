@@ -511,7 +511,7 @@ export default function Read() {
               style={{ marginTop: 26, alignSelf: 'center' }}
             />
             <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 18 }} accessibilityRole="button">
-              <StageDirection>(back to the list.)</StageDirection>
+              <StageDirection link>(back to the list.)</StageDirection>
             </Pressable>
           </>
         ) : isError ? (
@@ -526,7 +526,7 @@ export default function Read() {
               style={{ marginTop: 26, alignSelf: 'center' }}
             />
             <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 18 }} accessibilityRole="button">
-              <StageDirection>(back to the list.)</StageDirection>
+              <StageDirection link>(back to the list.)</StageDirection>
             </Pressable>
           </>
         ) : (

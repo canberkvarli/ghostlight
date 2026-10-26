@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import type { EditedLine } from '../../src/api/rehearsal';
 import { ChoiceSheet } from '../../src/components/ConfirmSheet';
@@ -67,6 +67,10 @@ export default function EditScene() {
   const [past, setPast] = useState<Row[][]>([]);
   const [future, setFuture] = useState<Row[][]>([]);
   const [leaving, setLeaving] = useState(false);
+  // The line being worked on: lit, with its own buttons, so the eye never loses it.
+  const [focus, setFocus] = useState<number | null>(null);
+  // The lines as the server had them, for Reset.
+  const [original, setOriginal] = useState<Row[] | null>(null);
   const [menu, setMenu] = useState<number | null>(null); // the row whose dots were tapped
   const [naming, setNaming] = useState<{ row: number; everywhere: boolean } | null>(null);
   const [speaker, setSpeaker] = useState<number | null>(null); // the row whose name was tapped
@@ -76,7 +80,9 @@ export default function EditScene() {
   // The lines as the server has them, once; after that the page's own copy is the truth until Save.
   useEffect(() => {
     if (rows || !scene.data) return;
-    setRows(scene.data.lines.map((l, i) => ({ key: i, character: l.character, text: l.text, direction: l.direction ?? '' })));
+    const first = scene.data.lines.map((l, i) => ({ key: i, character: l.character, text: l.text, direction: l.direction ?? '' }));
+    setRows(first);
+    setOriginal(first);
   }, [scene.data, rows]);
 
   const names = useMemo(() => {
@@ -111,6 +117,21 @@ export default function EditScene() {
     setFuture((f) => f.slice(0, -1));
     setRows(next);
     setTouched(true);
+  };
+  const reset = () => {
+    if (!original || !rows) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setPast((p) => [...p, rows]); setFuture([]);
+    setRows(original); setTouched(false); setFocus(null); setError(null);
+  };
+  const addAt = (i: number, where: 'above' | 'below') => {
+    if (!rows) return;
+    Haptics.selectionAsync().catch(() => {});
+    const row = rows[i];
+    const fresh = { key: Math.max(0, ...rows.map((r) => r.key)) + 1, character: row?.character ?? '', text: '', direction: '' };
+    const at = where === 'above' ? i : i + 1;
+    change((rs) => [...rs.slice(0, at), fresh, ...rs.slice(at)]);
+    setFocus(at);
   };
   const close = () => { if (touched) setLeaving(true); else goBack(); };
   const nextKey = (rs: Row[]) => Math.max(0, ...rs.map((r) => r.key)) + 1;
@@ -193,6 +214,9 @@ export default function EditScene() {
           </Pressable>
           <Text style={{ fontFamily: CAP, fontSize: 10, letterSpacing: 1.8, color: c.mutedForeground }}>THE SIDES</Text>
           <View style={{ flexDirection: 'row', gap: 4 }}>
+            <Pressable onPress={reset} disabled={!touched} hitSlop={8} accessibilityRole="button" accessibilityLabel="Reset to the original" style={{ height: 36, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', opacity: touched ? 1 : 0.3 }}>
+              <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>Reset</Text>
+            </Pressable>
             <Pressable onPress={undo} disabled={!past.length} hitSlop={8} accessibilityRole="button" accessibilityLabel="Undo" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: past.length ? 1 : 0.3 }}>
               <Ionicons name="arrow-undo-outline" size={20} color={c.foreground} />
             </Pressable>
@@ -220,11 +244,12 @@ export default function EditScene() {
 
             <View style={{ marginTop: 18 }}>
               {rows.map((r, i) => (
-                <Animated.View key={r.key} entering={FadeIn.duration(200)} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+                <Animated.View key={r.key} entering={FadeIn.duration(240)} exiting={FadeOut.duration(180)} layout={LinearTransition.duration(260)}
+                  style={{ paddingVertical: 12, paddingHorizontal: focus === i ? 12 : 0, marginHorizontal: focus === i ? -12 : 0, borderRadius: focus === i ? 14 : 0, backgroundColor: focus === i ? c.panel : 'transparent', borderBottomWidth: focus === i ? 0 : 1, borderBottomColor: c.divider, borderLeftWidth: focus === i ? 3 : 0, borderLeftColor: c.accentText }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setSpeaker(i); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Who speaks line ${i + 1}`}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingRight: 8 }}>
-                      <Text style={{ fontFamily: SANS_B, fontSize: 11.5, letterSpacing: 1.6, textTransform: 'uppercase', color: r.character.trim() ? c.accentText : c.chevron }}>{r.character.trim() || 'WHO?'}</Text>
+                      <Animated.Text key={r.character} entering={FadeIn.duration(260)} style={{ fontFamily: SANS_B, fontSize: 11.5, letterSpacing: 1.6, textTransform: 'uppercase', color: r.character.trim() ? c.accentText : c.chevron }}>{r.character.trim() || 'WHO?'}</Animated.Text>
                       <Ionicons name="chevron-down" size={12} color={c.chevron} />
                     </Pressable>
                     <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setMenu(i); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={`More for line ${i + 1}`} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
@@ -238,6 +263,7 @@ export default function EditScene() {
                     placeholderTextColor={c.chevron}
                     multiline
                     scrollEnabled={false}
+                    onFocus={() => setFocus(i)}
                     style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 13, lineHeight: 18, color: c.mutedForeground, paddingVertical: 2 }}
                   />
                   <TextInput
@@ -247,8 +273,16 @@ export default function EditScene() {
                     placeholderTextColor={c.chevron}
                     multiline
                     scrollEnabled={false}
+                    onFocus={() => setFocus(i)}
                     style={{ marginTop: 4, fontFamily: MONO, fontSize: 16, lineHeight: 24, color: c.foreground, paddingVertical: 2 }}
                   />
+                  {focus === i ? (
+                    <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: 10, flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                      <Chip icon="arrow-up" label="Line above" onPress={() => addAt(i, 'above')} />
+                      <Chip icon="arrow-down" label="Line below" onPress={() => addAt(i, 'below')} />
+                      <Chip icon="ellipsis-horizontal" label="More" onPress={() => { Haptics.selectionAsync().catch(() => {}); setMenu(i); }} />
+                    </Animated.View>
+                  ) : null}
                 </Animated.View>
               ))}
             </View>
@@ -265,14 +299,14 @@ export default function EditScene() {
         )}
 
         {/* Save, at the foot, lit once something changed. */}
-        {rows ? (
-          <View style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(insets.bottom, 14) + 6 }}>
+        {rows && touched ? (
+          <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} style={{ position: 'absolute', alignSelf: 'center', bottom: Math.max(insets.bottom, 14) + 6 }}>
             {save.isPending ? (
-              <View style={{ height: 54, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.accentText} /></View>
+              <View style={{ height: 46, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.accentText} /></View>
             ) : (
-              <PrimaryPill label={touched ? 'Save the sides' : 'Nothing changed'} onPress={() => { void submit(); }} disabled={!touched} height={54} block haptic="medium" />
+              <PrimaryPill label="Save" onPress={() => { void submit(); }} height={46} haptic="medium" />
             )}
-          </View>
+          </Animated.View>
         ) : null}
       </SafeAreaView>
 
@@ -302,11 +336,23 @@ export default function EditScene() {
             />
             <PrimaryPill label={naming?.everywhere ? 'Rename every line' : 'Use this name'} onPress={rename} height={54} block haptic="medium" style={{ marginTop: 20 }} />
             <Pressable onPress={() => setNaming(null)} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 12, paddingVertical: 8 }}>
-              <StageDirection>(leave it.)</StageDirection>
+              <StageDirection link>(leave it.)</StageDirection>
             </Pressable>
           </View>
         </Animated.View>
       </Modal>
     </View>
+  );
+}
+
+/** A small button on the line being worked on. */
+function Chip({ icon, label, onPress }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }) {
+  const { colors: c } = useTheme();
+  return (
+    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={label}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: c.accentText, opacity: pressed ? 0.6 : 1 })}>
+      <Ionicons name={icon} size={13} color={c.accentText} />
+      <Text style={{ fontFamily: SANS_B, fontSize: 12.5, color: c.accentText }}>{label}</Text>
+    </Pressable>
   );
 }

@@ -881,7 +881,7 @@ function Reminders({ a, emailReachable, email }: { a: Audition; emailReachable: 
       />
       {permission === false && (denied || !phoneOff) ? (
         <Pressable onPress={() => Linking.openSettings().catch(() => {})} hitSlop={8} accessibilityRole="button" style={{ marginTop: 2 }}>
-          <StageDirection numberOfLines={3}>(notifications are off for ghost light. open settings to allow them.)</StageDirection>
+          <StageDirection link numberOfLines={3}>(notifications are off for ghost light. open settings to allow them.)</StageDirection>
         </Pressable>
       ) : null}
 

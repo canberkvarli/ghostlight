@@ -101,15 +101,9 @@
           "iosActions": [
             {
               "id": "note",
-              "title": "Before you go…",
+              "title": "Before you go… 🎭",
               "subtitle": "A note from Canberk",
-              "icon": "symbol:heart"
-            },
-            {
-              "id": "note",
-              "title": "Before you go…",
-              "subtitle": "A note from Canberk",
-              "icon": "symbol:heart"
+              "icon": "symbol:theatermasks"
             }
           ]
         }

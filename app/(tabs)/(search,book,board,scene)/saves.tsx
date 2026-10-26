@@ -407,7 +407,7 @@ function Shelf({ title, aside, onAside, first, children }: { title: string; asid
         <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.foreground }}>{title}</Text>
         {aside && onAside ? (
           <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sort the shelf" style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <StageDirection numberOfLines={1} style={{ flexShrink: 1 }}>{aside}</StageDirection>
+            <StageDirection link numberOfLines={1} style={{ flexShrink: 1 }}>{aside}</StageDirection>
             <Ionicons name="swap-vertical-outline" size={13} color={c.mutedForeground} />
           </Pressable>
         ) : aside ? (

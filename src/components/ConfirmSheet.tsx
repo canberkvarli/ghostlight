@@ -141,7 +141,7 @@ export function ChoiceSheet<K extends string>({ open, title, accent, options, va
             })}
           </View>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 8 }}>
-            <StageDirection>(leave it.)</StageDirection>
+            <StageDirection link>(leave it.)</StageDirection>
           </Pressable>
         </Animated.View>
       </Animated.View>

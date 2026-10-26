@@ -341,7 +341,7 @@ export default function RunScreen() {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 }}>
             <StageDirection>(that page is dark.)</StageDirection>
             <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 18 }} accessibilityRole="button">
-              <StageDirection>(back to the piece.)</StageDirection>
+              <StageDirection link>(back to the piece.)</StageDirection>
             </Pressable>
           </View>
         ) : curtain ? (
@@ -385,7 +385,7 @@ export default function RunScreen() {
               </Pressable>
             ) : null}
             <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 22 }} accessibilityRole="button">
-              <StageDirection>(back to the piece.)</StageDirection>
+              <StageDirection link>(back to the piece.)</StageDirection>
             </Pressable>
           </Animated.View>
         ) : (

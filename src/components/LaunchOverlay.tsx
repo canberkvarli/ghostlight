@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Linking from 'expo-linking';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Canvas, RadialGradient, Rect, vec } from '@shopify/react-native-skia';
 import Animated, {
@@ -86,6 +87,12 @@ export function LaunchOverlay() {
       if (f) runOnJS(setGone)(true);
     });
   }, [cover]);
+
+  // Opened from the widget, a reminder or a link: the page asked for is the
+  // point, so the curtain lifts at once instead of holding its quote.
+  useEffect(() => {
+    Linking.getInitialURL().then((u) => { if (u && /read|peek|note|audition|outcome/.test(u)) lift(); }).catch(() => {});
+  }, [lift]);
 
   useEffect(() => {
     if (!reduce) {

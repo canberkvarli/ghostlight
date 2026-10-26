@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { GhostLight } from '../src/components/GhostLight';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
 import { LabelledField } from '../src/components/LabelledField';
@@ -71,11 +72,16 @@ export default function Auth() {
     isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false));
   }, []);
 
+  const [arriving, setArriving] = useState(false);
   const done = (method: 'apple' | 'google' | 'email') => {
     track('signed_in', { method });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (router.canGoBack()) router.back();
-    else router.replace('/search');
+    // A beat on the lamp, then the room: the move from the form to the app is one fade, not a jump.
+    setArriving(true);
+    setTimeout(() => {
+      if (router.canGoBack()) router.back();
+      else router.replace('/search');
+    }, 650);
   };
 
   const clear = () => { setError(null); setNotice(null); };
@@ -225,13 +231,7 @@ export default function Auth() {
             }
           />
 
-          {busy === 'email' ? (
-            <View style={{ height: 54, marginTop: 24, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator color={c.accentText} />
-            </View>
-          ) : (
-            <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={54} block haptic="medium" style={{ marginTop: 24 }} />
-          )}
+          <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={46} haptic="medium" style={{ marginTop: 24, alignSelf: 'flex-start', paddingHorizontal: 8 }} />
 
           {/* Under the pill: the way back for a lost password, or the promise a new account makes. */}
           {creating ? (
@@ -269,6 +269,13 @@ export default function Auth() {
         </ScrollView>
       </SafeAreaView>
       <AboutActorRiseSheet open={about} onClose={() => setAbout(false)} from="auth" />
+      {/* While it signs in, the page goes and the house comes up: the lamp, one line. It stays until the room behind it is there. */}
+      {busy || arriving ? (
+        <Animated.View entering={FadeIn.duration(260)} pointerEvents="auto" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: c.background, alignItems: 'center', justifyContent: 'center' }}>
+          <GhostLight size={58} />
+          <StageDirection style={{ marginTop: 22 }}>{arriving ? '(the house lights come up.)' : '(finding your seat.)'}</StageDirection>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
