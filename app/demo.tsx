@@ -121,7 +121,7 @@ export default function Demo() {
     Haptics.selectionAsync().catch(() => {});
     track('demo_skipped', { at: step === 1 ? 'cards' : 'card', after: done });
     stopSample();
-    router.replace(isAuthenticated ? '/search' : '/curtain');
+    router.replace('/search');
   };
   const back = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -219,7 +219,7 @@ export default function Demo() {
                   <PrimaryPill label="Try again" variant="outline" onPress={() => void guided.refetch()} style={{ marginTop: 14 }} />
                 </View>
               ) : scenes.length ? (
-                <PrimaryPill label="Try it" onPress={beginFront} height={56} block haptic="medium" style={{ marginBottom: 8 }} />
+                <PrimaryPill label="Continue" onPress={beginFront} height={56} block haptic="medium" style={{ marginBottom: 8 }} />
               ) : (
                 <View style={{ height: 56, marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.mutedForeground} /></View>
               )}
@@ -258,25 +258,22 @@ export default function Demo() {
             </Animated.View>
           ) : step === 2 && scene ? (
             <Animated.View key="s2" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1, paddingTop: 22 }}>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                {scene.characters.map((ch, i) => {
+              <View style={{ gap: 10 }}>
+                {scene.characters.map((ch) => {
                   const line = payload.data ? payload.data.lines[firstLineOf(payload.data, ch.name, ch.first_line)]?.text ?? '' : '';
                   const on = me !== null && sameCharacter(ch.name, me);
                   return (
-                    <Pressable key={ch.name} onPress={() => pickPart(ch.name)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ flex: 1 }}>
-                      <PaperCard rotate={i ? 0.4 : -0.4} shadow={on ? 10 : 6} style={{ padding: 16, minHeight: 210 }}>
-                        <Text style={{ fontFamily: CAP, fontSize: 10, letterSpacing: 1.8, color: c.accentText }}>{ch.name.toUpperCase()}</Text>
+                    <Pressable key={ch.name} onPress={() => pickPart(ch.name)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`I am ${ch.name}`}
+                      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1.5, borderColor: on ? c.accentText : c.border, backgroundColor: on ? c.panel : 'transparent', opacity: pressed ? 0.75 : 1 })}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ fontFamily: SANS_B, fontSize: 16, letterSpacing: 0.6, color: c.foreground }}>{ch.name}</Text>
                         {line ? (
-                          <Text numberOfLines={6} style={{ marginTop: 12, fontFamily: MONO, fontSize: 14, lineHeight: 21, color: c.paperInk }}>{line}</Text>
+                          <Text numberOfLines={2} style={{ marginTop: 4, fontFamily: MONO, fontSize: 13.5, lineHeight: 19, color: c.mutedForeground }}>{line}</Text>
                         ) : (
-                          <ActivityIndicator color={c.paperMuted} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+                          <ActivityIndicator size="small" color={c.mutedForeground} style={{ marginTop: 6, alignSelf: 'flex-start' }} />
                         )}
-                        <View style={{ flex: 1 }} />
-                        <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.paperInk }}>I am {ch.name}</Text>
-                          <Ionicons name="arrow-forward" size={13} color={c.paperInk} />
-                        </View>
-                      </PaperCard>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={c.chevron} />
                     </Pressable>
                   );
                 })}
@@ -327,7 +324,7 @@ export default function Demo() {
 /** The rule and the caption: which of the three choices is next. */
 function Steps({ stage, front = false }: { stage: Step; front?: boolean }) {
   const { colors: c } = useTheme();
-  const lines = [front ? 'two minutes. tap try it.' : 'pick a key.', 'pick your part.', 'pick a voice. then begin.'];
+  const lines = [front ? 'two minutes. nothing to set up.' : 'pick a key.', 'pick your part.', 'pick a voice. then begin.'];
   return (
     <View style={{ marginTop: 14 }}>
       <View style={{ flexDirection: 'row', gap: 6 }}>

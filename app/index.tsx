@@ -25,5 +25,8 @@ export default function StageDoor() {
     return <View style={{ flex: 1, backgroundColor: c.background }} />;
   }
 
-  return <Redirect href={isAuthenticated ? '/search' : seen ? '/curtain' : '/demo'} />;
+  // A stranger opens on the promise every time until there is an account:
+  // the monologue deck is for people who are in, not the way in.
+  void seen;
+  return <Redirect href={isAuthenticated ? '/search' : '/demo'} />;
 }

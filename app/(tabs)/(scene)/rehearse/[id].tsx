@@ -217,8 +217,8 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
     // Everything under this run, the cards included, goes: back from the
     // home must never find the stranger's path again.
     try { router.dismissAll(); } catch { /* nothing under it */ }
-    if (to === 'week') { router.replace(isAuthenticated ? '/search' : '/curtain'); router.push('/paywall'); return; }
-    router.replace(isAuthenticated ? '/search' : '/curtain');
+    if (to === 'week') { router.replace('/search'); router.push('/paywall'); return; }
+    router.replace('/search');
   };
 
   return (
