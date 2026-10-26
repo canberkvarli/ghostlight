@@ -161,7 +161,7 @@ export default function Auth() {
 
         <ScrollView
           ref={scroller}
-          contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 10, paddingBottom: 40 }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 28, paddingTop: 10, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets
@@ -233,7 +233,7 @@ export default function Auth() {
             }
           />
 
-          <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={46} haptic="medium" style={{ marginTop: 24, alignSelf: 'flex-start', paddingHorizontal: 8 }} />
+          <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={46} haptic="medium" style={{ marginTop: 24, alignSelf: 'flex-end', paddingHorizontal: 8 }} />
 
           {/* Under the pill: the way back for a lost password, or the promise a new account makes. */}
           {creating ? (
@@ -263,7 +263,7 @@ export default function Auth() {
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="What is ActorRise?"
-            style={{ marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            style={{ marginTop: 'auto', paddingTop: 28, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6 }}
           >
             <Ionicons name="help-circle-outline" size={15} color={c.mutedForeground} />
             <StageDirection>(what is actorrise?)</StageDirection>

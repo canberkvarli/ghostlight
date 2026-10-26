@@ -73,7 +73,9 @@ export default function Demo() {
   // The front door: nothing to compare before anything has been heard. The
   // first scene is chosen for them, the fight, and the other keys are offered
   // on the curtain call. The three cards remain for the Scene room's visit.
-  const front = done === 0 && !keyParam;
+  // Every way in without a chosen scene opens on the promise: the three
+  // cards are gone from the flow, and the other keys wait on the curtain call.
+  const front = !keyParam;
 
   const [step, setStep] = useState<Step>(1);
   const [scene, setScene] = useState<GuidedScene | null>(null);
