@@ -233,18 +233,20 @@ export default function Auth() {
             }
           />
 
-          <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={46} haptic="medium" style={{ marginTop: 24, alignSelf: 'flex-end', paddingHorizontal: 8 }} />
-
-          {/* Under the pill: the way back for a lost password, or the promise a new account makes. */}
+          {/* One row: the way back for a lost password on the left, Enter on the right. */}
+          <View style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', justifyContent: creating ? 'flex-end' : 'space-between', gap: 12 }}>
+            {creating ? null : (
+              <Pressable onPress={() => { void forgotPassword(); }} hitSlop={10} accessibilityRole="button" disabled={resetting} style={{ paddingVertical: 6 }}>
+                {resetting ? <ActivityIndicator color={c.accentText} /> : (
+                  <Text style={{ fontFamily: SANS_B, fontSize: 13.5, color: c.accentText }}>Forgot password?</Text>
+                )}
+              </Pressable>
+            )}
+            <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={46} haptic="medium" style={{ paddingHorizontal: 8 }} />
+          </View>
           {creating ? (
-            <StageDirection style={{ marginTop: 14, textAlign: 'center' }}>(this address, that password. your saves come with you.)</StageDirection>
-          ) : (
-            <Pressable onPress={() => { void forgotPassword(); }} hitSlop={10} accessibilityRole="button" disabled={resetting} style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 4 }}>
-              {resetting ? <ActivityIndicator color={c.mutedForeground} /> : (
-                <Text style={{ fontFamily: SANS, fontSize: 13, color: c.mutedForeground, textDecorationLine: 'underline' }}>Forgot the password?</Text>
-              )}
-            </Pressable>
-          )}
+            <StageDirection style={{ marginTop: 14, textAlign: 'right' }}>(this address, that password. your saves come with you.)</StageDirection>
+          ) : null}
 
           {error ? (
             <Animated.Text entering={FadeIn.duration(200)} style={{ marginTop: 18, fontFamily: SANS, fontSize: 13, lineHeight: 19, color: c.accentText }}>
