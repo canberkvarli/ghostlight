@@ -9,6 +9,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { GhostLight } from '../src/components/GhostLight';
+import { PartnerScene } from '../src/components/PartnerScene';
 import { StageDirection } from '../src/components/StageDirection';
 import { PaperCard } from '../src/components/PaperCard';
 import { PrimaryPill } from '../src/components/PrimaryPill';
@@ -164,7 +165,7 @@ export default function Demo() {
     if (s) pickScene(s);
   };
   const headline: Record<Step, [string, string]> = {
-    1: done ? ['Another, in a', 'different key?'] : front ? ['Run a scene', 'with a partner.'] : ['Run a scene.', 'Right now.'],
+    1: done ? ['Another, in a', 'different key?'] : front ? ['Your scene', 'partner.'] : ['Run a scene.', 'Right now.'],
     2: ['Which one', 'are you?'],
     3: [`Who plays`, `${other?.name.toLowerCase() ?? 'opposite'}?`],
   };
@@ -204,9 +205,11 @@ export default function Demo() {
 
           {step === 1 && front ? (
             <Animated.View key="s0" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1 }}>
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 40 }}>
-                <GhostLight size={64} />
-                <StageDirection style={{ marginTop: 28, textAlign: 'center' }}>(it reads the others. you read yours.)</StageDirection>
+              <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 24 }}>
+                <PartnerScene />
+                <Text style={{ marginTop: 22, textAlign: 'center', fontFamily: SANS, fontSize: 15.5, lineHeight: 23, color: c.mutedForeground }}>
+                  It reads the other part out loud, listens to yours, and comes in on your last word. Two minutes, and you will hear it.
+                </Text>
               </View>
               {guided.isError && !scenes.length ? (
                 <View style={{ alignItems: 'center', marginBottom: 8 }}>
@@ -214,7 +217,7 @@ export default function Demo() {
                   <PrimaryPill label="Try again" variant="outline" onPress={() => void guided.refetch()} style={{ marginTop: 14 }} />
                 </View>
               ) : scenes.length ? (
-                <PrimaryPill label="Begin" onPress={beginFront} height={56} block haptic="medium" style={{ marginBottom: 8 }} />
+                <PrimaryPill label="Try it" onPress={beginFront} height={56} block haptic="medium" style={{ marginBottom: 8 }} />
               ) : (
                 <View style={{ height: 56, marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.mutedForeground} /></View>
               )}
@@ -322,7 +325,7 @@ export default function Demo() {
 /** The rule and the caption: which of the three choices is next. */
 function Steps({ stage, front = false }: { stage: Step; front?: boolean }) {
   const { colors: c } = useTheme();
-  const lines = [front ? 'two minutes. tap begin.' : 'pick a key.', 'pick your part.', 'pick a voice. then begin.'];
+  const lines = [front ? 'two minutes. tap try it.' : 'pick a key.', 'pick your part.', 'pick a voice. then begin.'];
   return (
     <View style={{ marginTop: 14 }}>
       <View style={{ flexDirection: 'row', gap: 6 }}>

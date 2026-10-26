@@ -19,6 +19,7 @@ import { GhostLight } from './GhostLight';
 import { StageBackdrop } from './StageBackdrop';
 import { useTheme } from '../theme/ThemeContext';
 import { pickLaunchQuote } from '../data/launchQuotes';
+import { demoSeen } from '../lib/demo';
 
 /**
  * The launch sequence, drawn as the first thing over the app. iOS can't animate
@@ -87,6 +88,12 @@ export function LaunchOverlay() {
       if (f) runOnJS(setGone)(true);
     });
   }, [cover]);
+
+  // A first launch: the lamp strikes and the curtain lifts. The quote is for
+  // the nights after; the first one is for the promise.
+  useEffect(() => {
+    demoSeen().then((seen) => { if (!seen) setTimeout(lift, 1500); }).catch(() => {});
+  }, [lift]);
 
   // Opened from the widget, a reminder or a link: the page asked for is the
   // point, so the curtain lifts at once instead of holding its quote.

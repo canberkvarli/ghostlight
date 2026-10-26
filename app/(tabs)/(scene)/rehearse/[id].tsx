@@ -238,6 +238,9 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
             onAnother={(key) => leaveDemo('another', key)}
             onWeek={() => leaveDemo('week')}
             onNotTonight={() => leaveDemo('curtain')}
+            stranger={!isAuthenticated}
+            onSignedUp={() => { try { router.dismissAll(); } catch { /* the root */ } router.replace('/welcome'); }}
+            onLookAround={() => { try { router.dismissAll(); } catch { /* the root */ } router.replace('/search'); }}
           />
         </ScrollView>
       ) : ended ? (

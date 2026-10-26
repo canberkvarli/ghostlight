@@ -194,6 +194,8 @@ export type Event =
   | { name: 'demo_curtain'; props: { key: string; which: number; heard: number; of: number } }
   | { name: 'demo_left'; props: { key: string; which: number; to: 'curtain' | 'week' | 'another' } }
   | { name: 'demo_skipped'; props: { at: 'cards' | 'card'; after: number } }
+  | { name: 'onboarding_signup'; props: { method: 'apple' | 'google' | 'email' | 'past' } }
+  | { name: 'onboarding_working_on'; props: { on: string } }
   | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }
   | { name: 'app_rehearse_ended'; props: { source: 'library' | 'script' | 'guided'; how: 'completed' | 'left'; lines: number; seconds: number } }
   /** The gate stopped a run: the wall, and whether the paywall was opened from it. */

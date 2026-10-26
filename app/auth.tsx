@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +49,7 @@ const MONO_I = 'CourierPrime_400Regular_Italic';
  */
 export default function Auth() {
   const router = useRouter();
+  const { next, create } = useLocalSearchParams<{ next?: string; create?: string }>();
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
@@ -60,7 +61,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [reveal, setReveal] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(create === '1');
   const [about, setAbout] = useState(false);
   // The field you tap comes up above the keyboard: its place on the page is
   // noted as it lays out, and a focus scrolls there.
@@ -79,6 +80,7 @@ export default function Auth() {
     // A beat on the lamp, then the room: the move from the form to the app is one fade, not a jump.
     setArriving(true);
     setTimeout(() => {
+      if (next) { try { router.dismissAll(); } catch { /* the root */ } router.replace(next as '/welcome'); return; }
       if (router.canGoBack()) router.back();
       else router.replace('/search');
     }, 650);
