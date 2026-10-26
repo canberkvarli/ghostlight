@@ -8,6 +8,7 @@ import Animated, { Easing, FadeIn, FadeOut, cancelAnimation, useAnimatedStyle, u
 import { Ionicons } from '@expo/vector-icons';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
+import { GhostLight } from '../src/components/GhostLight';
 import { StageDirection } from '../src/components/StageDirection';
 import { BackHeader } from '../src/components/BackHeader';
 import { PrimaryPill } from '../src/components/PrimaryPill';
@@ -222,30 +223,29 @@ function Door({ cap, title, line, onPress, tilt }: { cap: string; title: string;
  */
 function TheMap({ step }: { step: number }) {
   const { colors: c } = useTheme();
+  const total = SCRIPT_STEPS.length;
+  const i = Math.max(0, Math.min(step, total - 1));
+  const label = SCRIPT_STEPS[i].replace(/\.$/, '');
+  const words = label.charAt(0).toUpperCase() + label.slice(1);
+  // The rule fills a step at a time, each move over half a second.
+  const frac = useSharedValue(0);
+  useEffect(() => { frac.value = withTiming((i + 0.5) / total, { duration: 520, easing: Easing.out(Easing.cubic) }); }, [i, total, frac]);
+  const fill = useAnimatedStyle(() => ({ width: `${frac.value * 100}%` }));
   return (
-    <View style={{ marginTop: 36 }}>
-      <StageDirection>(reading your sides.)</StageDirection>
-      <View style={{ marginTop: 16, gap: 2 }}>
-        {SCRIPT_STEPS.map((label, i) => {
-          const done = i < step;
-          const on = i === step;
-          return (
-            <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 7 }}>
-              <View style={{ width: 22, alignItems: 'center' }}>
-                {done ? (
-                  <Ionicons name="checkmark" size={15} color={c.accentText} />
-                ) : on ? (
-                  <Breath color={c.accentText} />
-                ) : (
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.divider }} />
-                )}
-              </View>
-              <Text style={{ fontFamily: on ? SANS_B : SANS, fontSize: 15, lineHeight: 21, color: on ? c.foreground : done ? c.mutedForeground : c.chevron }}>{label.replace(/\.$/, '')}</Text>
-            </View>
-          );
-        })}
+    <View style={{ marginTop: 44, alignItems: 'center', paddingHorizontal: 6 }}>
+      <GhostLight size={36} />
+      <View style={{ height: 80, justifyContent: 'center', alignSelf: 'stretch', marginTop: 26 }}>
+        <Animated.View key={i} entering={FadeIn.duration(380)} exiting={FadeOut.duration(220)} style={{ position: 'absolute', left: 0, right: 0 }}>
+          <Text numberOfLines={2} style={{ textAlign: 'center', fontFamily: SERIF, fontSize: 30, lineHeight: 36, letterSpacing: -0.4, color: c.foreground }}>{words}</Text>
+        </Animated.View>
       </View>
-      <StageDirection style={{ marginTop: 18 }}>(a long script takes a minute. stay on the page.)</StageDirection>
+      <View style={{ alignSelf: 'stretch', marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flex: 1, height: 3, borderRadius: 1.5, backgroundColor: c.divider, overflow: 'hidden' }}>
+          <Animated.View style={[fill, { height: 3, backgroundColor: c.accentText }]} />
+        </View>
+        <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{i + 1} OF {total}</Text>
+      </View>
+      <StageDirection style={{ marginTop: 20, textAlign: 'center' }}>(a long script takes a minute. stay on the page.)</StageDirection>
     </View>
   );
 }

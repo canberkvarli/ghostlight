@@ -69,6 +69,10 @@ export default function Demo() {
   const loneScene = useRehearsalScene(session ? lone : null);
   const scenes = useMemo(() => firstScenes(guided.data, loneScene.data), [guided.data, loneScene.data]);
   const done = Number(after ?? '0') || 0;
+  // The front door: nothing to compare before anything has been heard. The
+  // first scene is chosen for them, the fight, and the other keys are offered
+  // on the curtain call. The three cards remain for the Scene room's visit.
+  const front = done === 0 && !keyParam;
 
   const [step, setStep] = useState<Step>(1);
   const [scene, setScene] = useState<GuidedScene | null>(null);
@@ -155,8 +159,12 @@ export default function Demo() {
     });
   };
 
+  const beginFront = () => {
+    const s = scenes.find(x => x.key === 'fight') ?? scenes[0];
+    if (s) pickScene(s);
+  };
   const headline: Record<Step, [string, string]> = {
-    1: done ? ['Another, in a', 'different key?'] : ['Run a scene.', 'Right now.'],
+    1: done ? ['Another, in a', 'different key?'] : front ? ['Run a scene', 'with a partner.'] : ['Run a scene.', 'Right now.'],
     2: ['Which one', 'are you?'],
     3: [`Who plays`, `${other?.name.toLowerCase() ?? 'opposite'}?`],
   };
@@ -192,9 +200,26 @@ export default function Demo() {
               <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{lit}</Text>
             </Text>
           </Animated.View>
-          <Steps stage={step} />
+          <Steps stage={step} front={front} />
 
-          {step === 1 ? (
+          {step === 1 && front ? (
+            <Animated.View key="s0" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1 }}>
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 40 }}>
+                <GhostLight size={64} />
+                <StageDirection style={{ marginTop: 28, textAlign: 'center' }}>(it reads the others. you read yours.)</StageDirection>
+              </View>
+              {guided.isError && !scenes.length ? (
+                <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                  <StageDirection style={{ textAlign: 'center' }}>(the house is dark. check the signal.)</StageDirection>
+                  <PrimaryPill label="Try again" variant="outline" onPress={() => void guided.refetch()} style={{ marginTop: 14 }} />
+                </View>
+              ) : scenes.length ? (
+                <PrimaryPill label="Begin" onPress={beginFront} height={56} block haptic="medium" style={{ marginBottom: 8 }} />
+              ) : (
+                <View style={{ height: 56, marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.mutedForeground} /></View>
+              )}
+            </Animated.View>
+          ) : step === 1 ? (
             <Animated.View key="s1" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1 }}>
               {guided.isPending && !guided.isError && !scenes.length ? (
                 <View style={{ marginTop: 60, alignItems: 'center' }}>
@@ -295,9 +320,9 @@ export default function Demo() {
 }
 
 /** The rule and the caption: which of the three choices is next. */
-function Steps({ stage }: { stage: Step }) {
+function Steps({ stage, front = false }: { stage: Step; front?: boolean }) {
   const { colors: c } = useTheme();
-  const lines = ['pick a key.', 'pick your part.', 'pick a voice. then begin.'];
+  const lines = [front ? 'two minutes. tap begin.' : 'pick a key.', 'pick your part.', 'pick a voice. then begin.'];
   return (
     <View style={{ marginTop: 14 }}>
       <View style={{ flexDirection: 'row', gap: 6 }}>
