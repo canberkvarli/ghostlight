@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { ApiError, getReadState, type ReadState } from '../api/client';
+import { ApiError, FREE_READS, getReadState, type ReadState } from '../api/client';
 import { track } from '../lib/analytics';
 import { setOfflineAllowed } from '../lib/offline';
 import { hasMonologuesEntitlement, onCustomerInfoUpdate } from '../lib/purchases';
@@ -114,7 +114,9 @@ export function useEntitlement(): Entitlement {
     isPaid,
     atWall: wall?.atWall === true && !isPaid,
     readsUsed: wall?.reads_used ?? 0,
-    readsLimit: wall?.reads_limit ?? 3,
+    // Before the server answers, the same number getReadState falls back to. A
+    // literal here once said 3 while the wall said 1.
+    readsLimit: wall?.reads_limit ?? FREE_READS,
     wall,
     settled: isFetched,
     failed: isError && wall === undefined,
