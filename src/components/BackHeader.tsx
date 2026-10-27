@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -24,7 +25,8 @@ export function BackHeader({
   const { colors: c } = useTheme();
   if (close) {
     return (
-      <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+      <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 5 }}>
+        <Fade />
         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"
           style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginLeft: -6 }}>
           <Ionicons name="close" size={24} color={c.foreground} />
@@ -34,7 +36,8 @@ export function BackHeader({
     );
   }
   return (
-    <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+    <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 5 }}>
+      <Fade />
       <Pressable
         onPress={() => {
           Haptics.selectionAsync().catch(() => {});
@@ -61,5 +64,22 @@ export function BackHeader({
       </Pressable>
       {right ?? null}
     </View>
+  );
+}
+
+/**
+ * Under the header, the page scrolling up fades out over a few points instead
+ * of being cut on a line (the lamp's glow was sliced in half by it).
+ */
+function Fade() {
+  const { colors: c } = useTheme();
+  const { width } = useWindowDimensions();
+  const H = 26;
+  return (
+    <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, top: 52, width, height: H }}>
+      <Rect x={0} y={0} width={width} height={H}>
+        <LinearGradient start={vec(0, 0)} end={vec(0, H)} colors={[c.background, `${c.background}00`]} />
+      </Rect>
+    </Canvas>
   );
 }
