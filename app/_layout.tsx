@@ -31,6 +31,7 @@ import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { getGuided, getRunStats, listRuns, listScenes, listScripts } from '../src/api/rehearsal';
 import { loadRecents } from '../src/lib/recents';
 import { markHadAccount } from '../src/lib/demo';
+import { ReadingBanner } from '../src/components/ReadingBanner';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
 import { SidesInbox } from '../src/components/SidesInbox';
 import { bootstrapSession } from '../src/lib/session';
@@ -365,6 +366,7 @@ function Shell() {
       <KnockNoteHost />
       {/* Once per release, for someone who updated: what is new, and a way to the store. */}
       <WhatsNewHost />
+      <ReadingBanner />
     </GestureHandlerRootView>
     </NavThemeProvider>
   );

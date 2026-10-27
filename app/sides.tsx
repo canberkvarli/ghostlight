@@ -306,13 +306,23 @@ function TheMap({ step, sending, left, onLeave, onStop }: { step: number; sendin
         </View>
         <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{i + 1} OF {total}</Text>
       </View>
-      <StageDirection numberOfLines={2} style={{ marginTop: 20, textAlign: 'center' }}>{sending ? '(sending the file.)' : `(${aboutLeft(left)} it keeps reading if you close this.)`}</StageDirection>
+      <StageDirection numberOfLines={2} style={{ marginTop: 20, textAlign: 'center' }}>{sending ? '(sending the file.)' : `(${aboutLeft(left)})`}</StageDirection>
       {sending ? null : (
-        <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22, flexDirection: 'row', alignItems: 'center', gap: 22 }}>
-          <PrimaryPill label="Close" variant="outline" height={44} onPress={onLeave} style={{ width: 132 }} />
-          <Pressable onPress={onStop} hitSlop={10} accessibilityRole="button" accessibilityLabel="Stop reading this script">
-            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.accentText }}>Stop</Text>
-          </Pressable>
+        <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22, alignItems: 'center' }}>
+          {/* Not a Close button: leaving is safe, so the page says so and the way out is the one in the corner. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: c.panel, borderWidth: 1, borderColor: c.border }}>
+            <Ionicons name="walk-outline" size={16} color={c.accentText} />
+            <Text style={{ flexShrink: 1, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.foreground }}>Go anywhere. It keeps reading, and you'll be told when it's in.</Text>
+          </View>
+          <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 22 }}>
+            <Pressable onPress={onLeave} hitSlop={10} accessibilityRole="button" accessibilityLabel="Look around while it reads">
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>Look around</Text>
+            </Pressable>
+            <Text style={{ color: c.chevron }}>·</Text>
+            <Pressable onPress={onStop} hitSlop={10} accessibilityRole="button" accessibilityLabel="Stop reading this script">
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.accentText }}>Stop</Text>
+            </Pressable>
+          </View>
         </Animated.View>
       )}
     </View>

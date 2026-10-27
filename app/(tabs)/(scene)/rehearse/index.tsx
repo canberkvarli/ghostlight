@@ -397,6 +397,11 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={2} style={{ fontFamily: SERIF, fontSize: 23, lineHeight: 27, color: c.foreground }}>{script.title}</Text>
           <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: broke ? c.accentText : c.mutedForeground }}>{line}</Text>
+          {!ready && !broke ? (
+            <View style={{ marginTop: 8, height: 3, borderRadius: 1.5, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
+              <View style={{ height: 3, backgroundColor: c.yellow, width: `${Math.round(100 * (progress.data?.estimate_seconds && progress.data.elapsed_seconds != null ? Math.min(0.95, Math.max(0.04, progress.data.elapsed_seconds / progress.data.estimate_seconds)) : 0.04))}%` }} />
+            </View>
+          ) : null}
         </View>
         {ready ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} />
           : !broke ? (
