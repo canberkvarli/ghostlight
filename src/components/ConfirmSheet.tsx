@@ -105,7 +105,7 @@ export function ChoiceSheet<K extends string>({ open, title, accent, options, va
   open: boolean;
   title: string;
   accent: string;
-  options: { key: K; label: string; line: string }[];
+  options: { key: K; label: string; line?: string }[];
   value: K;
   onPick: (key: K) => void;
   onClose: () => void;
@@ -134,7 +134,7 @@ export function ChoiceSheet<K extends string>({ open, title, accent, options, va
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? c.yellow : 'transparent', borderWidth: on ? 0 : 1, borderColor: c.chevron }} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: on ? SANS_B : SANS, fontSize: 16, color: c.foreground }}>{o.label}</Text>
-                    <Text style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>({o.line})</Text>
+                    {o.line ? <Text style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>({o.line})</Text> : null}
                   </View>
                 </Pressable>
               );

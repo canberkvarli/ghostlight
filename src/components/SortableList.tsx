@@ -83,13 +83,38 @@ function SortableItem({
   onDrop: (from: number, to: number) => void;
   children: React.ReactNode;
 }) {
-  const pan = Gesture.Pan()
-    .activateAfterLongPress(320)
+  // A hold lifts the row; only then may the drag begin. The pan is started by
+  // hand, so the page's own scroll keeps every touch that moves before the
+  // hold is done, and the row keeps every touch after it.
+  const lifted = useSharedValue(false);
+  const downY = useSharedValue(0);
+  const hold = Gesture.LongPress()
+    .minDuration(300)
+    .maxDistance(12)
     .onStart(() => {
+      lifted.value = true;
       active.value = index;
       target.value = index;
       dy.value = 0;
       runOnJS(onLift)();
+    });
+  const pan = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((e) => {
+      downY.value = e.allTouches[0]?.absoluteY ?? 0;
+    })
+    .onTouchesMove((e, mgr) => {
+      if (lifted.value) { mgr.activate(); return; }
+      const y = e.allTouches[0]?.absoluteY ?? downY.value;
+      if (Math.abs(y - downY.value) > 12) mgr.fail();
+    })
+    .onTouchesUp((_, mgr) => {
+      // Held and let go without moving: put it back down.
+      if (lifted.value && active.value === index && dy.value === 0) {
+        lifted.value = false;
+        mgr.end();
+        runOnJS(onDrop)(-1, -1);
+      }
     })
     .onUpdate((e) => {
       dy.value = e.translationY;
@@ -120,9 +145,10 @@ function SortableItem({
       });
     })
     .onFinalize((_, success) => {
-      // Cancelled before it ever lifted, or taken away by the system.
+      lifted.value = false;
       if (!success && active.value === index) runOnJS(onDrop)(-1, -1);
     });
+  const gesture = Gesture.Simultaneous(hold, pan);
 
   const style = useAnimatedStyle(() => {
     const a = active.value;
@@ -137,7 +163,7 @@ function SortableItem({
   });
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View
         style={style}
         onLayout={(e) => {

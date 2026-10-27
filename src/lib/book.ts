@@ -50,14 +50,30 @@ function stamp(iso: string | undefined): number {
 }
 
 /** How the shelf is ordered. Touched last first is the book's own way; the rest are the actor's. */
-export type BookOrder = 'touched' | 'newest' | 'title' | 'work' | 'length';
-export const BOOK_ORDERS: { key: BookOrder; label: string; line: string }[] = [
-  { key: 'touched', label: 'What I touched last', line: 'what you touched last.' },
-  { key: 'newest', label: 'Newest first', line: 'newest first.' },
-  { key: 'title', label: 'By title', line: 'title, a to z.' },
-  { key: 'work', label: 'By play or film', line: 'the work, a to z.' },
-  { key: 'length', label: 'Shortest first', line: 'shortest first.' },
+export type BookOrder = 'touched' | 'newest' | 'title' | 'work' | 'length' | 'mine';
+/** Each order's name in the sheet, and the one word the shelf's head says for it (it has a line, not a paragraph). */
+export const BOOK_ORDERS: { key: BookOrder; label: string; short: string }[] = [
+  { key: 'mine', label: 'My order', short: 'yours' },
+  { key: 'touched', label: 'Touched last', short: 'recent' },
+  { key: 'newest', label: 'Newest first', short: 'newest' },
+  { key: 'title', label: 'By title', short: 'a to z' },
+  { key: 'work', label: 'By play or film', short: 'by work' },
+  { key: 'length', label: 'Shortest first', short: 'shortest' },
 ];
+
+/** The actor's own order: the pages in the order they were put, any new one after them, newest first. */
+export function byHand(hand: (string | number)[]): (a: Monologue, b: Monologue) => number {
+  const at = new Map(hand.map((id, i) => [String(id), i]));
+  const fallback = compareBy('touched');
+  return (a, b) => {
+    const x = at.get(String(a.id));
+    const y = at.get(String(b.id));
+    if (x === undefined && y === undefined) return fallback(a, b);
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    return x - y;
+  };
+}
 
 /** The comparator for an order, for the shelf and for a found list alike. */
 export function compareBy(order: BookOrder): (a: Monologue, b: Monologue) => number {

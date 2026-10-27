@@ -22,8 +22,9 @@ import { useAttachPiece, useAudition, useAuditions } from '../../../src/hooks/us
 import { attachedPiece } from '../../../src/api/auditions';
 import { UndoBar } from '../../../src/components/UndoBar';
 import { SwipeRow } from '../../../src/components/SwipeRow';
+import { SortableList } from '../../../src/components/SortableList';
 import { track } from '../../../src/lib/analytics';
-import { BOOK_ORDERS, FIND_FROM, TONE_LABEL, compareBy, findInBook, rowMeta, shelve, type BookOrder, type RoomPiece } from '../../../src/lib/book';
+import { BOOK_ORDERS, FIND_FROM, TONE_LABEL, byHand, compareBy, findInBook, rowMeta, shelve, type BookOrder, type RoomPiece } from '../../../src/lib/book';
 import { useGoBack } from '../../../src/lib/nav';
 import { useSession } from '../../../src/lib/useSession';
 import { stubLabel } from '../../../src/lib/when';
@@ -66,6 +67,8 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
 /** Alternating tilt, so a column of pages reads as paper rather than as rows. */
 const TILTS = [-0.5, 0.4, -0.3];
 const ORDER_KEY = 'ghostlight:book.order';
+/** The actor's own order, when they have put the pages in one by hand. */
+const HAND_KEY = 'ghostlight:book.hand';
 
 export default function Saves() {
   const { onScroll: onBarScroll, scrollY } = useRoomScroll();
@@ -102,9 +105,24 @@ export default function Saves() {
   // How the shelf is ordered: the book's own way until the actor picks one,
   // kept on the phone. The pocket and the room keep their own orders.
   const [order, setOrder] = useState<BookOrder>('touched');
+  const [hand, setHand] = useState<string[]>([]);
   useEffect(() => {
     AsyncStorage.getItem(ORDER_KEY).then((v) => { if (v && BOOK_ORDERS.some((o) => o.key === v)) setOrder(v as BookOrder); }).catch(() => {});
+    AsyncStorage.getItem(HAND_KEY).then((v) => { if (v) setHand(JSON.parse(v) as string[]); }).catch(() => {});
   }, []);
+  const cmp = useMemo(() => (order === 'mine' ? byHand(hand) : compareBy(order)), [order, hand]);
+  // Held and dragged: the page goes where it was put, and the shelf is in the
+  // actor's own order from then on, starting from the one they were looking at.
+  const [dragging, setDragging] = useState(false);
+  const putInOrder = (shown: Saved[], section: Saved[], next: Saved[]) => {
+    const moved = new Set(section.map((m) => String(m.id)));
+    const nextHand = [...next.map((m) => String(m.id)), ...shown.map((m) => String(m.id)).filter((id) => !moved.has(id))];
+    setHand(nextHand);
+    setOrder('mine');
+    track('app_book_sorted', { by: 'mine' });
+    AsyncStorage.setItem(HAND_KEY, JSON.stringify(nextHand)).catch(() => {});
+    AsyncStorage.setItem(ORDER_KEY, 'mine').catch(() => {});
+  };
   const [sorting, setSorting] = useState(false);
   const pickOrder = () => { Haptics.selectionAsync().catch(() => {}); setSorting(true); };
   const setOrderTo = (key: BookOrder) => {
@@ -112,20 +130,24 @@ export default function Saves() {
     track('app_book_sorted', { by: key });
     AsyncStorage.setItem(ORDER_KEY, key).catch(() => {});
   };
-  const orderLine = BOOK_ORDERS.find((o) => o.key === order)?.line ?? '';
+  const orderLine = BOOK_ORDERS.find((o) => o.key === order)?.short ?? '';
 
   const all = (data ?? []) as Saved[];
   const items = useMemo(
     () => (pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all),
     [all, pendingRemoval],
   );
-  const book = useMemo(() => shelve(items, auditions ?? [], Date.now(), order), [items, auditions, order]);
+  const shelved = useMemo(() => shelve(items, auditions ?? [], Date.now(), order === 'mine' ? 'touched' : order), [items, auditions, order]);
+  const book = useMemo(
+    () => (order === 'mine' ? { ...shelved, stage: [...shelved.stage].sort(cmp), screen: [...shelved.screen].sort(cmp) } : shelved),
+    [shelved, order, cmp],
+  );
   const finding = find.trim().length > 0;
   const found = useMemo(() => {
     const list = finding ? findInBook(items, find) : items;
-    return order === 'touched' ? list : [...list].sort(compareBy(order));
-  }, [items, find, finding, order]);
-  const flat = useMemo(() => (order === 'touched' ? book.flat : [...book.flat].sort(compareBy(order))), [book.flat, order]);
+    return order === 'touched' ? list : [...list].sort(cmp);
+  }, [items, find, finding, order, cmp]);
+  const flat = useMemo(() => (order === 'touched' ? book.flat : [...book.flat].sort(cmp)), [book.flat, order, cmp]);
 
   // One event per search, after the typing has stopped, with the count and not the words.
   const findTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -261,6 +283,7 @@ export default function Saves() {
           </Center>
         ) : (
           <Animated.ScrollView
+            scrollEnabled={!dragging}
             ref={scroller}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
@@ -329,7 +352,13 @@ export default function Saves() {
 
                 {!book.shelved ? (
                   <Reveal order={1}>
-                    <View style={{ marginTop: book.pocket.length ? 28 : 22 }}>{flat.map((m, i) => row(m, i))}</View>
+                    <View style={{ marginTop: book.pocket.length ? 28 : 22 }}>
+                      {picking ? flat.map((m, i) => row(m, i)) : (
+                        <SortableList items={flat} keyOf={(m) => m.id} onHolding={setDragging}
+                          onReorder={(next) => putInOrder(flat, flat, next)}
+                          renderItem={(m) => row(m, flat.indexOf(m))} />
+                      )}
+                    </View>
                   </Reveal>
                 ) : (
                   <>
@@ -350,13 +379,21 @@ export default function Saves() {
                           {toneFilter(book.stage).length > 0 ? (
                             <>
                               {book.screen.length > 0 ? <House label="Stage" /> : null}
-                              {toneFilter(book.stage).map((m, i) => row(m, i))}
+                              {picking || tone ? toneFilter(book.stage).map((m, i) => row(m, i)) : (
+                                <SortableList items={book.stage} keyOf={(m) => m.id} onHolding={setDragging}
+                                  onReorder={(next) => putInOrder([...book.stage, ...book.screen], book.stage, next)}
+                                  renderItem={(m) => row(m, book.stage.indexOf(m))} />
+                              )}
                             </>
                           ) : null}
                           {toneFilter(book.screen).length > 0 ? (
                             <>
                               {book.stage.length > 0 ? <House label="Screen" /> : null}
-                              {toneFilter(book.screen).map((m, i) => row(m, i))}
+                              {picking || tone ? toneFilter(book.screen).map((m, i) => row(m, i)) : (
+                                <SortableList items={book.screen} keyOf={(m) => m.id} onHolding={setDragging}
+                                  onReorder={(next) => putInOrder([...book.stage, ...book.screen], book.screen, next)}
+                                  renderItem={(m) => row(m, book.screen.indexOf(m))} />
+                              )}
                             </>
                           ) : null}
                           {tone && toneFilter(book.stage).length + toneFilter(book.screen).length === 0 ? (
@@ -378,7 +415,7 @@ export default function Saves() {
           <UndoBar key={pendingRemoval.id} label={`Removed “${pendingRemoval.title}”`} onUndo={onUndo} onExpire={onExpire} />
         ) : null}
       </SafeAreaView>
-      <ChoiceSheet open={sorting} title="Sort the" accent="shelf." options={BOOK_ORDERS} value={order} onPick={setOrderTo} onClose={() => setSorting(false)} />
+      <ChoiceSheet open={sorting} title="Sort the" accent="shelf." options={BOOK_ORDERS.map(({ key, label }) => ({ key, label }))} value={order} onPick={setOrderTo} onClose={() => setSorting(false)} />
     </View>
   );
 }
