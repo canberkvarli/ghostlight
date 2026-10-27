@@ -51,3 +51,12 @@ export function stepOf(raw: string): number | null {
   for (const g of GROUPS) if (raw.includes(g.match)) return g.step;
   return null;
 }
+
+/** How long is left, as a person would say it: never a countdown, always an "about". */
+export function aboutLeft(left: number | null): string {
+  if (left === null) return 'a minute or two.';
+  if (left <= 15) return 'nearly there.';
+  if (left < 60) return 'under a minute.';
+  const m = Math.round(left / 60);
+  return m <= 1 ? 'about a minute.' : `about ${m} minutes.`;
+}

@@ -7,7 +7,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, listScenes, listScripts, uploadScriptStream,
+  cancelExtraction, deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, getScriptProgress, listScenes, listScripts,
+  uploadScriptBackground,
   editSceneLines,
   type EditedLine,
 } from '../api/rehearsal';
@@ -55,8 +56,8 @@ export function useRunStats(enabled: boolean) {
 export function useUploadScript() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { uri: string; name: string; mimeType?: string; title?: string; onStep?: (raw: string) => void }) =>
-      uploadScriptStream({ uri: v.uri, name: v.name, mimeType: v.mimeType }, v.title, v.onStep ?? (() => {})),
+    mutationFn: (v: { uri: string; name: string; mimeType?: string; title?: string }) =>
+      uploadScriptBackground({ uri: v.uri, name: v.name, mimeType: v.mimeType }, v.title),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
   });
 }
@@ -65,9 +66,31 @@ export function useUploadScript() {
 export function useScriptFromText() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { text: string; title?: string; onStep?: (raw: string) => void }) =>
-      uploadScriptStream({ text: v.text, name: `${(v.title ?? 'sides').replace(/[^\w-]+/g, '-').slice(0, 40) || 'sides'}.txt` }, v.title, v.onStep ?? (() => {})),
+    mutationFn: (v: { text: string; title?: string }) =>
+      uploadScriptBackground({ text: v.text, name: `${(v.title ?? 'sides').replace(/[^\w-]+/g, '-').slice(0, 40) || 'sides'}.txt` }, v.title),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
+  });
+}
+
+/** A script still being read: where it has got to, asked every few seconds until it settles. */
+export function useScriptProgress(id: number | null, every = 2000) {
+  return useQuery({
+    queryKey: ['script-progress', id],
+    queryFn: ({ signal }) => getScriptProgress(id as number, signal),
+    enabled: id !== null,
+    refetchInterval: (q) => {
+      const st = q.state.data?.status;
+      return st === 'completed' || st === 'failed' ? false : every;
+    },
+    retry: false,
+  });
+}
+
+export function useCancelExtraction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => cancelExtraction(id),
+    onSettled: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
   });
 }
 

@@ -5,7 +5,7 @@
  * here is before a run, after it, or fire-and-forget beside it.
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import { File } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { fetch as streamFetch } from 'expo/fetch';
 
 import { API_URL, ApiError, authHeaders } from './client';
@@ -294,6 +294,64 @@ export async function uploadScriptStream(
   if (!result) throw new RehearsalApiError(502, 'The script could not be read.', null);
   return result;
 }
+
+/**
+ * Sides in, read after: the server keeps the file, hands back a row that is
+ * still being read, and finishes on its own time, so the actor can close the
+ * sheet, or the app, and come back to it. The website's door. Pasted text is
+ * written to a file first and goes the same way. Sent by the file system's
+ * uploader, which takes the file as a path and always has.
+ */
+export async function uploadScriptBackground(
+  source: { uri: string; name: string; mimeType?: string } | { text: string; name: string },
+  title?: string,
+): Promise<ScriptDetail> {
+  let uri: string;
+  let mimeType: string;
+  if ('text' in source) {
+    const f = new File(Paths.cache, `paste-${Date.now()}-${source.name}`);
+    f.write(source.text);
+    uri = f.uri;
+    mimeType = 'text/plain';
+  } else {
+    uri = source.uri;
+    mimeType = source.mimeType ?? 'application/octet-stream';
+  }
+  const res = await FileSystem.uploadAsync(`${API_URL}/api/scripts/upload-background`, uri, {
+    httpMethod: 'POST',
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    fieldName: 'file',
+    mimeType,
+    parameters: title ? { title } : {},
+    headers: await authHeaders(),
+  });
+  if (res.status < 200 || res.status >= 300) {
+    let detail = `upload failed (${res.status})`;
+    let upgrade: string | null = null;
+    try {
+      const j = JSON.parse(res.body) as { detail?: string | { message?: string; upgrade_url?: string; error?: string } };
+      if (typeof j.detail === 'string') detail = j.detail;
+      else if (j.detail?.message) { detail = j.detail.message; upgrade = j.detail.upgrade_url ?? null; }
+      else if (j.detail?.error === 'feature_not_available') detail = 'Your plan has its scripts. The next one needs the whole stage.';
+    } catch { /* no body */ }
+    throw new RehearsalApiError(res.status, detail, upgrade);
+  }
+  return JSON.parse(res.body) as ScriptDetail;
+}
+
+/** Where a background read has got to: the parser's last line, and about how long it takes. */
+export interface ScriptProgress {
+  status: string | null;
+  error: string | null;
+  step: string | null;
+  elapsed_seconds: number | null;
+  estimate_seconds: number | null;
+  scenes: number;
+}
+export const getScriptProgress = (id: number, signal?: AbortSignal) => call<ScriptProgress>(`/api/scripts/${id}/progress`, {}, signal);
+
+/** Stop reading a script: it comes off the shelf, and the upload is given back. */
+export const cancelExtraction = (id: number) => call<{ cancelled: boolean }>(`/api/scripts/${id}/cancel-extraction`, { method: 'POST' });
 
 /** Sides pasted as text. */
 export const scriptFromText = (text: string, title?: string) =>

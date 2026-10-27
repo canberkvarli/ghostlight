@@ -14,12 +14,12 @@ import { BackHeader } from '../src/components/BackHeader';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { PaperCard } from '../src/components/PaperCard';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useScriptFromText, useUploadScript } from '../src/hooks/useScenePartner';
+import { useCancelExtraction, useScriptFromText, useScriptProgress, useUploadScript } from '../src/hooks/useScenePartner';
 import type { ScriptDetail } from '../src/api/rehearsal';
-import { RehearsalApiError } from '../src/api/rehearsal';
+import { RehearsalApiError, getScript } from '../src/api/rehearsal';
 import { track } from '../src/lib/analytics';
 import { useGoBack } from '../src/lib/nav';
-import { SCRIPT_STEPS, stepOf } from '../src/lib/scriptSteps';
+import { SCRIPT_STEPS, aboutLeft, stepOf } from '../src/lib/scriptSteps';
 import { useTheme } from '../src/theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -78,7 +78,12 @@ export default function AddSides() {
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const [how, setHow] = useState<'files' | 'share' | 'paste'>('files');
-  const pending = upload.isPending || paste.isPending;
+  // Sent: the server reads it on its own time and the sheet follows along.
+  const [readingId, setReadingId] = useState<number | null>(null);
+  const [readFailure, setReadFailure] = useState<string | null>(null);
+  const reading = useScriptProgress(readingId, 1500);
+  const stop = useCancelExtraction();
+  const pending = upload.isPending || paste.isPending || readingId !== null;
   const error = upload.error ?? paste.error;
   const started = useRef(false);
 
@@ -102,10 +107,54 @@ export default function AddSides() {
   const [step, setStep] = useState(0);
   const onStep = (raw: string) => { const n = stepOf(raw); if (n !== null) setStep(s => Math.max(s, n)); };
 
+  // The server took it: read already (the same file again) opens at once,
+  // anything else is followed until it settles.
+  const taken = (s: ScriptDetail, door: 'files' | 'share' | 'paste') => {
+    if (s.processing_status === 'completed') { arrived(s, door); return; }
+    setStep(1);
+    setReadingId(s.id);
+  };
+  const settled = useRef<number | null>(null);
+  useEffect(() => {
+    const p = reading.data;
+    if (!p || readingId === null) return;
+    if (p.step) onStep(p.step);
+    if (settled.current === readingId) return;
+    if (p.status === 'completed') {
+      settled.current = readingId;
+      getScript(readingId).then((d) => { setReadingId(null); arrived(d, how); }).catch(() => { setReadingId(null); goBack(); });
+    } else if (p.status === 'failed') {
+      settled.current = readingId;
+      setReadingId(null);
+      setReadFailure(p.error ?? 'it could not be read.');
+      failed(how);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading.data, readingId]);
+  // Gone from the server (stopped from the shelf, or deleted): nothing to follow.
+  useEffect(() => {
+    if (reading.error instanceof RehearsalApiError && reading.error.status === 404) { setReadingId(null); setStep(0); }
+  }, [reading.error]);
+
   const sendFile = (file: { uri: string; name: string; mimeType?: string }, door: 'files' | 'share') => {
     setHow(door);
     setStep(0);
-    upload.mutate({ ...file, title: title.trim() || undefined, onStep }, { onSuccess: s => arrived(s, door), onError: () => failed(door) });
+    setReadFailure(null);
+    upload.mutate({ ...file, title: title.trim() || undefined }, { onSuccess: s => taken(s, door), onError: () => failed(door) });
+  };
+
+  // Leave it reading: the row on the shelf says how it is going.
+  const leave = () => { Haptics.selectionAsync().catch(() => {}); goBack(); };
+  // Stop it: off the shelf, the upload given back, the doors again.
+  const halt = () => {
+    const id = readingId;
+    if (id === null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    settled.current = id;
+    setReadingId(null);
+    setStep(0);
+    stop.mutate(id);
+    upload.reset(); paste.reset();
   };
 
   // From the share sheet or "Open in": the file is already chosen.
@@ -136,7 +185,8 @@ export default function AddSides() {
     Haptics.selectionAsync().catch(() => {});
     setHow('paste');
     setStep(0);
-    paste.mutate({ text: body, title: title.trim() || undefined, onStep }, { onSuccess: s => arrived(s, 'paste'), onError: () => failed('paste') });
+    setReadFailure(null);
+    paste.mutate({ text: body, title: title.trim() || undefined }, { onSuccess: s => taken(s, 'paste'), onError: () => failed('paste') });
   };
 
   return (
@@ -154,14 +204,20 @@ export default function AddSides() {
             </View>
 
             {pending ? (
-              <TheMap step={step} />
-            ) : error ? (
+              <TheMap
+                step={step}
+                sending={readingId === null}
+                left={reading.data?.estimate_seconds != null && reading.data.elapsed_seconds != null ? reading.data.estimate_seconds - reading.data.elapsed_seconds : null}
+                onLeave={leave}
+                onStop={halt}
+              />
+            ) : error || readFailure ? (
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: 36 }}>
-                <StageDirection numberOfLines={4}>({inWords(error)})</StageDirection>
-                {error instanceof RehearsalApiError && error.gated ? (
+                <StageDirection numberOfLines={4}>({readFailure ? readFailure.toLowerCase().replace(/\.$/, '') + '.' : inWords(error)})</StageDirection>
+                {!readFailure && error instanceof RehearsalApiError && error.gated ? (
                   <PrimaryPill label="See Premium" onPress={() => router.push('/paywall')} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 ) : (
-                  <PrimaryPill label="Try again" variant="outline" onPress={() => { upload.reset(); paste.reset(); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+                  <PrimaryPill label="Try again" variant="outline" onPress={() => { upload.reset(); paste.reset(); setReadFailure(null); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 )}
               </Animated.View>
             ) : mode === 'doors' ? (
@@ -226,7 +282,7 @@ function Door({ cap, title, line, onPress, tilt }: { cap: string; title: string;
  * on breathing, the rest waiting. Honest to the second: nothing here is a
  * timer.
  */
-function TheMap({ step }: { step: number }) {
+function TheMap({ step, sending, left, onLeave, onStop }: { step: number; sending: boolean; left: number | null; onLeave: () => void; onStop: () => void }) {
   const { colors: c } = useTheme();
   const total = SCRIPT_STEPS.length;
   const i = Math.max(0, Math.min(step, total - 1));
@@ -250,7 +306,15 @@ function TheMap({ step }: { step: number }) {
         </View>
         <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{i + 1} OF {total}</Text>
       </View>
-      <StageDirection style={{ marginTop: 20, textAlign: 'center' }}>(a long script takes a minute. stay on the page.)</StageDirection>
+      <StageDirection numberOfLines={2} style={{ marginTop: 20, textAlign: 'center' }}>{sending ? '(sending the file.)' : `(${aboutLeft(left)} it keeps reading if you close this.)`}</StageDirection>
+      {sending ? null : (
+        <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22, flexDirection: 'row', alignItems: 'center', gap: 22 }}>
+          <PrimaryPill label="Close" variant="outline" height={44} onPress={onLeave} style={{ width: 132 }} />
+          <Pressable onPress={onStop} hitSlop={10} accessibilityRole="button" accessibilityLabel="Stop reading this script">
+            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.accentText }}>Stop</Text>
+          </Pressable>
+        </Animated.View>
+      )}
     </View>
   );
 }

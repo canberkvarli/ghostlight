@@ -19,13 +19,14 @@ import { useRoomScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
-import { useDeleteScript, useGuided, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { useCancelExtraction, useDeleteScript, useGuided, useScriptProgress, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
 import { useQueryClient } from '@tanstack/react-query';
 import { reorderScripts } from '../../../../src/api/rehearsal';
 import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
 import { SortableList } from '../../../../src/components/SortableList';
 import { SwipeRow } from '../../../../src/components/SwipeRow';
 import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
+import { aboutLeft } from '../../../../src/lib/scriptSteps';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
 import { useSession } from '../../../../src/lib/useSession';
@@ -332,9 +333,14 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
   const ready = script.processing_status === 'completed';
   const broke = script.processing_status === 'failed';
   const cast = script.characters.map(ch => ch.name).filter(Boolean).slice(0, 3).join(', ');
+  // Still being read: how long is left, and a way to stop it.
+  const progress = useScriptProgress(!ready && !broke ? script.id : null, 3000);
+  const stop = useCancelExtraction();
+  const remaining = progress.data?.estimate_seconds != null && progress.data.elapsed_seconds != null
+    ? progress.data.estimate_seconds - progress.data.elapsed_seconds : null;
   const go = (sceneId: number) => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: String(sceneId), from: 'script' } }); };
   const line = broke ? `(${script.processing_error?.toLowerCase() ?? 'it could not be read.'})`
-    : !ready ? '(still reading the pages…)'
+    : !ready ? `(reading the pages. ${aboutLeft(remaining)})`
     : `(${cast || `${script.num_characters} parts`} · ${script.num_scenes_extracted} ${script.num_scenes_extracted === 1 ? 'scene' : 'scenes'}.)`;
   return (
     <View style={{ borderBottomWidth: 1, borderBottomColor: c.divider }}>
@@ -347,7 +353,14 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
           <Text numberOfLines={2} style={{ fontFamily: SERIF, fontSize: 23, lineHeight: 27, color: c.foreground }}>{script.title}</Text>
           <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: broke ? c.accentText : c.mutedForeground }}>{line}</Text>
         </View>
-        {ready ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} /> : null}
+        {ready ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} />
+          : !broke ? (
+            <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); stop.mutate(script.id); }} disabled={stop.isPending}
+              hitSlop={10} accessibilityRole="button" accessibilityLabel={`Stop reading ${script.title}`}>
+              {stop.isPending ? <ActivityIndicator size="small" color={c.mutedForeground} />
+                : <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.accentText }}>Stop</Text>}
+            </Pressable>
+          ) : null}
       </Pressable>
       {open && detail.data ? (
         <Animated.View entering={FadeIn.duration(220)} style={{ paddingLeft: 68, paddingBottom: 12, gap: 2 }}>
