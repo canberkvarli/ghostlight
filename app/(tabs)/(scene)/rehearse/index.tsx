@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,12 +27,17 @@ import { SortableList } from '../../../../src/components/SortableList';
 import { SwipeRow } from '../../../../src/components/SwipeRow';
 import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
 import { aboutLeft } from '../../../../src/lib/scriptSteps';
+import { loadTouched, markTouched } from '../../../../src/lib/scriptTouched';
+import { FIND_FROM, REST_FOLDED, SHELF_SORTS, findInShelf, groupShelf, hasGenre, shelfGenres, sortShelf, type ShelfSort } from '../../../../src/rehearsal/shelf';
+import { ChoiceSheet } from '../../../../src/components/ConfirmSheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
 import { useSession } from '../../../../src/lib/useSession';
 import { Mic } from '../../../../src/rehearsal/native/mic';
 import { useTheme } from '../../../../src/theme/ThemeContext';
 
+const SORT_KEY = 'ghostlight:sides.sort';
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
 const MONO = 'CourierPrime_400Regular';
@@ -87,6 +92,24 @@ export default function RehearseHub() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [forgetting, setForgetting] = useState<ScriptSummary | null>(null);
   const [sorting, setSorting] = useState(false);
+  // Making sense of a long shelf: what is being worked on, the rest in an
+  // order of the actor's choosing, a find that looks inside, the genres.
+  const [touched, setTouched] = useState<Record<number, string>>({});
+  useEffect(() => { void loadTouched().then(setTouched); }, []);
+  const touch = (id: number) => { void markTouched(id).then(setTouched); };
+  const [restSort, setRestSort] = useState<ShelfSort>('recent');
+  useEffect(() => { AsyncStorage.getItem(SORT_KEY).then((v) => { if (v && SHELF_SORTS.some((o) => o.key === v)) setRestSort(v as ShelfSort); }).catch(() => {}); }, []);
+  const [pickingSort, setPickingSort] = useState(false);
+  const [find, setFind] = useState('');
+  const [genre, setGenre] = useState<string | null>(null);
+  const [allRest, setAllRest] = useState(false);
+  const findable = mine.length >= FIND_FROM;
+  const genres = useMemo(() => (findable ? shelfGenres(mine) : []), [findable, mine]);
+  const finding = find.trim().length > 0 || genre !== null;
+  const hits = useMemo(() => (finding ? findInShelf(genre ? shelf.filter((x) => hasGenre(x, genre)) : shelf, find) : []), [finding, shelf, find, genre]);
+  const groups = useMemo(() => groupShelf(shelf, touched), [shelf, touched]);
+  const restSorted = useMemo(() => sortShelf(groups.rest, restSort, touched), [groups.rest, restSort, touched]);
+  const restShown = allRest ? restSorted : restSorted.slice(0, REST_FOLDED);
   const reorder = (next: ScriptSummary[]) => {
     const ids = next.map((x) => x.id);
     setOrder(ids);
@@ -208,42 +231,118 @@ export default function RehearseHub() {
                 </Shelf>
               ) : null}
 
-              <Shelf title="Your sides" aside={mine.length ? `(${mine.length}.)` : undefined}>
+              <Shelf title={groups.grouped && !finding ? 'Working on' : 'Your sides'} aside={mine.length ? `(${groups.grouped && !finding ? `${groups.working.length} of ${mine.length}` : mine.length}.)` : undefined}>
                 <Animated.View layout={LinearTransition.duration(240)}>
                   {scripts.isLoading && isAuthenticated ? (
                     <StageDirection style={{ paddingVertical: 10 }}>(gathering your scripts…)</StageDirection>
                   ) : null}
-                  <SortableList
-                    items={shelf}
-                    keyOf={(s) => s.id}
-                    onReorder={reorder}
-                    onHolding={setSorting}
-                    renderItem={(s) => (
-                      <SwipeRow word="Delete" label={`Delete ${s.title}`} onRemove={() => drop(s)} style={{ backgroundColor: c.background }}>
-                        <View style={{ backgroundColor: c.background }}>
-                          <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} />
-                        </View>
-                      </SwipeRow>
-                    )}
-                  />
-                  {shelf.length > 1 ? (
-                    <StageDirection style={{ marginTop: 8, paddingHorizontal: 2 }}>(hold one to move it. slide it left to delete it.)</StageDirection>
+
+                  {/* A long shelf gets a find that looks inside the scripts, and its genres to narrow by. */}
+                  {findable ? (
+                    <View style={{ marginTop: 6, marginBottom: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 14, borderRadius: 21, borderWidth: 1, borderColor: find ? c.accentText : c.border, backgroundColor: c.panel }}>
+                        <Ionicons name="search" size={15} color={c.mutedForeground} />
+                        <TextInput
+                          value={find}
+                          onChangeText={setFind}
+                          placeholder="A title, a part, a scene, a writer"
+                          placeholderTextColor={c.chevron}
+                          selectionColor={c.accentText}
+                          autoCorrect={false}
+                          returnKeyType="search"
+                          style={{ flex: 1, fontFamily: SANS, fontSize: 15, color: c.foreground }}
+                        />
+                        {find ? (
+                          <Pressable onPress={() => setFind('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear">
+                            <Ionicons name="close-circle" size={17} color={c.chevron} />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      {genres.length > 1 ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 10, paddingRight: 8 }}>
+                          {genres.map((g) => {
+                            const on = genre === g;
+                            return (
+                              <Pressable key={g} onPress={() => { Haptics.selectionAsync().catch(() => {}); setGenre(on ? null : g); }} accessibilityRole="button" accessibilityState={{ selected: on }}
+                                style={{ height: 32, paddingHorizontal: 13, borderRadius: 16, borderWidth: 1.5, justifyContent: 'center', borderColor: on ? c.ink : c.border, backgroundColor: on ? c.yellow : 'transparent' }}>
+                                <Text style={{ fontFamily: MONO_I, fontSize: 12.5, textTransform: 'lowercase', color: on ? c.ink : c.mutedForeground }}>{g}</Text>
+                              </Pressable>
+                            );
+                          })}
+                        </ScrollView>
+                      ) : null}
+                    </View>
                   ) : null}
+
+                  {finding ? (
+                    // Found: one list, each saying why it came up when the title is not the reason.
+                    hits.length ? hits.map(({ script: s, why }) => (
+                      <Animated.View key={s.id} entering={FadeIn.duration(180)}>
+                        <ScriptRow script={s} startOpen={false} left={left} why={why} onTouch={touch} />
+                      </Animated.View>
+                    )) : (
+                      <StageDirection style={{ paddingVertical: 14 }}>(nothing on your shelf by that.)</StageDirection>
+                    )
+                  ) : (
+                    <>
+                      <SortableList
+                        items={groups.working}
+                        keyOf={(s) => s.id}
+                        onReorder={(next) => reorder([...next, ...shelf.filter((x) => !next.includes(x))])}
+                        onHolding={setSorting}
+                        renderItem={(s) => (
+                          <SwipeRow word="Delete" label={`Delete ${s.title}`} onRemove={() => drop(s)} style={{ backgroundColor: c.background }}>
+                            <View style={{ backgroundColor: c.background }}>
+                              <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} onTouch={touch} />
+                            </View>
+                          </SwipeRow>
+                        )}
+                      />
+                      {groups.working.length > 1 && !groups.grouped ? (
+                        <StageDirection style={{ marginTop: 8, paddingHorizontal: 2 }}>(hold one to move it. slide it left to delete it.)</StageDirection>
+                      ) : null}
+                    </>
+                  )}
+
                   {/* Add sides, as the last row of the sides. */}
-                  <Pressable onPress={add} accessibilityRole="button" accessibilityLabel="Add sides"
-                    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, opacity: pressed ? 0.7 : 1 })}>
-                    <View style={{ width: 54, height: 54, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="add" size={22} color={c.accentText} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: SANS_B, fontSize: 18, color: c.accentText }}>Add sides</Text>
-                      {isAuthenticated ? null : (
-                        <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>Sign in first</Text>
-                      )}
-                    </View>
-                  </Pressable>
+                  {finding ? null : (
+                    <Pressable onPress={add} accessibilityRole="button" accessibilityLabel="Add sides"
+                      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, opacity: pressed ? 0.7 : 1 })}>
+                      <View style={{ width: 54, height: 54, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="add" size={22} color={c.accentText} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: SANS_B, fontSize: 18, color: c.accentText }}>Add sides</Text>
+                        {isAuthenticated ? null : (
+                          <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>Sign in first</Text>
+                        )}
+                      </View>
+                    </Pressable>
+                  )}
                 </Animated.View>
               </Shelf>
+
+              {/* The rest of a long shelf: in the order chosen, a few until asked for all. */}
+              {groups.grouped && !finding ? (
+                <Shelf title="The rest" aside={`(${groups.rest.length} · ${SHELF_SORTS.find((o) => o.key === restSort)?.short ?? ''})`} onAside={() => { Haptics.selectionAsync().catch(() => {}); setPickingSort(true); }}>
+                  <Animated.View layout={LinearTransition.duration(240)}>
+                    {restShown.map((s) => (
+                      <Animated.View key={s.id} entering={FadeIn.duration(200)} layout={LinearTransition.duration(240)}>
+                        <SwipeRow word="Delete" label={`Delete ${s.title}`} onRemove={() => drop(s)} style={{ backgroundColor: c.background }}>
+                          <View style={{ backgroundColor: c.background }}>
+                            <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} onTouch={touch} />
+                          </View>
+                        </SwipeRow>
+                      </Animated.View>
+                    ))}
+                    {restSorted.length > REST_FOLDED ? (
+                      <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setAllRest((v) => !v); }} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 14 }}>
+                        <StageDirection link style={{ color: c.accentText }}>{allRest ? '(fewer.)' : `(show all ${restSorted.length}.)`}</StageDirection>
+                      </Pressable>
+                    ) : null}
+                  </Animated.View>
+                </Shelf>
+              ) : null}
 
               {deleted.data && deleted.data.length > 0 ? (
                 <Shelf title="Recently deleted" aside={showDeleted ? '(fold.)' : `(${deleted.data.length}. open.)`} onAside={() => { Haptics.selectionAsync().catch(() => {}); setShowDeleted((v) => !v); }}>
@@ -285,6 +384,15 @@ export default function RehearseHub() {
           )}
         </Animated.ScrollView>
       </SafeAreaView>
+      <ChoiceSheet
+        open={pickingSort}
+        title="Order the"
+        accent="rest."
+        options={SHELF_SORTS.map(({ key, label }) => ({ key, label }))}
+        value={restSort}
+        onPick={(k) => { setRestSort(k); AsyncStorage.setItem(SORT_KEY, k).catch(() => {}); }}
+        onClose={() => setPickingSort(false)}
+      />
       <ConfirmSheet
         open={forgetting !== null}
         title="Delete for"
@@ -370,7 +478,7 @@ function Shelf({ title, aside, onAside, children }: { title: string; aside?: str
  * A tap opens the list of its scenes under it (one scene goes straight to the
  * sheet the first time); the scene you left carries its bar of progress.
  */
-function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null }) {
+function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null; why?: string | null; onTouch?: (id: number) => void }) {
   const { colors: c } = useTheme();
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
@@ -383,13 +491,13 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
   const stop = useCancelExtraction();
   const remaining = progress.data?.estimate_seconds != null && progress.data.elapsed_seconds != null
     ? progress.data.estimate_seconds - progress.data.elapsed_seconds : null;
-  const go = (sceneId: number) => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/rehearse/[id]', params: { id: String(sceneId), from: 'script' } }); };
+  const go = (sceneId: number) => { Haptics.selectionAsync().catch(() => {}); onTouch?.(script.id); router.push({ pathname: '/rehearse/[id]', params: { id: String(sceneId), from: 'script' } }); };
   const line = broke ? `(${script.processing_error?.toLowerCase() ?? 'it could not be read.'})`
     : !ready ? `(reading the pages. ${aboutLeft(remaining)})`
     : `(${cast || `${script.num_characters} parts`} · ${script.num_scenes_extracted} ${script.num_scenes_extracted === 1 ? 'scene' : 'scenes'}.)`;
   return (
     <View style={{ borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityHint="Hold to move it, slide left to delete"
+      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); if (!open) onTouch?.(script.id); setOpen(o => !o); }} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityHint="Hold to move it, slide left to delete"
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
         <View style={{ width: 54, height: 54, alignItems: 'center', justifyContent: 'center' }}>
           <Sketch name="scriptPages" size={46} stroke={ready ? c.foreground : c.mutedForeground} accent={c.yellow} />
@@ -397,6 +505,7 @@ function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOp
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={2} style={{ fontFamily: SERIF, fontSize: 23, lineHeight: 27, color: c.foreground }}>{script.title}</Text>
           <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: broke ? c.accentText : c.mutedForeground }}>{line}</Text>
+          {why ? <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, color: c.accentText }}>({why}.)</Text> : null}
           {!ready && !broke ? (
             <View style={{ marginTop: 8, height: 3, borderRadius: 1.5, backgroundColor: c.inactiveMeter, overflow: 'hidden' }}>
               <View style={{ height: 3, backgroundColor: c.yellow, width: `${Math.round(100 * (progress.data?.estimate_seconds && progress.data.elapsed_seconds != null ? Math.min(0.95, Math.max(0.04, progress.data.elapsed_seconds / progress.data.estimate_seconds)) : 0.04))}%` }} />

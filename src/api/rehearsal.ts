@@ -155,6 +155,12 @@ export interface ScriptSummary {
   is_sample: boolean;
   first_scene_title: string | null;
   scene_titles: string[];
+  genre?: string | null;
+  genres?: string[] | null;
+  estimated_length_minutes?: number | null;
+  updated_at?: string | null;
+  /** When a scene of it was last run; null when never. */
+  last_rehearsed_at?: string | null;
 }
 
 export interface ScriptScene {
