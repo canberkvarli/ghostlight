@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -51,6 +51,11 @@ export function SortableList<T>({
   const ids = items.map((it) => String(keyOf(it)));
   const order = useSharedValue<string[]>(ids);
   const heights = useSharedValue<Record<string, number>>({});
+  // The heights as measured, kept here first: rows report in the same frame,
+  // and a shared value written from JavaScript is not read back until the UI
+  // thread has taken it, so building each one on the last lost all but one
+  // and the list never came up (27 Oct).
+  const measured = useRef<Record<string, number>>({});
   const active = useSharedValue<string>('');
   // Rows are hidden until every one has been measured, then placed without a spring.
   const ready = useSharedValue(false);
@@ -62,6 +67,20 @@ export function SortableList<T>({
     order.value = ids;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey]);
+
+  const idsRef = useRef(ids);
+  idsRef.current = ids;
+  const measure = useCallback((id: string, h: number) => {
+    if (measured.current[id] === h) return;
+    measured.current = { ...measured.current, [id]: h };
+    heights.value = measured.current;
+    if (!ready.value && idsRef.current.every((k) => measured.current[k] !== undefined)) ready.value = true;
+  }, [heights, ready]);
+  // Never held back for long, whatever a row does about reporting its size.
+  useEffect(() => {
+    const t = setTimeout(() => { ready.value = true; }, 400);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   const total = useDerivedValue(() => {
     let t = 0;
@@ -89,7 +108,7 @@ export function SortableList<T>({
       {items.map((item) => {
         const id = String(keyOf(item));
         return (
-          <SortableItem key={id} id={id} count={ids.length} order={order} heights={heights} active={active} ready={ready}
+          <SortableItem key={id} id={id} count={ids.length} order={order} heights={heights} active={active} ready={ready} measure={measure}
             onLift={lift} onCross={cross} onDrop={drop} byHandle={byHandle} render={(grip) => renderItem(item, grip)} />
         );
       })}
@@ -108,12 +127,13 @@ function topOf(id: string, order: string[], heights: Record<string, number>): nu
 }
 
 function SortableItem({
-  id, count, order, heights, active, ready, onLift, onCross, onDrop, byHandle, render,
+  id, count, order, heights, active, ready, measure, onLift, onCross, onDrop, byHandle, render,
 }: {
   id: string;
   count: number;
   order: SharedValue<string[]>;
   heights: SharedValue<Record<string, number>>;
+  measure: (id: string, h: number) => void;
   active: SharedValue<string>;
   ready: SharedValue<boolean>;
   onLift: () => void;
@@ -212,11 +232,7 @@ function SortableItem({
       <Animated.View
         style={style}
         onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (heights.value[id] === h) return;
-          const next = { ...heights.value, [id]: h };
-          heights.value = next;
-          if (!ready.value && Object.keys(next).length >= count) ready.value = true;
+          measure(id, e.nativeEvent.layout.height);
         }}
       >
         {render(byHandle ? grip : (n) => n)}
