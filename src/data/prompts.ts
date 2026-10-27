@@ -58,9 +58,19 @@ const SCREEN: Prompt[] = [
  */
 export const PROMPT_COUNT = THEATRE.length;
 
-export function promptAt(medium: Medium, index: number): Prompt {
+/** The part of the day on the phone's own clock, in the actor's own time zone. */
+export function partOfDay(now = new Date()): string {
+  const h = now.getHours();
+  if (h >= 4 && h < 12) return 'this morning';
+  if (h >= 12 && h < 17) return 'today';
+  return 'tonight';
+}
+
+export function promptAt(medium: Medium, index: number, now = new Date()): Prompt {
   const list = medium === 'screen' ? SCREEN : THEATRE;
-  return list[index % list.length];
+  const p = list[index % list.length];
+  // "tonight" is said at night: in the morning it is this morning, in the afternoon today.
+  return p.map((half) => half.map((piece) => (piece.t === ' tonight?' ? { ...piece, t: ` ${partOfDay(now)}?` } : piece))) as Prompt;
 }
 
 /** Rolled once, in a `useState` initialiser. Never on an interval. */
