@@ -19,7 +19,7 @@ import { useRoomScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
-import { useCancelExtraction, useDeleteScript, useDeletedScripts, useRestoreScript, useGuided, useScriptProgress, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { useCancelExtraction, useDeleteScript, useDeletedScripts, useRestoreScript, useShelf, useGuided, useScriptProgress, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
 import { useQueryClient } from '@tanstack/react-query';
 import { postEvents, reorderScripts } from '../../../../src/api/rehearsal';
 import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
@@ -28,7 +28,7 @@ import { SwipeRow } from '../../../../src/components/SwipeRow';
 import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
 import { aboutLeft } from '../../../../src/lib/scriptSteps';
 import { loadTouched, markTouched } from '../../../../src/lib/scriptTouched';
-import { FIND_FROM, REST_FOLDED, SHELF_SORTS, findInShelf, groupShelf, hasGenre, shelfGenres, sortShelf, type ShelfSort } from '../../../../src/rehearsal/shelf';
+import { FIND_FROM, REST_FOLDED, SHELF_SORTS, type ShelfSort } from '../../../../src/rehearsal/shelf';
 import { ChoiceSheet } from '../../../../src/components/ConfirmSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
@@ -63,25 +63,57 @@ export default function RehearseHub() {
   const ready = Boolean(session);
   const { isPaid } = useEntitlement();
   const { script: openScript } = useLocalSearchParams<{ script?: string }>();
-  const scripts = useScripts(isAuthenticated);
   const scenes = useScenes(ready);
   const stats = useRunStats(ready);
   const latest = useLatestRun(ready);
-  const mine = (scripts.data ?? []).filter(s => !s.is_sample);
   const library = (scenes.data ?? []).filter(s => s.is_library);
-  // The shelf of your own sides, in the order the actor put it: hold a row
-  // and drag it, or slide it left to delete it (with a word first).
   const qc = useQueryClient();
   const removeScript = useDeleteScript();
-  const [order, setOrder] = useState<number[] | null>(null);
+
+  // The shelf, made sense of on the server a page at a time, so five hundred
+  // scripts cost what thirty do: Working on whole, the rest thirty at a time
+  // in the order chosen, a find that looks inside, the genres.
+  const [touched, setTouched] = useState<Record<number, string>>({});
+  useEffect(() => { void loadTouched().then(setTouched); }, []);
+  const touch = (id: number) => { void markTouched(id).then(setTouched); };
+  const touchedIds = useMemo(
+    () => Object.entries(touched).filter(([, iso]) => Date.now() - new Date(iso).getTime() <= 14 * 86_400_000).map(([id]) => Number(id)).sort((a, b) => a - b),
+    [touched],
+  );
+  const [restSort, setRestSort] = useState<ShelfSort>('recent');
+  useEffect(() => { AsyncStorage.getItem(SORT_KEY).then((v) => { if (v && SHELF_SORTS.some((o) => o.key === v)) setRestSort(v as ShelfSort); }).catch(() => {}); }, []);
+  const [pickingSort, setPickingSort] = useState(false);
+  const [find, setFind] = useState('');
+  // Asked when the typing stops, not on every letter.
+  const [q, setQ] = useState('');
+  useEffect(() => { const t = setTimeout(() => setQ(find), 280); return () => clearTimeout(t); }, [find]);
+  const [genre, setGenre] = useState<string | null>(null);
+  const [allRest, setAllRest] = useState(false);
+  const [inFlight, setInFlight] = useState(false);
+  const shelfQ = useShelf({ q, genre, sort: restSort, touched: touchedIds, reading: inFlight }, isAuthenticated);
+  const pages = shelfQ.data?.pages ?? [];
+  const head = pages[0];
+  const total = head?.total ?? 0;
+
   // Slid away: gone from the shelf at once, while the server moves it to Recently deleted.
   const [gone, setGone] = useState<number[]>([]);
-  const shelf = useMemo(() => {
-    const kept = mine.filter((x) => !gone.includes(x.id));
+  // Dragged: the new order shows at once, while the server keeps it.
+  const [order, setOrder] = useState<number[] | null>(null);
+  useEffect(() => { setOrder(null); }, [head]);
+  const working = useMemo(() => {
+    const kept = pages.flatMap((p) => p.working).filter((x) => !gone.includes(x.id));
     if (!order) return kept;
     const at = new Map(order.map((id, i) => [id, i]));
     return [...kept].sort((a, b) => (at.get(a.id) ?? 1e9) - (at.get(b.id) ?? 1e9));
-  }, [mine, order, gone]);
+  }, [pages, order, gone]);
+  const restAll = useMemo(() => pages.flatMap((p) => p.rest).filter((x) => !gone.includes(x.id)), [pages, gone]);
+  const finding = find.trim().length > 0 || genre !== null;
+  const found = Boolean(head?.found);
+  const grouped = Boolean(head?.grouped) && !found;
+  const restTotal = head?.rest_total ?? 0;
+  const findable = total >= FIND_FROM || finding;
+  const genres = head?.genres ?? [];
+  const restShown = allRest ? restAll : restAll.slice(0, REST_FOLDED);
   const drop = (s: ScriptSummary) => {
     setGone((g) => [...g, s.id]);
     removeScript.mutate(s.id, { onError: () => setGone((g) => g.filter((x) => x !== s.id)) });
@@ -92,24 +124,6 @@ export default function RehearseHub() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [forgetting, setForgetting] = useState<ScriptSummary | null>(null);
   const [sorting, setSorting] = useState(false);
-  // Making sense of a long shelf: what is being worked on, the rest in an
-  // order of the actor's choosing, a find that looks inside, the genres.
-  const [touched, setTouched] = useState<Record<number, string>>({});
-  useEffect(() => { void loadTouched().then(setTouched); }, []);
-  const touch = (id: number) => { void markTouched(id).then(setTouched); };
-  const [restSort, setRestSort] = useState<ShelfSort>('recent');
-  useEffect(() => { AsyncStorage.getItem(SORT_KEY).then((v) => { if (v && SHELF_SORTS.some((o) => o.key === v)) setRestSort(v as ShelfSort); }).catch(() => {}); }, []);
-  const [pickingSort, setPickingSort] = useState(false);
-  const [find, setFind] = useState('');
-  const [genre, setGenre] = useState<string | null>(null);
-  const [allRest, setAllRest] = useState(false);
-  const findable = mine.length >= FIND_FROM;
-  const genres = useMemo(() => (findable ? shelfGenres(mine) : []), [findable, mine]);
-  const finding = find.trim().length > 0 || genre !== null;
-  const hits = useMemo(() => (finding ? findInShelf(genre ? shelf.filter((x) => hasGenre(x, genre)) : shelf, find) : []), [finding, shelf, find, genre]);
-  const groups = useMemo(() => groupShelf(shelf, touched), [shelf, touched]);
-  const restSorted = useMemo(() => sortShelf(groups.rest, restSort, touched), [groups.rest, restSort, touched]);
-  const restShown = allRest ? restSorted : restSorted.slice(0, REST_FOLDED);
   const reorder = (next: ScriptSummary[]) => {
     const ids = next.map((x) => x.id);
     setOrder(ids);
@@ -118,13 +132,9 @@ export default function RehearseHub() {
   const neverRun = stats.data ? stats.data.runs === 0 : false;
   const left = latest.data ?? null;
 
-  // A script still being read: ask again every few seconds until it settles.
-  const reading = mine.some(s => s.processing_status !== 'completed' && s.processing_status !== 'failed');
-  useEffect(() => {
-    if (!reading) return;
-    const t = setInterval(() => void scripts.refetch(), 3000);
-    return () => clearInterval(t);
-  }, [reading, scripts]);
+  // A script still being read is in Working on: the shelf is asked again every few seconds until it settles.
+  const reading = working.some(s => s.processing_status !== 'completed' && s.processing_status !== 'failed');
+  useEffect(() => { setInFlight(reading); }, [reading]);
 
   // The microphone and the recogniser are asked for on arrival, with the room in view.
   useEffect(() => { if (ready) void Mic.permission(); }, [ready]);
@@ -135,14 +145,14 @@ export default function RehearseHub() {
   // The room comes up whole: the first scenes, your sides and the library
   // together, or a lamp until they are, never one shelf and then the next.
   // Kept from the last visit (and across a sign-out), they show at once.
-  const settling = (!guidedList.data && guidedList.isPending) || (!scenes.data && scenes.isPending) || (isAuthenticated && !scripts.data && scripts.isPending);
+  const settling = (!guidedList.data && guidedList.isPending) || (!scenes.data && scenes.isPending) || (isAuthenticated && !shelfQ.data && shelfQ.isPending);
   // The three first scenes fold away once there is a shelf of your own or
   // one of them has been run; a tap on the aside opens them again.
   const [done, setDone] = useState<string[] | null>(null);
   useEffect(() => { demoDone().then(setDone).catch(() => setDone([])); }, []);
   const [showStarters, setShowStarters] = useState<boolean | null>(null);
   // A stranger has only these, so they are never folded.
-  const startersOpen = !isAuthenticated || (showStarters ?? (mine.length === 0 && (done?.length ?? 0) === 0));
+  const startersOpen = !isAuthenticated || (showStarters ?? (total === 0 && (done?.length ?? 0) === 0));
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
   // The first scenes, the three on cards: the help's one thing to do goes there, not to the one scene a server used to have.
@@ -197,7 +207,7 @@ export default function RehearseHub() {
                 <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22 }}>
                   <PickUp r={left} />
                 </Animated.View>
-              ) : neverRun && mine.length === 0 && !firstThree.length ? (
+              ) : neverRun && total === 0 && !firstThree.length ? (
                 <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22 }}>
                   <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/demo', params: { after: '9' } }); }} accessibilityRole="button">
                     <PaperCard rotate={-0.4} shadow={6} style={{ padding: 18 }}>
@@ -231,9 +241,9 @@ export default function RehearseHub() {
                 </Shelf>
               ) : null}
 
-              <Shelf title={groups.grouped && !finding ? 'Working on' : 'Your sides'} aside={mine.length ? `(${groups.grouped && !finding ? `${groups.working.length} of ${mine.length}` : mine.length}.)` : undefined}>
+              <Shelf title={grouped ? 'Working on' : 'Your sides'} aside={total ? `(${grouped ? `${working.length} of ${total}` : found ? `${restTotal} of ${total}` : total}.)` : undefined}>
                 <Animated.View layout={LinearTransition.duration(240)}>
-                  {scripts.isLoading && isAuthenticated ? (
+                  {shelfQ.isLoading && isAuthenticated ? (
                     <StageDirection style={{ paddingVertical: 10 }}>(gathering your scripts…)</StageDirection>
                   ) : null}
 
@@ -276,19 +286,26 @@ export default function RehearseHub() {
 
                   {finding ? (
                     // Found: one list, each saying why it came up when the title is not the reason.
-                    hits.length ? hits.map(({ script: s, why }) => (
-                      <Animated.View key={s.id} entering={FadeIn.duration(180)}>
-                        <ScriptRow script={s} startOpen={false} left={left} why={why} onTouch={touch} />
-                      </Animated.View>
-                    )) : (
+                    !found && shelfQ.isFetching ? (
+                      <ActivityIndicator color={c.mutedForeground} style={{ paddingVertical: 14 }} />
+                    ) : restAll.length ? (
+                      <>
+                        {restAll.map((s) => (
+                          <Animated.View key={s.id} entering={FadeIn.duration(180)}>
+                            <ScriptRow script={s} startOpen={false} left={left} why={s.why ?? null} onTouch={touch} />
+                          </Animated.View>
+                        ))}
+                        <More shown={restAll.length} of={restTotal} busy={shelfQ.isFetchingNextPage} onMore={() => void shelfQ.fetchNextPage()} />
+                      </>
+                    ) : (
                       <StageDirection style={{ paddingVertical: 14 }}>(nothing on your shelf by that.)</StageDirection>
                     )
                   ) : (
                     <>
                       <SortableList
-                        items={groups.working}
+                        items={working}
                         keyOf={(s) => s.id}
-                        onReorder={(next) => reorder([...next, ...shelf.filter((x) => !next.includes(x))])}
+                        onReorder={(next) => reorder([...next, ...restAll.filter((x) => !next.includes(x))])}
                         onHolding={setSorting}
                         renderItem={(s) => (
                           <SwipeRow word="Delete" label={`Delete ${s.title}`} onRemove={() => drop(s)} style={{ backgroundColor: c.background }}>
@@ -298,7 +315,10 @@ export default function RehearseHub() {
                           </SwipeRow>
                         )}
                       />
-                      {groups.working.length > 1 && !groups.grouped ? (
+                      {!grouped && head?.next_offset ? (
+                        <More shown={working.length} of={total} busy={shelfQ.isFetchingNextPage} onMore={() => void shelfQ.fetchNextPage()} />
+                      ) : null}
+                      {working.length > 1 && !grouped ? (
                         <StageDirection style={{ marginTop: 8, paddingHorizontal: 2 }}>(hold one to move it. slide it left to delete it.)</StageDirection>
                       ) : null}
                     </>
@@ -323,8 +343,8 @@ export default function RehearseHub() {
               </Shelf>
 
               {/* The rest of a long shelf: in the order chosen, a few until asked for all. */}
-              {groups.grouped && !finding ? (
-                <Shelf title="The rest" aside={`(${groups.rest.length} · ${SHELF_SORTS.find((o) => o.key === restSort)?.short ?? ''})`} onAside={() => { Haptics.selectionAsync().catch(() => {}); setPickingSort(true); }}>
+              {grouped && !finding ? (
+                <Shelf title="The rest" aside={`(${restTotal} · ${SHELF_SORTS.find((o) => o.key === restSort)?.short ?? ''})`} onAside={() => { Haptics.selectionAsync().catch(() => {}); setPickingSort(true); }}>
                   <Animated.View layout={LinearTransition.duration(240)}>
                     {restShown.map((s) => (
                       <Animated.View key={s.id} entering={FadeIn.duration(200)} layout={LinearTransition.duration(240)}>
@@ -335,9 +355,11 @@ export default function RehearseHub() {
                         </SwipeRow>
                       </Animated.View>
                     ))}
-                    {restSorted.length > REST_FOLDED ? (
+                    {allRest && restAll.length < restTotal ? (
+                      <More shown={restAll.length} of={restTotal} busy={shelfQ.isFetchingNextPage} onMore={() => void shelfQ.fetchNextPage()} />
+                    ) : restTotal > REST_FOLDED ? (
                       <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setAllRest((v) => !v); }} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 14 }}>
-                        <StageDirection link style={{ color: c.accentText }}>{allRest ? '(fewer.)' : `(show all ${restSorted.length}.)`}</StageDirection>
+                        <StageDirection link style={{ color: c.accentText }}>{allRest ? '(fewer.)' : `(show all ${restTotal}.)`}</StageDirection>
                       </Pressable>
                     ) : null}
                   </Animated.View>
@@ -455,6 +477,18 @@ function PickUp({ r }: { r: LatestRun }) {
         </View>
       </View>
     </View>
+  );
+}
+
+/** The next thirty, asked for: "(30 more of 412.)". */
+function More({ shown, of, busy, onMore }: { shown: number; of: number; busy: boolean; onMore: () => void }) {
+  const { colors: c } = useTheme();
+  if (shown >= of) return null;
+  return (
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onMore(); }} disabled={busy} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {busy ? <ActivityIndicator size="small" color={c.mutedForeground} /> : null}
+      <StageDirection link style={{ color: c.accentText }}>{`(${Math.min(30, of - shown)} more of ${of}.)`}</StageDirection>
+    </Pressable>
   );
 }
 

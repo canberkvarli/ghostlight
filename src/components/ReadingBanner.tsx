@@ -9,7 +9,7 @@ import Animated, { FadeIn, FadeOut, useAnimatedStyle, withTiming } from 'react-n
 
 import { GhostLight } from './GhostLight';
 import { TAB_BAR_SPACE } from './TabBar';
-import { SCRIPTS_KEY, useCancelExtraction, useScriptProgress, useScripts } from '../hooks/useScenePartner';
+import { SCRIPTS_KEY, useCancelExtraction, useScriptProgress, useShelfHead } from '../hooks/useScenePartner';
 import { StageDirection } from './StageDirection';
 import { SCRIPT_STEPS, aboutLeft, stepOf } from '../lib/scriptSteps';
 import { useSession } from '../lib/useSession';
@@ -26,7 +26,10 @@ const QUIET = ['sides', 'read', 'auth', 'paywall', 'curtain', 'demo', 'play', 'e
 
 export function ReadingBanner() {
   const { isAuthenticated } = useSession();
-  const scripts = useScripts(isAuthenticated);
+  // Only the head of the shelf: anything in flight is in Working on, which comes whole.
+  const [inFlight, setInFlight] = useState(false);
+  const head = useShelfHead(isAuthenticated, inFlight);
+  const scripts = { data: head.data ? [...head.data.working, ...head.data.rest] : undefined };
   const qc = useQueryClient();
   const router = useRouter();
   const segments = useSegments() as string[];
@@ -35,6 +38,7 @@ export function ReadingBanner() {
 
   const reading = (scripts.data ?? []).find((s) => !s.is_sample && s.processing_status !== 'completed' && s.processing_status !== 'failed' && s.processing_status !== 'deleted');
   const progress = useScriptProgress(reading ? reading.id : null, 3000);
+  useEffect(() => { setInFlight(Boolean(reading)); }, [reading]);
   const [done, setDone] = useState<{ id: number; title: string; scenes: number } | null>(null);
   // Tapped while reading: the details, from the bottom, with a way to stop it.
   const [details, setDetails] = useState(false);

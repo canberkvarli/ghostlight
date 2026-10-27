@@ -4,11 +4,12 @@
  * (the server's runs and scripts are per person), so every query waits on
  * `enabled`.
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   cancelExtraction, deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, getScriptProgress, listScenes, listScripts,
-  uploadScriptBackground, listDeletedScripts, restoreScript,
+  uploadScriptBackground, listDeletedScripts, restoreScript, getShelf,
+  type ShelfSortKey,
   editSceneLines,
   type EditedLine,
 } from '../api/rehearsal';
@@ -18,6 +19,40 @@ export const SCRIPTS_KEY = ['scripts'] as const;
 
 export function useScenes(enabled: boolean) {
   return useQuery({ queryKey: SCENES_KEY, queryFn: ({ signal }) => listScenes(signal), enabled, staleTime: 10 * 60_000, retry: 1 });
+}
+
+/**
+ * The shelf, a page at a time. Keyed under SCRIPTS_KEY, so whatever refreshes
+ * the scripts (an upload, a delete, a restore, a stop) refreshes the shelf.
+ */
+export function useShelf(
+  p: { q: string; genre: string | null; sort: ShelfSortKey; touched: number[]; reading: boolean },
+  enabled: boolean,
+) {
+  return useInfiniteQuery({
+    queryKey: [...SCRIPTS_KEY, 'shelf', p.q.trim(), p.genre, p.sort, p.touched.join(',')],
+    queryFn: ({ pageParam, signal }) => getShelf({ q: p.q, genre: p.genre, sort: p.sort, touched: p.touched, offset: pageParam, limit: 30 }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next_offset ?? undefined,
+    enabled,
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
+    // Something still being read is asked about again until it settles.
+    refetchInterval: p.reading ? 3000 : false,
+    retry: 1,
+  });
+}
+
+/** Just what is in flight, for the card that follows a read around the app: working on comes whole, the rest is one row. */
+export function useShelfHead(enabled: boolean, reading: boolean) {
+  return useQuery({
+    queryKey: [...SCRIPTS_KEY, 'shelf-head'],
+    queryFn: ({ signal }) => getShelf({ limit: 1 }, signal),
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: reading ? 4000 : false,
+    retry: 1,
+  });
 }
 
 export function useScripts(enabled: boolean) {

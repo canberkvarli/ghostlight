@@ -178,6 +178,34 @@ export interface ScriptDetail extends ScriptSummary { scenes: ScriptScene[] }
 export const listScripts = (signal?: AbortSignal) => call<ScriptSummary[]>('/api/scripts/', {}, signal);
 export const getScript = (id: number, signal?: AbortSignal) => call<ScriptDetail>(`/api/scripts/${id}`, {}, signal);
 export const deleteScript = (id: number, forever = false) => call<void>(`/api/scripts/${id}${forever ? '?forever=true' : ''}`, { method: 'DELETE' });
+/** A row of the shelf: why it came up, when a find matched inside it. */
+export type ShelfItem = ScriptSummary & { why?: string | null };
+export type ShelfSortKey = 'recent' | 'newest' | 'title' | 'scenes';
+/** The Scene room's shelf, a page at a time (GET /api/scripts/shelf). */
+export interface ShelfPage {
+  grouped: boolean;
+  found: boolean;
+  working: ShelfItem[];
+  rest: ShelfItem[];
+  rest_total: number;
+  total: number;
+  next_offset: number | null;
+  genres: string[];
+}
+export function getShelf(
+  p: { q?: string; genre?: string | null; sort?: ShelfSortKey; offset?: number; limit?: number; touched?: number[] },
+  signal?: AbortSignal,
+) {
+  const qs = new URLSearchParams();
+  if (p.q?.trim()) qs.set('q', p.q.trim());
+  if (p.genre) qs.set('genre', p.genre);
+  if (p.sort) qs.set('sort', p.sort);
+  if (p.offset) qs.set('offset', String(p.offset));
+  if (p.limit) qs.set('limit', String(p.limit));
+  if (p.touched?.length) qs.set('touched', p.touched.slice(0, 60).join(','));
+  return call<ShelfPage>(`/api/scripts/shelf?${qs.toString()}`, {}, signal);
+}
+
 /** Taken off the shelf in the last thirty days, newest first; each can come back. */
 export const listDeletedScripts = (signal?: AbortSignal) => call<ScriptSummary[]>('/api/scripts/deleted', {}, signal);
 export const restoreScript = (id: number) => call<ScriptSummary>(`/api/scripts/${id}/restore`, { method: 'POST' });

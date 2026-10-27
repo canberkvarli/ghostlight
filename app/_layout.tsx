@@ -28,7 +28,7 @@ import BricolageGrotesque_700Bold from '@expo-google-fonts/bricolage-grotesque/7
 
 import '../src/global.css';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
-import { getGuided, getRunStats, listRuns, listScenes, listScripts } from '../src/api/rehearsal';
+import { getGuided, getRunStats, getShelf, listRuns, listScenes } from '../src/api/rehearsal';
 import { loadRecents } from '../src/lib/recents';
 import { markHadAccount } from '../src/lib/demo';
 import { ReadingBanner } from '../src/components/ReadingBanner';
@@ -290,7 +290,7 @@ function Shell() {
     if (!session) return;
     void queryClient.prefetchQuery({ queryKey: ['guided'], queryFn: ({ signal }) => getGuided(signal), staleTime: 60 * 60_000 });
     void queryClient.prefetchQuery({ queryKey: ['scenes'], queryFn: ({ signal }) => listScenes(signal), staleTime: 10 * 60_000 });
-    if (isAuthenticated) void queryClient.prefetchQuery({ queryKey: ['scripts'], queryFn: ({ signal }) => listScripts(signal), staleTime: 60_000 });
+    if (isAuthenticated) void queryClient.prefetchQuery({ queryKey: ['scripts', 'shelf-head'], queryFn: ({ signal }) => getShelf({ limit: 1 }, signal), staleTime: 60_000 });
     // The profile's streak and counts, so it opens whole.
     if (isAuthenticated) {
       void queryClient.prefetchQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), staleTime: 60_000 });
