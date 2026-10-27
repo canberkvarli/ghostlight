@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { barShift, showBar } from '../lib/barScroll';
+import { barShift, showBar, useBarIsAside } from '../lib/barScroll';
 import { useSession } from '../lib/useSession';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -51,7 +51,8 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
   const inReader = segments.includes('read');
   const inRehearsal = segments.includes('rehearse') && leaf === '[id]';
   // The triggers stay mounted even while the bar is off: the navigator reads its rooms from them.
-  const hidden = !isAuthenticated || inReader || inRehearsal;
+  const aside = useBarIsAside();
+  const hidden = !isAuthenticated || inReader || inRehearsal || aside;
   const room = segments.join('/');
   useEffect(() => { showBar(); }, [room]);
   // Off for the reader and the rehearsal: a fade, on the same thread as the scroll.

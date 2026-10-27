@@ -22,6 +22,7 @@ import { StageDirection } from '../../../src/components/StageDirection';
 import { BackHeader } from '../../../src/components/BackHeader';
 import { PrimaryPill } from '../../../src/components/PrimaryPill';
 import { Sketch } from '../../../src/components/Sketches';
+import { GhostLight } from '../../../src/components/GhostLight';
 import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import {
   useAddCallback,
@@ -181,7 +182,7 @@ export default function Prep() {
 
         {!a ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36, paddingBottom: 90 }}>
-            <Sketch name="footlights" size={96} stroke={c.mutedForeground} />
+            <View style={{ marginBottom: 4 }}><GhostLight size={28} /></View>
             <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
               {isLoading ? '(finding the file…)' : "(that one isn't on your board.)"}
             </StageDirection>

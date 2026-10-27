@@ -13,6 +13,7 @@ import { PaperCard } from '../../../src/components/PaperCard';
 import { HowItWorksSheet } from '../../../src/components/HowItWorksSheet';
 import { waitingOn } from '../../../src/lib/outcomeWait';
 import { Sketch } from '../../../src/components/Sketches';
+import { GhostLight } from '../../../src/components/GhostLight';
 import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import { useAuditions, useCalendarFeed } from '../../../src/hooks/useAuditions';
 import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../../../src/api/auditions';
@@ -139,7 +140,7 @@ export default function Auditions() {
           </Center>
         ) : isError ? (
           <Center>
-            <Sketch name="footlights" size={96} stroke={c.mutedForeground} />
+            <View style={{ marginBottom: 4 }}><GhostLight size={28} /></View>
             <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>(couldn&apos;t reach the callboard.)</StageDirection>
           </Center>
         ) : list.length === 0 ? (

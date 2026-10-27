@@ -24,6 +24,8 @@ import { stepBar } from '../../../src/lib/barScroll';
 
 import { MonologueCard } from '../../../src/components/MonologueCard';
 import { Sketch } from '../../../src/components/Sketches';
+import { GhostLight } from '../../../src/components/GhostLight';
+import { useBarAside } from '../../../src/lib/barScroll';
 import { PrimaryPill } from '../../../src/components/PrimaryPill';
 import { StageBackdrop } from '../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../src/components/StageDirection';
@@ -652,9 +654,12 @@ function RequestStage({ query, pal }: { query: string; pal: MediumPalette }) {
  */
 function SearchFailedStage({ onRetry }: { onRetry: () => void }) {
   const { colors: c } = useTheme();
+  // The whole floor: the bar would sit over the words and the button.
+  useBarAside(true);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
-      <Sketch name="footlights" size={104} stroke={c.mutedForeground} />
+      {/* The one light left on when the house is dark. */}
+      <View style={{ marginBottom: 8 }}><GhostLight size={30} /></View>
       <Headline lines={['The house', 'went dark.']} em={1} tint={c.accentText} />
       <StageDirection style={{ marginTop: 18, textAlign: 'center' }}>
         (couldn&apos;t reach the library.)

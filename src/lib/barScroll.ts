@@ -1,3 +1,5 @@
+import { useCallback, useSyncExternalStore } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { makeMutable, useAnimatedScrollHandler, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
 /**
@@ -44,4 +46,29 @@ export function useRoomScroll(): { onScroll: ReturnType<typeof useAnimatedScroll
     onScroll: (e) => { scrollY.value = e.contentOffset.y; stepBar(last, e.contentOffset.y); },
   });
   return { onScroll, scrollY };
+}
+
+/**
+ * A screen that needs the whole floor (a dead end with its one button low on
+ * the page) sends the bar away while it is up. Counted, so two such screens
+ * stacked do not bring it back when the first one goes.
+ */
+let aside = 0;
+const asideListeners = new Set<() => void>();
+const tellAside = () => asideListeners.forEach((l) => l());
+
+export function useBarAside(on: boolean) {
+  // Only while focused: a room left behind in another tab keeps no claim on the bar.
+  useFocusEffect(useCallback(() => {
+    if (!on) return;
+    aside += 1; tellAside();
+    return () => { aside -= 1; tellAside(); };
+  }, [on]));
+}
+
+export function useBarIsAside(): boolean {
+  return useSyncExternalStore(
+    (l) => { asideListeners.add(l); return () => { asideListeners.delete(l); }; },
+    () => aside > 0,
+  );
 }

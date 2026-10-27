@@ -14,6 +14,7 @@ import { PrimaryPill } from '../../../src/components/PrimaryPill';
 import { PaperCard } from '../../../src/components/PaperCard';
 import { PieceCover } from '../../../src/components/PieceCover';
 import { Sketch } from '../../../src/components/Sketches';
+import { GhostLight } from '../../../src/components/GhostLight';
 import { ChoiceSheet } from '../../../src/components/ConfirmSheet';
 import { useStageMotion } from '../../../src/hooks/useStageMotion';
 import { useFavorites, useSetOffBook, useToggleFavorite } from '../../../src/hooks/useFavorites';
@@ -239,7 +240,7 @@ export default function Saves() {
           </Center>
         ) : isError ? (
           <Center>
-            <Sketch name="footlights" size={96} stroke={c.mutedForeground} />
+            <View style={{ marginBottom: 4 }}><GhostLight size={28} /></View>
             <StageDirection numberOfLines={2} style={{ marginTop: 24, textAlign: 'center' }}>
               (couldn&apos;t reach your book.)
             </StageDirection>
