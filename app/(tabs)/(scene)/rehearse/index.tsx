@@ -21,7 +21,7 @@ import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
 import { useCancelExtraction, useDeleteScript, useGuided, useScriptProgress, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
 import { useQueryClient } from '@tanstack/react-query';
-import { reorderScripts } from '../../../../src/api/rehearsal';
+import { postEvents, reorderScripts } from '../../../../src/api/rehearsal';
 import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
 import { SortableList } from '../../../../src/components/SortableList';
 import { SwipeRow } from '../../../../src/components/SwipeRow';
@@ -269,12 +269,21 @@ export default function RehearseHub() {
 function PickUp({ r }: { r: LatestRun }) {
   const { colors: c } = useTheme();
   const router = useRouter();
+  const qc = useQueryClient();
   const progress = r.line_count > 0 ? Math.min(1, (r.line_index + 1) / r.line_count) : 0;
   const partner = r.partners[0];
   const who = partner ? `(you're ${r.character}. ${partner.voice} reads ${partner.character}.)` : `(you're ${r.character}.)`;
   const go = (resume: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     track('app_rehearse_opened', { from: 'home' });
+    // Start over closes the run that was left: its place is forgotten, the
+    // card goes, and the scene opens from the top. The seq sits past any the
+    // run could have written, so it never collides with one.
+    if (!resume) {
+      void postEvents(r.run_id, [{ seq: 2_000_000_000, type: 'abandoned', line_index: r.line_index, at_ms: 0, payload: { reason: 'start_over' } }])
+        .catch(() => {})
+        .finally(() => { void qc.invalidateQueries({ queryKey: ['latest-run'] }); });
+    }
     router.push({ pathname: '/rehearse/[id]', params: resume ? { id: String(r.scene_id), from: 'script', go: '1', resume: '1' } : { id: String(r.scene_id), from: 'script' } });
   };
   return (
