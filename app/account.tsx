@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
@@ -18,6 +19,7 @@ import { useEntitlement } from '../src/hooks/useEntitlement';
 import { useRunStats } from '../src/hooks/useScenePartner';
 import { useQuery as useRunsQuery } from '@tanstack/react-query';
 import { listRuns } from '../src/api/rehearsal';
+import { GhostLight } from '../src/components/GhostLight';
 import { loadRecents } from '../src/lib/recents';
 import { streakOf } from '../src/rehearsal/streak';
 import type { ReadState } from '../src/api/client';
@@ -74,6 +76,13 @@ function SignedIn({ session }: { session: Session }) {
   const { wall, isPaid, failed: wallFailed, refresh: refreshWall } = useEntitlement();
   const { data: saved } = useFavorites(true);
   const stats = useRunStats(true);
+  const runs = useRunsQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), staleTime: 60_000 });
+  const recents = useRunsQuery({ queryKey: ['recents-local'], queryFn: loadRecents, staleTime: 30_000 });
+  const sub = useQuery({ queryKey: ['subscription'], queryFn: getSubscription, staleTime: 5 * 60_000, enabled: isPaid });
+  // The page comes up whole, the streak, the plan and the counts together,
+  // never a zero that turns into a number in front of you. They are fetched
+  // as the app opens and kept between launches, so this is almost never seen.
+  const settled = !runs.isPending && !recents.isPending && !stats.isPending && (wall !== undefined || wallFailed) && (!isPaid || !sub.isPending);
   // The profile is a sheet over a room: a count opens its tab, with the sheet put away first, never a page stacked on the sheet.
   const toRoom = (href: string) => {
     if (router.canGoBack()) router.back();
@@ -87,8 +96,16 @@ function SignedIn({ session }: { session: Session }) {
   const letter = (who.first || session.user.email || 'A').trim().charAt(0).toUpperCase();
   const since = sinceLabel(session.user.created_at);
 
+  if (!settled) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', paddingTop: 120 }}>
+        <GhostLight size={30} />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 26, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView entering={FadeIn.duration(320)} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 26, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
       {/* The header: the initial, the name, one Courier line. The glow needs the room above: the scroll view clips at its edge. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
         <Avatar letter={letter} paid={isPaid} />
@@ -104,7 +121,7 @@ function SignedIn({ session }: { session: Session }) {
       </View>
 
       {/* Nights in the work: the streak and this week. */}
-      <StreakCard />
+      <StreakCard runs={runs.data ?? []} recents={recents.data ?? []} />
 
       {/* Your plan: the one card. */}
       <View style={{ marginTop: 28 }}>
@@ -117,7 +134,7 @@ function SignedIn({ session }: { session: Session }) {
         <Stat n={wall?.reads_used ?? 0} label="(read.)" divider />
         <Stat n={stats.data?.runs ?? 0} label="(scenes run.)" divider onPress={() => toRoom('/(scene)/rehearse')} />
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
@@ -343,11 +360,9 @@ const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
  * seven days of this week as seven marks, the lit ones gel. Today with
  * nothing yet keeps a streak that reached yesterday, and says so.
  */
-function StreakCard() {
+function StreakCard({ runs, recents }: { runs: { started_at: string | null }[]; recents: { openedAt: string }[] }) {
   const { colors: c } = useTheme();
-  const runs = useRunsQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), staleTime: 60_000 });
-  const recents = useRunsQuery({ queryKey: ['recents-local'], queryFn: loadRecents, staleTime: 30_000 });
-  const s = streakOf([...(runs.data ?? []).map((r) => r.started_at), ...(recents.data ?? []).map((r) => r.openedAt)]);
+  const s = streakOf([...runs.map((r) => r.started_at), ...recents.map((r) => r.openedAt)]);
   const todayIndex = (new Date().getDay() + 6) % 7;
   const line = s.days === 0
     ? '(tonight starts it. one scene, or one speech.)'
