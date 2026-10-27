@@ -15,6 +15,16 @@ const SEEN_KEY = 'ghostlight:demo.seen.v1';
 const DONE_KEY = 'ghostlight:demo.done.v1';
 
 /** The stranger has been shown the first scenes (or walked past them). Decided once. */
+const HAD_ACCOUNT = 'ghostlight:had-account.v1';
+
+/** This phone has been signed in before: signed out, it goes to Search, not the front door again. */
+export async function hadAccount(): Promise<boolean> {
+  try { return (await AsyncStorage.getItem(HAD_ACCOUNT)) === '1'; } catch { return false; }
+}
+export async function markHadAccount(): Promise<void> {
+  try { await AsyncStorage.setItem(HAD_ACCOUNT, '1'); } catch { /* the front door again, at worst */ }
+}
+
 export async function demoSeen(): Promise<boolean> {
   try { return (await AsyncStorage.getItem(SEEN_KEY)) === '1'; } catch { return true; }
 }

@@ -126,9 +126,9 @@ export default function Settings() {
       // The cache clear and the fresh anonymous session are handled by the SIGNED_OUT listener in app/_layout.tsx.
       await supabase.auth.signOut();
       setAskingOut(false);
-      // Back to the front door, the way a stranger comes in.
+      // Signed out, the house is Search: the front door was seen on the way in.
       if (router.canDismiss()) router.dismissAll();
-      router.replace('/');
+      router.replace('/search');
     } finally {
       setBusy(null);
     }

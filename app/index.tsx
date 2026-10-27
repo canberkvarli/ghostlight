@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 
-import { demoSeen } from '../src/lib/demo';
+import { hadAccount } from '../src/lib/demo';
 import { useSession } from '../src/lib/useSession';
 import { useTheme } from '../src/theme/ThemeContext';
 
@@ -17,16 +17,14 @@ import { useTheme } from '../src/theme/ThemeContext';
 export default function StageDoor() {
   const { loading, isAuthenticated } = useSession();
   const { colors: c } = useTheme();
-  // A stranger's first launch is the first scenes, once; after that the curtain.
+  // Someone who has had an account here has seen the front door: Search.
   const [seen, setSeen] = useState<boolean | null>(null);
-  useEffect(() => { demoSeen().then(setSeen).catch(() => setSeen(true)); }, []);
+  useEffect(() => { hadAccount().then(setSeen).catch(() => setSeen(false)); }, []);
 
   if (loading || seen === null) {
     return <View style={{ flex: 1, backgroundColor: c.background }} />;
   }
 
-  // A stranger opens on the promise every time until there is an account:
-  // the monologue deck is for people who are in, not the way in.
-  void seen;
-  return <Redirect href={isAuthenticated ? '/search' : '/demo'} />;
+  // A stranger opens on the promise until there has been an account on this phone.
+  return <Redirect href={isAuthenticated || seen ? '/search' : '/demo'} />;
 }
