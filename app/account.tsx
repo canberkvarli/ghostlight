@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
@@ -23,7 +23,7 @@ import { GhostLight } from '../src/components/GhostLight';
 import { loadRecents } from '../src/lib/recents';
 import { streakOf } from '../src/rehearsal/streak';
 import type { ReadState } from '../src/api/client';
-import { isAppleAuthAvailable, signInWithApple } from '../src/lib/auth';
+import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../src/lib/auth';
 import { useSession } from '../src/lib/useSession';
 import { useGoBack, useGuardedPush } from '../src/lib/nav';
 import { getSubscription, manageSubscription } from '../src/lib/purchases';
@@ -244,58 +244,93 @@ function ArrowRow({ label, onPress }: { label: string; onPress: () => void }) {
 
 /* ---------------------------------------------------------- signed out */
 
-/** Take a seat: the lamp, Apple first, email second, three reasons, one footer. */
+/**
+ * Take a seat: the lamp and the line, a page of what an account keeps, then
+ * the three doors at one width (Apple, Google, and email as a quiet link),
+ * and the free search at the foot. The same voice as the sign-in page.
+ */
 function SignedOut() {
   const router = useRouter();
   const { colors: c } = useTheme();
   const [appleReady, setAppleReady] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | 'apple' | 'google'>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false)); }, []);
 
-  const withApple = async () => {
-    setBusy(true);
+  const door = async (method: 'apple' | 'google') => {
+    if (busy) return;
+    setBusy(method);
     setError(null);
-    const res = await signInWithApple();
-    setBusy(false);
-    if (res.ok) track('signed_in', { method: 'apple' });
-    else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
+    const res = method === 'apple' ? await signInWithApple() : await signInWithGoogle();
+    setBusy(null);
+    if (res.ok) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      track('signed_in', { method });
+    } else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
   };
 
+  const KEEPS: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; line: string }[] = [
+    { icon: 'bookmark-outline', title: 'Your book', line: 'the speeches you keep, with your cuts.' },
+    { icon: 'calendar-outline', title: 'Your board', line: 'auditions, and a nudge the night before.' },
+    { icon: 'people-outline', title: 'Your scenes', line: 'your sides, read back by a partner.' },
+  ];
+
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 24, paddingBottom: 24, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-      <View style={{ alignItems: 'center', marginTop: 44 }}>
-        <Text style={{ textAlign: 'center', fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeIn.duration(420)} style={{ alignItems: 'center', marginTop: 18 }}>
+        <GhostLight size={36} />
+        <Text style={{ marginTop: 16, textAlign: 'center', fontFamily: SERIF, fontSize: 46, lineHeight: 50, letterSpacing: -0.6, color: c.foreground }}>
           Take a <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>seat.</Text>
         </Text>
-        <StageDirection style={{ marginTop: 12, textAlign: 'center' }}>(sign in to keep what you find.)</StageDirection>
-      </View>
+        <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>(one account, on every phone and on the web.)</StageDirection>
+      </Animated.View>
 
-      <View style={{ marginTop: 36, gap: 12 }}>
-        {appleReady ? (
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={c.isLight ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-            cornerRadius={27}
-            style={{ height: 46, width: 260, alignSelf: 'center', opacity: busy ? 0.6 : 1 }}
-            onPress={() => { if (!busy) void withApple(); }}
-          />
-        ) : null}
-        <PrimaryPill label="Continue with email" variant="outline" height={46} onPress={() => router.push('/auth')} style={{ alignSelf: 'center', width: 260 }} />
-        {error ? <Text style={{ textAlign: 'center', fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{error}</Text> : null}
-      </View>
-
-      <View style={{ marginTop: 30, gap: 12 }}>
-        {['Save monologues to your book', 'Track your auditions', 'Run scenes with a partner'].map(line => (
-          <View key={line} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.accentText }} />
-            <Text style={{ fontFamily: SANS, fontSize: 14, color: c.foreground }}>{line}</Text>
+      <Animated.View entering={FadeIn.duration(420).delay(120)} style={{ marginTop: 28, borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, paddingHorizontal: 18, paddingVertical: 6 }}>
+        {KEEPS.map((k, i) => (
+          <View key={k.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, borderTopWidth: i ? 1 : 0, borderTopColor: c.divider }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.yellow, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={k.icon} size={17} color={c.ink} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontFamily: SANS_B, fontSize: 15.5, color: c.foreground }}>{k.title}</Text>
+              <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>({k.line})</Text>
+            </View>
           </View>
         ))}
-      </View>
+      </Animated.View>
+
+      <Animated.View entering={FadeIn.duration(420).delay(240)} style={{ marginTop: 28, alignItems: 'center', gap: 12 }}>
+        {appleReady ? (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={c.isLight ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={25}
+            style={{ height: 50, width: 280, opacity: busy === 'apple' ? 0.6 : 1 }}
+            onPress={() => { void door('apple'); }}
+          />
+        ) : null}
+        <Pressable
+          onPress={() => { void door('google'); }}
+          disabled={busy !== null}
+          accessibilityRole="button"
+          accessibilityLabel="Continue with Google"
+          style={({ pressed }) => ({ width: 280, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: c.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed || busy === 'google' ? 0.6 : 1 })}
+        >
+          {busy === 'google' ? <ActivityIndicator color={c.foreground} /> : (
+            <>
+              <Ionicons name="logo-google" size={17} color={c.foreground} />
+              <Text style={{ fontFamily: SANS_B, fontSize: 16, color: c.foreground }}>Continue with Google</Text>
+            </>
+          )}
+        </Pressable>
+        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/auth'); }} hitSlop={10} accessibilityRole="button" style={{ paddingVertical: 6 }}>
+          <Text style={{ fontFamily: SANS_B, fontSize: 14.5, color: c.accentText }}>Use email instead</Text>
+        </Pressable>
+        {error ? <Text style={{ textAlign: 'center', fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{error}</Text> : null}
+      </Animated.View>
 
       <View style={{ flexGrow: 1 }} />
-      <StageDirection style={{ textAlign: 'center', marginTop: 32 }}>(search is free, no account needed.)</StageDirection>
+      <StageDirection style={{ textAlign: 'center', marginTop: 28 }}>(search is free, no account needed.)</StageDirection>
     </ScrollView>
   );
 }
