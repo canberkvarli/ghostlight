@@ -689,6 +689,35 @@ export default function Search() {
               </AnimatedPressable>
             </Animated.View>
 
+            {/* What the chips add up to, right under them where the eye already
+                is: how many are lit, with a way to put them all out, or that
+                nothing was asked for. It used to sit at the foot of the page,
+                under the tab bar. */}
+            {scolding || activeCount > 0 ? (
+              <Animated.View
+                entering={FadeIn.duration(180)}
+                exiting={FadeOut.duration(140)}
+                style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <StageDirection numberOfLines={1} style={scolding ? { color: pal.accent } : undefined}>
+                  {scolding
+                    ? '(nothing to find.)'
+                    : `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`}
+                </StageDirection>
+                {!scolding ? (
+                  <Pressable
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); setSelected(EMPTY_SELECTION); }}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear the filters"
+                    style={{ marginLeft: 12 }}
+                  >
+                    <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: pal.accentText }}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </Animated.View>
+            ) : null}
+
             {/* Up next: the next audition and the scene you left, one card, gone when both are empty. */}
             <Animated.View pointerEvents={fieldFocused ? 'none' : 'auto'} style={[belowStyle, { width: '100%', marginTop: 26 }]}>
               <UpNext isAuthenticated={isAuthenticated} />
@@ -773,20 +802,6 @@ export default function Search() {
             ) : null}
           </Animated.ScrollView>
 
-          {/* The foot says one thing, centred: how many filters are lit, or that
-              you have asked for nothing at all. There is no Search button here
-              any more — the field's disc is the only one. */}
-          <View
-            style={{ paddingBottom: 12, minHeight: 26, alignItems: 'center', justifyContent: 'center' }}
-          >
-            {scolding || activeCount > 0 ? (
-              <StageDirection numberOfLines={1} style={scolding ? { color: pal.accent } : undefined}>
-                {scolding
-                  ? '(nothing to find.)'
-                  : `(${activeCount} filter${activeCount === 1 ? '' : 's'} lit.)`}
-              </StageDirection>
-            ) : null}
-          </View>
         </Pressable>
       </SafeAreaView>
 
