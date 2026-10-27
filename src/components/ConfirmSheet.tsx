@@ -52,11 +52,11 @@ export function ConfirmSheet({ open, title, accent, body, confirm, cancel = 'Not
           <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 21, color: c.mutedForeground }}>{body}</Text>
           {danger ? (
             <Pressable onPress={onConfirm} disabled={busy} accessibilityRole="button" accessibilityState={{ busy }}
-              style={({ pressed }) => ({ marginTop: 22, height: 54, borderRadius: 27, backgroundColor: '#c0392b', alignItems: 'center', justifyContent: 'center', opacity: pressed || busy ? 0.7 : 1 })}>
-              <Text style={{ fontFamily: SANS_B, fontSize: 16, color: '#fff' }}>{confirm}</Text>
+              style={({ pressed }) => ({ marginTop: 22, alignSelf: 'center', minWidth: 200, paddingHorizontal: 28, height: 46, borderRadius: 23, backgroundColor: '#c0392b', alignItems: 'center', justifyContent: 'center', opacity: pressed || busy ? 0.7 : 1 })}>
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: '#fff' }}>{confirm}</Text>
             </Pressable>
           ) : (
-            <PrimaryPill label={confirm} onPress={onConfirm} disabled={busy} height={54} block haptic="medium" style={{ marginTop: 22 }} />
+            <PrimaryPill label={confirm} onPress={onConfirm} disabled={busy} height={46} haptic="medium" style={{ marginTop: 22, alignSelf: 'center', minWidth: 200 }} />
           )}
           {aside ? <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>{aside}</StageDirection> : null}
           <Pressable onPress={onCancel} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 8 }}>

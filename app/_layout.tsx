@@ -79,6 +79,8 @@ LogBox.ignoreLogs([
 // keys named here are kept; the wall and the signed audio links are not.
 const queryClient = new QueryClient({ defaultOptions: { queries: { gcTime: 24 * 60 * 60 * 1000 } } });
 const persister = createAsyncStoragePersister({ storage: AsyncStorage, key: 'ghostlight-queries', throttleTime: 1000 });
+/** Answers that are the same for every actor: kept across a sign-out. */
+const SHARED = new Set(['guided', 'scenes', 'trending', 'tonight', 'discover', 'catalogue-size', 'screen-shelf']);
 const PERSISTED = new Set(['favorites', 'auditions', 'trending', 'screen-shelf', 'tonight', 'discover', 'catalogue-size', 'scripts', 'scenes', 'run-stats', 'guided', 'runs', 'recents-local']);
 const persistOptions = {
   persister,
@@ -152,7 +154,10 @@ export default function RootLayout() {
     // that simply expires.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        queryClient.clear();
+        // Everything that was this account's goes. What is the same for every
+        // actor stays, so the room a stranger lands in is already full: the
+        // three first scenes, the library, what the house is reading.
+        queryClient.removeQueries({ predicate: (q) => !SHARED.has(String(q.queryKey[0])) });
         // Or the next anonymous session inherits the last account's identity and
         // every event it sends is filed under someone who has left the building.
         resetIdentity();

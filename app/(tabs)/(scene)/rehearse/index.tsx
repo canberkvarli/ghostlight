@@ -111,13 +111,15 @@ export default function RehearseHub() {
   const firstThree = useMemo(() => (guidedList.data?.scenes?.length ? firstScenes(guidedList.data) : []), [guidedList.data]);
   // The room comes up whole: the first scenes, your sides and the library
   // together, or a lamp until they are, never one shelf and then the next.
-  const settling = !ready || guidedList.isPending || scenes.isPending || (isAuthenticated && scripts.isPending);
+  // Kept from the last visit (and across a sign-out), they show at once.
+  const settling = (!guidedList.data && guidedList.isPending) || (!scenes.data && scenes.isPending) || (isAuthenticated && !scripts.data && scripts.isPending);
   // The three first scenes fold away once there is a shelf of your own or
   // one of them has been run; a tap on the aside opens them again.
   const [done, setDone] = useState<string[] | null>(null);
   useEffect(() => { demoDone().then(setDone).catch(() => setDone([])); }, []);
   const [showStarters, setShowStarters] = useState<boolean | null>(null);
-  const startersOpen = showStarters ?? (mine.length === 0 && (done?.length ?? 0) === 0);
+  // A stranger has only these, so they are never folded.
+  const startersOpen = !isAuthenticated || (showStarters ?? (mine.length === 0 && (done?.length ?? 0) === 0));
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
   // The first scenes, the three on cards: the help's one thing to do goes there, not to the one scene a server used to have.
@@ -161,7 +163,7 @@ export default function RehearseHub() {
           ) : (
             <Animated.View entering={FadeIn.duration(380)}>
 
-          {!ready ? (
+          {!ready && !guidedList.data ? (
             <View style={{ marginTop: 40, alignItems: 'center' }}>
               <Sketch name="masks" size={96} stroke={c.mutedForeground} accent={c.yellow} />
               <StageDirection style={{ marginTop: 22 }}>(the house is dark. check your connection.)</StageDirection>
@@ -185,7 +187,7 @@ export default function RehearseHub() {
               ) : null}
 
               {firstThree.length ? (
-                <Shelf title="Three to start with" aside={startersOpen ? '(fold.)' : '(open.)'} onAside={() => { Haptics.selectionAsync().catch(() => {}); setShowStarters(!startersOpen); }}>
+                <Shelf title="Three to start with" aside={!isAuthenticated ? undefined : startersOpen ? '(fold.)' : '(open.)'} onAside={!isAuthenticated ? undefined : () => { Haptics.selectionAsync().catch(() => {}); setShowStarters(!startersOpen); }}>
                   {startersOpen ? firstThree.map((s) => {
                     const words = KEY_WORDS[s.key] ?? { eyebrow: s.title.toUpperCase(), tone: s.hook ?? '' };
                     return (
