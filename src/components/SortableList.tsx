@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 import { View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -37,10 +37,14 @@ export function SortableList<T>({
   renderItem,
   onReorder,
   onHolding,
+  byHandle = false,
 }: {
   items: T[];
   keyOf: (item: T) => string | number;
-  renderItem: (item: T) => React.ReactNode;
+  /** `grip` wraps the part of the row that lifts it, when the list is `byHandle`. */
+  renderItem: (item: T, grip: (node: React.ReactNode) => React.ReactNode) => React.ReactNode;
+  /** Only the grip lifts the row (rows full of text fields, where a hold selects words). */
+  byHandle?: boolean;
   onReorder: (next: T[]) => void;
   onHolding?: (holding: boolean) => void;
 }) {
@@ -52,7 +56,8 @@ export function SortableList<T>({
   const ready = useSharedValue(false);
 
   const idsKey = ids.join('|');
-  useEffect(() => {
+  // Before paint, so a row added or taken away is placed in the same frame.
+  useLayoutEffect(() => {
     if (active.value) return;
     order.value = ids;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,9 +90,7 @@ export function SortableList<T>({
         const id = String(keyOf(item));
         return (
           <SortableItem key={id} id={id} count={ids.length} order={order} heights={heights} active={active} ready={ready}
-            onLift={lift} onCross={cross} onDrop={drop}>
-            {renderItem(item)}
-          </SortableItem>
+            onLift={lift} onCross={cross} onDrop={drop} byHandle={byHandle} render={(grip) => renderItem(item, grip)} />
         );
       })}
     </Animated.View>
@@ -105,7 +108,7 @@ function topOf(id: string, order: string[], heights: Record<string, number>): nu
 }
 
 function SortableItem({
-  id, count, order, heights, active, ready, onLift, onCross, onDrop, children,
+  id, count, order, heights, active, ready, onLift, onCross, onDrop, byHandle, render,
 }: {
   id: string;
   count: number;
@@ -116,7 +119,8 @@ function SortableItem({
   onLift: () => void;
   onCross: () => void;
   onDrop: (next: string[]) => void;
-  children: React.ReactNode;
+  byHandle: boolean;
+  render: (grip: (node: React.ReactNode) => React.ReactNode) => React.ReactNode;
 }) {
   const y = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -201,8 +205,10 @@ function SortableItem({
     };
   });
 
-  return (
-    <GestureDetector gesture={gesture}>
+  const grip = (node: React.ReactNode) => (
+    <GestureDetector gesture={gesture}><View collapsable={false}>{node}</View></GestureDetector>
+  );
+  const body = (
       <Animated.View
         style={style}
         onLayout={(e) => {
@@ -213,8 +219,8 @@ function SortableItem({
           if (!ready.value && Object.keys(next).length >= count) ready.value = true;
         }}
       >
-        {children}
+        {render(byHandle ? grip : (n) => n)}
       </Animated.View>
-    </GestureDetector>
   );
+  return byHandle ? body : <GestureDetector gesture={gesture}>{body}</GestureDetector>;
 }

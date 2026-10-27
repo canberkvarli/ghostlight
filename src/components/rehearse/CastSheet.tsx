@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadCastVoices, saveCastVoice } from '../../lib/castVoices';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -58,9 +59,18 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
     () => Object.entries(payload.defaults).find(([k]) => sameCharacter(k, mine ?? payload.characters[0] ?? ''))?.[1] ?? {},
     [payload.defaults, payload.characters, mine],
   );
-  const voiceOf = (ch: string) => overrides[ch] ?? Object.entries(defaults).find(([k]) => sameCharacter(k, ch))?.[1] ?? payload.voices[0]?.id ?? '';
+  const voiceOf = (ch: string) => Object.entries(overrides).find(([k]) => sameCharacter(k, ch))?.[1] ?? Object.entries(defaults).find(([k]) => sameCharacter(k, ch))?.[1] ?? payload.voices[0]?.id ?? '';
   const voice = (id: string) => payload.voices.find(v => v.id === id);
   const linesOf = (ch: string) => payload.lines.filter(l => sameCharacter(l.character, ch)).length;
+
+  // The voices chosen for this scene before (here, or in the sides editor) open chosen.
+  useEffect(() => {
+    if (guided) return;
+    void loadCastVoices(payload.scene.id).then((saved) => {
+      const known = Object.fromEntries(Object.entries(saved).filter(([, v]) => payload.voices.some((x) => x.id === v)));
+      if (Object.keys(known).length) setOverrides((o) => ({ ...known, ...o }));
+    });
+  }, [guided, payload.scene.id, payload.voices]);
 
   // The part played last time opens chosen.
   useEffect(() => {
@@ -104,6 +114,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
     if (!picking) return;
     Haptics.selectionAsync().catch(() => {});
     setOverrides(o => ({ ...o, [picking]: id }));
+    if (!guided) void saveCastVoice(payload.scene.id, picking, id);
     setPicking(null);
   };
   const begin = (pickUp?: { runId: number; lineIndex: number }) => {
