@@ -44,6 +44,7 @@ import { isFresh, loadRecents, type RecentPiece } from '../../../src/lib/recents
 import { useFavorites } from '../../../src/hooks/useFavorites';
 import { Trending } from '../../../src/components/Trending';
 import { track } from '../../../src/lib/analytics';
+import { paywallHref } from '../../../src/lib/paywall';
 import { useEntitlement } from '../../../src/hooks/useEntitlement';
 import { useSession } from '../../../src/lib/useSession';
 import { colors, radius } from '../../../src/theme/tokens';
@@ -838,7 +839,7 @@ export default function Search() {
         onToggle={toggle}
         onUnlock={() => {
           setSheetOpen(false);
-          router.push('/paywall');
+          router.push(paywallHref('filter'));
         }}
         isPaid={isPaid}
         glow={pal.accentText}

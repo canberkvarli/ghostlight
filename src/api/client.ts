@@ -9,8 +9,22 @@ import { supabase } from '../lib/supabase';
  * that breaks this surfaces as a TypeScript error rather than a runtime 500.
  */
 
-/** Full reads before the wall. One: the first is the product, the second is the trial. */
-export const FREE_READS = 1;
+/**
+ * Full reads a day before the wall, refilled at the phone's midnight. The
+ * server owns the number (monologue_reads_limit); this is only what is shown
+ * before it has answered. It was one for life until the server went to three a
+ * day: a habit the wall shuts on the first night is not a habit.
+ */
+export const FREE_READS = 3;
+
+/** The phone's own zone, so "today" ends at the actor's midnight, not the server's. */
+export const TIMEZONE = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+})();
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.actorrise.com';
 const ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -58,6 +72,7 @@ export async function authHeaders(): Promise<Record<string, string>> {
   const token = data.session?.access_token;
   const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': CLIENT };
   if (ANON_KEY) headers.apikey = ANON_KEY;
+  if (TIMEZONE) headers['X-Timezone'] = TIMEZONE;
   if (token) headers.Authorization = `Bearer ${token}`;
   // Survives sign-out, which `user_id` does not — see src/lib/device.ts. Inert
   // until the backend counts against it; sending it early means the server-side
@@ -99,7 +114,7 @@ export interface ReadState {
   reads_used: number;
   reads_limit: number; // -1 = unlimited (paid)
   is_paid: boolean;
-  atWall: boolean; // free user who has spent their lifetime reads
+  atWall: boolean; // free user who has spent today's reads
   /** Scene partner runs this month, and the month's allowance (-1 = unlimited). */
   runs_used: number;
   runs_limit: number;
@@ -114,7 +129,7 @@ export function runsSpent(w: ReadState | undefined): boolean {
   return w.runs_used >= w.runs_limit;
 }
 
-/** Lifetime read count + wall state, from GET /api/subscriptions/usage. */
+/** Today's read count + wall state, from GET /api/subscriptions/usage. */
 export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
   const res = await fetch(`${API_URL}/api/subscriptions/usage`, {
     headers: await authHeaders(),
@@ -139,12 +154,10 @@ export async function getReadState(signal?: AbortSignal): Promise<ReadState> {
     scripts_limit?: number;
   };
   const used = j.monologue_reads_used ?? 0;
-  const serverLimit = j.monologue_reads_limit ?? FREE_READS;
-  const isPaid = serverLimit === -1;
-  // The server still allows three; the app shows the wall after one. The
-  // first read is the whole product, free. The second is where the trial
-  // starts. Clamped here so the count and the wall agree everywhere.
-  const limit = isPaid ? serverLimit : Math.min(serverLimit, FREE_READS);
+  const limit = j.monologue_reads_limit ?? FREE_READS;
+  const isPaid = limit === -1;
+  // The server's number, unclamped: it spends the reads and walls the text, so
+  // a stricter count here would only show a wall the server would not.
   return {
     reads_used: used,
     reads_limit: limit,

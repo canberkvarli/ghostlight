@@ -6,6 +6,7 @@ import type { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct } from 
 
 import type { ReadState } from '../api/client';
 import { track } from '../lib/analytics';
+import type { PaywallTrigger } from '../lib/paywall';
 import { hasNotificationPermission } from '../lib/notifications';
 import { getCurrentOffering, isPurchasesConfigured, purchase, restore } from '../lib/purchases';
 import { scheduleTrialReminder } from '../lib/trialReminder';
@@ -42,11 +43,14 @@ const FALLBACK_PER_MONTH = '$5.00';
 
 export function useTrialOffer({
   from,
+  trigger,
   onDone,
   onSignIn,
 }: {
   /** Where the offer was made, for `paywall_shown`. */
   from: string;
+  /** Why it was made (src/lib/paywall.ts), for `paywall_shown`. */
+  trigger?: PaywallTrigger | null;
   /** The purchase went through (or was restored) and the person is in. */
   onDone: () => void;
   /** They bought without an account and chose to sign in to keep it. */
@@ -73,8 +77,8 @@ export function useTrialOffer({
   // because an offer must not wait on telemetry to draw.
   useEffect(() => {
     const wall = queryClient.getQueryData<ReadState>(['read-wall']);
-    track('paywall_shown', { reads_used: wall?.reads_used ?? 0, from });
-  }, [queryClient, from]);
+    track('paywall_shown', { reads_used: wall?.reads_used ?? 0, from, trigger: trigger ?? null });
+  }, [queryClient, from, trigger]);
 
   useEffect(() => {
     let alive = true;
@@ -168,11 +172,11 @@ export function useTrialOffer({
     // Started and completed are separate events on purpose: the gap between
     // them is the Apple sheet, and how many people die in that gap is the one
     // number that tells you whether the offer or the price is the problem.
-    track('purchase_started', { plan, trial: Boolean(trialLabel), from });
+    track('purchase_started', { plan, trial: Boolean(trialLabel), from, trigger: trigger ?? null });
     try {
       const entitled = await purchase(selectedPkg);
       if (entitled) {
-        track('purchase_completed', { plan, trial: Boolean(trialLabel), from });
+        track('purchase_completed', { plan, trial: Boolean(trialLabel), from, trigger: trigger ?? null });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         refreshEntitlement();
         // The knock two days before the trial ends, if the phone allows it.
@@ -200,7 +204,7 @@ export function useTrialOffer({
     } finally {
       setBusy(false);
     }
-  }, [selectedPkg, plan, trialLabel, trialDays, from, isAuthenticated, onDone, onSignIn, refreshEntitlement]);
+  }, [selectedPkg, plan, trialLabel, trialDays, from, trigger, isAuthenticated, onDone, onSignIn, refreshEntitlement]);
 
   const onRestore = useCallback(async () => {
     if (restoring) return;

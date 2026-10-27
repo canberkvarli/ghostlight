@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Animated, {
   Easing,
@@ -26,6 +26,8 @@ import { PrivacyShield } from '../../src/components/PrivacyShield';
 import { useStageMotion } from '../../src/hooks/useStageMotion';
 import { usePreventCaptureWhileFocused } from '../../src/hooks/usePreventCaptureWhileFocused';
 import { useIsFavorited, useMarkStudied, useSavedPiece, useSetOffBook } from '../../src/hooks/useFavorites';
+import { useEntitlement } from '../../src/hooks/useEntitlement';
+import { paywallHref } from '../../src/lib/paywall';
 import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { unitsOf } from '../../src/lib/segments';
@@ -65,7 +67,14 @@ import { useTheme } from '../../src/theme/ThemeContext';
  * partner does for a line of yours. With the lines hidden, a word you
  * recall comes out of the dots as you say it. Tapping still works for a
  * line the ear missed.
+ *
+ * On the free plan it runs the first four lines, ear and all, and then stops
+ * and says what the rest would be. The four are enough to feel the light walk
+ * on your own voice; the whole speech is the whole stage.
  */
+
+/** How far a free actor runs before the stage stops. */
+const PREVIEW_LINES = 4;
 
 /** The shape of a line and nothing else: a dot per letter, the spaces kept. */
 function shapeOf(text: string): string {
@@ -79,6 +88,7 @@ const STEP = { duration: 420, easing: Easing.out(Easing.cubic) };
 
 export default function RunScreen() {
   const { id, medium: mediumParam } = useLocalSearchParams<{ id: string; medium?: string }>();
+  const router = useRouter();
   const goBack = useGoBack('/search');
   const reduce = useReducedMotion();
   const { height } = useWindowDimensions();
@@ -128,6 +138,12 @@ export default function RunScreen() {
   const [hidden, setHidden] = useState(false);
   const [shown, setShown] = useState(false);
   const [curtain, setCurtain] = useState(false);
+  // The free run's end: the first four lines are done.
+  const [stopped, setStopped] = useState(false);
+  const { isPaid, settled } = useEntitlement();
+  // Only once the plan is known, so a subscriber is never stopped by a wall
+  // that had not heard from the server yet.
+  const previewing = settled && !isPaid && lines.length > PREVIEW_LINES;
   const startedAt = useRef(Date.now());
 
   // The ear. One recogniser for the whole run; each line is a turn of it.
@@ -184,6 +200,12 @@ export default function RunScreen() {
 
   const goTo = useCallback(
     (i: number) => {
+      if (previewing && i >= PREVIEW_LINES) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+        setStopped(true);
+        if (id) track('app_run_preview_ended', { id });
+        return;
+      }
       if (i >= lines.length) {
         finish();
         return;
@@ -192,7 +214,7 @@ export default function RunScreen() {
       setShown(false);
       setAt(Math.max(0, i));
     },
-    [lines.length, finish],
+    [lines.length, finish, previewing, id],
   );
   atRef.current = at;
 
@@ -241,11 +263,11 @@ export default function RunScreen() {
   // On by itself once the words are here, if the phone has already said yes
   // to the microphone; never asks on its own.
   useEffect(() => {
-    if (!lines.length || curtain || earOff || micRef.current) return;
+    if (!lines.length || curtain || stopped || earOff || micRef.current) return;
     let alive = true;
     Mic.permissionGranted().then((ok) => { if (alive && ok && !micRef.current) void startEar(); }).catch(() => {});
     return () => { alive = false; };
-  }, [lines.length, curtain, earOff, startEar]);
+  }, [lines.length, curtain, stopped, earOff, startEar]);
 
   // A new line is a new turn of the ear: the reading starts over at its first word.
   useEffect(() => {
@@ -255,7 +277,7 @@ export default function RunScreen() {
   }, [at]);
 
   // The curtain, and leaving, close the ear.
-  useEffect(() => { if (curtain) stopEar(); }, [curtain, stopEar]);
+  useEffect(() => { if (curtain || stopped) stopEar(); }, [curtain, stopped, stopEar]);
   useEffect(() => () => { micRef.current?.detach(); micRef.current = null; }, []);
 
   const onStage = useCallback(() => goTo(at + 1), [goTo, at]);
@@ -282,6 +304,7 @@ export default function RunScreen() {
   const again = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setCurtain(false);
+    setStopped(false);
     setShown(false);
     setAt(0);
     readRef.current = EMPTY_READ;
@@ -388,6 +411,29 @@ export default function RunScreen() {
               <StageDirection link>(back to the piece.)</StageDirection>
             </Pressable>
           </Animated.View>
+        ) : stopped ? (
+          /* ---------- The free run's end ---------- */
+          <Animated.View
+            key="preview"
+            entering={FadeIn.duration(420)}
+            exiting={FadeOut.duration(180)}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 24 }}
+          >
+            <GhostLight size={30} glow={pal.glow} />
+            <StageDirection style={{ marginTop: 22 }}>(that was the first {PREVIEW_LINES} lines.)</StageDirection>
+            <Text style={{ fontFamily: 'InstrumentSerif_400Regular', fontSize: 34, lineHeight: 40, letterSpacing: -0.4, textAlign: 'center', marginTop: 8, color: fg }}>
+              Run the whole{' '}
+              <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: pal.accentText }}>speech.</Text>
+            </Text>
+            <Text style={{ marginTop: 10, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, lineHeight: 21, textAlign: 'center', color: c.mutedForeground }}>
+              Every line, listened to as you say it, and every scene with a partner who reads the other parts.
+            </Text>
+            <PrimaryPill label="See the whole stage" haptic="medium" onPress={() => router.push(paywallHref('run_it'))} block style={{ marginTop: 26, alignSelf: 'stretch' }} />
+            <PrimaryPill label="From the top" variant="outline" onPress={again} block style={{ marginTop: 10, alignSelf: 'stretch' }} />
+            <Pressable onPress={goBack} hitSlop={10} style={{ marginTop: 22 }} accessibilityRole="button">
+              <StageDirection link>(back to the piece.)</StageDirection>
+            </Pressable>
+          </Animated.View>
         ) : (
           /* ---------- The stage ---------- */
           <Animated.View key="stage" entering={FadeIn.duration(360)} exiting={FadeOut.duration(160)} style={{ flex: 1 }}>
@@ -405,7 +451,7 @@ export default function RunScreen() {
                     runs={runsOf[i]}
                     cursor={cursor}
                     at={at}
-                    masked={hidden && (i > at || (i === at && !shown))}
+                    masked={(hidden && (i > at || (i === at && !shown))) || (previewing && i >= PREVIEW_LINES)}
                     heard={listening && i === at ? read.matched : undefined}
                     here={listening && i === at ? read.position : undefined}
                     color={fg}

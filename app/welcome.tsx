@@ -30,8 +30,11 @@ const CHOICES: { key: string; label: string; line: string }[] = [
 
 /**
  * The one question after the account is made: what are you working on. One
- * tap. It is kept on the phone for the home to lead with, and then the week
- * is offered and the app opens on the Scene room, where they began.
+ * tap. It is kept on the phone for the home to lead with, and the app opens on
+ * the Scene room, where they began. Nothing is sold here: the week used to be
+ * offered on top of the room at this point, before the actor had chosen
+ * anything of their own. The paywall now waits for a moment they earn (the
+ * fourth read of a day, the second run, the second script; src/lib/paywall.ts).
  */
 export default function Welcome() {
   const router = useRouter();
@@ -46,10 +49,7 @@ export default function Welcome() {
     track('onboarding_working_on', { on: key });
     void AsyncStorage.setItem(WORKING_ON_KEY, key).catch(() => {});
     void markDemoSeen();
-    setTimeout(() => {
-      router.replace('/rehearse');
-      router.push('/paywall');
-    }, 420);
+    setTimeout(() => router.replace('/rehearse'), 420);
   };
 
   return (

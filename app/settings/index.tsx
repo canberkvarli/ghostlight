@@ -23,6 +23,7 @@ import { getSubscription, manageSubscription, restore } from '../../src/lib/purc
 import { hasNotificationPermission, notificationsDenied, remindersMuted, requestNotificationPermission, setRemindersMuted, syncReminders } from '../../src/lib/notifications';
 import { MAKER, emailMaker, openInstagram, rateGhostLight } from '../../src/lib/maker';
 import { track } from '../../src/lib/analytics';
+import { paywallHref } from '../../src/lib/paywall';
 import { useTheme, type ThemeMode } from '../../src/theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -65,7 +66,7 @@ export default function Settings() {
   // Apple's own sheet takes its time to come up; the row says so meanwhile,
   // and a second tap while it is coming is the same tap.
   const onSubscription = async () => {
-    if (!isPaid) { push('/paywall'); return; }
+    if (!isPaid) { push(paywallHref('account')); return; }
     if (busy) return;
     setBusy('manage');
     try { await manageSubscription(); } finally { setBusy(null); }

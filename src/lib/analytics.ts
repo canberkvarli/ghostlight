@@ -129,10 +129,10 @@ export type Event =
   /** Did they read it, or bounce off the first two lines? */
   | { name: 'monologue_read'; props: { id: string; seconds: number } }
   /** The wall. How many reads had they spent, and where did it fire? */
-  | { name: 'paywall_shown'; props: { reads_used: number; from: string } }
+  | { name: 'paywall_shown'; props: { reads_used: number; from: string; trigger: string | null } }
   /** Did the paywall convert, and on which plan? */
-  | { name: 'purchase_started'; props: { plan: 'annual' | 'monthly'; trial: boolean; from: string } }
-  | { name: 'purchase_completed'; props: { plan: 'annual' | 'monthly'; trial: boolean; from: string } }
+  | { name: 'purchase_started'; props: { plan: 'annual' | 'monthly'; trial: boolean; from: string; trigger: string | null } }
+  | { name: 'purchase_completed'; props: { plan: 'annual' | 'monthly'; trial: boolean; from: string; trigger: string | null } }
   /** Saves are the retention signal: someone building a book comes back. */
   | { name: 'monologue_saved'; props: { id: string } }
   /** Sign-in is the other one, and which method matters for what to keep. */
@@ -184,6 +184,15 @@ export type Event =
   | { name: 'app_rehearse_opened'; props: { from: 'home' | 'script' | 'library' | 'guided' | 'link' } }
   | { name: 'app_partner_how'; props: { from: 'scene' } }
   | { name: 'app_book_sorted'; props: { by: string } }
+  // The Book's lists, and keeping into them.
+  | { name: 'app_list_created'; props: { from: 'book' | 'sheet' } }
+  | { name: 'app_list_kept'; props: { kind: 'speech' | 'sides'; into: 'list' | 'audition' } }
+  // Tonight's speech on Search: seen, opened, answered.
+  | { name: 'app_tonight_seen'; props: { personal: boolean } }
+  | { name: 'app_tonight_opened'; props: { personal: boolean } }
+  | { name: 'app_tonight_answer'; props: { answer: 'keep' | 'pass' } }
+  // Run it on a speech, for a free actor: the four lines, then the wall.
+  | { name: 'app_run_preview_ended'; props: { id: string } }
   | { name: 'app_run_listen'; props: { on: boolean } }
   | { name: 'demo_shown'; props: { after: number } }
   | { name: 'demo_card'; props: { key: string } }

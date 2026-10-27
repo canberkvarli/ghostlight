@@ -42,7 +42,7 @@ import { useTheme } from '../theme/ThemeContext';
  */
 
 /** How much blurred page sits under the offer. Tall enough for the card and its small print. */
-const GHOST_LINES = 16;
+const GHOST_LINES = 17;
 /** How many lines of the opening stay sharp. The offer has to be on the first screen, however long the first speech runs. */
 const SHARP_LINES = 5;
 const RISE_MS = 520;
@@ -87,6 +87,7 @@ export function ReadWall({
   // arrive where the wall was. Nothing to close.
   const offer = useTrialOffer({
     from: 'wall',
+    trigger: 'read_limit',
     onDone: () => {},
     onSignIn: () => router.push('/auth'),
   });
@@ -158,6 +159,16 @@ export function ReadWall({
           <PaperCard shadow={hardShadow.offsetSmall} style={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 14 }}>
             <View style={{ alignItems: 'center' }}>
               <Sketch name="stageDoor" size={48} stroke={c.paperInk} accent={accent} weight={1.9} />
+              {/* Why the page stopped, before what it costs: the day's three
+                  are spent, and they come back. */}
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                style={{ marginTop: 8, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.6, textAlign: 'center', color: c.paperMuted }}
+              >
+                (that's three tonight. three more tomorrow.)
+              </Text>
               <Text
                 style={{
                   marginTop: 10,

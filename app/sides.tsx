@@ -18,6 +18,7 @@ import { useCancelExtraction, useScriptFromText, useScriptProgress, useUploadScr
 import type { ScriptDetail } from '../src/api/rehearsal';
 import { RehearsalApiError, getScript } from '../src/api/rehearsal';
 import { track } from '../src/lib/analytics';
+import { paywallHref } from '../src/lib/paywall';
 import { useGoBack } from '../src/lib/nav';
 import { SCRIPT_STEPS, aboutLeft, stepOf } from '../src/lib/scriptSteps';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -215,7 +216,7 @@ export default function AddSides() {
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: 36 }}>
                 <StageDirection numberOfLines={4}>({readFailure ? readFailure.toLowerCase().replace(/\.$/, '') + '.' : inWords(error)})</StageDirection>
                 {!readFailure && error instanceof RehearsalApiError && error.gated ? (
-                  <PrimaryPill label="See Premium" onPress={() => router.push('/paywall')} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+                  <PrimaryPill label="See Premium" onPress={() => router.push(paywallHref('script_limit'))} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 ) : (
                   <PrimaryPill label="Try again" variant="outline" onPress={() => { upload.reset(); paste.reset(); setReadFailure(null); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 )}

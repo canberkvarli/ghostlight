@@ -259,7 +259,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
 function GateFoot({ mine, onBought, onPlans }: { mine: string | null; onBought: () => void; onPlans: () => void }) {
   const { colors: c } = useTheme();
   const router = useRouter();
-  const offer = useTrialOffer({ from: 'cast', onDone: onBought, onSignIn: () => router.push('/auth') });
+  const offer = useTrialOffer({ from: 'cast', trigger: 'run_limit', onDone: onBought, onSignIn: () => router.push('/auth') });
   const week = offer.trialDays === 7 ? 'week' : offer.trialLabel ?? '';
   const then = mine ? `, then begin as ${mine}` : ', then begin';
   const line = offer.storeDown

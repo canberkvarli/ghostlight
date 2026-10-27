@@ -49,6 +49,7 @@ import { useGoBack } from '../../../../src/lib/nav';
 import { useIsFavorited, useMarkStudied, useSavedPiece, useSetCut, useSetOffBook, useToggleFavorite } from '../../../../src/hooks/useFavorites';
 import { MonologueTextSkeleton } from '../../../../src/components/MonologueTextSkeleton';
 import { track } from '../../../../src/lib/analytics';
+import { paywallHref } from '../../../../src/lib/paywall';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { usePreventCaptureWhileFocused } from '../../../../src/hooks/usePreventCaptureWhileFocused';
@@ -339,7 +340,7 @@ export default function Read() {
     transform: [{ translateY: titleRise.value }, { scale: titleScale.value }],
   }));
 
-  // The wall (spec §5, Step 7). Free users get three reads, lifetime; the server
+  // The wall (spec §5, Step 7). Free users get three reads a day; the server
   // owns the count (src/lib/reads.ts). If we can't reach it — no session yet,
   // anon sign-ins still off — we don't gate: reading never breaks on a missing
   // counter, the wall just doesn't fire until the backend is live.
@@ -413,7 +414,7 @@ export default function Read() {
     if (!monologue) return;
     if (!isPaid) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      router.push('/paywall');
+      router.push(paywallHref('copy'));
       return;
     }
     // With a cut set, the cut is what you walk off with: that is the piece.

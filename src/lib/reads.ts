@@ -1,3 +1,4 @@
+import { TIMEZONE } from '../api/client';
 import { deviceId } from './device';
 import { supabase } from './supabase';
 
@@ -5,7 +6,7 @@ import { supabase } from './supabase';
  * Spending a read.
  *
  * The free-read counter is deliberately server-side (spec §4 #2): three full
- * reads, lifetime, surviving reinstall. It must NOT live only on the device —
+ * reads a day, by the phone's midnight, surviving reinstall. It must NOT live only on the device —
  * a device-local counter is trivially reset, and the entire business model is
  * where the paywall sits. So this does not fake a local tally; it tells the
  * server a read happened and lets the server be the source of truth.
@@ -37,6 +38,9 @@ export async function recordRead(monologueId: string): Promise<void> {
       'X-Client': 'ghostlight',
     };
     if (ANON_KEY) headers.apikey = ANON_KEY;
+    // Three a day, by the phone's midnight: the day this read is spent on is
+    // the actor's, so the server has to be told which one that is.
+    if (TIMEZONE) headers['X-Timezone'] = TIMEZONE;
     // The read this spends has to be attributable to the install and not only to
     // the account, or signing out wipes the tally. This endpoint is where a read
     // is actually spent, so of the two places that send the header, this is the

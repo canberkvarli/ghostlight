@@ -23,6 +23,7 @@ import { useRehearsal } from '../../../../src/hooks/useRehearsal';
 import { sameCharacter } from '../../../../src/rehearsal/contract';
 import { useGuided, useRehearsalScene } from '../../../../src/hooks/useScenePartner';
 import { track } from '../../../../src/lib/analytics';
+import { paywallHref } from '../../../../src/lib/paywall';
 import { recordFinishedRun } from '../../../../src/lib/reviewMoments';
 import { useGoBack } from '../../../../src/lib/nav';
 import type { ScenePayload } from '../../../../src/rehearsal/contract';
@@ -229,7 +230,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
     // Everything under this run, the cards included, goes: back from the
     // home must never find the stranger's path again.
     try { router.dismissAll(); } catch { /* nothing under it */ }
-    if (to === 'week') { router.replace('/search'); router.push('/paywall'); return; }
+    if (to === 'week') { router.replace('/search'); router.push(paywallHref('curtain')); return; }
     router.replace('/search');
   };
 
@@ -326,7 +327,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
             gated={r.gated || spent}
             onBegin={onBeginTap}
             onClose={leave}
-            onPlans={() => { track('app_rehearse_gated', { source: payload.scene.is_library ? 'library' : 'script', to_paywall: true }); router.push('/paywall'); }}
+            onPlans={() => { track('app_rehearse_gated', { source: payload.scene.is_library ? 'library' : 'script', to_paywall: true }); router.push(paywallHref('run_limit')); }}
           />
         </Animated.View>
       )}

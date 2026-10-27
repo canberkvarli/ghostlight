@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useCatalogueSize } from '../src/hooks/useCatalogueSize';
 import { PRIVACY_URL, TERMS_URL, useTrialOffer } from '../src/hooks/useTrialOffer';
+import { asTrigger, WHY_LINE } from '../src/lib/paywall';
 import { useTheme } from '../src/theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -40,9 +41,11 @@ export default function Paywall() {
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
   const { label: catalogue } = useCatalogueSize();
+  const trigger = asTrigger(useLocalSearchParams<{ why?: string }>().why);
+  const why = trigger ? WHY_LINE[trigger] : undefined;
 
   const close = useCallback(() => (router.canGoBack() ? router.back() : router.replace('/')), [router]);
-  const offer = useTrialOffer({ from: 'paywall', onDone: close, onSignIn: () => router.replace('/auth') });
+  const offer = useTrialOffer({ from: 'paywall', trigger, onDone: close, onSignIn: () => router.replace('/auth') });
   const { plan, setPlan, busy, restoring, note, storeDown, retry, trialLabel, trialDays, canRemind, buy, onRestore } = offer;
 
   const cta = trialLabel ? `Start the free ${trialDays === 7 ? 'week' : trialLabel}` : 'Unlock everything';
@@ -81,6 +84,12 @@ export default function Paywall() {
             <StageDirection style={{ marginTop: 10, textAlign: 'center' }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               ({catalogue} monologues. a scene partner. no limits.)
             </StageDirection>
+            {/* What they just did, said back, when they came here by doing it. */}
+            {why ? (
+              <Text style={{ marginTop: 14, textAlign: 'center', fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
+                {why}
+              </Text>
+            ) : null}
           </View>
 
           {storeDown ? (

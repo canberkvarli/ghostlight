@@ -28,6 +28,7 @@ import { useSession } from '../src/lib/useSession';
 import { useGoBack, useGuardedPush } from '../src/lib/nav';
 import { getSubscription, manageSubscription } from '../src/lib/purchases';
 import { track } from '../src/lib/analytics';
+import { paywallHref } from '../src/lib/paywall';
 import { useTheme } from '../src/theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -125,7 +126,7 @@ function SignedIn({ session }: { session: Session }) {
 
       {/* Your plan: the one card. */}
       <View style={{ marginTop: 28 }}>
-        {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => push('/paywall')} />}
+        {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => push(paywallHref('account'))} />}
       </View>
 
       {/* One row, three counts. */}
@@ -171,8 +172,8 @@ function Stat({ n, label, divider, onPress }: { n: number; label: string; divide
 /**
  * The free plan: the gel block behind a dark card, the reads left as a big
  * number with a segment per read, the partner's month under it, and the way
- * to the paywall. Reads are lifetime, the server's rule, so the hint names
- * the one thing that does reset: the scene runs, on the first of the month.
+ * to the paywall. Reads come back at midnight and the scene runs on the first
+ * of the month, and each meter says when.
  */
 function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | undefined; failed: boolean; onRetry: () => void; onPaywall: () => void }) {
   const { colors: c } = useTheme();
@@ -191,7 +192,7 @@ function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | unde
           </Pressable>
         ) : (
           <View style={{ marginTop: 14, gap: 14 }}>
-            <Meter label="Speeches to read" used={wall?.reads_used ?? 0} limit={wall?.reads_limit ?? 0} loaded={loaded} note="on the free plan" />
+            <Meter label="Speeches to read" used={wall?.reads_used ?? 0} limit={wall?.reads_limit ?? 0} loaded={loaded} note="today, back at midnight" />
             <Meter label="Scene runs" used={wall?.runs_used ?? 0} limit={wall?.runs_limit ?? 0} loaded={loaded} note={`this month, back ${firstOfNextMonth()}`} />
             <Meter label="Your own sides" used={wall?.scripts_used ?? 0} limit={wall?.scripts_limit ?? 0} loaded={loaded} note="scripts on the account" />
             <StageDirection>(the first scenes never count.)</StageDirection>
