@@ -138,7 +138,7 @@ export default function Paywall() {
           {/* The disclosure 3.1.2(c) is about: the trial, the charge after it,
               and that it renews on its own, under the pill that starts it. */}
           {!storeDown ? (
-            <Text style={{ marginTop: 12, textAlign: 'center', fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron }}>{offer.termsLine}</Text>
+            <Text style={{ marginTop: 12, textAlign: 'center', fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron }}>{offer.terms}</Text>
           ) : null}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4, paddingBottom: 2 }}>
             <Pressable onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} hitSlop={8} accessibilityRole="link">

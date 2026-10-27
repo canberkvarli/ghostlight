@@ -9,7 +9,8 @@ import { useRouter } from 'expo-router';
 
 import type { ScenePayload, Voice } from '../../rehearsal/contract';
 import { sameCharacter } from '../../rehearsal/contract';
-import { useTrialOffer } from '../../hooks/useTrialOffer';
+import { PRIVACY_URL, TERMS_URL, useTrialOffer } from '../../hooks/useTrialOffer';
+import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '../../theme/ThemeContext';
 import { PrimaryPill } from '../PrimaryPill';
 import { playSample, primeSample, stopSample } from '../../rehearsal/native/sample';
@@ -270,6 +271,15 @@ function GateFoot({ mine, onBought, onPlans }: { mine: string | null; onBought: 
         <Pressable onPress={onPlans} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>See the plans</Text></Pressable>
         <Pressable onPress={offer.onRestore} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{offer.restoring ? 'Restoring…' : 'Restore purchases'}</Text></Pressable>
       </View>
+      {/* What Apple asks for wherever something is sold: the length, the price after, that it renews, and the two policies. */}
+      {!offer.storeDown ? (
+        <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron }}>
+          {offer.terms}{' '}
+          <Text onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} style={{ textDecorationLine: 'underline' }}>Terms</Text>
+          {' · '}
+          <Text onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} style={{ textDecorationLine: 'underline' }}>Privacy</Text>
+        </Text>
+      ) : null}
     </View>
   );
 }
