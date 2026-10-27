@@ -171,7 +171,10 @@ export interface ScriptDetail extends ScriptSummary { scenes: ScriptScene[] }
 
 export const listScripts = (signal?: AbortSignal) => call<ScriptSummary[]>('/api/scripts/', {}, signal);
 export const getScript = (id: number, signal?: AbortSignal) => call<ScriptDetail>(`/api/scripts/${id}`, {}, signal);
-export const deleteScript = (id: number) => call<void>(`/api/scripts/${id}`, { method: 'DELETE' });
+export const deleteScript = (id: number, forever = false) => call<void>(`/api/scripts/${id}${forever ? '?forever=true' : ''}`, { method: 'DELETE' });
+/** Taken off the shelf in the last thirty days, newest first; each can come back. */
+export const listDeletedScripts = (signal?: AbortSignal) => call<ScriptSummary[]>('/api/scripts/deleted', {}, signal);
+export const restoreScript = (id: number) => call<ScriptSummary>(`/api/scripts/${id}/restore`, { method: 'POST' });
 
 /**
  * A file from the share sheet or Files: PDF, Word or text. The server reads it

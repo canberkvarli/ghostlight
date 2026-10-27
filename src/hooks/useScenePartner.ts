@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   cancelExtraction, deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, getScriptProgress, listScenes, listScripts,
-  uploadScriptBackground,
+  uploadScriptBackground, listDeletedScripts, restoreScript,
   editSceneLines,
   type EditedLine,
 } from '../api/rehearsal';
@@ -97,8 +97,29 @@ export function useCancelExtraction() {
 export function useDeleteScript() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteScript(id),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
+    mutationFn: (v: number | { id: number; forever: boolean }) => (typeof v === 'number' ? deleteScript(v) : deleteScript(v.id, v.forever)),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SCRIPTS_KEY });
+      void qc.invalidateQueries({ queryKey: DELETED_KEY });
+    },
+  });
+}
+
+const DELETED_KEY = ['scripts-deleted'];
+
+/** Recently deleted: what came off the shelf in the last thirty days. */
+export function useDeletedScripts(enabled: boolean) {
+  return useQuery({ queryKey: DELETED_KEY, queryFn: ({ signal }) => listDeletedScripts(signal), enabled, staleTime: 30_000, retry: 1 });
+}
+
+export function useRestoreScript() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => restoreScript(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: SCRIPTS_KEY });
+      void qc.invalidateQueries({ queryKey: DELETED_KEY });
+    },
   });
 }
 

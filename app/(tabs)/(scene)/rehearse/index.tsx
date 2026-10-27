@@ -19,7 +19,7 @@ import { useRoomScroll } from '../../../../src/lib/barScroll';
 import { Sketch } from '../../../../src/components/Sketches';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
-import { useCancelExtraction, useDeleteScript, useGuided, useScriptProgress, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
+import { useCancelExtraction, useDeleteScript, useDeletedScripts, useRestoreScript, useGuided, useScriptProgress, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
 import { useQueryClient } from '@tanstack/react-query';
 import { postEvents, reorderScripts } from '../../../../src/api/rehearsal';
 import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
@@ -69,12 +69,23 @@ export default function RehearseHub() {
   const qc = useQueryClient();
   const removeScript = useDeleteScript();
   const [order, setOrder] = useState<number[] | null>(null);
+  // Slid away: gone from the shelf at once, while the server moves it to Recently deleted.
+  const [gone, setGone] = useState<number[]>([]);
   const shelf = useMemo(() => {
-    if (!order) return mine;
+    const kept = mine.filter((x) => !gone.includes(x.id));
+    if (!order) return kept;
     const at = new Map(order.map((id, i) => [id, i]));
-    return [...mine].sort((a, b) => (at.get(a.id) ?? 1e9) - (at.get(b.id) ?? 1e9));
-  }, [mine, order]);
-  const [dropping, setDropping] = useState<ScriptSummary | null>(null);
+    return [...kept].sort((a, b) => (at.get(a.id) ?? 1e9) - (at.get(b.id) ?? 1e9));
+  }, [mine, order, gone]);
+  const drop = (s: ScriptSummary) => {
+    setGone((g) => [...g, s.id]);
+    removeScript.mutate(s.id, { onError: () => setGone((g) => g.filter((x) => x !== s.id)) });
+  };
+  // Recently deleted: folded under the sides, each a tap from coming back.
+  const deleted = useDeletedScripts(isAuthenticated);
+  const restore = useRestoreScript();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [forgetting, setForgetting] = useState<ScriptSummary | null>(null);
   const [sorting, setSorting] = useState(false);
   const reorder = (next: ScriptSummary[]) => {
     const ids = next.map((x) => x.id);
@@ -206,7 +217,7 @@ export default function RehearseHub() {
                     onReorder={reorder}
                     onHolding={setSorting}
                     renderItem={(s) => (
-                      <SwipeRow asks word="Delete" label={`Delete ${s.title}`} onRemove={() => setDropping(s)} style={{ backgroundColor: c.background }}>
+                      <SwipeRow word="Delete" label={`Delete ${s.title}`} onRemove={() => drop(s)} style={{ backgroundColor: c.background }}>
                         <View style={{ backgroundColor: c.background }}>
                           <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} />
                         </View>
@@ -214,7 +225,7 @@ export default function RehearseHub() {
                     )}
                   />
                   {shelf.length > 1 ? (
-                    <StageDirection style={{ marginTop: 8, paddingHorizontal: 2 }}>(hold one to move it. slide it left to delete.)</StageDirection>
+                    <StageDirection style={{ marginTop: 8, paddingHorizontal: 2 }}>(hold one to move it. slide it left to delete it.)</StageDirection>
                   ) : null}
                   {/* Add sides, as the last row of the sides. */}
                   <Pressable onPress={add} accessibilityRole="button" accessibilityLabel="Add sides"
@@ -231,6 +242,29 @@ export default function RehearseHub() {
                   </Pressable>
                 </Animated.View>
               </Shelf>
+
+              {deleted.data && deleted.data.length > 0 ? (
+                <Shelf title="Recently deleted" aside={showDeleted ? '(fold.)' : `(${deleted.data.length}. open.)`} onAside={() => { Haptics.selectionAsync().catch(() => {}); setShowDeleted((v) => !v); }}>
+                  {showDeleted ? (
+                    <Animated.View entering={FadeIn.duration(220)}>
+                      <StageDirection style={{ marginBottom: 4, paddingHorizontal: 2 }}>(kept thirty days, then gone.)</StageDirection>
+                      {deleted.data.map((d) => (
+                        <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+                          <Text numberOfLines={2} style={{ flex: 1, fontFamily: SERIF, fontSize: 20, lineHeight: 24, color: c.mutedForeground }}>{d.title}</Text>
+                          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setForgetting(d); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${d.title} now`}>
+                            <Text style={{ fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>Delete</Text>
+                          </Pressable>
+                          <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setGone((g) => g.filter((x) => x !== d.id)); restore.mutate(d.id); }}
+                            disabled={restore.isPending} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Put ${d.title} back`}
+                            style={{ paddingHorizontal: 14, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.accentText }}>Put back</Text>
+                          </Pressable>
+                        </View>
+                      ))}
+                    </Animated.View>
+                  ) : null}
+                </Shelf>
+              ) : null}
 
               {scenes.isLoading || scenes.isError || library.length > 0 ? (
                 <Shelf title="The library" aside={library.length ? `(${library.length} scenes.)` : undefined}>
@@ -250,16 +284,16 @@ export default function RehearseHub() {
         </Animated.ScrollView>
       </SafeAreaView>
       <ConfirmSheet
-        open={dropping !== null}
-        title="Delete these"
-        accent="sides?"
-        body={`${dropping?.title ?? 'These sides'} and every scene in them go, with your runs of them. This cannot be undone.`}
+        open={forgetting !== null}
+        title="Delete for"
+        accent="good?"
+        body={`${forgetting?.title ?? 'These sides'} and every scene in them go now, with your runs of them. This cannot be undone.`}
         confirm="Delete"
-        cancel="Keep them"
+        cancel="Keep it"
         danger
         busy={removeScript.isPending}
-        onConfirm={() => { const d = dropping; if (!d) return; removeScript.mutate(d.id, { onSettled: () => setDropping(null) }); }}
-        onCancel={() => setDropping(null)}
+        onConfirm={() => { const d = forgetting; if (!d) return; removeScript.mutate({ id: d.id, forever: true }, { onSettled: () => setForgetting(null) }); }}
+        onCancel={() => setForgetting(null)}
       />
     </View>
   );
