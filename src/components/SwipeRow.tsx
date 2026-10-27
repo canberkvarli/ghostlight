@@ -35,11 +35,17 @@ export function SwipeRow({
   children,
   onRemove,
   label,
+  word = 'Remove',
+  asks = false,
   style,
 }: {
   children: React.ReactNode;
   onRemove: () => void;
   label: string;
+  /** The word under the bin. */
+  word?: string;
+  /** The removal asks first (a sheet that can say no), so the row comes back rather than sliding off. */
+  asks?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const x = useSharedValue(0);
@@ -62,8 +68,9 @@ export function SwipeRow({
   const remove = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setOpen(false);
+    if (asks) { x.value = withSpring(0, SPRING); follow.value = 0; committed.value = false; }
     onRemove();
-  }, [onRemove]);
+  }, [onRemove, asks, x, follow, committed]);
   const close = useCallback(() => {
     x.value = withSpring(0, SPRING);
     follow.value = 0;
@@ -91,7 +98,7 @@ export function SwipeRow({
     })
     .onEnd((e) => {
       if (committed.value) {
-        x.value = withTiming(-width.value - 24, { duration: 180 });
+        if (!asks) x.value = withTiming(-width.value - 24, { duration: 180 });
         runOnJS(remove)();
         return;
       }
@@ -155,7 +162,7 @@ export function SwipeRow({
                 color: '#ffffff',
               }}
             >
-              Remove
+              {word}
             </Text>
           </Pressable>
         </Animated.View>

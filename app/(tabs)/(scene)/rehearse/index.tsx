@@ -22,7 +22,9 @@ import { useEntitlement } from '../../../../src/hooks/useEntitlement';
 import { useDeleteScript, useGuided, useLatestRun, useRunStats, useScenes, useScript, useScripts } from '../../../../src/hooks/useScenePartner';
 import { useQueryClient } from '@tanstack/react-query';
 import { reorderScripts } from '../../../../src/api/rehearsal';
-import { ChoiceSheet, ConfirmSheet } from '../../../../src/components/ConfirmSheet';
+import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
+import { SortableList } from '../../../../src/components/SortableList';
+import { SwipeRow } from '../../../../src/components/SwipeRow';
 import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
 import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
@@ -61,7 +63,8 @@ export default function RehearseHub() {
   const latest = useLatestRun(ready);
   const mine = (scripts.data ?? []).filter(s => !s.is_sample);
   const library = (scenes.data ?? []).filter(s => s.is_library);
-  // The shelf of your own sides: held to move up, down or to the top, or to be taken off.
+  // The shelf of your own sides, in the order the actor put it: hold a row
+  // and drag it, or slide it left to delete it (with a word first).
   const qc = useQueryClient();
   const removeScript = useDeleteScript();
   const [order, setOrder] = useState<number[] | null>(null);
@@ -70,15 +73,10 @@ export default function RehearseHub() {
     const at = new Map(order.map((id, i) => [id, i]));
     return [...mine].sort((a, b) => (at.get(a.id) ?? 1e9) - (at.get(b.id) ?? 1e9));
   }, [mine, order]);
-  const [holding, setHolding] = useState<ScriptSummary | null>(null);
   const [dropping, setDropping] = useState<ScriptSummary | null>(null);
-  const move = (id: number, to: 'top' | 'up' | 'down') => {
-    const ids = shelf.map((x) => x.id);
-    const i = ids.indexOf(id);
-    if (i < 0) return;
-    ids.splice(i, 1);
-    const j = to === 'top' ? 0 : to === 'up' ? Math.max(0, i - 1) : Math.min(ids.length, i + 1);
-    ids.splice(j, 0, id);
+  const [sorting, setSorting] = useState(false);
+  const reorder = (next: ScriptSummary[]) => {
+    const ids = next.map((x) => x.id);
     setOrder(ids);
     void reorderScripts(ids).then(() => qc.invalidateQueries({ queryKey: ['scripts'] })).catch(() => setOrder(null));
   };
@@ -137,7 +135,7 @@ export default function RehearseHub() {
           primaryLabel="Pick a first scene"
           onPrimary={() => { setHow(false); guided(); }}
         />
-        <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: tabSpace }}>
+        <Animated.ScrollView scrollEnabled={!sorting} showsVerticalScrollIndicator={false} onScroll={onBarScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: tabSpace }}>
           <RoomTitle scrollY={scrollY} style={{ paddingTop: 4, paddingHorizontal: 2 }}>
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
               Scene <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>partner.</Text>
@@ -201,7 +199,22 @@ export default function RehearseHub() {
                   {scripts.isLoading && isAuthenticated ? (
                     <StageDirection style={{ paddingVertical: 10 }}>(gathering your scripts…)</StageDirection>
                   ) : null}
-                  {shelf.map((s) => <ScriptRow key={s.id} script={s} startOpen={openScript === String(s.id)} left={left} onHold={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); setHolding(s); }} />)}
+                  <SortableList
+                    items={shelf}
+                    keyOf={(s) => s.id}
+                    onReorder={reorder}
+                    onHolding={setSorting}
+                    renderItem={(s) => (
+                      <SwipeRow asks word="Delete" label={`Delete ${s.title}`} onRemove={() => setDropping(s)} style={{ backgroundColor: c.background }}>
+                        <View style={{ backgroundColor: c.background }}>
+                          <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} />
+                        </View>
+                      </SwipeRow>
+                    )}
+                  />
+                  {shelf.length > 1 ? (
+                    <StageDirection style={{ marginTop: 8, paddingHorizontal: 2 }}>(hold one to move it. slide it left to delete.)</StageDirection>
+                  ) : null}
                   {/* Add sides, as the last row of the sides. */}
                   <Pressable onPress={add} accessibilityRole="button" accessibilityLabel="Add sides"
                     style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, opacity: pressed ? 0.7 : 1 })}>
@@ -235,20 +248,6 @@ export default function RehearseHub() {
           )}
         </Animated.ScrollView>
       </SafeAreaView>
-      <ChoiceSheet
-        open={holding !== null}
-        title={holding?.title ?? ''}
-        accent=""
-        options={[
-          { key: 'top', label: 'Move to the top', line: 'first on the shelf.' },
-          { key: 'up', label: 'Move up', line: 'one place.' },
-          { key: 'down', label: 'Move down', line: 'one place.' },
-          { key: 'delete', label: 'Delete', line: 'the sides and their scenes.' },
-        ]}
-        value={'' as 'top' | 'up' | 'down' | 'delete'}
-        onPick={(k) => { const h = holding; if (!h) return; if (k === 'delete') setTimeout(() => setDropping(h), 280); else move(h.id, k); }}
-        onClose={() => setHolding(null)}
-      />
       <ConfirmSheet
         open={dropping !== null}
         title="Delete these"
@@ -325,7 +324,7 @@ function Shelf({ title, aside, onAside, children }: { title: string; aside?: str
  * A tap opens the list of its scenes under it (one scene goes straight to the
  * sheet the first time); the scene you left carries its bar of progress.
  */
-function ScriptRow({ script, startOpen, left, onHold }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null; onHold?: () => void }) {
+function ScriptRow({ script, startOpen, left }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null }) {
   const { colors: c } = useTheme();
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
@@ -339,7 +338,7 @@ function ScriptRow({ script, startOpen, left, onHold }: { script: ScriptSummary;
     : `(${cast || `${script.num_characters} parts`} · ${script.num_scenes_extracted} ${script.num_scenes_extracted === 1 ? 'scene' : 'scenes'}.)`;
   return (
     <View style={{ borderBottomWidth: 1, borderBottomColor: c.divider }}>
-      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} onLongPress={onHold} delayLongPress={380} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityHint="Hold to move or delete"
+      <Pressable onPress={() => { if (!ready) return; Haptics.selectionAsync().catch(() => {}); setOpen(o => !o); }} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityHint="Hold to move it, slide left to delete"
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
         <View style={{ width: 54, height: 54, alignItems: 'center', justifyContent: 'center' }}>
           <Sketch name="scriptPages" size={46} stroke={ready ? c.foreground : c.mutedForeground} accent={c.yellow} />
