@@ -323,7 +323,7 @@ function SignedOut() {
             </>
           )}
         </Pressable>
-        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/auth'); }} hitSlop={10} accessibilityRole="button" style={{ paddingVertical: 6 }}>
+        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/auth', params: { only: 'email' } }); }} hitSlop={10} accessibilityRole="button" style={{ paddingVertical: 6 }}>
           <Text style={{ fontFamily: SANS_B, fontSize: 14.5, color: c.accentText }}>Use email instead</Text>
         </Pressable>
         {error ? <Text style={{ textAlign: 'center', fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{error}</Text> : null}

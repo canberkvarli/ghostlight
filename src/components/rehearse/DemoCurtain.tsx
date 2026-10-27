@@ -211,7 +211,7 @@ function KeepIt({ onSignedUp, onLookAround }: { onSignedUp?: (method: 'apple' | 
             </>
           )}
         </Pressable>
-        <Pressable onPress={() => { router.push({ pathname: '/auth', params: { next: '/welcome', create: '1' } }); }} hitSlop={8} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 6 }}>
+        <Pressable onPress={() => { router.push({ pathname: '/auth', params: { next: '/welcome', create: '1', only: 'email' } }); }} hitSlop={8} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 6 }}>
           <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.accentText }}>Use email instead</Text>
         </Pressable>
       </View>

@@ -49,7 +49,9 @@ const MONO_I = 'CourierPrime_400Regular_Italic';
  */
 export default function Auth() {
   const router = useRouter();
-  const { next, create } = useLocalSearchParams<{ next?: string; create?: string }>();
+  const { next, create, only } = useLocalSearchParams<{ next?: string; create?: string; only?: string }>();
+  // From a page that already offered Apple and Google: the form alone.
+  const emailOnly = only === 'email';
   const goBack = useGoBack('/search');
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
@@ -170,13 +172,21 @@ export default function Auth() {
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
-          <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
-            Keep <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>this one.</Text>
-          </Text>
-          <StageDirection style={{ marginTop: 8 }}>(sign in to save. nothing you did is lost.)</StageDirection>
+          {emailOnly ? (
+            <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
+              Your <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>email.</Text>
+            </Text>
+          ) : (
+            <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
+              Keep <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>this one.</Text>
+            </Text>
+          )}
+          <StageDirection numberOfLines={2} style={{ marginTop: 8 }}>
+            {emailOnly ? '(an actorrise account works here too: same address, same password.)' : '(sign in to save. nothing you did is lost.)'}
+          </StageDirection>
 
           {/* The two slabs. Apple's is the one its guidelines require to be the prominent one. */}
-          <View style={{ marginTop: 28, gap: 12 }}>
+          {emailOnly ? null : <View style={{ marginTop: 28, gap: 12 }}>
             {Platform.OS === 'ios' && appleReady ? (
               <AppleAuthentication.AppleAuthenticationButton
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -187,7 +197,7 @@ export default function Auth() {
               />
             ) : null}
             <OutlineButton label="Continue with Google" icon="logo-google" onPress={() => { if (!busy) void withGoogle(); }} busy={busy === 'google'} />
-          </View>
+          </View>}
 
           {/* The two things the form can do, as two words on one rule: the chosen one carries the rule, like the houses on the curtain. */}
           <View style={{ marginTop: 28, flexDirection: 'row', alignItems: 'flex-end', borderBottomWidth: 1, borderBottomColor: c.divider }}>
@@ -249,6 +259,8 @@ export default function Auth() {
           </View>
           {creating ? (
             <StageDirection style={{ marginTop: 14, textAlign: 'right' }}>(this address, that password. your saves come with you.)</StageDirection>
+          ) : !emailOnly ? (
+            <StageDirection numberOfLines={2} style={{ marginTop: 14 }}>(have an actorrise account? the same email and password work here.)</StageDirection>
           ) : null}
 
           {error ? (
