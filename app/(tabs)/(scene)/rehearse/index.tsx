@@ -23,6 +23,7 @@ import { useCancelExtraction, useDeleteScript, useDeletedScripts, useRestoreScri
 import { useQueryClient } from '@tanstack/react-query';
 import { postEvents, reorderScripts } from '../../../../src/api/rehearsal';
 import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
+import { KeepSheet } from '../../../../src/components/KeepSheet';
 import { SortableList } from '../../../../src/components/SortableList';
 import { SwipeRow } from '../../../../src/components/SwipeRow';
 import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
@@ -516,6 +517,7 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
   const { colors: c } = useTheme();
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
+  const [keeping, setKeeping] = useState(false);
   const detail = useScript(script.id, open);
   const ready = script.processing_status === 'completed';
   const broke = script.processing_status === 'failed';
@@ -574,6 +576,11 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
               </Pressable>
             );
           })}
+          {/* The Book's lists hold sides too: two contrasting, this term's class, the callback. */}
+          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setKeeping(true); }} accessibilityRole="button"
+            accessibilityLabel={`Keep ${script.title} in a list`} style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+            <StageDirection link>(keep these sides in a list.)</StageDirection>
+          </Pressable>
         </Animated.View>
       ) : open && detail.isLoading ? (
         <View style={{ paddingLeft: 68, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -583,6 +590,7 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
       ) : open && detail.isError ? (
         <StageDirection style={{ paddingLeft: 68, paddingBottom: 12 }}>(it would not open. try again.)</StageDirection>
       ) : null}
+      <KeepSheet open={keeping} what={{ user_script_id: script.id }} name={script.title} onClose={() => setKeeping(false)} />
     </View>
   );
 }

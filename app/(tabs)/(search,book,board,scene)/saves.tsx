@@ -33,6 +33,8 @@ import type { Monologue, Tone } from '../../../src/data/monologues';
 import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useRoomScroll } from '../../../src/lib/barScroll';
 import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
+import { ComingUp, YourLists } from '../../../src/components/BookSections';
+import { useLists } from '../../../src/hooks/useLists';
 
 /**
  * Saved — "Your book."
@@ -49,6 +51,10 @@ import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
  * right now; it is the website's "off book" mark, so the pocket is the same on
  * the laptop. And a slide to the left, which takes the page out of the book,
  * with five seconds to take that back.
+ *
+ * Above the shelves, two things the actor arranges: what is coming up (the
+ * auditions still to come, which used to be a room of their own, the Board) and
+ * their own lists (src/components/BookSections.tsx). Neither shows in picker mode.
  *
  * With `?pick=<auditionId>` the book is a picker: an audition's file sent you
  * here for the piece to bring, a tap attaches it and takes you back. The pocket
@@ -83,6 +89,7 @@ export default function Saves() {
   const { data, isLoading, isError } = useFavorites(isAuthenticated);
   // For the room: the board is already on the phone; nothing is fetched for it.
   const { data: auditions } = useAuditions(isAuthenticated);
+  const { data: lists, isLoading: listsLoading } = useLists(isAuthenticated && !pick);
   const attach = useAttachPiece();
   const attachedId = picking ? attachedPiece(picking)?.monologue_id ?? null : null;
 
@@ -280,6 +287,10 @@ export default function Saves() {
               {'(the bookmark on any page puts it here.\nthe book sorts itself as it fills.)'}
             </StageDirection>
             <PrimaryPill label="Find one" onPress={goBack} style={{ marginTop: 22, alignSelf: 'center' }} />
+            {/* The auditions live in the Book now; an empty Book still leads to them. */}
+            <View style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+              <ComingUp auditions={auditions ?? []} book={[]} />
+            </View>
           </Center>
         ) : (
           <Animated.ScrollView
@@ -304,6 +315,13 @@ export default function Saves() {
                 {subhead}
               </StageDirection>
             </RoomTitle>
+
+            {!picking && !finding ? (
+              <Reveal order={0}>
+                <ComingUp auditions={auditions ?? []} book={items} first />
+                <YourLists lists={lists ?? []} loading={listsLoading} />
+              </Reveal>
+            ) : null}
 
             {items.length >= FIND_FROM ? (
               <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>

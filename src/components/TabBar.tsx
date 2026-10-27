@@ -24,17 +24,22 @@ export function useTabBarSpace(): number {
 
 const SANS_B = 'BricolageGrotesque_600SemiBold';
 
-/** The four rooms, in the order of the bar. */
-export const TAB_ROOMS: { name: string; href: Href; label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap }[] = [
+/**
+ * The rooms, in the order of the bar. Three are on it. The board is a room
+ * still, so every link, reminder and notification that opens it lands in a
+ * stack of its own with a way back, but it has no button: its auditions are
+ * at the top of the Book, and the Book's button is lit while you are in it.
+ */
+export const TAB_ROOMS: { name: string; href: Href; label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; offBar?: boolean; lights?: string }[] = [
   // Group-qualified, so a shared route (the book is in every room) cannot be mistaken for another room's.
   { name: 'search', href: '/(search)/search' as Href, label: 'Search', icon: 'search-outline', active: 'search' },
   { name: 'book', href: '/(book)/saves' as Href, label: 'Book', icon: 'bookmark-outline', active: 'bookmark' },
-  { name: 'board', href: '/(board)/auditions' as Href, label: 'Board', icon: 'calendar-outline', active: 'calendar' },
+  { name: 'board', href: '/(board)/auditions' as Href, label: 'Board', icon: 'calendar-outline', active: 'calendar', offBar: true, lights: 'book' },
   { name: 'scene', href: '/(scene)/rehearse' as Href, label: 'Scene', icon: 'people-outline', active: 'people' },
 ];
 
 /**
- * Four rooms, one bar. The triggers are declared in the layout and handed in as
+ * Three rooms on one bar. The triggers are declared in the layout and handed in as
  * children, because the navigator reads its rooms from the element tree. A
  * floating glass pill over the stage, inset from the sides, lifted above the
  * home indicator, with the active room an ink pill inside it and its icon and
@@ -81,9 +86,11 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
 });
 
 /** One room's button. The trigger hands it `isFocused` and the press. */
-export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; isFocused?: boolean; onPress?: () => void } & ViewProps>(
-  function RoomButton({ label, icon, active, isFocused = false, onPress, ...rest }, ref) {
+export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; isFocused?: boolean; alsoLit?: boolean; onPress?: () => void } & ViewProps>(
+  function RoomButton({ label, icon, active, isFocused: focused = false, alsoLit = false, onPress, ...rest }, ref) {
     const { colors: c } = useTheme();
+    // Lit for a room that lives under this one without a button of its own.
+    const isFocused = focused || alsoLit;
     return (
       <Pressable
         ref={ref}

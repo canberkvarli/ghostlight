@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
@@ -130,7 +130,19 @@ export default function Auditions() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <RoomHeader right={headerRight} title="The board" scrollY={scrollY} />
+        {/* No button on the bar any more: the board opens from the Book, and goes back to it. */}
+        <RoomHeader
+          left={
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.navigate('/(book)/saves' as Href); }} hitSlop={12}
+              accessibilityRole="button" accessibilityLabel="Back to your book" style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+              <Ionicons name="chevron-back" size={22} color={c.mutedForeground} />
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: c.mutedForeground }}>Your book</Text>
+            </Pressable>
+          }
+          right={headerRight}
+          title="The board"
+          scrollY={scrollY}
+        />
         {!isAuthenticated ? (
           <Intro signedIn={false} onPrimary={onSignIn} onSecondary={onSignIn} onHow={() => setHow(true)} />
         ) : isLoading ? (

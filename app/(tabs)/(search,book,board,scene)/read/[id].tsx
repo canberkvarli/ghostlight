@@ -43,6 +43,7 @@ import { recordFinishedRead } from '../../../../src/lib/reviewMoments';
 import { getOffline, removeOffline, saveOffline } from '../../../../src/lib/offline';
 import { supabase } from '../../../../src/lib/supabase';
 import { UndoBar } from '../../../../src/components/UndoBar';
+import { KeepSheet } from '../../../../src/components/KeepSheet';
 import { Tooltip } from '../../../../src/components/ConfirmSheet';
 import { useSession } from '../../../../src/lib/useSession';
 import { useGoBack } from '../../../../src/lib/nav';
@@ -231,6 +232,8 @@ export default function Read() {
 
   const [copied, setCopied] = useState(false);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  // "Keep it in...": the lists and the audition coming up, after a save or on a long press.
+  const [keeping, setKeeping] = useState(false);
 
   // Working on the page: the cut, and running it. One mode at a time; `read`
   // is the plain page. The units are the website's (src/lib/segments.ts), so a
@@ -402,7 +405,8 @@ export default function Read() {
     // didn't land — especially since the same button un-saves. One word, and it
     // says which of the two just happened.
     setSaveNote(willSave ? 'Saved' : 'Removed');
-    setTimeout(() => setSaveNote(null), 1500);
+    // Saved stays long enough to be tapped: it is also the way into a list.
+    setTimeout(() => setSaveNote(null), willSave ? 3200 : 1500);
     // Mirror to the offline shelf so a saved piece reads without signal.
     if (willSave) void saveOffline(monologue);
     else void removeOffline(monologue.id);
@@ -614,7 +618,18 @@ export default function Read() {
               </Pressable>
               {/* Saved is the gel, not the house colour: it is a mark you made,
                   and the gel is what the system uses for "you did this". */}
-              <Pressable onPress={onSave} hitSlop={14} accessibilityRole="button" accessibilityLabel={favorited ? 'Unsave' : 'Save'}>
+              <Pressable
+                onPress={onSave}
+                onLongPress={() => {
+                  if (!favorited || !isAuthenticated) return;
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  setKeeping(true);
+                }}
+                hitSlop={14}
+                accessibilityRole="button"
+                accessibilityLabel={favorited ? 'Unsave' : 'Save'}
+                accessibilityHint={favorited ? 'Hold to keep it in a list' : undefined}
+              >
                 <Ionicons
                   name={favorited ? 'bookmark' : 'bookmark-outline'}
                   size={22}
@@ -1088,10 +1103,14 @@ export default function Read() {
         <Animated.View
           entering={FadeIn.duration(140)}
           exiting={FadeOut.duration(260)}
-          pointerEvents="none"
+          pointerEvents="box-none"
           style={{ position: 'absolute', left: 0, right: 0, bottom: 44, alignItems: 'center' }}
         >
-          <View
+          <Pressable
+            disabled={saveNote !== 'Saved'}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); setSaveNote(null); setKeeping(true); }}
+            accessibilityRole="button"
+            accessibilityLabel="Saved. Keep it in a list"
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -1119,9 +1138,19 @@ export default function Read() {
             />
             <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: '#f7f3ec' }}>
               {saveNote}
+              {saveNote === 'Saved' ? <Text style={{ color: c.yellow }}>{'  ·  keep it in a list'}</Text> : null}
             </Text>
-          </View>
+          </Pressable>
         </Animated.View>
+      ) : null}
+
+      {monologue ? (
+        <KeepSheet
+          open={keeping}
+          what={{ monologue_id: Number(monologue.id) }}
+          name={monologue.character ? `${monologue.character}, ${monologue.source ?? monologue.title}` : monologue.title}
+          onClose={() => setKeeping(false)}
+        />
       ) : null}
 
       {/* Blur over the words when the app backgrounds or a screenshot is taken. */}
