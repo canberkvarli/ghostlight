@@ -354,7 +354,12 @@ export default function Read() {
   // answering `paywalled: true` and withholding the text. So someone who had
   // just paid was still reading three lines and a buy button. The receipt on the
   // device is a real answer too, and in that window it's the only true one.
-  const gated = !isPaid && (monologue?.paywalled === true || (settled && atWall));
+  //
+  // A page the server answered for carries its own verdict, and that is the one
+  // to follow: the server knows which pieces stay open past the day's three
+  // (the ones kept, tonight's, the ones already read today) and the phone's
+  // count does not. The count only decides for a page with no verdict on it.
+  const gated = !isPaid && (monologue?.paywalled === true || (monologue?.paywalled === undefined && settled && atWall));
 
   // Do we yet KNOW whether this is walled? This gap is why the whole monologue
   // flashed up for a beat on the very first open: `atWall` is undefined until

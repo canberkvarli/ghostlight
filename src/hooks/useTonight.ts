@@ -1,14 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getTonight, getTrending, type TonightDay } from '../api/client';
+import { answerMyTonight, getMyTonight, getTonight, getTrending, type MyTonight, type TonightDay } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import type { Monologue } from '../data/monologues';
 import { searchScreen } from '../lib/screen';
+import { track } from '../lib/analytics';
 import { useSession } from '../lib/useSession';
 import type { Medium } from '../theme/medium';
 
 /**
- * Tonight's speech: one piece a day, the same one for everyone, one per house.
+ * Tonight's speech: one piece a day per house. For a stranger, the same one
+ * for everyone; for an actor with a session, their own (useMyTonight), chosen
+ * on the server from what they keep.
  *
  * Picked on the phone from the trending list by the date, so there is nothing
  * to build or schedule on the server, and every phone that fetched the same
@@ -136,12 +139,45 @@ export function runPick(run: TonightDay[], day: Date): Monologue | null {
 }
 
 /**
- * Tonight's speech: the server's pick when it has answered, the phone's own
- * from the shelf when it has not. The two use the same hash of the date, so
- * on the same pool they agree; the server's pool is the one the widget shows.
+ * This actor's own tonight, for a signed-in phone: chosen on the server from
+ * what they keep, whole, and never a read spent. Keyed on the date too, so the
+ * card turns over at midnight with the app open.
+ */
+export function useMyTonight(medium: Medium) {
+  const house = medium === 'screen' ? 'screen' : 'stage';
+  const { session, isAuthenticated } = useSession();
+  return useQuery<MyTonight | null>({
+    queryKey: ['my-tonight', house, dayKey(new Date())],
+    enabled: Boolean(session) && isAuthenticated,
+    retry: 1,
+    staleTime: 30 * 60_000,
+    queryFn: ({ signal }) => getMyTonight(house, signal),
+  });
+}
+
+/** Keep or Not for me, painted at once and sent after. */
+export function useAnswerTonight(medium: Medium) {
+  const house = medium === 'screen' ? 'screen' : 'stage';
+  const qc = useQueryClient();
+  const key = ['my-tonight', house, dayKey(new Date())];
+  return useMutation({
+    mutationFn: (answer: 'keep' | 'pass') => answerMyTonight(house, answer),
+    onMutate: (answer) => {
+      qc.setQueryData<MyTonight | null>(key, (t) => (t ? { ...t, answer } : t));
+      track('app_tonight_answer', { answer });
+    },
+  });
+}
+
+/**
+ * Tonight's speech: the actor's own when the server has chosen one, then the
+ * house's from the server, then the phone's own from the shelf. The last two
+ * use the same hash of the date, so on the same pool they agree; the server's
+ * house pool is the one the widget shows.
  */
 export function useTonight(medium: Medium): Monologue | null {
   const run = useTonightRun(medium);
   const list = useHouseList(medium);
-  return runPick(run, new Date()) ?? pickTonight(list, medium);
+  const mine = useMyTonight(medium).data;
+  return (mine ? apiToMonologue(mine.monologue) : null) ?? runPick(run, new Date()) ?? pickTonight(list, medium);
 }

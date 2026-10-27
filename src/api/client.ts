@@ -303,6 +303,40 @@ export async function getTonight(house: 'stage' | 'screen', days = 8, signal?: A
   return j.days;
 }
 
+/** This actor's own speech tonight, whole: tonight's is never walled. */
+export interface MyTonight {
+  day: string;
+  house: 'stage' | 'screen';
+  quote: string;
+  /** Null until the actor answers. */
+  answer: 'keep' | 'pass' | null;
+  monologue: Monologue;
+}
+
+/**
+ * Chosen once a night on the server from what this actor keeps and what they
+ * have passed on, on the phone's own date. Needs a session; null without one
+ * or when the house has nothing to give.
+ */
+export async function getMyTonight(house: 'stage' | 'screen', signal?: AbortSignal): Promise<MyTonight | null> {
+  const res = await fetch(`${API_URL}/api/monologues/tonight/mine?house=${house}`, { headers: await authHeaders(), signal });
+  if (res.status === 401 || res.status === 403 || res.status === 404) return null;
+  if (!res.ok) throw new ApiError(res.status, `my tonight failed (${res.status})`);
+  return (await res.json()) as MyTonight;
+}
+
+/** Keep or Not for me. It shapes tomorrow's pick. */
+export async function answerMyTonight(house: 'stage' | 'screen', answer: 'keep' | 'pass'): Promise<void> {
+  const headers = await authHeaders();
+  headers['Content-Type'] = 'application/json';
+  const res = await fetch(`${API_URL}/api/monologues/tonight/mine/answer`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ house, answer }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `tonight answer failed (${res.status})`);
+}
+
 /** What other actors are working on (`GET /api/monologues/trending`) — the search screen before a past. */
 export async function getTrending(limit = 20, signal?: AbortSignal): Promise<Monologue[]> {
   const res = await fetch(`${API_URL}/api/monologues/trending?limit=${limit}`, {

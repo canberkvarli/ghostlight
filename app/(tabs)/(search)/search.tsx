@@ -65,6 +65,10 @@ import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 import { Initial } from '../../../src/components/Initial';
 import { UpNext } from '../../../src/components/UpNext';
+import { TonightCard } from '../../../src/components/TonightCard';
+import { useQuery } from '@tanstack/react-query';
+import { listRuns } from '../../../src/api/rehearsal';
+import { streakOf } from '../../../src/rehearsal/streak';
 
 /**
  * Step 2 — Search is home.
@@ -419,6 +423,15 @@ export default function Search() {
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
 
+  // The streak, small, by your initial: nights in a row with a speech opened
+  // or a scene run. It lived on Account, where nobody saw it day to day. It
+  // only counts up; a missed night costs nothing but the number.
+  const { data: runDays } = useQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), enabled: isAuthenticated, staleTime: 60_000 });
+  const streak = useMemo(
+    () => streakOf([...(runDays ?? []).map((r) => r.started_at), ...recents.map((r) => r.openedAt)]),
+    [runDays, recents],
+  );
+
   // The ticket and the knocks. The board card above already says the next
   // audition and the empty board, so the ticket keeps to the two things the
   // page has no other voice for: the piece you left in this house, and
@@ -463,7 +476,17 @@ export default function Search() {
               </View>
               <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 11, letterSpacing: 2.6, color: c.foreground }}>GHOST LIGHT</Text>
             </Pressable>
-            <Initial />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {isAuthenticated && streak.days > 0 ? (
+                <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/account'); }} hitSlop={10}
+                  accessibilityRole="button" accessibilityLabel={`${streak.days} ${streak.days === 1 ? 'night' : 'nights'} running`}>
+                  <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: streak.today ? pal.accentText : c.mutedForeground }}>
+                    ({streak.days} {streak.days === 1 ? 'night' : 'nights'}{streak.today ? '' : ', tonight keeps it'})
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Initial />
+            </View>
           </View>
 
           {/* A scroll, under the row. On a tall phone nothing moves; on a short
@@ -716,6 +739,13 @@ export default function Search() {
                     <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13, color: pal.accentText }}>Clear</Text>
                   </Pressable>
                 ) : null}
+              </Animated.View>
+            ) : null}
+
+            {/* Tonight's speech, the actor's own: read it free, keep it, or pass. */}
+            {isAuthenticated ? (
+              <Animated.View pointerEvents={fieldFocused ? 'none' : 'auto'} style={[belowStyle, { width: '100%', marginTop: 26 }]}>
+                <TonightCard medium={medium} kept={keptCount} accent={pal.accentText} />
               </Animated.View>
             ) : null}
 
