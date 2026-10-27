@@ -800,6 +800,15 @@ export default function Search() {
                 ))}
               </Animated.View>
             ) : null}
+            {/* What the house is reading stays under your own past, two rows. */}
+            {houseHistory.length > 0 && !(fieldFocused && query.trim()) ? (
+              <Animated.View
+                pointerEvents={fieldFocused ? 'none' : 'auto'}
+                style={[belowStyle, { width: '100%', marginTop: 22 }]}
+              >
+                <Trending medium={medium} accent={pal.accentText} rows={2} />
+              </Animated.View>
+            ) : null}
           </Animated.ScrollView>
 
         </Pressable>

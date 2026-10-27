@@ -16,8 +16,8 @@ import { useTheme } from '../theme/ThemeContext';
  * What other actors are working on right now, for the screen before there is
  * a past. The website's trending shelf, as two hairline rows in this house:
  * real pieces, each one a page you can open, which is a better invitation than
- * three searches somebody else phrased. Gone the moment you have searched
- * once; the recents take the room.
+ * three searches somebody else phrased. Under the recents once there are
+ * some, two rows. Fresh every few minutes: it is what the house read lately.
  */
 export function Trending({ medium, accent, rows = 2 }: { medium: Medium; accent: string; rows?: number }) {
   const router = useRouter();
@@ -26,7 +26,7 @@ export function Trending({ medium, accent, rows = 2 }: { medium: Medium; accent:
   const { data } = useQuery<Monologue[]>({
     queryKey: ['trending'],
     retry: false,
-    staleTime: 10 * 60_000,
+    staleTime: 5 * 60_000,
     queryFn: async ({ signal }) => (await getTrending(20, signal)).map(apiToMonologue),
   });
   const house = (data ?? []).filter((m) => (medium === 'screen' ? m.sourceType !== 'play' : m.sourceType === 'play')).slice(0, rows);
