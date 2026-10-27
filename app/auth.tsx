@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -75,6 +75,7 @@ export default function Auth() {
 
   const [arriving, setArriving] = useState(false);
   const done = (method: 'apple' | 'google' | 'email') => {
+    Keyboard.dismiss();
     track('signed_in', { method });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     // A beat on the lamp, then the room: the move from the form to the app is one fade, not a jump.
@@ -107,6 +108,7 @@ export default function Auth() {
   };
 
   const withEmail = async () => {
+    Keyboard.dismiss();
     if (!email.trim() || !password) { setError('Your address and your password, both.'); return; }
     setBusy('email');
     clear();
@@ -122,6 +124,7 @@ export default function Auth() {
   };
 
   const createAccount = async () => {
+    Keyboard.dismiss();
     if (!email.trim()) { setError('An address first.'); return; }
     if (password.length < 6) { setError('A password of at least six characters.'); return; }
     setBusy('email');

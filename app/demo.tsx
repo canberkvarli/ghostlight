@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,6 +76,15 @@ export default function Demo() {
   // Every way in without a chosen scene opens on the promise: the three
   // cards are gone from the flow, and the other keys wait on the curtain call.
   const front = !keyParam;
+
+  // The front door is for strangers. Signed in here (the lamp at the top, or
+  // a sign-in that came back to this screen), the room is Search, and the
+  // steps are not left underneath it to come back to.
+  useFocusEffect(useCallback(() => {
+    if (!isAuthenticated || keyParam || after) return;
+    try { router.dismissAll(); } catch { /* the steps are the root */ }
+    router.replace('/search');
+  }, [isAuthenticated, keyParam, after, router]));
 
   const [step, setStep] = useState<Step>(1);
   const [scene, setScene] = useState<GuidedScene | null>(null);
@@ -184,7 +193,7 @@ export default function Demo() {
               <Ionicons name="arrow-back" size={22} color={c.foreground} />
             </Pressable>
           ) : isAuthenticated ? <View style={{ width: 44 }} /> : (
-            <Pressable onPress={() => { stopSample(); router.push('/auth'); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sign in">
+            <Pressable onPress={() => { stopSample(); router.push({ pathname: '/auth', params: { next: '/search' } }); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sign in">
               <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>sign in</Text>
             </Pressable>
           )}
