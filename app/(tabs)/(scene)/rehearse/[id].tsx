@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
@@ -192,6 +192,18 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
   };
 
   const running = state !== 'ready' && !ended;
+  // The end comes in three beats, not a cut: the last line stays on the stage
+  // while the lights go down over it, then the card, a line at a time.
+  const [curtain, setCurtain] = useState(false);
+  const dim = useSharedValue(0);
+  useEffect(() => {
+    if (!ended) { setCurtain(false); dim.value = 0; return; }
+    dim.value = withTiming(1, { duration: 1700, easing: Easing.inOut(Easing.quad) });
+    const t = setTimeout(() => setCurtain(true), 1800);
+    return () => clearTimeout(t);
+  }, [ended, dim]);
+  const dimStyle = useAnimatedStyle(() => ({ opacity: dim.value * 0.92 }));
+  const lingering = ended && !curtain;
   const paused = state === 'paused';
   const actor = chosen ?? payload.characters[0] ?? '';
   // The play and the scene, unless they are the same words: an uploaded scene is titled after its script.
@@ -225,7 +237,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
       <TopBar title={running || ended ? sceneLine : ''} onLeave={leave} progress={running ? progressOf(r.snapshot?.lineIndex ?? 0, payload.lines.length) : null}
         counter={running ? `${(r.snapshot?.lineIndex ?? 0) + 1}/${payload.lines.length}` : null} />
-      {ended && demoN ? (
+      {ended && curtain && demoN ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
           <DemoCurtain
             title={payload.scene.title}
@@ -243,26 +255,36 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
             onLookAround={() => { try { router.dismissAll(); } catch { /* the root */ } router.replace('/search'); }}
           />
         </ScrollView>
-      ) : ended ? (
-        <Animated.View entering={FadeIn.duration(700).delay(500)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-          <StageDirection>(lights down.)</StageDirection>
-          <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.5, color: c.foreground }}>
-            {payload.scene.title}
-          </Text>
-          {payload.scene.play_title ? (
-            <Text style={{ marginTop: 8, fontFamily: MONO, fontSize: 13, color: c.mutedForeground }}>{payload.scene.play_title}</Text>
-          ) : null}
-          <Text style={{ marginTop: 26, textAlign: 'center', fontFamily: SERIF_I, fontSize: 22, color: c.accentText }}>
-            {guided ? 'That is the whole of it.' : 'Again, from the top?'}
-          </Text>
-          <View style={{ marginTop: 26, flexDirection: 'row', gap: 12 }}>
-            <PrimaryPill label="Again" onPress={() => { track('app_rehearse_opened', { from: 'library' }); onAgain(); }} />
-            <PrimaryPill label="Done" variant="outline" onPress={from === 'demo' ? onDone : leave} />
-          </View>
-        </Animated.View>
-      ) : running ? (
+      ) : ended && curtain ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <Animated.View entering={FadeIn.duration(900)}>
+            <StageDirection>(lights down.)</StageDirection>
+          </Animated.View>
+          <Animated.View entering={FadeIn.duration(900).delay(450)} style={{ alignItems: 'center' }}>
+            <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.5, color: c.foreground }}>
+              {payload.scene.title}
+            </Text>
+            {payload.scene.play_title ? (
+              <Text style={{ marginTop: 8, fontFamily: MONO, fontSize: 13, color: c.mutedForeground }}>{payload.scene.play_title}</Text>
+            ) : null}
+          </Animated.View>
+          <Animated.View entering={FadeIn.duration(900).delay(1000)}>
+            <Text style={{ marginTop: 26, textAlign: 'center', fontFamily: SERIF_I, fontSize: 22, color: c.accentText }}>
+              {guided ? 'That is the whole of it.' : 'Again, from the top?'}
+            </Text>
+          </Animated.View>
+          <Animated.View entering={FadeIn.duration(700).delay(1500)} style={{ marginTop: 30, alignItems: 'center', alignSelf: 'stretch' }}>
+            <PrimaryPill label="Again" height={50} onPress={() => { track('app_rehearse_opened', { from: 'library' }); onAgain(); }} style={{ alignSelf: 'center', minWidth: 220 }} />
+            <Pressable onPress={from === 'demo' ? onDone : leave} hitSlop={12} accessibilityRole="button" style={{ marginTop: 18, paddingVertical: 6, paddingHorizontal: 20 }}>
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.mutedForeground }}>Done</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      ) : running || lingering ? (
         /* At the end the stage goes down slowly, not out: the last line is still there while the lights fade. */
         <Animated.View entering={FadeIn.duration(700).delay(200)} exiting={FadeOut.duration(900)} style={{ flex: 1 }}>
+          {/* The lights going down over the last line. */}
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 10, backgroundColor: c.background }, dimStyle]} />
           <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
