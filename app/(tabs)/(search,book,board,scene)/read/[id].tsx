@@ -22,6 +22,8 @@ import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { PrimaryPill } from '../../../../src/components/PrimaryPill';
 import { sourceTag } from '../../../../src/components/Marks';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
+import { Image } from 'expo-image';
+import { posterThumb } from '../../../../src/lib/screen';
 import { ReadWall } from '../../../../src/components/ReadWall';
 import { PageCurl } from '../../../../src/components/PageCurl';
 import { ShareCard, sharePiece } from '../../../../src/components/ShareCard';
@@ -674,11 +676,12 @@ export default function Read() {
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <View
                   style={{
-                    borderWidth: 1.5,
-                    borderColor: `${ink.accent}80`,
-                    backgroundColor: `${ink.accent}1a`,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
+                    // Solid, white on the house's deep colour: the faint tint
+                    // read as nothing in the cinema's violet.
+                    borderRadius: 4,
+                    backgroundColor: ink.accentText,
+                    paddingHorizontal: 9,
+                    paddingVertical: 3,
                   }}
                 >
                   <Text
@@ -689,7 +692,7 @@ export default function Read() {
                       lineHeight: 14,
                       letterSpacing: 1.8,
                       textTransform: 'uppercase',
-                      color: ink.accent,
+                      color: '#ffffff',
                     }}
                   >
                     {shown.character}
@@ -703,7 +706,12 @@ export default function Read() {
                     accent={ink.accent}
                     style={{ marginTop: -4, marginRight: -4, marginBottom: -10 }}
                   />
-                ) : null}
+                ) : (
+                  // A film or a show has a poster where a play has a drawing.
+                  <View style={{ width: 48, height: 72, borderRadius: 4, borderWidth: 1.5, borderColor: c.ink, backgroundColor: '#1f1332', overflow: 'hidden', marginBottom: -24 }}>
+                    <Image source={{ uri: posterThumb(shown.posterUrl) }} style={{ width: '100%', height: '100%' }} contentFit="cover" cachePolicy="memory-disk" transition={140} accessibilityIgnoresInvertColors />
+                  </View>
+                )}
               </View>
 
               <Animated.Text

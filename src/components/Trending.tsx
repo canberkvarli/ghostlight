@@ -4,7 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
+import { Image } from 'expo-image';
+
 import { StageDirection } from './StageDirection';
+import { posterThumb } from '../lib/screen';
 import { getTrending } from '../api/client';
 import { apiToMonologue } from '../data/adapt';
 import type { Monologue } from '../data/monologues';
@@ -58,6 +61,9 @@ export function Trending({ medium, accent, rows = 2 }: { medium: Medium; accent:
             borderBottomColor: c.divider,
           }}
         >
+          {medium === 'screen' && m.posterUrl ? (
+            <Image source={{ uri: posterThumb(m.posterUrl) }} style={{ width: 24, height: 36, borderRadius: 3, marginRight: 2 }} contentFit="cover" cachePolicy="memory-disk" transition={120} accessibilityIgnoresInvertColors />
+          ) : null}
           <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: 'CourierPrime_700Bold', fontSize: 13, color: c.foreground }}>
             {m.character}
           </Text>
