@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
-import { BlurView } from 'expo-blur';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import Animated, {
   Easing,
@@ -15,7 +14,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ANDROID_BLUR } from './PaywallShroud';
 import { MonologueText } from './MonologueText';
 import { PaperCard } from './PaperCard';
 import { PrimaryPill } from './PrimaryPill';
@@ -133,27 +131,16 @@ export function ReadWall({
       <View style={{ height: ghostH, marginTop: 2, overflow: 'hidden' }}>
         <Animated.View style={[StyleSheet.absoluteFill, ghostStyle]} pointerEvents="none">
           <MonologueText body={ghostOf(rest || visible)} lineHeight={lineHeight} fontSize={fontSize} />
-          {/* Stepped blurs, so the first blurred line has no hard focus seam. */}
-          <BlurView
-            intensity={14}
-            tint="light"
-            experimentalBlurMethod={ANDROID_BLUR}
-            style={StyleSheet.absoluteFill}
-          />
-          <BlurView
-            intensity={46}
-            tint="light"
-            experimentalBlurMethod={ANDROID_BLUR}
-            style={{ position: 'absolute', top: lineHeight * 0.6, left: 0, right: 0, bottom: 0 }}
-          />
-          {/* The page fades back to paper at the foot so the block has no edge. */}
+          {/* No blur: the words run on for a line or two and fade into the
+              paper, and the card stands on clean paper under them. The blur
+              read as a smear, and a haze in the dark house. */}
           <Canvas style={StyleSheet.absoluteFill}>
             <Rect x={0} y={0} width={width} height={ghostH}>
               <LinearGradient
                 start={vec(0, 0)}
-                end={vec(0, ghostH)}
-                colors={[paperAlpha(c.paper, 0), paperAlpha(c.paper, 0.15), paperAlpha(c.paper, 0.55), paperAlpha(c.paper, 1)]}
-                positions={[0, 0.3, 0.75, 1]}
+                end={vec(0, lineHeight * 3)}
+                colors={[paperAlpha(c.paper, 0.35), paperAlpha(c.paper, 0.85), paperAlpha(c.paper, 1)]}
+                positions={[0, 0.55, 1]}
               />
             </Rect>
           </Canvas>
@@ -164,7 +151,7 @@ export function ReadWall({
             // On the words themselves, just under the sharp lines: the title and
             // the scene note above stay readable as the taste, and the card
             // takes no more page than it must.
-            { position: 'absolute', left: 0, right: hardShadow.offsetSmall, top: lineHeight * 0.4 },
+            { position: 'absolute', left: 0, right: hardShadow.offsetSmall, top: lineHeight * 1.6 },
             cardStyle,
           ]}
         >
