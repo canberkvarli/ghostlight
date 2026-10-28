@@ -79,7 +79,7 @@ export function TonightCard({ medium, kept, accent }: { medium: Medium; kept: nu
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ fontFamily: MONO_B, fontSize: 10.5, letterSpacing: 2.2, textTransform: 'uppercase', color: accent }}>Tonight&apos;s speech</Text>
             <Text numberOfLines={1} style={{ flexShrink: 1, marginLeft: 10, fontFamily: MONO_I, fontSize: 11.5, color: c.paperMuted }}>
-              {personal ? '(chosen from what you keep.)' : '(free, every night.)'}
+              {personal ? '(for you.)' : '(free tonight.)'}
             </Text>
           </View>
           <Text numberOfLines={1} style={{ marginTop: 8, fontFamily: SERIF, fontSize: 21, lineHeight: 25, letterSpacing: -0.2, color: c.paperInk }}>

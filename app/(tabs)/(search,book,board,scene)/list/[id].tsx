@@ -9,6 +9,8 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { BackHeader } from '../../../../src/components/BackHeader';
 import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
 import { PaperCard } from '../../../../src/components/PaperCard';
+import { PieceCover } from '../../../../src/components/PieceCover';
+import { useFavorites } from '../../../../src/hooks/useFavorites';
 import { StageBackdrop } from '../../../../src/components/StageBackdrop';
 import { StageDirection } from '../../../../src/components/StageDirection';
 import { SwipeRow } from '../../../../src/components/SwipeRow';
@@ -25,6 +27,7 @@ import { useTheme } from '../../../../src/theme/ThemeContext';
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
 const MONO = 'CourierPrime_400Regular';
+const MONO_B = 'CourierPrime_700Bold';
 const SANS = 'BricolageGrotesque_500Medium';
 
 /**
@@ -46,6 +49,10 @@ export default function ListPage() {
   const { isAuthenticated } = useSession();
   const { data: lists, isLoading } = useLists(isAuthenticated);
   const list = lists?.find((l) => l.id === listId);
+  // The Book's own copy of each speech, so a row here reads like a row there:
+  // the cover, the title, who says it and where.
+  const { data: kept } = useFavorites(isAuthenticated);
+  const book = new Map((kept ?? []).map((m) => [String(m.id), m]));
   const rename = useRenameList();
   const remove = useRemoveFromList();
   const del = useDeleteList();
@@ -88,6 +95,7 @@ export default function ListPage() {
   };
 
   const shown = (list?.items ?? []).filter((i) => i.id !== undo?.item.id);
+  const piece = (item: ListItem) => (item.monologue_id != null ? book.get(String(item.monologue_id)) : undefined);
 
   return (
     <View style={{ flex: 1 }}>
@@ -121,11 +129,11 @@ export default function ListPage() {
                 returnKeyType="done"
                 maxLength={80}
                 accessibilityLabel="Name the list"
-                style={{ marginTop: 8, fontFamily: SERIF, fontSize: 40, lineHeight: 48, letterSpacing: -0.8, color: c.foreground, borderBottomWidth: 1, borderBottomColor: c.border }}
+                style={{ marginTop: 8, fontFamily: SERIF, fontSize: 34, lineHeight: 42, letterSpacing: -0.6, color: c.foreground, borderBottomWidth: 1, borderBottomColor: c.border }}
               />
             ) : (
               <Pressable onPress={() => { setTitle(list.title); setNaming(true); }} accessibilityRole="button" accessibilityHint="Tap to rename">
-                <Text numberOfLines={2} style={{ marginTop: 8, fontFamily: SERIF, fontSize: 40, lineHeight: 48, letterSpacing: -0.8, color: c.foreground }}>
+                <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 8, fontFamily: SERIF, fontSize: 34, lineHeight: 40, letterSpacing: -0.6, color: c.foreground }}>
                   {list.title}
                   <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>.</Text>
                 </Text>
@@ -140,13 +148,26 @@ export default function ListPage() {
                 <Animated.View key={item.id} entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} layout={LinearTransition.duration(240)}>
                   <SwipeRow onRemove={() => takeOut(item)} label={`Take ${item.title} out of the list`} style={{ marginBottom: 12 }}>
                     <Pressable onPress={() => void open(item)} accessibilityRole="button" accessibilityLabel={`${item.title}${item.subtitle ? `, ${item.subtitle}` : ''}`}>
-                      <PaperCard rotate={i % 2 ? 0.3 : -0.4} style={{ paddingVertical: 14, paddingHorizontal: 14 }}>
+                      <PaperCard rotate={i % 2 ? 0.3 : -0.4} style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                          <Ionicons name={item.kind === 'speech' ? 'document-text-outline' : 'people-outline'} size={20} color={c.accentText} />
+                          {piece(item) ? (
+                            <PieceCover item={piece(item)!} width={40} height={56} />
+                          ) : (
+                            <View style={{ width: 40, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+                              <Ionicons name={item.kind === 'speech' ? 'document-text-outline' : 'people-outline'} size={22} color={c.accentText} />
+                            </View>
+                          )}
                           <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 19, lineHeight: 23, letterSpacing: -0.2, color: c.paperInk }}>{item.title}</Text>
-                            <Text numberOfLines={1} style={{ marginTop: 3, fontFamily: MONO, fontSize: 11.5, lineHeight: 16, color: c.paperMuted }}>
-                              {item.kind === 'sides' ? `sides${item.subtitle ? ` · ${item.subtitle}` : ''}` : item.subtitle ?? ''}
+                            <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 19, lineHeight: 23, letterSpacing: -0.2, color: c.paperInk }}>
+                              {piece(item)?.title ?? item.title}
+                            </Text>
+                            <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: MONO, fontSize: 11.5, lineHeight: 16, color: c.paperMuted }}>
+                              {piece(item) ? (
+                                <>
+                                  <Text style={{ fontFamily: MONO_B, color: c.paperInk }}>{piece(item)!.character}</Text>
+                                  {` · ${piece(item)!.source}`}
+                                </>
+                              ) : item.kind === 'sides' ? `sides${item.subtitle ? ` · ${item.subtitle}` : ''}` : item.subtitle ?? ''}
                             </Text>
                           </View>
                           {opening === item.id ? <ActivityIndicator size="small" color={c.paperMuted} /> : <Ionicons name="chevron-forward" size={18} color={c.paperFaint} />}
@@ -157,9 +178,6 @@ export default function ListPage() {
                 </Animated.View>
               ))}
             </View>
-            <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 12.5, lineHeight: 18, color: c.mutedForeground }}>
-              Lists are free and there is no limit to them.
-            </Text>
           </ScrollView>
         )}
 

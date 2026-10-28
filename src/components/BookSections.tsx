@@ -55,13 +55,24 @@ function Head({ title, children }: { title: string; children?: React.ReactNode }
   );
 }
 
-function HeadLink({ label, icon, onPress }: { label: string; icon?: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
+/** A word of action at the right of a section's head: "Add", "Board". Sans, the app's own voice. */
+function HeadLink({ label, icon, after, onPress }: { label: string; icon?: keyof typeof Ionicons.glyphMap; after?: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
   const { colors: c } = useTheme();
   return (
     <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={label}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      {icon ? <Ionicons name={icon} size={14} color={c.mutedForeground} /> : null}
-      <StageDirection link numberOfLines={1}>({label})</StageDirection>
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+      {icon ? <Ionicons name={icon} size={15} color={c.accentText} /> : null}
+      <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 13.5, color: c.accentText }}>{label}</Text>
+      {after ? <Ionicons name={after} size={14} color={c.accentText} /> : null}
+    </Pressable>
+  );
+}
+
+/** A sentence that is also a way in, for an empty section. */
+function LineLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}>
+      <StageDirection link numberOfLines={2}>{label}</StageDirection>
     </Pressable>
   );
 }
@@ -78,9 +89,9 @@ export function ComingUp({ auditions, book, first }: { auditions: Audition[]; bo
   if (!upcoming.length) {
     // Nothing coming: one quiet line, so adding one is never more than a tap away.
     return (
-      <View style={{ marginTop: first ? 22 : 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <HeadLink label="an audition coming up? add it." icon="add" onPress={() => router.push('/audition')} />
-        {auditions.length ? <HeadLink label="the board" onPress={() => router.push('/auditions')} /> : null}
+      <View style={{ marginTop: first ? 22 : 30, gap: 6 }}>
+        <LineLink label="(an audition coming up? add it here.)" onPress={() => router.push('/audition')} />
+        {auditions.length ? <LineLink label="(the ones gone by are on the board.)" onPress={() => router.push('/auditions')} /> : null}
       </View>
     );
   }
@@ -88,16 +99,18 @@ export function ComingUp({ auditions, book, first }: { auditions: Audition[]; bo
   return (
     <View style={{ marginTop: first ? 26 : 34 }}>
       <Head title="Coming up">
-        <HeadLink label="add" icon="add" onPress={() => router.push('/audition')} />
-        <HeadLink label="the board" onPress={() => router.push('/auditions')} />
+        <HeadLink label="Add" icon="add" onPress={() => router.push('/audition')} />
+        <HeadLink label="Board" after="chevron-forward" onPress={() => router.push('/auditions')} />
       </Head>
       {upcoming.slice(0, 3).map((a, i) => {
         const [mon, day] = stubLabel(a);
         const p = attachedPiece(a);
         const piece = p?.monologue_id != null ? kept.get(String(p.monologue_id)) : undefined;
+        // The speech by its title, as the Book names it; the character is in
+        // capitals in the catalogue and shouted on a card this small.
         const what = piece
-          ? `${piece.character ?? piece.title}${piece.offBook ? ', off book' : ''}`
-          : p?.title ?? (a.material_raw ? 'no piece chosen yet' : null);
+          ? `${piece.title}${piece.offBook ? ', off book' : ''}`
+          : p?.title ?? 'no piece chosen yet';
         return (
           <Pressable key={a.id} onPress={() => router.push({ pathname: '/prep', params: { id: String(a.id) } })}
             accessibilityRole="button" accessibilityLabel={`${a.project}, ${countdown(a.when)}`} style={{ marginBottom: 12 }}>
@@ -123,14 +136,14 @@ export function ComingUp({ auditions, book, first }: { auditions: Audition[]; bo
         );
       })}
       {upcoming.length > 3 ? (
-        <HeadLink label={`and ${upcoming.length - 3} more on the board`} onPress={() => router.push('/auditions')} />
+        <LineLink label={`(and ${upcoming.length - 3} more on the board.)`} onPress={() => router.push('/auditions')} />
       ) : null}
     </View>
   );
 }
 
 /** The actor's lists, a card each, and a new one made in place. */
-export function YourLists({ lists, loading }: { lists: BookList[]; loading: boolean }) {
+export function YourLists({ lists, loading, book }: { lists: BookList[]; loading: boolean; book: Monologue[] }) {
   const { colors: c } = useTheme();
   const router = useRouter();
   const create = useCreateList();
@@ -147,7 +160,7 @@ export function YourLists({ lists, loading }: { lists: BookList[]; loading: bool
   return (
     <View style={{ marginTop: 34 }}>
       <Head title="Your lists">
-        {!naming ? <HeadLink label="new" icon="add" onPress={() => setNaming(true)} /> : null}
+        {!naming ? <HeadLink label="New" icon="add" onPress={() => setNaming(true)} /> : null}
       </Head>
       {naming ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border }}>
@@ -179,7 +192,9 @@ export function YourLists({ lists, loading }: { lists: BookList[]; loading: bool
         </StageDirection>
       ) : null}
       {lists.map((l, i) => {
-        const first = l.items.slice(0, 2).map((x) => x.title).join(', ');
+        // Speeches by their titles, as the Book names them; sides by the script's.
+        const kept = new Map(book.map((m) => [String(m.id), m]));
+        const first = l.items.slice(0, 2).map((x) => (x.monologue_id != null ? kept.get(String(x.monologue_id))?.title : null) ?? x.title).join(', ');
         return (
           <Pressable key={l.id} onPress={() => router.push({ pathname: '/list/[id]', params: { id: String(l.id) } })}
             accessibilityRole="button" accessibilityLabel={`${l.title}, ${l.items.length} in it`} style={{ marginBottom: 12 }}>

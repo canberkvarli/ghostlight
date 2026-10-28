@@ -1153,7 +1153,7 @@ export default function Read() {
         <KeepSheet
           open={keeping}
           what={{ monologue_id: Number(monologue.id) }}
-          name={monologue.character ? `${monologue.character}, ${monologue.source ?? monologue.title}` : monologue.title}
+          name={monologue.title}
           onClose={() => setKeeping(false)}
         />
       ) : null}

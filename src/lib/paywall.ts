@@ -27,11 +27,11 @@ export function paywallHref(trigger: PaywallTrigger): Href {
 
 /** The line under the title, in the actor's terms. Null where the title is enough. */
 export const WHY_LINE: Partial<Record<PaywallTrigger, string>> = {
-  read_limit: '(that was three tonight. tomorrow brings three more.)',
-  run_limit: '(one run with the partner is free each month.)',
+  read_limit: '(three tonight. three more tomorrow.)',
+  run_limit: '(one partner run a month is free.)',
   script_limit: '(one script of your own is free.)',
-  run_it: '(the whole speech, run with you, every night.)',
-  copy: '(copying the words comes with the whole stage.)',
+  run_it: '(the whole speech, run with you.)',
+  copy: '(copying comes with the whole stage.)',
 };
 
 export function asTrigger(value: unknown): PaywallTrigger | null {

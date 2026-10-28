@@ -481,7 +481,7 @@ export default function Search() {
                 <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/account'); }} hitSlop={10}
                   accessibilityRole="button" accessibilityLabel={`${streak.days} ${streak.days === 1 ? 'night' : 'nights'} running`}>
                   <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: streak.today ? pal.accentText : c.mutedForeground }}>
-                    ({streak.days} {streak.days === 1 ? 'night' : 'nights'}{streak.today ? '' : ', tonight keeps it'})
+                    ({streak.days} {streak.days === 1 ? 'night' : 'nights'})
                   </Text>
                 </Pressable>
               ) : null}

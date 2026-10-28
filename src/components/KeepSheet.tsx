@@ -107,7 +107,9 @@ export function KeepSheet({ open, what, name, onClose }: {
             <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 32, lineHeight: 36, letterSpacing: -0.4, color: c.foreground }}>
               Keep it <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>in…</Text>
             </Text>
-            <StageDirection numberOfLines={1} style={{ marginTop: 4 }}>({name}. it stays in your book either way.)</StageDirection>
+            <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>
+              ({name}. {'monologue_id' in what ? 'it stays in your book either way.' : 'they stay in the scene room either way.'})
+            </StageDirection>
 
             <ScrollView style={{ marginTop: 10 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               {coming.length ? (

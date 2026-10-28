@@ -319,7 +319,7 @@ export default function Saves() {
             {!picking && !finding ? (
               <Reveal order={0}>
                 <ComingUp auditions={auditions ?? []} book={items} first />
-                <YourLists lists={lists ?? []} loading={listsLoading} />
+                <YourLists lists={lists ?? []} loading={listsLoading} book={items} />
               </Reveal>
             ) : null}
 

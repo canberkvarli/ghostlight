@@ -86,7 +86,7 @@ export default function Paywall() {
             </StageDirection>
             {/* What they just did, said back, when they came here by doing it. */}
             {why ? (
-              <Text style={{ marginTop: 14, textAlign: 'center', fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 12, textAlign: 'center', fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
                 {why}
               </Text>
             ) : null}
