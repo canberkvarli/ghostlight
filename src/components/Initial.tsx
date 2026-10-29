@@ -17,7 +17,7 @@ export function Initial() {
   // alone; there it is a lit ring. On paper the ink circle holds.
   const dark = scheme === 'dark';
   const { session, isAuthenticated } = useSession();
-  const name = session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name ?? session?.user.email ?? '';
+  const name = session?.user.user_metadata?.display_name ?? session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name ?? session?.user.email ?? '';
   const letter = isAuthenticated && name ? String(name).trim().charAt(0).toUpperCase() : 'G';
   return (
     <Pressable

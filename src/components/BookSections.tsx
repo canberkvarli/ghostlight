@@ -124,8 +124,10 @@ export function ListChips({ lists, selected, onSelect, onHold, onNew }: {
   );
 }
 
-/** A sheet with one field: naming a new list, or renaming one. */
-export function NameSheet({ open, title, accent, initial, confirm, busy, onSave, onClose }: {
+/** A sheet with one field: naming a new list, renaming one, or the actor's own name. */
+export function NameSheet({ open, title, accent, initial, confirm, busy, onSave, onClose, placeholder = 'Two contrasting, for my agent…', fieldLabel = "The list's name" }: {
+  placeholder?: string;
+  fieldLabel?: string;
   open: boolean;
   title: string;
   accent: string;
@@ -154,12 +156,12 @@ export function NameSheet({ open, title, accent, initial, confirm, busy, onSave,
               value={name}
               onChangeText={setName}
               onSubmitEditing={save}
-              placeholder="Two contrasting, for my agent…"
+              placeholder={placeholder}
               placeholderTextColor={c.chevron}
               selectionColor={c.accentText}
               returnKeyType="done"
               maxLength={80}
-              accessibilityLabel="The list's name"
+              accessibilityLabel={fieldLabel}
               style={{ marginTop: 16, paddingVertical: 12, fontFamily: SANS, fontSize: 17, color: c.foreground, borderBottomWidth: 1.5, borderBottomColor: c.border }}
             />
             <PrimaryPill label={confirm} onPress={save} block height={50} style={{ marginTop: 20, opacity: name.trim() ? 1 : 0.5 }} />

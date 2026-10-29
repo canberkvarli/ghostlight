@@ -21,7 +21,13 @@ import { useQuery as useRunsQuery } from '@tanstack/react-query';
 import { listRuns } from '../src/api/rehearsal';
 import { GhostLight } from '../src/components/GhostLight';
 import { loadRecents } from '../src/lib/recents';
-import { streakOf } from '../src/rehearsal/streak';
+import type { Streak } from '../src/rehearsal/streak';
+import { useNights } from '../src/hooks/useNights';
+import { useAuditions } from '../src/hooks/useAuditions';
+import { NameSheet } from '../src/components/BookSections';
+import { supabase } from '../src/lib/supabase';
+import { PRACTICE_LABEL, onLocalDay, type PracticeEntry } from '../src/api/practice';
+import type { Audition } from '../src/api/auditions';
 import type { ReadState } from '../src/api/client';
 import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../src/lib/auth';
 import { useSession } from '../src/lib/useSession';
@@ -79,6 +85,9 @@ function SignedIn({ session }: { session: Session }) {
   const stats = useRunStats(true);
   const runs = useRunsQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), staleTime: 60_000 });
   const recents = useRunsQuery({ queryKey: ['recents-local'], queryFn: loadRecents, staleTime: 30_000 });
+  const nights = useNights(true, recents.data ?? []);
+  const { data: auditions } = useAuditions(true);
+  const [naming, setNaming] = useState(false);
   const sub = useQuery({ queryKey: ['subscription'], queryFn: getSubscription, staleTime: 5 * 60_000, enabled: isPaid });
   // The page comes up whole, the streak, the plan and the counts together,
   // never a zero that turns into a number in front of you. They are fetched
@@ -111,23 +120,31 @@ function SignedIn({ session }: { session: Session }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
         <Avatar letter={letter} paid={isPaid} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.3, color: c.foreground }}>
-            {who.first}
-            {who.rest ? <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{` ${who.rest}.`}</Text> : <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>.</Text>}
-          </Text>
+          {/* The name is theirs to change: a tap opens it. */}
+          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setNaming(true); }} accessibilityRole="button" accessibilityLabel={`Your name, ${who.first} ${who.rest}`.trim()} accessibilityHint="Tap to change it"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.3, color: c.foreground }}>
+              {who.first}
+              {who.rest ? <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{` ${who.rest}.`}</Text> : <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>.</Text>}
+            </Text>
+            <Ionicons name="pencil" size={15} color={c.mutedForeground} />
+          </Pressable>
           <Text numberOfLines={1} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.mutedForeground }}>
             {isPaid ? '(the whole stage.)' : `(actor.${since ? ` since ${since}.` : ''})`}
           </Text>
         </View>
       </View>
 
-      {/* Nights in the work: the streak and this week. */}
-      <StreakCard runs={runs.data ?? []} recents={recents.data ?? []} />
+      {/* Nights in the work: the streak and this week, counted as the lamp on Search counts them. */}
+      <StreakCard streak={nights.streak} />
+      <NightsLog entries={nights.entries} />
 
       {/* Your plan: the one card. */}
       <View style={{ marginTop: 28 }}>
         {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => push(paywallHref('account'))} />}
       </View>
+
+      <AuditionRecord auditions={auditions ?? []} onOpen={() => toRoom('/(board)/auditions')} />
 
       {/* One row, three counts. */}
       <View style={{ marginTop: 28, flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.divider }}>
@@ -135,6 +152,20 @@ function SignedIn({ session }: { session: Session }) {
         <Stat n={wall?.reads_used ?? 0} label="(read.)" divider />
         <Stat n={stats.data?.runs ?? 0} label="(scenes run.)" divider onPress={() => toRoom('/(scene)/rehearse')} />
       </View>
+      <NameSheet
+        open={naming}
+        title="Your"
+        accent="name."
+        initial={`${who.first === 'You' ? '' : who.first}${who.rest ? ` ${who.rest}` : ''}`}
+        placeholder="The name on your headshot"
+        fieldLabel="Your name"
+        confirm="Save"
+        onSave={(name) => {
+          setNaming(false);
+          void supabase.auth.updateUser({ data: { display_name: name } }).then(() => track('app_name_changed', {})).catch(() => {});
+        }}
+        onClose={() => setNaming(false)}
+      />
     </Animated.ScrollView>
   );
 }
@@ -349,6 +380,9 @@ function SignedOut() {
 function nameOf(session: Session): { first: string; rest: string } {
   const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
   const str = (k: string) => (typeof meta[k] === 'string' ? (meta[k] as string).trim() : '');
+  // The name they gave themselves on this page wins over anything a provider guessed.
+  const chosen = str('display_name').split(/\s+/).filter(Boolean);
+  if (chosen.length) return { first: chosen[0], rest: chosen.slice(1).join(' ') };
   const given = str('given_name');
   const family = str('family_name');
   if (given && looksLikeAName(given)) return { first: titleCase(given), rest: family && looksLikeAName(family) ? titleCase(family) : '' };
@@ -396,9 +430,8 @@ const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
  * seven days of this week as seven marks, the lit ones gel. Today with
  * nothing yet keeps a streak that reached yesterday, and says so.
  */
-function StreakCard({ runs, recents }: { runs: { started_at: string | null }[]; recents: { openedAt: string }[] }) {
+function StreakCard({ streak: s }: { streak: Streak }) {
   const { colors: c } = useTheme();
-  const s = streakOf([...runs.map((r) => r.started_at), ...recents.map((r) => r.openedAt)]);
   const todayIndex = (new Date().getDay() + 6) % 7;
   const line = s.days === 0
     ? '(tonight starts it. one scene, or one speech.)'
@@ -452,5 +485,60 @@ function Meter({ label, used, limit, loaded, note }: { label: string; used: numb
       )}
       <Text style={{ marginTop: 5, fontFamily: MONO_I, fontSize: 11.5, color: c.mutedForeground }}>({note}.)</Text>
     </View>
+  );
+}
+
+/**
+ * The nights, written down: what was checked in from the lamp, newest first,
+ * a line a thing. The last ten; the lamp is where it is written.
+ */
+function NightsLog({ entries }: { entries: PracticeEntry[] }) {
+  const { colors: c } = useTheme();
+  const shown = entries.slice(0, 10);
+  return (
+    <View style={{ marginTop: 22 }}>
+      <Eyebrow>YOUR NIGHTS</Eyebrow>
+      {shown.length === 0 ? (
+        <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 13.5, lineHeight: 19, color: c.mutedForeground }}>
+          Tap the lamp on Search to check in what you worked on tonight, in the app or away from it.
+        </Text>
+      ) : (
+        shown.map((e) => (
+          <View key={e.id} style={{ flexDirection: 'row', gap: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+            <Text style={{ width: 54, fontFamily: MONO_I, fontSize: 12, lineHeight: 19, color: c.mutedForeground }}>
+              {onLocalDay(e.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontFamily: SANS_B, fontSize: 14, lineHeight: 19, color: c.foreground }}>{PRACTICE_LABEL[e.kind]}</Text>
+              {e.note ? <Text numberOfLines={2} style={{ marginTop: 1, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.mutedForeground }}>{e.note}</Text> : null}
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
+/** This year's auditions, said back: how many, how many called back, how many booked. A tap opens the board. */
+function AuditionRecord({ auditions, onOpen }: { auditions: Audition[]; onOpen: () => void }) {
+  const { colors: c } = useTheme();
+  const year = new Date().getFullYear();
+  const mine = auditions.filter((a) => {
+    const t = a.when ?? a.created_at;
+    return t ? new Date(t).getFullYear() === year : false;
+  });
+  if (!mine.length) return null;
+  const callbacks = mine.filter((a) => a.status === 'callback' || a.callback_id != null).length;
+  const booked = mine.filter((a) => a.status === 'booked').length;
+  return (
+    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${mine.length} auditions this year, ${callbacks} callbacks, ${booked} booked`}
+      style={({ pressed }) => ({ marginTop: 28, opacity: pressed ? 0.75 : 1 })}>
+      <Eyebrow>{`${year} IN THE ROOM`}</Eyebrow>
+      <View style={{ marginTop: 10, flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.divider }}>
+        <Stat n={mine.length} label={mine.length === 1 ? '(audition.)' : '(auditions.)'} />
+        <Stat n={callbacks} label={callbacks === 1 ? '(callback.)' : '(callbacks.)'} divider />
+        <Stat n={booked} label="(booked.)" divider />
+      </View>
+    </Pressable>
   );
 }

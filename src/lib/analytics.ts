@@ -193,6 +193,9 @@ export type Event =
   | { name: 'app_tonight_answer'; props: { answer: 'keep' | 'pass' } }
   // Run it on a speech, for a free actor: the four lines, then the wall.
   | { name: 'app_run_preview_ended'; props: { id: string } }
+  // The lamp's check-in: what was worked on tonight.
+  | { name: 'app_checkin'; props: { kind: string; note: boolean } }
+  | { name: 'app_name_changed'; props: Record<string, never> }
   // The recogniser's input went silent under a running task and was restarted (src/rehearsal/native/mic.ts).
   | { name: 'app_mic_deaf'; props: { where: 'scene' | 'run'; since_start_ms: number; restarts: number; granted_this_launch: boolean } }
   | { name: 'app_run_listen'; props: { on: boolean } }

@@ -68,9 +68,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UpNext } from '../../../src/components/UpNext';
 import { PLAYS_KEY, type Plays } from '../../../src/lib/plays';
 import { TonightCard } from '../../../src/components/TonightCard';
-import { useQuery } from '@tanstack/react-query';
-import { listRuns } from '../../../src/api/rehearsal';
-import { streakOf } from '../../../src/rehearsal/streak';
+import { useNights } from '../../../src/hooks/useNights';
+import { CheckInSheet } from '../../../src/components/CheckInSheet';
 
 /**
  * Step 2 — Search is home.
@@ -431,14 +430,12 @@ export default function Search() {
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
 
-  // The streak, small, by your initial: nights in a row with a speech opened
-  // or a scene run. It lived on Account, where nobody saw it day to day. It
-  // only counts up; a missed night costs nothing but the number.
-  const { data: runDays } = useQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), enabled: isAuthenticated, staleTime: 60_000 });
-  const streak = useMemo(
-    () => streakOf([...(runDays ?? []).map((r) => r.started_at), ...recents.map((r) => r.openedAt)]),
-    [runDays, recents],
-  );
+  // The lamp is the streak: dim until tonight has some work in it, lit once it
+  // does, the run of nights beside it. A check-in counts (work away from the
+  // app as much as in it), and so does a scene run or a speech opened.
+  const { streak, entries: practice } = useNights(isAuthenticated, recents);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const lit = isAuthenticated && streak.today;
 
   // The ticket and the knocks. The board card above already says the next
   // audition and the empty board, so the ticket keeps to the two things the
@@ -476,25 +473,30 @@ export default function Search() {
           accessible={false}
           style={{ flex: 1 }}
         >
-          {/* The top row: the mark and the name on the left, your initial on the right. */}
+          {/* The top row: the lamp on the left, your initial on the right. The lamp
+              is tonight: dim until there is some work in it, lit after, the run of
+              nights beside it, and a tap is the check-in. A stranger's is only the lamp. */}
           <View style={{ height: HEADER_H, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pressable onPress={onLampPress} hitSlop={12} accessibilityRole="image" accessibilityLabel="Ghost Light" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ shadowColor: pal.glow, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }}>
-                <Image source={MARK} style={{ width: 22, height: 22 }} contentFit="contain" accessibilityIgnoresInvertColors />
+            <Pressable
+              onPress={() => {
+                if (!isAuthenticated) { onLampPress(); return; }
+                Haptics.selectionAsync().catch(() => {});
+                setCheckingIn(true);
+              }}
+              hitSlop={12}
+              accessibilityRole={isAuthenticated ? 'button' : 'image'}
+              accessibilityLabel={isAuthenticated ? `Tonight. ${streak.days} ${streak.days === 1 ? 'night' : 'nights'} running${lit ? ', tonight is in' : ''}` : 'Ghost Light'}
+              accessibilityHint={isAuthenticated ? 'Check in what you worked on tonight' : undefined}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36 }}
+            >
+              <View style={{ opacity: !isAuthenticated || lit ? 1 : 0.4, shadowColor: pal.glow, shadowOpacity: !isAuthenticated || lit ? 0.7 : 0, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }}>
+                <Image source={MARK} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityIgnoresInvertColors />
               </View>
-              <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 11, letterSpacing: 2.6, color: c.foreground }}>GHOST LIGHT</Text>
-            </Pressable>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {isAuthenticated && streak.days > 0 ? (
-                <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/account'); }} hitSlop={10}
-                  accessibilityRole="button" accessibilityLabel={`${streak.days} ${streak.days === 1 ? 'night' : 'nights'} running`}>
-                  <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: streak.today ? pal.accentText : c.mutedForeground }}>
-                    ({streak.days} {streak.days === 1 ? 'night' : 'nights'})
-                  </Text>
-                </Pressable>
+                <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 15, color: lit ? pal.accentText : c.mutedForeground }}>{streak.days}</Text>
               ) : null}
-              <Initial />
-            </View>
+            </Pressable>
+            <Initial />
           </View>
 
           {/* A scroll, under the row. On a tall phone nothing moves; on a short
@@ -852,6 +854,7 @@ export default function Search() {
 
         </Pressable>
       </SafeAreaView>
+      {isAuthenticated ? <CheckInSheet open={checkingIn} streak={streak} entries={practice} onClose={() => setCheckingIn(false)} /> : null}
 
       {/* The house-lights flash, over everything, on a medium change. */}
       <Animated.View
