@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,7 +34,7 @@ import { useRoomScroll } from '../../../src/lib/barScroll';
 import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
 import { AddButton, ListChips, NameSheet, NextRow } from '../../../src/components/BookSections';
 import { useCreateList, useDeleteList, useLists, useRemoveFromList, useRenameList } from '../../../src/hooks/useLists';
-import type { BookList, ListItem } from '../../../src/api/book';
+import { shareList, unshareList, type BookList, type ListItem } from '../../../src/api/book';
 
 /**
  * Saved — "Your book."
@@ -471,7 +471,9 @@ export default function Saves() {
         title={holding?.title ?? ''}
         accent=""
         options={[
+          { key: 'share', label: 'Send it', line: 'a link for your agent or teacher: titles, not the words' },
           { key: 'rename', label: 'Rename' },
+          { key: 'unshare', label: 'Stop sharing', line: 'a link sent before opens nothing' },
           { key: 'delete', label: 'Delete the list', line: 'what is in it stays in your book' },
         ]}
         value={'' as 'rename'}
@@ -479,6 +481,12 @@ export default function Saves() {
           const l = holding;
           if (!l) return;
           if (k === 'rename') setTimeout(() => setNaming(l), 250);
+          else if (k === 'share') {
+            void shareList(l.id).then(({ url }) => {
+              track('app_list_shared', { items: l.items.length });
+              setTimeout(() => { void Share.share({ message: `${l.title}: ${url}`, url }).catch(() => {}); }, 300);
+            }).catch(() => {});
+          } else if (k === 'unshare') void unshareList(l.id).catch(() => {});
           else { deleteList.mutate({ id: l.id }); if (listId === l.id) setListId(null); }
         }}
         onClose={() => setHolding(null)}

@@ -196,6 +196,7 @@ export type Event =
   // The lamp's check-in: what was worked on tonight.
   | { name: 'app_checkin'; props: { kind: string; note: boolean } }
   | { name: 'app_name_changed'; props: Record<string, never> }
+  | { name: 'app_list_shared'; props: { items: number } }
   // The recogniser's input went silent under a running task and was restarted (src/rehearsal/native/mic.ts).
   | { name: 'app_mic_deaf'; props: { where: 'scene' | 'run'; since_start_ms: number; restarts: number; granted_this_launch: boolean } }
   | { name: 'app_run_listen'; props: { on: boolean } }

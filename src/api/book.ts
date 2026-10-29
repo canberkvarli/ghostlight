@@ -45,6 +45,10 @@ export const restoreList = (id: number) => call<BookList>('POST', `/lists/${id}/
 
 export type Keepable = { monologue_id: number } | { user_script_id: number };
 
+/** A link to the list on actorrise.com: titles and running times, never the words. The same link until it is taken back. */
+export const shareList = (id: number) => call<{ token: string; url: string }>('POST', `/lists/${id}/share`);
+export const unshareList = (id: number) => call<void>('DELETE', `/lists/${id}/share`);
+
 export const addToList = (id: number, what: Keepable) => call<BookList>('POST', `/lists/${id}/items`, what);
 export const removeFromList = (id: number, itemId: number) => call<void>('DELETE', `/lists/${id}/items/${itemId}`);
 
