@@ -64,7 +64,9 @@ import { useTheme } from '../../../src/theme/ThemeContext';
 import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useHideBarOnScroll } from '../../../src/lib/barScroll';
 import { Initial } from '../../../src/components/Initial';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UpNext } from '../../../src/components/UpNext';
+import { PLAYS_KEY, type Plays } from '../../../src/lib/plays';
 import { TonightCard } from '../../../src/components/TonightCard';
 import { useQuery } from '@tanstack/react-query';
 import { listRuns } from '../../../src/api/rehearsal';
@@ -153,6 +155,12 @@ export default function Search() {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Selection>(EMPTY_SELECTION);
   const [medium, setMediumState] = useState<Medium>('theatre');
+  // An actor who said they mostly play screen opens on Film & TV (app/welcome.tsx).
+  useEffect(() => {
+    AsyncStorage.getItem(PLAYS_KEY)
+      .then((v) => { if (v && (JSON.parse(v) as Plays).house === 'screen') setMediumState('screen'); })
+      .catch(() => {});
+  }, []);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [history, setHistory] = useState<RecentSearch[]>([]);
   const [recents, setRecents] = useState<RecentPiece[]>([]);
