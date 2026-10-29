@@ -165,6 +165,9 @@ export async function requestNotificationPermission(): Promise<boolean> {
     const { status } = await Notifications.requestPermissionsAsync({
       ios: { allowAlert: true, allowSound: true, allowBadge: false },
     });
+    // A yes is also the moment the server can start knocking (src/lib/push.ts).
+    // Required here rather than imported: push.ts reaches back into this file's neighbours.
+    if (status === 'granted') void (require('./push') as typeof import('./push')).registerPush();
     return status === 'granted';
   } catch {
     return false;

@@ -6,12 +6,17 @@ import WidgetKit
 // Tonight's speech, on the home screen.
 //
 // The widget fetches for itself. When iOS asks it for a timeline it calls the
-// server's public "tonight" run (GET /api/monologues/tonight), a week of
+// server's "tonight" run, a week of
 // picks for the chosen house, keeps the answer and the day's poster in the
 // shared App Group, and asks to be woken after midnight. Offline it shows
 // what it kept; on a fresh install with no signal it shows a pick from the
 // seed bundled here, so there is never an empty frame telling you to go and
 // open the app. The app reads the same run, so the two never disagree.
+//
+// For a signed-in actor the app leaves a key in the App Group ("widgetKey"),
+// and the run comes from GET /api/monologues/tonight/widget with tonight made
+// their own: the speech chosen from what they keep. Without one it is the
+// house's run, the same for everyone.
 //
 // The stage is the app's warm near-black, the words are paper, the fonts are
 // the app's own: Instrument Serif for names and quotes, Courier Prime for
@@ -19,6 +24,13 @@ import WidgetKit
 
 let appGroup = "group.com.actorrise.ghostlight"
 let api = "https://api.actorrise.com/api/monologues/tonight"
+let personalApi = "https://api.actorrise.com/api/monologues/tonight/widget"
+
+/// The key the app leaves for the widget once an actor is signed in; nil for a stranger.
+func widgetKey() -> String? {
+    let key = UserDefaults(suiteName: appGroup)?.string(forKey: "widgetKey")
+    return (key?.isEmpty ?? true) ? nil : key
+}
 
 let stage = Color(red: 0x13 / 255, green: 0x0b / 255, blue: 0x08 / 255)
 let paper = Color(red: 0xf3 / 255, green: 0xee / 255, blue: 0xe6 / 255)
@@ -228,7 +240,13 @@ enum Store {
 // MARK: - The network
 
 func fetchRun(_ house: House) async -> [Day]? {
-    guard let url = URL(string: "\(api)?house=\(house.rawValue)&days=8") else { return nil }
+    var parts = URLComponents(string: widgetKey() == nil ? api : personalApi)
+    parts?.queryItems = [URLQueryItem(name: "house", value: house.rawValue), URLQueryItem(name: "days", value: "8")]
+    if let key = widgetKey() {
+        parts?.queryItems?.append(URLQueryItem(name: "key", value: key))
+        parts?.queryItems?.append(URLQueryItem(name: "tz", value: TimeZone.current.identifier))
+    }
+    guard let url = parts?.url else { return nil }
     var req = URLRequest(url: url)
     req.timeoutInterval = 15
     req.setValue("ghostlight-widget", forHTTPHeaderField: "X-Client")

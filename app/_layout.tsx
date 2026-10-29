@@ -43,6 +43,7 @@ import { BackstageNoteHost } from '../src/components/BackstageNote';
 import { recordAppBackground, recordAppOpen } from '../src/lib/reviewMoments';
 import { useQuickActionNote } from '../src/hooks/useQuickActionNote';
 import { useReminderSync, useReminderTaps } from '../src/hooks/useReminders';
+import { clearPushLocal, usePushAndWidget } from '../src/lib/push';
 import { clearAllReminders, configureNotifications } from '../src/lib/notifications';
 import { clearRecents } from '../src/lib/recents';
 import { resetKnocks } from '../src/lib/nudges';
@@ -169,6 +170,7 @@ export default function RootLayout() {
         // The pieces opened on this device were this account's reading.
         void clearRecents();
         void resetKnocks();
+        void clearPushLocal();
         // Without a fresh anonymous session every request 401s and the app looks
         // broken rather than signed out.
         void bootstrapSession();
@@ -283,6 +285,7 @@ function Shell() {
   // tapped reminder into the reader.
   const { isAuthenticated, session } = useSession();
   useReminderSync(isAuthenticated, session?.user.id);
+  usePushAndWidget(isAuthenticated, session?.user.id);
   // Remembered, so a sign-out lands on Search and never on the front door again.
   useEffect(() => { if (isAuthenticated) void markHadAccount(); }, [isAuthenticated]);
   // The Scene room is fetched as the app opens, so its shelves are there when the tab is.

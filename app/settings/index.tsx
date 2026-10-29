@@ -23,6 +23,7 @@ import { getSubscription, manageSubscription, restore } from '../../src/lib/purc
 import { hasNotificationPermission, notificationsDenied, remindersMuted, requestNotificationPermission, setRemindersMuted, syncReminders } from '../../src/lib/notifications';
 import { MAKER, emailMaker, openInstagram, rateGhostLight } from '../../src/lib/maker';
 import { track } from '../../src/lib/analytics';
+import { forgetPush } from '../../src/lib/push';
 import { paywallHref } from '../../src/lib/paywall';
 import { useTheme, type ThemeMode } from '../../src/theme/ThemeContext';
 
@@ -125,6 +126,7 @@ export default function Settings() {
     setBusy('signout');
     try {
       // The cache clear and the fresh anonymous session are handled by the SIGNED_OUT listener in app/_layout.tsx.
+      await forgetPush();
       await supabase.auth.signOut();
       setAskingOut(false);
       // Signed out, the house is Search: the front door was seen on the way in.

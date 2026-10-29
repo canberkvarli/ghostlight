@@ -109,7 +109,6 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "./plugins/withLocalNotificationsOnly.js",
       [
         "expo-notifications",
         {

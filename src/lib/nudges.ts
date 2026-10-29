@@ -63,6 +63,8 @@ interface State {
   knocksOn?: boolean;
   /** Last time a tonight knock was opened, so a run of silence can be measured. */
   lastOpenedAt?: number;
+  /** The server knocks with tonight's speech now (src/lib/push.ts): the phone does not. */
+  pushTonight?: boolean;
 }
 
 const EMPTY: State = { tonightUnopened: 0, tonightPending: [] };
@@ -298,8 +300,9 @@ export async function syncKnocks(plan: KnockPlan, now = new Date()): Promise<voi
     }
   }
 
-  // Tonight's speech, the week ahead, unless the silence says stop.
-  if (unopened < QUIET_AFTER) {
+  // Tonight's speech, the week ahead, unless the silence says stop, or the
+  // server knocks for it now (a push reaches a phone that has not opened the app).
+  if (unopened < QUIET_AFTER && !state.pushTonight) {
     for (let i = 0; i < DAYS_AHEAD; i++) {
       const day = new Date(now);
       day.setDate(day.getDate() + i);
@@ -331,6 +334,13 @@ async function schedule(title: string, body: string, when: Date, data: ReminderD
   } catch {
     return null;
   }
+}
+
+/** Push took tonight's knock over, or gave it back (sign out). The next sync acts on it. */
+export async function setPushOwnsTonight(on: boolean): Promise<void> {
+  const state = await load();
+  if (Boolean(state.pushTonight) === on) return;
+  await save({ ...state, pushTonight: on });
 }
 
 /** Sign out: our knocks are already cancelled with the rest; forget we had any. */
