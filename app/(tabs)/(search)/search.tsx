@@ -70,6 +70,7 @@ import { PLAYS_KEY, type Plays } from '../../../src/lib/plays';
 import { TonightCard } from '../../../src/components/TonightCard';
 import { useNights } from '../../../src/hooks/useNights';
 import { CheckInSheet } from '../../../src/components/CheckInSheet';
+import { TonightPill } from '../../../src/components/TonightPill';
 
 /**
  * Step 2 — Search is home.
@@ -430,12 +431,11 @@ export default function Search() {
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
 
-  // The lamp is the streak: dim until tonight has some work in it, lit once it
-  // does, the run of nights beside it. A check-in counts (work away from the
-  // app as much as in it), and so does a scene run or a speech opened.
+  // Tonight, top left: a pill that says where the night stands. A check-in
+  // counts (work away from the app as much as in it), and so does a scene run
+  // or a speech opened.
   const { streak, entries: practice } = useNights(isAuthenticated, recents);
   const [checkingIn, setCheckingIn] = useState(false);
-  const lit = isAuthenticated && streak.today;
 
   // The ticket and the knocks. The board card above already says the next
   // audition and the empty board, so the ticket keeps to the two things the
@@ -473,29 +473,18 @@ export default function Search() {
           accessible={false}
           style={{ flex: 1 }}
         >
-          {/* The top row: the lamp on the left, your initial on the right. The lamp
-              is tonight: dim until there is some work in it, lit after, the run of
-              nights beside it, and a tap is the check-in. A stranger's is only the lamp. */}
+          {/* The top row: tonight on the left, your initial on the right. A stranger's is only the lamp. */}
           <View style={{ height: HEADER_H, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Pressable
-              onPress={() => {
-                if (!isAuthenticated) { onLampPress(); return; }
-                Haptics.selectionAsync().catch(() => {});
-                setCheckingIn(true);
-              }}
-              hitSlop={12}
-              accessibilityRole={isAuthenticated ? 'button' : 'image'}
-              accessibilityLabel={isAuthenticated ? `Tonight. ${streak.days} ${streak.days === 1 ? 'night' : 'nights'} running${lit ? ', tonight is in' : ''}` : 'Ghost Light'}
-              accessibilityHint={isAuthenticated ? 'Check in what you worked on tonight' : undefined}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36 }}
-            >
-              <View style={{ opacity: !isAuthenticated || lit ? 1 : 0.4, shadowColor: pal.glow, shadowOpacity: !isAuthenticated || lit ? 0.7 : 0, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }}>
-                <Image source={MARK} style={{ width: 24, height: 24 }} contentFit="contain" accessibilityIgnoresInvertColors />
-              </View>
-              {isAuthenticated && streak.days > 0 ? (
-                <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 15, color: lit ? pal.accentText : c.mutedForeground }}>{streak.days}</Text>
-              ) : null}
-            </Pressable>
+            {isAuthenticated ? (
+              <TonightPill streak={streak} glow={pal.glow} accent={pal.accentText} onPress={() => setCheckingIn(true)} />
+            ) : (
+              <Pressable onPress={onLampPress} hitSlop={12} accessibilityRole="image" accessibilityLabel="Ghost Light"
+                style={{ flexDirection: 'row', alignItems: 'center', minHeight: 36 }}>
+                <View style={{ shadowColor: pal.glow, shadowOpacity: 0.7, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }}>
+                  <Image source={MARK} style={{ width: 30, height: 30 }} contentFit="contain" accessibilityIgnoresInvertColors />
+                </View>
+              </Pressable>
+            )}
             <Initial />
           </View>
 

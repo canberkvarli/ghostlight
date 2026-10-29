@@ -33,10 +33,10 @@ export function useNights(enabled: boolean, recents: RecentPiece[]): { streak: S
 export function useCheckIn() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ kind, note }: { kind: PracticeKind; note: string | null }) => addPractice(kind, note),
+    mutationFn: ({ kind, note, seconds }: { kind: PracticeKind; note: string | null; seconds?: number | null }) => addPractice(kind, note, seconds),
     onSuccess: (made) => {
       qc.setQueryData<PracticeEntry[]>(PRACTICE_KEY, (all) => [made, ...(all ?? [])]);
-      track('app_checkin', { kind: made.kind, note: Boolean(made.note) });
+      track('app_checkin', { kind: made.kind, note: Boolean(made.note), timed: Boolean(made.seconds), seconds: made.seconds ?? 0 });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: PRACTICE_KEY }),
   });

@@ -194,7 +194,7 @@ export type Event =
   // Run it on a speech, for a free actor: the four lines, then the wall.
   | { name: 'app_run_preview_ended'; props: { id: string } }
   // The lamp's check-in: what was worked on tonight.
-  | { name: 'app_checkin'; props: { kind: string; note: boolean } }
+  | { name: 'app_checkin'; props: { kind: string; note: boolean; timed?: boolean; seconds?: number } }
   | { name: 'app_name_changed'; props: Record<string, never> }
   | { name: 'app_list_shared'; props: { items: number } }
   // The recogniser's input went silent under a running task and was restarted (src/rehearsal/native/mic.ts).

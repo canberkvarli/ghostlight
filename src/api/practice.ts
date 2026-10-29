@@ -9,6 +9,8 @@ export interface PracticeEntry {
   day: string;
   kind: PracticeKind;
   note: string | null;
+  /** How long the timer ran, for a session timed in the app; null for work done away from it. */
+  seconds?: number | null;
 }
 
 export const PRACTICE_LABEL: Record<PracticeKind, string> = {
@@ -25,10 +27,10 @@ export async function listPractice(signal?: AbortSignal): Promise<PracticeEntry[
   return (await res.json()) as PracticeEntry[];
 }
 
-export async function addPractice(kind: PracticeKind, note: string | null): Promise<PracticeEntry> {
+export async function addPractice(kind: PracticeKind, note: string | null, seconds?: number | null): Promise<PracticeEntry> {
   const headers = await authHeaders();
   headers['Content-Type'] = 'application/json';
-  const res = await fetch(`${API_URL}/api/practice`, { method: 'POST', headers, body: JSON.stringify({ kind, note }) });
+  const res = await fetch(`${API_URL}/api/practice`, { method: 'POST', headers, body: JSON.stringify({ kind, note, seconds: seconds || null }) });
   if (!res.ok) throw new ApiError(res.status, `check-in failed (${res.status})`);
   return (await res.json()) as PracticeEntry;
 }
