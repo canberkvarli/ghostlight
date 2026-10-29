@@ -17,6 +17,14 @@
  * Apple ends a recognition task on its own (a final result, or about a
  * minute). While the run is still listening that is not the end of anything:
  * the words so far are kept and a new task picks up where it stopped.
+ *
+ * It can also go deaf without ending. The recogniser listens through an audio
+ * engine it builds at each start and never watches; if the audio session is
+ * reconfigured under it, that engine stops and the task goes on "listening"
+ * to nothing, with no error. That was a first scene that said (listening.)
+ * and heard nothing until a tap restarted it. The level readings come off the
+ * same input, through silence as much as speech, so when they stop the engine
+ * has stopped: the task is restarted, which is what the tap used to do.
  */
 import { ExpoSpeechRecognitionModule, type ExpoSpeechRecognitionOptions } from 'expo-speech-recognition';
 
@@ -24,6 +32,12 @@ import { ExpoSpeechRecognitionModule, type ExpoSpeechRecognitionOptions } from '
 export const QUIET_AFTER_WORDS_MS = 1400;
 /** Words said this long before the turn opened belong to the turn. */
 const LEAD_MS = 700;
+/** No level reading for this long while listening: the engine under the recogniser has stopped. */
+export const DEAF_AFTER_MS = 2500;
+/** How often a level reading comes. Silence reads too. */
+const LEVEL_EVERY_MS = 250;
+/** Restarts allowed per run, so a phone whose microphone cannot be had does not loop. */
+const MAX_RESTARTS = 4;
 
 export interface MicCallbacks {
   /** The turn's words so far. */
@@ -33,6 +47,8 @@ export interface MicCallbacks {
   onQuiet: () => void;
   /** The recogniser failed for a reason that ends the run (not a silence, not our own abort). */
   onFailed: (why: string) => void;
+  /** The input went silent under a running task and it was restarted. For the dashboard. */
+  onDeaf?: (info: { sinceStartMs: number; restarts: number }) => void;
 }
 
 const FATAL = new Set(['audio-capture', 'not-allowed', 'service-not-allowed', 'language-not-supported', 'network', 'bad-grammar']);
@@ -52,6 +68,10 @@ export class Mic {
   private quietTimer: ReturnType<typeof setTimeout> | null = null;
   private subs: { remove: () => void }[] = [];
   private onDevice = false;
+  private startedAt = 0;
+  private lastLevelAt = 0;
+  private restarts = 0;
+  private watch: ReturnType<typeof setInterval> | null = null;
 
   constructor(private cb: MicCallbacks) {}
 
@@ -60,8 +80,12 @@ export class Mic {
     const have = await ExpoSpeechRecognitionModule.getPermissionsAsync();
     if (have.granted) return true;
     const asked = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (asked.granted) Mic.grantedThisLaunch = true;
     return asked.granted;
   }
+
+  /** The phone said yes during this launch: a run right after the prompts, for the dashboard. */
+  static grantedThisLaunch = false;
 
   /** Whether the phone has already said yes, without asking. */
   static async permissionGranted(): Promise<boolean> {
@@ -103,6 +127,7 @@ export class Mic {
         // 'interrupted', 'speech-timeout', 'busy', 'client': the task is over; `end` restarts it.
       }),
       M.addListener('end', () => { if (this.listening) this.start(); }),
+      M.addListener('volumechange', () => { this.lastLevelAt = Date.now(); }),
     ];
   }
 
@@ -119,7 +144,9 @@ export class Mic {
     this.listening = true;
     this.finals = ''; this.interim = ''; this.words = []; this.history = [];
     this.base = 0; this.mark = 0; this.turnWords = 0;
+    this.restarts = 0;
     this.start();
+    this.watchLevels();
   }
 
   /** Paused, over, or left: the recogniser is torn down. */
@@ -127,6 +154,7 @@ export class Mic {
     this.open = false;
     this.listening = false;
     this.clearQuiet();
+    if (this.watch) { clearInterval(this.watch); this.watch = null; }
     try { ExpoSpeechRecognitionModule.abort(); } catch { /* not running */ }
   }
 
@@ -170,9 +198,27 @@ export class Mic {
       // the microphone hears of the partner is kept out by the engine's own
       // rule for a cut-in: three of the actor's words, in order.
       iosCategory: { category: 'playAndRecord', categoryOptions: ['defaultToSpeaker', 'allowBluetooth'], mode: 'default' },
+      // Not for a meter: the readings are how a stopped engine is noticed (watchLevels).
+      volumeChangeEventOptions: { enabled: true, intervalMillis: LEVEL_EVERY_MS },
     };
+    this.startedAt = Date.now();
     if (__DEV__) console.log('[mic] start, keywords', this.keywords.length, 'onDevice', this.onDevice);
     try { ExpoSpeechRecognitionModule.start(options); } catch (e) { if (__DEV__) console.log('[mic] start threw', e); this.cb.onFailed(e instanceof Error ? e.message : String(e)); }
+  }
+
+  /** While listening: no reading for DEAF_AFTER_MS, counted from the last reading or the last start, and the task is restarted. */
+  private watchLevels() {
+    if (this.watch) return;
+    this.watch = setInterval(() => {
+      if (!this.listening || this.restarts >= MAX_RESTARTS) return;
+      const since = Date.now() - Math.max(this.lastLevelAt, this.startedAt);
+      if (since < DEAF_AFTER_MS) return;
+      this.restarts += 1;
+      if (__DEV__) console.log('[mic] deaf for', since, 'ms, restarting', this.restarts);
+      this.cb.onDeaf?.({ sinceStartMs: Date.now() - this.startedAt, restarts: this.restarts });
+      // Abort ends the task; `end` starts the next one, the words so far kept.
+      try { ExpoSpeechRecognitionModule.abort(); } catch { this.start(); }
+    }, 1000);
   }
 
   private bumpQuiet() {

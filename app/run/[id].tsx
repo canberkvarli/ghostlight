@@ -241,6 +241,7 @@ export default function RunScreen() {
       onOverheard: () => {},
       onQuiet: () => { if (shouldHandOver({ ...readRef.current, turnEnded: true })) advanceRef.current(); },
       onFailed: () => stopEar(),
+      onDeaf: ({ sinceStartMs, restarts }) => track('app_mic_deaf', { where: 'run', since_start_ms: sinceStartMs, restarts, granted_this_launch: Mic.grantedThisLaunch }),
     });
     mic.attach();
     mic.prime([...new Set(wordsRef.current.flat())].slice(0, 100));

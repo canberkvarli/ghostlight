@@ -25,6 +25,7 @@ import {
   type AudioSlot, canBegin, firstNeededLine, limit, makeFlusher, neededFailure, plainError, planPartnerAudio, type Readiness,
 } from '../rehearsal/prepare';
 import { buildScript } from '../rehearsal/script';
+import { track } from '../lib/analytics';
 
 export interface Rehearsal {
   snapshot: Snapshot | null;
@@ -122,6 +123,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       onOverheard: t => engineRef.current?.overhear(t),
       onQuiet: () => engineRef.current?.quiet(),
       onFailed: () => { fail(plainError('stt')); engineRef.current?.abandon('stt_failed'); },
+      onDeaf: ({ sinceStartMs, restarts }) => track('app_mic_deaf', { where: 'scene', since_start_ms: sinceStartMs, restarts, granted_this_launch: Mic.grantedThisLaunch }),
     }));
     mic.attach();
     const script = buildScript(payload.lines, run.character);
