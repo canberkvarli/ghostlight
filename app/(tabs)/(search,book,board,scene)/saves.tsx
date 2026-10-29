@@ -24,17 +24,17 @@ import { UndoBar } from '../../../src/components/UndoBar';
 import { SwipeRow } from '../../../src/components/SwipeRow';
 import { SortableList } from '../../../src/components/SortableList';
 import { track } from '../../../src/lib/analytics';
-import { BOOK_ORDERS, FIND_FROM, TONE_LABEL, byHand, compareBy, findInBook, rowMeta, shelve, type BookOrder, type RoomPiece } from '../../../src/lib/book';
+import { BOOK_ORDERS, FIND_FROM, TONE_LABEL, byHand, compareBy, findInBook, rowMeta, shelve, type BookOrder } from '../../../src/lib/book';
 import { useGoBack } from '../../../src/lib/nav';
 import { useSession } from '../../../src/lib/useSession';
-import { stubLabel } from '../../../src/lib/when';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import type { Monologue, Tone } from '../../../src/data/monologues';
 import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useRoomScroll } from '../../../src/lib/barScroll';
 import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
-import { ComingUp, YourLists } from '../../../src/components/BookSections';
-import { useLists } from '../../../src/hooks/useLists';
+import { AddButton, ListChips, NameSheet, NextRow } from '../../../src/components/BookSections';
+import { useCreateList, useDeleteList, useLists, useRemoveFromList, useRenameList } from '../../../src/hooks/useLists';
+import type { BookList, ListItem } from '../../../src/api/book';
 
 /**
  * Saved — "Your book."
@@ -89,7 +89,18 @@ export default function Saves() {
   const { data, isLoading, isError } = useFavorites(isAuthenticated);
   // For the room: the board is already on the phone; nothing is fetched for it.
   const { data: auditions } = useAuditions(isAuthenticated);
-  const { data: lists, isLoading: listsLoading } = useLists(isAuthenticated && !pick);
+  const { data: lists } = useLists(isAuthenticated && !pick);
+  // The lists narrow the shelf, like playlists: null is the whole Book.
+  const [listId, setListId] = useState<number | null>(null);
+  const shownList = listId != null ? (lists ?? []).find((l) => l.id === listId) ?? null : null;
+  useEffect(() => { if (listId != null && lists && !lists.some((l) => l.id === listId)) setListId(null); }, [lists, listId]);
+  const createList = useCreateList();
+  const renameList = useRenameList();
+  const deleteList = useDeleteList();
+  const removeFromList = useRemoveFromList();
+  const [naming, setNaming] = useState<'new' | BookList | null>(null);
+  const [holding, setHolding] = useState<BookList | null>(null);
+  const [adding, setAdding] = useState(false);
   const attach = useAttachPiece();
   const attachedId = picking ? attachedPiece(picking)?.monologue_id ?? null : null;
 
@@ -144,7 +155,8 @@ export default function Saves() {
     () => (pendingRemoval ? all.filter((m) => m.id !== pendingRemoval.id) : all),
     [all, pendingRemoval],
   );
-  const shelved = useMemo(() => shelve(items, auditions ?? [], Date.now(), order === 'mine' ? 'touched' : order), [items, auditions, order]);
+  // No auditions passed: the next one is its own row above, and a piece going into it stays on the shelf.
+  const shelved = useMemo(() => shelve(items, [], Date.now(), order === 'mine' ? 'touched' : order), [items, order]);
   const book = useMemo(
     () => (order === 'mine' ? { ...shelved, stage: [...shelved.stage].sort(cmp), screen: [...shelved.screen].sort(cmp) } : shelved),
     [shelved, order, cmp],
@@ -167,11 +179,12 @@ export default function Saves() {
     };
   }, [find, finding, found.length]);
 
+  // Facts, not instructions, and not a button: how many, how many ready.
   const subhead = picking
-    ? `(for ${picking.project}. tap one and it comes with you.)`
+    ? `For ${picking.project}. Tap one and it comes with you.`
     : book.pocket.length
-      ? `(${items.length} kept, ${book.pocket.length} ready.)`
-      : `(${items.length} kept.)`;
+      ? `${items.length} kept · ${book.pocket.length} ready`
+      : `${items.length} kept`;
 
   const onUnsave = useCallback(
     (item: Saved) => {
@@ -250,7 +263,9 @@ export default function Saves() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {picking ? <BackHeader label="Audition" onPress={goBack} /> : <RoomHeader title="Your book" scrollY={scrollY} />}
+        {picking ? <BackHeader label="Audition" onPress={goBack} /> : (
+          <RoomHeader title="Your book" scrollY={scrollY} right={isAuthenticated ? <AddButton onPress={() => setAdding(true)} /> : undefined} />
+        )}
 
         {!isAuthenticated ? (
           <Center>
@@ -287,10 +302,6 @@ export default function Saves() {
               {'(the bookmark on any page puts it here.\nthe book sorts itself as it fills.)'}
             </StageDirection>
             <PrimaryPill label="Find one" onPress={goBack} style={{ marginTop: 22, alignSelf: 'center' }} />
-            {/* The auditions live in the Book now; an empty Book still leads to them. */}
-            <View style={{ alignSelf: 'stretch', alignItems: 'center' }}>
-              <ComingUp auditions={auditions ?? []} book={[]} />
-            </View>
           </Center>
         ) : (
           <Animated.ScrollView
@@ -311,19 +322,34 @@ export default function Saves() {
                 {picking ? 'Pick a ' : 'Your '}
                 <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{picking ? 'piece.' : 'book.'}</Text>
               </Text>
-              <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>
+              <Text numberOfLines={2} style={{ marginTop: 4, fontFamily: SANS, fontSize: 14, lineHeight: 19, color: c.mutedForeground }}>
                 {subhead}
-              </StageDirection>
+              </Text>
             </RoomTitle>
 
-            {!picking && !finding ? (
+            {!picking ? (
               <Reveal order={0}>
-                <ComingUp auditions={auditions ?? []} book={items} first />
-                <YourLists lists={lists ?? []} loading={listsLoading} book={items} />
+                <NextRow auditions={auditions ?? []} book={items} />
+                <ListChips
+                  lists={lists ?? []}
+                  selected={listId}
+                  onSelect={(id) => { setFind(''); setListId(id); }}
+                  onHold={setHolding}
+                  onNew={() => setNaming('new')}
+                />
               </Reveal>
             ) : null}
 
-            {items.length >= FIND_FROM ? (
+            {shownList ? (
+              <ListView
+                list={shownList}
+                book={items}
+                onOpen={open}
+                onRemove={(item) => removeFromList.mutate({ listId: shownList.id, itemId: item.id })}
+              />
+            ) : null}
+
+            {!shownList && items.length >= FIND_FROM ? (
               <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>
                 <Ionicons name="search-outline" size={16} color={c.mutedForeground} />
                 <TextInput
@@ -342,7 +368,7 @@ export default function Saves() {
               </Animated.View>
             ) : null}
 
-            {finding ? (
+            {shownList ? null : finding ? (
               <Animated.View key="found" entering={FadeIn.duration(220)} layout={LinearTransition.duration(220)} style={{ marginTop: 18 }}>
                 {found.length === 0 ? (
                   <StageDirection style={{ marginTop: 8 }}>(nothing in the book by that name.)</StageDirection>
@@ -354,16 +380,8 @@ export default function Saves() {
               <Animated.View key="book" layout={LinearTransition.duration(260)}>
                 {book.pocket.length > 0 ? (
                   <Reveal order={0}>
-                    <Shelf title="In your pocket" aside={`(${book.pocket.length} ready.)`} first>
+                    <Shelf title="Ready" aside={`${book.pocket.length}`} first>
                       <Pocket items={book.pocket} onOpen={open} onTick={picking ? undefined : onTick} pickedId={attachedId} />
-                    </Shelf>
-                  </Reveal>
-                ) : book.shelved && !picking ? (
-                  <Reveal order={0}>
-                    <Shelf title="In your pocket" first>
-                      <StageDirection numberOfLines={2} style={{ paddingVertical: 6 }}>
-                        (tick a piece when you&apos;re off book. it waits here.)
-                      </StageDirection>
                     </Shelf>
                   </Reveal>
                 ) : null}
@@ -380,17 +398,10 @@ export default function Saves() {
                   </Reveal>
                 ) : (
                   <>
-                    {book.room.length > 0 ? (
-                      <Reveal order={1}>
-                        <Shelf title="For the room" aside={`(${book.room.length}.)`}>
-                          {book.room.map((r, i) => row(r.item, i, roomNote(r)))}
-                        </Shelf>
-                      </Reveal>
-                    ) : null}
                     {book.stage.length + book.screen.length > 0 ? (
                       <Reveal order={2}>
                         <View onLayout={(e) => { shelfY.current = e.nativeEvent.layout.y; }} />
-                        <Shelf title="The shelf" aside={`(${book.stage.length + book.screen.length} · ${orderLine})`} onAside={pickOrder}>
+                        <Shelf title="The shelf" aside={orderLine} onAside={pickOrder}>
                           {items.length >= FIND_FROM && book.tones.length > 1 ? (
                             <ToneRow tones={book.tones} value={tone} onChange={pickTone} />
                           ) : null}
@@ -434,15 +445,60 @@ export default function Saves() {
         ) : null}
       </SafeAreaView>
       <ChoiceSheet open={sorting} title="Sort the" accent="shelf." options={BOOK_ORDERS.map(({ key, label }) => ({ key, label }))} value={order} onPick={setOrderTo} onClose={() => setSorting(false)} />
+      {/* The header's +: everything the Book can be given, in one place. */}
+      <ChoiceSheet
+        open={adding}
+        title="Add to your"
+        accent="book."
+        options={[
+          { key: 'list', label: 'A new list', line: 'your own group of speeches and sides' },
+          { key: 'audition', label: 'An audition', line: 'a date, the role, what to bring' },
+          { key: 'paste', label: 'Paste a casting email', line: 'we read it into an audition' },
+          { key: 'find', label: 'A speech', line: 'find one in Search' },
+        ]}
+        value={'' as 'list'}
+        onPick={(k) => {
+          if (k === 'list') setTimeout(() => setNaming('new'), 250);
+          else if (k === 'audition') router.push('/audition');
+          else if (k === 'paste') router.push({ pathname: '/audition', params: { paste: '1' } });
+          else router.navigate('/search');
+        }}
+        onClose={() => setAdding(false)}
+      />
+      {/* Hold a list's chip: rename it, or take it away (what is in it stays in the Book). */}
+      <ChoiceSheet
+        open={holding !== null}
+        title={holding?.title ?? ''}
+        accent=""
+        options={[
+          { key: 'rename', label: 'Rename' },
+          { key: 'delete', label: 'Delete the list', line: 'what is in it stays in your book' },
+        ]}
+        value={'' as 'rename'}
+        onPick={(k) => {
+          const l = holding;
+          if (!l) return;
+          if (k === 'rename') setTimeout(() => setNaming(l), 250);
+          else { deleteList.mutate({ id: l.id }); if (listId === l.id) setListId(null); }
+        }}
+        onClose={() => setHolding(null)}
+      />
+      <NameSheet
+        open={naming !== null}
+        title={naming === 'new' ? 'A new' : 'Rename the'}
+        accent="list."
+        initial={naming && naming !== 'new' ? naming.title : ''}
+        confirm={naming === 'new' ? 'Make it' : 'Save'}
+        busy={createList.isPending || renameList.isPending}
+        onSave={(name) => {
+          if (naming === 'new') createList.mutate({ title: name, from: 'book' }, { onSuccess: (made) => { if (made && !Array.isArray(made)) setListId(made.id); } });
+          else if (naming) renameList.mutate({ id: naming.id, title: name });
+          setNaming(null);
+        }}
+        onClose={() => setNaming(null)}
+      />
     </View>
   );
-}
-
-/** "for Hedda · Thu 14" under a piece that is going into a room. */
-function roomNote(r: RoomPiece): string {
-  const [mon, day] = stubLabel(r.audition);
-  const when = r.audition.when ? `${mon} ${day}`.trim() : 'no date yet';
-  return `for ${r.audition.project} · ${when}`;
 }
 
 // ── Shelves ──────────────────────────────────────────────────────────────────
@@ -461,18 +517,80 @@ function Shelf({ title, aside, onAside, first, children }: { title: string; asid
     <View style={{ marginTop: first ? 26 : 34 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingBottom: 10, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: c.divider }}>
         <Text style={{ fontFamily: SERIF, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: c.foreground }}>{title}</Text>
+        {/* A real button for the sort, a plain count otherwise: no bracketed words that turn out to be buttons. */}
         {aside && onAside ? (
-          <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button" accessibilityLabel="Sort the shelf" style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <StageDirection link numberOfLines={1} style={{ flexShrink: 1 }}>{aside}</StageDirection>
-            <Ionicons name="swap-vertical-outline" size={13} color={c.mutedForeground} />
+          <Pressable onPress={onAside} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Sort the shelf, now ${aside}`}
+            style={({ pressed }) => ({ flexShrink: 1, height: 30, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1.5, borderColor: c.border, flexDirection: 'row', alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+            <Ionicons name="swap-vertical" size={13} color={c.foreground} />
+            <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 12.5, color: c.foreground }}>{aside.charAt(0).toUpperCase() + aside.slice(1)}</Text>
           </Pressable>
         ) : aside ? (
-          <StageDirection numberOfLines={1} style={{ flexShrink: 1 }}>
-            {aside}
-          </StageDirection>
+          <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: SANS, fontSize: 14, color: c.mutedForeground }}>{aside}</Text>
         ) : null}
       </View>
       {children}
+    </View>
+  );
+}
+
+/**
+ * One list, in the shelf's place: its speeches as the Book draws them, its
+ * sides as plain rows, in the list's own order. A slide left takes a thing
+ * out of the list and leaves it in the Book.
+ */
+function ListView({ list, book, onOpen, onRemove }: { list: BookList; book: Saved[]; onOpen: (m: Saved) => void; onRemove: (item: ListItem) => void }) {
+  const { colors: c } = useTheme();
+  const router = useRouter();
+  const kept = new Map(book.map((m) => [String(m.id), m]));
+  const items = list.items.filter((i) => i.kind === 'sides' || kept.has(String(i.monologue_id)));
+  if (!items.length) {
+    return (
+      <Text style={{ marginTop: 26, fontFamily: SANS, fontSize: 14.5, lineHeight: 21, color: c.mutedForeground }}>
+        Nothing in {list.title} yet. Hold the bookmark on any speech, or open a script in the Scene room, to put it here.
+      </Text>
+    );
+  }
+  return (
+    <View style={{ marginTop: 22 }}>
+      {items.map((item, i) => {
+        const m = item.monologue_id != null ? kept.get(String(item.monologue_id)) : undefined;
+        return (
+          <Animated.View key={item.id} entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} layout={LinearTransition.duration(240)}>
+            <SwipeRow onRemove={() => onRemove(item)} label={`Take ${m?.title ?? item.title} out of ${list.title}`} style={{ marginBottom: 12 }}>
+              <Pressable
+                onPress={() => (m ? onOpen(m) : router.push('/rehearse'))}
+                accessibilityRole="button"
+                accessibilityLabel={m ? `${m.title}, ${m.character}` : `${item.title}, sides`}
+              >
+                <PaperCard rotate={TILTS[i % TILTS.length]} style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    {m ? <PieceCover item={m} width={40} height={56} /> : (
+                      <View style={{ width: 40, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people-outline" size={22} color={c.accentText} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 19, lineHeight: 23, letterSpacing: -0.2, color: c.paperInk }}>{m?.title ?? item.title}</Text>
+                      <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: MONO, fontSize: 11.5, lineHeight: 16, color: c.paperMuted }}>
+                        {m ? (
+                          <>
+                            <Text style={{ fontFamily: MONO_B, color: c.paperInk }}>{m.character}</Text>
+                            {` · ${m.source}`}
+                          </>
+                        ) : `sides${item.subtitle ? ` · ${item.subtitle}` : ''}`}
+                      </Text>
+                      <Text numberOfLines={1} style={{ marginTop: 5, fontFamily: SANS_B, fontSize: 11, lineHeight: 14, color: c.paperMuted }}>
+                        {m ? rowMeta(m) : 'run it in the Scene room'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={c.paperFaint} />
+                  </View>
+                </PaperCard>
+              </Pressable>
+            </SwipeRow>
+          </Animated.View>
+        );
+      })}
     </View>
   );
 }

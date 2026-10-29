@@ -364,8 +364,10 @@ function Intro({
   onHow: () => void;
 }) {
   const { colors: c } = useTheme();
+  // Room for the floating bar under the buttons: a fixed 40 left them behind it.
+  const tabSpace = useTabBarSpace();
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40 }}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: tabSpace + 8 }}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 24 }}>
         <Sketch name="clapper" size={120} stroke={c.yellow} accent={c.yellow} />
         <Text
@@ -397,16 +399,14 @@ function Intro({
           <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.2, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 12, lineHeight: 14, color: c.mutedForeground }}>?</Text>
           </View>
-          <StageDirection>(how this works.)</StageDirection>
+          <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 13.5, color: c.mutedForeground }}>How this works</Text>
         </Pressable>
       </View>
 
       <View>
         <PrimaryPill label={signedIn ? 'Paste a casting email' : 'Sign in to track auditions'} onPress={onPrimary} block />
         {signedIn ? (
-          <Pressable onPress={onSecondary} hitSlop={10} accessibilityRole="button" style={{ marginTop: 14, alignSelf: 'center' }}>
-            <StageDirection link>(or fill it in by hand.)</StageDirection>
-          </Pressable>
+          <PrimaryPill label="Fill it in by hand" variant="outline" onPress={onSecondary} block style={{ marginTop: 10 }} />
         ) : null}
       </View>
     </ScrollView>
