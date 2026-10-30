@@ -6,7 +6,6 @@ import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 
-import { GhostLight } from '../src/components/GhostLight';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -22,17 +21,25 @@ const SANS = 'BricolageGrotesque_500Medium';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
 const MONO_I = 'CourierPrime_400Regular_Italic';
 
+/** The house, one line each, the partner first: the curtain call's rows, said shorter so the plans stay in view. */
+const ROOMS: { icon: React.ComponentProps<typeof Ionicons>['name']; name: string; line: string }[] = [
+  { icon: 'people-outline', name: 'Scene partner', line: 'every scene, every side.' },
+  { icon: 'search-outline', name: 'Search', line: 'by who you are, what you need.' },
+  { icon: 'bookmark-outline', name: 'Your book', line: 'keep them, cut them, run them.' },
+  { icon: 'calendar-outline', name: 'Your board', line: 'paste the email; it knocks.' },
+];
+
 /**
- * The paywall (handoff account-v2, 2e). The lamp, "The whole stage.", how big
- * the library is, and then the week as a timeline: today everything unlocks,
- * two days before the end we knock, on the last day the plan starts. Under
- * it the two plans as cards, yearly chosen with the gel block behind it, and
- * the pill that starts the week. One line of terms, Terms and Privacy.
+ * The paywall, in the curtain call's clothes: "The whole stage.", how big
+ * the library is, and the house as rows, the partner first. Under it the two
+ * plans as cards, yearly chosen with the gel block behind it, the pill that
+ * starts the week and one line of what the week promises. One line of terms,
+ * Terms and Privacy.
  *
  * Every number on it comes from the store or the server: the trial length
  * from the yearly package's introductory offer, the prices from the
  * packages, the count from the database. With no trial on the offering the
- * timeline is not drawn and the pill says what it does instead. The money
+ * promise is not said and the pill says what it does instead. The money
  * itself is src/hooks/useTrialOffer.ts, shared with the wall on the page and
  * the foot of the cast sheet; this screen only draws it.
  */
@@ -71,25 +78,36 @@ export default function Paywall() {
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 12, flexGrow: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 12, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ alignItems: 'center' }}>
-            <GhostLight size={44} dress="full" />
-            {/* 44/48: Instrument Serif wants about 1.1x its size or the descender of "g" is clipped. */}
-            <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SERIF, fontSize: 44, lineHeight: 48, letterSpacing: -0.6, color: c.foreground }}>
-              The whole{'\n'}
-              <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
+          {/* 40/44: Instrument Serif wants about 1.1x its size or the descender of "g" is clipped. */}
+          <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 44, letterSpacing: -0.6, color: c.foreground }}>
+            The whole <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
+          </Text>
+          <StageDirection style={{ marginTop: 6 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            ({catalogue} monologues. no limits.)
+          </StageDirection>
+          {/* What they just did, said back, when they came here by doing it. */}
+          {why ? (
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 8, fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
+              {why}
             </Text>
-            <StageDirection style={{ marginTop: 10, textAlign: 'center' }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              ({catalogue} monologues. a scene partner. no limits.)
-            </StageDirection>
-            {/* What they just did, said back, when they came here by doing it. */}
-            {why ? (
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 12, textAlign: 'center', fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
-                {why}
-              </Text>
-            ) : null}
+          ) : null}
+
+          {/* The house, as the curtain call of a first scene draws it, with the partner first. */}
+          <View style={{ marginTop: 18 }}>
+            {ROOMS.map(h => (
+              <View key={h.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={h.icon} size={17} color={c.accentText} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>{h.name}</Text>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ marginTop: 1, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>({h.line})</Text>
+                </View>
+              </View>
+            ))}
           </View>
 
           {storeDown ? (
@@ -98,21 +116,9 @@ export default function Paywall() {
             </Text>
           ) : null}
 
-          {/* The week, as three moments down a line. Drawn only when there is
-              a trial to describe, and the knock only when the phone lets us. */}
-          {trialLabel && trialDays && !storeDown ? (
-            <View style={{ marginTop: 26, marginLeft: 6 }}>
-              <Step first state="now" title="Today" body="Everything unlocks. Read, keep, rehearse." />
-              {canRemind && trialDays > 2 ? (
-                <Step state="soon" title={`Day ${trialDays - 2}`} body="We remind you the trial is ending." />
-              ) : null}
-              <Step last state="then" title={`Day ${trialDays}`} body="Your plan starts. Cancel before and pay nothing." />
-            </View>
-          ) : null}
-
           {/* The two plans as cards. Only the packages the store sells are drawn. */}
           {!storeDown ? (
-            <View style={{ marginTop: 24, gap: 12 }}>
+            <View style={{ marginTop: 22, gap: 12 }}>
               {offer.hasAnnual ? (
                 <PlanCard
                   selected={plan === 'annual'}
@@ -140,6 +146,13 @@ export default function Paywall() {
             <PrimaryPill label={cta} onPress={buy} block haptic="medium" height={56} />
           )}
 
+          {/* The week's promise, in one line where the timeline used to be. */}
+          {trialLabel && trialDays && !storeDown && !busy ? (
+            <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS_B, fontSize: 13, lineHeight: 18, color: c.mutedForeground }}>
+              {canRemind && trialDays > 2 ? `We remind you on day ${trialDays - 2}. ` : ''}Cancel before day {trialDays}, pay nothing.
+            </Text>
+          ) : null}
+
           {note ? (
             <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS, fontSize: 12, lineHeight: 17, color: c.mutedForeground }}>{note}</Text>
           ) : null}
@@ -160,25 +173,6 @@ export default function Paywall() {
           </View>
         </View>
       </SafeAreaView>
-    </View>
-  );
-}
-
-/** One moment on the timeline: a dot on the line, the day, what happens. */
-function Step({ state, title, body, first, last }: { state: 'now' | 'soon' | 'then'; title: string; body: string; first?: boolean; last?: boolean }) {
-  const { colors: c } = useTheme();
-  const dot = state === 'now' ? { backgroundColor: c.accentText, borderColor: c.accentText } : state === 'soon' ? { backgroundColor: 'transparent', borderColor: c.accentText } : { backgroundColor: 'transparent', borderColor: c.border };
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-      <View style={{ width: 28, alignItems: 'center' }}>
-        <View style={{ width: 2, flexGrow: first ? 0 : 1, flexBasis: first ? 0 : 6, backgroundColor: c.divider }} />
-        <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 2, ...dot, shadowColor: c.accentText, shadowOpacity: state === 'now' ? 0.55 : 0, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }} />
-        <View style={{ width: 2, flex: 1, backgroundColor: last ? 'transparent' : c.divider }} />
-      </View>
-      <View style={{ flex: 1, paddingLeft: 14, paddingBottom: last ? 0 : 18, paddingTop: first ? 0 : 6 }}>
-        <Text style={{ fontFamily: SANS_B, fontSize: 14, lineHeight: 18, color: c.foreground }}>{title}</Text>
-        <Text style={{ marginTop: 4, fontFamily: SANS, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>{body}</Text>
-      </View>
     </View>
   );
 }
