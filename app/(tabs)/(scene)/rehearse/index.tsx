@@ -26,7 +26,7 @@ import { ConfirmSheet } from '../../../../src/components/ConfirmSheet';
 import { KeepSheet } from '../../../../src/components/KeepSheet';
 import { SortableList } from '../../../../src/components/SortableList';
 import { SwipeRow } from '../../../../src/components/SwipeRow';
-import { KEY_WORDS, demoDone, firstScenes } from '../../../../src/lib/demo';
+import { KEY_WORDS, firstScenes } from '../../../../src/lib/demo';
 import { aboutLeft } from '../../../../src/lib/scriptSteps';
 import { loadTouched, markTouched } from '../../../../src/lib/scriptTouched';
 import { FIND_FROM, REST_FOLDED, SHELF_SORTS, type ShelfSort } from '../../../../src/rehearsal/shelf';
@@ -147,13 +147,12 @@ export default function RehearseHub() {
   // together, or a lamp until they are, never one shelf and then the next.
   // Kept from the last visit (and across a sign-out), they show at once.
   const settling = (!guidedList.data && guidedList.isPending) || (!scenes.data && scenes.isPending) || (isAuthenticated && !shelfQ.data && shelfQ.isPending);
-  // The three first scenes fold away once there is a shelf of your own or
-  // one of them has been run; a tap on the aside opens them again.
-  const [done, setDone] = useState<string[] | null>(null);
-  useEffect(() => { demoDone().then(setDone).catch(() => setDone([])); }, []);
+  // The three first scenes are open while there is no shelf of your own,
+  // whether or not one has been run: with nothing of yours, they are the room.
+  // They fold once you have sides; a tap on the aside opens them again.
   const [showStarters, setShowStarters] = useState<boolean | null>(null);
   // A stranger has only these, so they are never folded.
-  const startersOpen = !isAuthenticated || (showStarters ?? (total === 0 && (done?.length ?? 0) === 0));
+  const startersOpen = !isAuthenticated || (showStarters ?? total === 0);
 
   const add = () => { Haptics.selectionAsync().catch(() => {}); router.push(isAuthenticated ? '/sides' : '/auth'); };
   // The first scenes, the three on cards: the help's one thing to do goes there, not to the one scene a server used to have.

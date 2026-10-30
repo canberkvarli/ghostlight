@@ -68,9 +68,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UpNext } from '../../../src/components/UpNext';
 import { PLAYS_KEY, type Plays } from '../../../src/lib/plays';
 import { TonightCard } from '../../../src/components/TonightCard';
-import { useNights } from '../../../src/hooks/useNights';
-import { CheckInSheet } from '../../../src/components/CheckInSheet';
-import { TonightPill } from '../../../src/components/TonightPill';
 
 /**
  * Step 2 — Search is home.
@@ -431,11 +428,6 @@ export default function Search() {
   const { data: keptData } = useFavorites(isAuthenticated);
   const keptCount = isAuthenticated ? (keptData?.length ?? 0) : 0;
 
-  // Tonight, top left: a pill that says where the night stands. A check-in
-  // counts (work away from the app as much as in it), and so does a scene run
-  // or a speech opened.
-  const { streak, entries: practice } = useNights(isAuthenticated, recents);
-  const [checkingIn, setCheckingIn] = useState(false);
 
   // The ticket and the knocks. The board card above already says the next
   // audition and the empty board, so the ticket keeps to the two things the
@@ -473,18 +465,14 @@ export default function Search() {
           accessible={false}
           style={{ flex: 1 }}
         >
-          {/* The top row: tonight on the left, your initial on the right. A stranger's is only the lamp. */}
+          {/* The top row: the lamp on the left, your initial on the right. */}
           <View style={{ height: HEADER_H, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            {isAuthenticated ? (
-              <TonightPill streak={streak} glow={pal.glow} accent={pal.accentText} onPress={() => setCheckingIn(true)} />
-            ) : (
-              <Pressable onPress={onLampPress} hitSlop={12} accessibilityRole="image" accessibilityLabel="Ghost Light"
-                style={{ flexDirection: 'row', alignItems: 'center', minHeight: 36 }}>
-                <View style={{ shadowColor: pal.glow, shadowOpacity: 0.7, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }}>
-                  <Image source={MARK} style={{ width: 30, height: 30 }} contentFit="contain" accessibilityIgnoresInvertColors />
-                </View>
-              </Pressable>
-            )}
+            <Pressable onPress={onLampPress} hitSlop={12} accessibilityRole="image" accessibilityLabel="Ghost Light"
+              style={{ flexDirection: 'row', alignItems: 'center', minHeight: 36 }}>
+              <View style={{ shadowColor: pal.glow, shadowOpacity: 0.7, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }}>
+                <Image source={MARK} style={{ width: 30, height: 30 }} contentFit="contain" accessibilityIgnoresInvertColors />
+              </View>
+            </Pressable>
             <Initial />
           </View>
 
@@ -843,7 +831,6 @@ export default function Search() {
 
         </Pressable>
       </SafeAreaView>
-      {isAuthenticated ? <CheckInSheet open={checkingIn} streak={streak} entries={practice} onClose={() => setCheckingIn(false)} /> : null}
 
       {/* The house-lights flash, over everything, on a medium change. */}
       <Animated.View

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
@@ -29,7 +29,7 @@ import { supabase } from '../src/lib/supabase';
 import { PRACTICE_LABEL, onLocalDay, type PracticeEntry } from '../src/api/practice';
 import { STATUS_LABEL, type Audition } from '../src/api/auditions';
 import { WeekMarks } from '../src/components/WeekMarks';
-import { minutesLabel } from '../src/lib/tonightTimer';
+import { CheckInSheet } from '../src/components/CheckInSheet';
 import type { ReadState } from '../src/api/client';
 import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../src/lib/auth';
 import { useSession } from '../src/lib/useSession';
@@ -90,6 +90,9 @@ function SignedIn({ session }: { session: Session }) {
   const nights = useNights(true, recents.data ?? []);
   const { data: auditions } = useAuditions(true);
   const [naming, setNaming] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  // A new name is shown the moment it is saved, not when the session catches up.
+  const [newName, setNewName] = useState<string | null>(null);
   const sub = useQuery({ queryKey: ['subscription'], queryFn: getSubscription, staleTime: 5 * 60_000, enabled: isPaid });
   // The page comes up whole, the streak, the plan and the counts together,
   // never a zero that turns into a number in front of you. They are fetched
@@ -104,7 +107,15 @@ function SignedIn({ session }: { session: Session }) {
   // Coming back to this screen asks again if the last answer never came.
   useFocusEffect(useCallback(() => { if (wallFailed) refreshWall(); }, [wallFailed, refreshWall]));
 
-  const who = nameOf(session);
+  const who = newName ? splitName(newName) : nameOf(session);
+  // A changed name comes up out of a short fade rather than snapping in.
+  const nameOpacity = useSharedValue(1);
+  useEffect(() => {
+    if (newName == null) return;
+    nameOpacity.value = 0;
+    nameOpacity.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
+  }, [newName, nameOpacity]);
+  const nameFade = useAnimatedStyle(() => ({ opacity: nameOpacity.value }));
   const letter = (who.first || session.user.email || 'A').trim().charAt(0).toUpperCase();
   const since = sinceLabel(session.user.created_at);
 
@@ -126,20 +137,20 @@ function SignedIn({ session }: { session: Session }) {
           {/* The name is theirs to change: a tap opens it. */}
           <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setNaming(true); }} accessibilityRole="button" accessibilityLabel={`Your name, ${who.first} ${who.rest}`.trim()} accessibilityHint="Tap to change it"
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.3, color: c.foreground }}>
+            <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[{ flexShrink: 1, fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.3, color: c.foreground }, nameFade]}>
               {who.first}
               {who.rest ? <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{` ${who.rest}.`}</Text> : <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>.</Text>}
-            </Text>
+            </Animated.Text>
             <Ionicons name="pencil" size={15} color={c.mutedForeground} />
           </Pressable>
           <Text numberOfLines={1} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.mutedForeground }}>
-            {isPaid ? '(the whole stage.)' : `(actor.${since ? ` since ${since}.` : ''})`}
+            {isPaid ? '(the whole stage.)' : since ? `(with ghost light since ${since}.)` : '(with ghost light.)'}
           </Text>
         </View>
       </View>
 
       {/* Nights in the work: the streak and this week, counted as the lamp on Search counts them. */}
-      <StreakCard streak={nights.streak} entries={nights.entries} />
+      <StreakCard streak={nights.streak} onCheckIn={() => setCheckingIn(true)} />
       <NightsLog entries={nights.entries} />
 
       {/* Your plan: the one card. */}
@@ -169,10 +180,14 @@ function SignedIn({ session }: { session: Session }) {
         confirm="Save"
         onSave={(name) => {
           setNaming(false);
-          void supabase.auth.updateUser({ data: { display_name: name } }).then(() => track('app_name_changed', {})).catch(() => {});
+          setNewName(name);
+          void supabase.auth.updateUser({ data: { display_name: name } })
+            .then(({ error }) => { if (error) setNewName(null); else track('app_name_changed', {}); })
+            .catch(() => setNewName(null));
         }}
         onClose={() => setNaming(false)}
       />
+      <CheckInSheet open={checkingIn} streak={nights.streak} entries={nights.entries} onClose={() => setCheckingIn(false)} />
     </>
   );
 }
@@ -384,6 +399,12 @@ function SignedOut() {
  * genuinely looks like a name. Hide My Email hands back a relay hash, and a
  * hash in your own app is not your name.
  */
+/** A name as typed, as the header shows it: the first word, then the rest. */
+function splitName(name: string): { first: string; rest: string } {
+  const [first, ...rest] = name.trim().split(/\s+/);
+  return { first: first ?? '', rest: rest.join(' ') };
+}
+
 function nameOf(session: Session): { first: string; rest: string } {
   const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
   const str = (k: string) => (typeof meta[k] === 'string' ? (meta[k] as string).trim() : '');
@@ -436,12 +457,8 @@ function firstOfNextMonth(now = new Date()): string {
  * marks, a check in each night worked. Under it, the week's timed minutes.
  * Today with nothing yet keeps a streak that reached yesterday, and says so.
  */
-function StreakCard({ streak: s, entries }: { streak: Streak; entries: PracticeEntry[] }) {
+function StreakCard({ streak: s, onCheckIn }: { streak: Streak; onCheckIn: () => void }) {
   const { colors: c } = useTheme();
-  const monday = new Date();
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const weekSeconds = entries.filter((e) => onLocalDay(e.day) >= monday).reduce((n, e) => n + (e.seconds ?? 0), 0);
   const line = s.days === 0
     ? '(tonight starts it. one scene, or one speech.)'
     : s.today
@@ -455,9 +472,8 @@ function StreakCard({ streak: s, entries }: { streak: Streak; entries: PracticeE
       </View>
       <Text style={{ marginTop: 4, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>{line}</Text>
       <View style={{ marginTop: 16 }}><WeekMarks week={s.week} /></View>
-      {weekSeconds > 0 ? (
-        <Text style={{ marginTop: 14, fontFamily: SANS, fontSize: 13.5, color: c.mutedForeground }}>{`${minutesLabel(weekSeconds).replace(/^./, (x) => x.toUpperCase())} on the clock this week.`}</Text>
-      ) : null}
+      {/* Work away from the app (class, an audition, a rehearsal) is checked in here; a scene run or a speech counts by itself. */}
+      <PrimaryPill label={s.today ? 'Add to tonight' : 'Check in tonight'} variant={s.today ? 'outline' : 'primary'} onPress={onCheckIn} block height={46} style={{ marginTop: 18 }} />
     </View>
   );
 }
@@ -499,7 +515,7 @@ function NightsLog({ entries }: { entries: PracticeEntry[] }) {
       <Eyebrow>YOUR NIGHTS</Eyebrow>
       {shown.length === 0 ? (
         <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 13.5, lineHeight: 19, color: c.mutedForeground }}>
-          Tap Start tonight on Search to time a session, or log what you did away from the app.
+          A scene run or a speech read counts by itself. Check in here for the work done away from the app.
         </Text>
       ) : (
         shown.map((e) => (
@@ -508,9 +524,7 @@ function NightsLog({ entries }: { entries: PracticeEntry[] }) {
               {onLocalDay(e.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </Text>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontFamily: SANS_B, fontSize: 14, lineHeight: 19, color: c.foreground }}>
-                {PRACTICE_LABEL[e.kind]}{e.seconds ? <Text style={{ fontFamily: SANS, color: c.mutedForeground }}>{`  ${minutesLabel(e.seconds)}`}</Text> : null}
-              </Text>
+              <Text style={{ fontFamily: SANS_B, fontSize: 14, lineHeight: 19, color: c.foreground }}>{PRACTICE_LABEL[e.kind]}</Text>
               {e.note ? <Text numberOfLines={2} style={{ marginTop: 1, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.mutedForeground }}>{e.note}</Text> : null}
             </View>
           </View>

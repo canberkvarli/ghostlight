@@ -44,7 +44,6 @@ import { recordAppBackground, recordAppOpen } from '../src/lib/reviewMoments';
 import { useQuickActionNote } from '../src/hooks/useQuickActionNote';
 import { useReminderSync, useReminderTaps } from '../src/hooks/useReminders';
 import { clearPushLocal, usePushAndWidget } from '../src/lib/push';
-import { tonightTimer } from '../src/lib/tonightTimer';
 import { clearAllReminders, configureNotifications } from '../src/lib/notifications';
 import { clearRecents } from '../src/lib/recents';
 import { resetKnocks } from '../src/lib/nudges';
@@ -172,8 +171,6 @@ export default function RootLayout() {
         void clearRecents();
         void resetKnocks();
         void clearPushLocal();
-        // A session left on the clock was theirs too.
-        tonightTimer.clear();
         // Without a fresh anonymous session every request 401s and the app looks
         // broken rather than signed out.
         void bootstrapSession();

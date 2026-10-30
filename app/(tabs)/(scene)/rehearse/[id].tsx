@@ -15,6 +15,7 @@ import { DemoCurtain } from '../../../../src/components/rehearse/DemoCurtain';
 import { firstScenes, markDemoDone } from '../../../../src/lib/demo';
 import { useTrialOffer } from '../../../../src/hooks/useTrialOffer';
 import { useSession } from '../../../../src/lib/useSession';
+import { useNights } from '../../../../src/hooks/useNights';
 import { Stage } from '../../../../src/components/rehearse/Stage';
 import { useStageMotion } from '../../../../src/hooks/useStageMotion';
 import { useEntitlement } from '../../../../src/hooks/useEntitlement';
@@ -216,6 +217,9 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
   // The curtain call of a first scene: their own numbers, then the other keys or the week.
   const guidedList = useGuided(Boolean(demoN));
   const { isAuthenticated } = useSession();
+  // A run is a night in the work by itself: the curtain says so, nothing to tap.
+  const { streak } = useNights(isAuthenticated, []);
+  const night = streak.today ? streak.days : streak.days + 1;
   const offer = useTrialOffer({ from: 'demo', onDone: () => {}, onSignIn: () => router.push('/auth') });
   const mine = useMemo(() => payload.lines.filter(l => sameCharacter(l.character, actor)), [payload.lines, actor]);
   const heardCount = mine.filter(l => (r.snapshot?.heard.get(l.index)?.size ?? 0) > 0).length;
@@ -274,6 +278,12 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
               {guided ? 'That is the whole of it.' : 'Again, from the top?'}
             </Text>
           </Animated.View>
+          {isAuthenticated ? (
+            <Animated.View entering={FadeIn.duration(700).delay(1250)} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="checkmark-circle" size={16} color={c.accentText} />
+              <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, color: c.mutedForeground }}>{`Night ${night}. Tonight is in.`}</Text>
+            </Animated.View>
+          ) : null}
           <Animated.View entering={FadeIn.duration(700).delay(1500)} style={{ marginTop: 30, alignItems: 'center', alignSelf: 'stretch' }}>
             <PrimaryPill label="Again" height={50} onPress={() => { track('app_rehearse_opened', { from: 'library' }); onAgain(); }} style={{ alignSelf: 'center', minWidth: 220 }} />
             <Pressable onPress={from === 'demo' ? onDone : leave} hitSlop={12} accessibilityRole="button" style={{ marginTop: 18, paddingVertical: 6, paddingHorizontal: 20 }}>
