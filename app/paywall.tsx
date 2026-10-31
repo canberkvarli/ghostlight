@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 
 import { PrimaryPill } from '../src/components/PrimaryPill';
+import { SpotlightHero } from '../src/components/SpotlightHero';
 import { StageBackdrop } from '../src/components/StageBackdrop';
-import { StageDirection } from '../src/components/StageDirection';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useCatalogueSize } from '../src/hooks/useCatalogueSize';
 import { PRIVACY_URL, TERMS_URL, useTrialOffer } from '../src/hooks/useTrialOffer';
@@ -19,51 +19,53 @@ const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
 const SANS = 'BricolageGrotesque_500Medium';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
+const CAP = 'BricolageGrotesque_700Bold';
 const MONO_I = 'CourierPrime_400Regular_Italic';
 
-/** The house, one line each, the partner first: the curtain call's rows, said shorter so the plans stay in view. */
-const ROOMS: { icon: React.ComponentProps<typeof Ionicons>['name']; name: string; line: string }[] = [
-  { icon: 'people-outline', name: 'Scene partner', line: 'every scene, every side.' },
-  { icon: 'search-outline', name: 'Search', line: 'by who you are, what you need.' },
-  { icon: 'bookmark-outline', name: 'Your book', line: 'keep them, cut them, run them.' },
-  { icon: 'calendar-outline', name: 'Your board', line: 'paste the email; it knocks.' },
-];
-
 /**
- * The paywall, in the curtain call's clothes: "The whole stage.", how big
- * the library is, and the house as rows, the partner first. Under it the two
- * plans as cards, yearly chosen with the gel block behind it, the pill that
- * starts the week and one line of what the week promises. One line of terms,
- * Terms and Privacy.
+ * The paywall: the ghost light on an empty stage as the picture, "The whole
+ * stage." in its light, three lines of what opens, then the plan as a
+ * Yearly / Monthly switch with what the year saves, one price said large, and
+ * the pill that starts the week pinned to the foot with "No payment today"
+ * under it. One line of terms, Terms and Privacy.
  *
  * Every number on it comes from the store or the server: the trial length
- * from the yearly package's introductory offer, the prices from the
- * packages, the count from the database. With no trial on the offering the
- * promise is not said and the pill says what it does instead. The money
- * itself is src/hooks/useTrialOffer.ts, shared with the wall on the page and
- * the foot of the cast sheet; this screen only draws it.
+ * from the yearly package's introductory offer, the prices and the saving
+ * from the packages, the count from the database. With no trial on the
+ * offering the pill says what it does instead. The money itself is
+ * src/hooks/useTrialOffer.ts, shared with the wall on the page and the foot of
+ * the cast sheet; this screen only draws it.
  */
 export default function Paywall() {
   const router = useRouter();
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { label: catalogue } = useCatalogueSize();
   const trigger = asTrigger(useLocalSearchParams<{ why?: string }>().why);
   const why = trigger ? WHY_LINE[trigger] : undefined;
 
   const close = useCallback(() => (router.canGoBack() ? router.back() : router.replace('/')), [router]);
   const offer = useTrialOffer({ from: 'paywall', trigger, onDone: close, onSignIn: () => router.replace('/auth') });
-  const { plan, setPlan, busy, restoring, note, storeDown, retry, trialLabel, trialDays, canRemind, buy, onRestore } = offer;
+  const { plan, setPlan, busy, restoring, note, storeDown, retry, trialLabel, trialDays, buy, onRestore } = offer;
 
-  const cta = trialLabel ? `Start the free ${trialDays === 7 ? 'week' : trialLabel}` : 'Unlock everything';
+  const cta = trialLabel ? `Start my free ${trialDays === 7 ? 'week' : trialLabel}` : 'Unlock everything';
+  const both = offer.hasAnnual && offer.hasMonthly;
+  const yearly = plan === 'annual';
+  const hero = Math.min(240, Math.max(170, height * 0.25));
 
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
+      {/* The light stands behind everything, so no edge of the scroll can cut it. */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }} pointerEvents="none">
+        <SpotlightHero height={insets.top + 44 + hero} />
+      </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Restore on the left, because Apple asks for it and it is not the point; the way out on the right. */}
-        <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22 }}>
+        <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, zIndex: 2 }}>
           <Pressable onPress={onRestore} hitSlop={12} accessibilityRole="button" accessibilityLabel="Restore purchases" style={{ paddingVertical: 6 }}>
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />
@@ -71,73 +73,65 @@ export default function Paywall() {
               <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.chevron }}>Restore</Text>
             )}
           </Pressable>
-          <Pressable onPress={close} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close" style={{ padding: 4 }}>
-            <Ionicons name="close" size={24} color={c.mutedForeground} />
+          <Pressable onPress={close} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close" style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="close" size={19} color={c.mutedForeground} />
           </Pressable>
         </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 12, flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* 40/44: Instrument Serif wants about 1.1x its size or the descender of "g" is clipped. */}
-          <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 44, letterSpacing: -0.6, color: c.foreground }}>
-            The whole <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
-          </Text>
-          <StageDirection style={{ marginTop: 6 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            ({catalogue} monologues. no limits.)
-          </StageDirection>
-          {/* What they just did, said back, when they came here by doing it. */}
-          {why ? (
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 8, fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
-              {why}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+          {/* The room the lamp stands in. */}
+          <View style={{ height: hero }} />
+
+          <View style={{ paddingHorizontal: 24 }}>
+            {/* 42/46: Instrument Serif wants about 1.1x its size or the descender of "g" is clipped. */}
+            <Text style={{ marginTop: 4, textAlign: 'center', fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.6, color: c.foreground }}>
+              The whole <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
             </Text>
-          ) : null}
+            {/* What they just did, said back, when they came here by doing it. */}
+            {why ? (
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 4, textAlign: 'center', fontFamily: MONO_I, fontSize: 13.5, lineHeight: 19, letterSpacing: 0.4, color: c.accentText }}>
+                {why}
+              </Text>
+            ) : null}
 
-          {/* The house, as the curtain call of a first scene draws it, with the partner first. */}
-          <View style={{ marginTop: 18 }}>
-            {ROOMS.map(h => (
-              <View key={h.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={h.icon} size={17} color={c.accentText} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>{h.name}</Text>
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ marginTop: 1, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>({h.line})</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {storeDown ? (
-            <Text style={{ marginTop: 26, textAlign: 'center', fontFamily: SANS, fontSize: 14, lineHeight: 21, color: c.mutedForeground }}>
-              The App Store isn’t reachable right now, so we can’t show you the subscription. Check your connection and try again in a moment.
-            </Text>
-          ) : null}
-
-          {/* The two plans as cards. Only the packages the store sells are drawn. */}
-          {!storeDown ? (
-            <View style={{ marginTop: 22, gap: 12 }}>
-              {offer.hasAnnual ? (
-                <PlanCard
-                  selected={plan === 'annual'}
-                  onPress={() => setPlan('annual')}
-                  name="Yearly"
-                  note={offer.annualTrialLabel ? `(${offer.annualTrialLabel} free.)` : null}
-                  price={offer.annualBilled}
-                  per={`${offer.annualPerMonth} / month`}
-                />
-              ) : null}
-              {offer.hasMonthly ? (
-                <PlanCard selected={plan === 'monthly'} onPress={() => setPlan('monthly')} name="Monthly" note={null} price={offer.monthlyBilled} per={null} />
-              ) : null}
+            <View style={{ marginTop: 18, gap: 11, alignSelf: 'center' }}>
+              <Perk text="A scene partner for every side" />
+              <Perk text={`${catalogue} monologues, no limits`} />
+              <Perk text="Keep, cut and run them off book" />
             </View>
-          ) : null}
+
+            {storeDown ? (
+              <Text style={{ marginTop: 24, textAlign: 'center', fontFamily: SANS, fontSize: 14, lineHeight: 21, color: c.mutedForeground }}>
+                The App Store isn’t reachable right now, so we can’t show you the subscription. Check your connection and try again in a moment.
+              </Text>
+            ) : (
+              <>
+                {both ? (
+                  <View style={{ marginTop: 24, flexDirection: 'row', padding: 4, borderRadius: 18, borderWidth: 1, borderColor: c.border }}>
+                    <Segment selected={yearly} onPress={() => setPlan('annual')} label="Yearly" badge={offer.savePercent ? `SAVE ${offer.savePercent}%` : null} />
+                    <Segment selected={!yearly} onPress={() => setPlan('monthly')} label="Monthly" badge={null} />
+                  </View>
+                ) : null}
+
+                {/* The amount actually charged, said large; per month small under it (3.1.2(c)). */}
+                <View style={{ marginTop: 18, alignItems: 'center' }}>
+                  <Text style={{ fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: 0.3, color: c.foreground }}>
+                    {yearly ? offer.annualBilled : offer.monthlyBilled}
+                    <Text style={{ fontFamily: SERIF_I, fontSize: 22, color: c.mutedForeground }}>{yearly ? ' a year' : ' a month'}</Text>
+                  </Text>
+                  <Text style={{ marginTop: 4, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.mutedForeground }}>
+                    {yearly
+                      ? `(${offer.annualPerMonth} a month.${offer.annualTrialLabel ? ` ${offer.annualTrialLabel} free.` : ''})`
+                      : '(billed monthly. no trial.)'}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
           <View style={{ flexGrow: 1 }} />
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 22, paddingBottom: 10, paddingTop: 10 }}>
+        <View style={{ paddingHorizontal: 22, paddingBottom: 8, paddingTop: 8 }}>
           {busy ? (
             <ActivityIndicator color={c.accentText} style={{ height: 56 }} />
           ) : storeDown ? (
@@ -146,21 +140,20 @@ export default function Paywall() {
             <PrimaryPill label={cta} onPress={buy} block haptic="medium" height={56} />
           )}
 
-          {/* The week's promise, in one line where the timeline used to be. */}
-          {trialLabel && trialDays && !storeDown && !busy ? (
+          {!storeDown ? (
             <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS_B, fontSize: 13, lineHeight: 18, color: c.mutedForeground }}>
-              {canRemind && trialDays > 2 ? `We remind you on day ${trialDays - 2}. ` : ''}Cancel before day {trialDays}, pay nothing.
+              {trialLabel ? 'No payment today. Cancel anytime.' : 'Cancel anytime.'}
             </Text>
           ) : null}
 
           {note ? (
-            <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS, fontSize: 12, lineHeight: 17, color: c.mutedForeground }}>{note}</Text>
+            <Text style={{ marginTop: 8, textAlign: 'center', fontFamily: SANS, fontSize: 12, lineHeight: 17, color: c.mutedForeground }}>{note}</Text>
           ) : null}
 
           {/* The disclosure 3.1.2(c) is about: the trial, the charge after it,
               and that it renews on its own, under the pill that starts it. */}
           {!storeDown ? (
-            <Text style={{ marginTop: 12, textAlign: 'center', fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron }}>{offer.terms}</Text>
+            <Text style={{ marginTop: 8, textAlign: 'center', fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron }}>{offer.terms}</Text>
           ) : null}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4, paddingBottom: 2 }}>
             <Pressable onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} hitSlop={8} accessibilityRole="link">
@@ -177,40 +170,43 @@ export default function Paywall() {
   );
 }
 
-/**
- * A plan as a card: a radio, the name, the trial in Courier under it, the
- * price in serif and the per-month figure under that. The chosen one carries
- * the gel block offset behind it and the house orange on its rule. The price
- * printed large is the amount actually charged; per-month stays small, which
- * is the prominence 3.1.2(c) asks for.
- */
-function PlanCard({ selected, onPress, name, note, price, per }: { selected: boolean; onPress: () => void; name: string; note: string | null; price: string; per: string | null }) {
+/** One thing the plan opens: an amber tick in a disc, and the line. */
+function Perk({ text }: { text: string }) {
   const { colors: c } = useTheme();
   return (
-    <View>
-      {selected ? <View pointerEvents="none" style={{ position: 'absolute', left: 6, top: 6, right: -6, bottom: -6, borderRadius: 18, backgroundColor: c.yellow }} /> : null}
-      <Pressable
-        onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
-        accessibilityRole="button"
-        accessibilityState={{ selected }}
-        style={{
-          flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 18, paddingHorizontal: 18, borderRadius: 18,
-          borderWidth: 1.5, borderColor: selected ? c.accentText : c.border, backgroundColor: c.card,
-        }}
-      >
-        <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: selected ? c.accentText : c.chevron, backgroundColor: selected ? c.accentText : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-          {selected ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.ink }} /> : null}
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontFamily: SANS_B, fontSize: 16, lineHeight: 20, color: selected ? c.foreground : c.mutedForeground }}>{name}</Text>
-          {note ? <Text style={{ marginTop: 4, fontFamily: MONO_I, fontSize: 12.5, letterSpacing: 0.4, color: c.mutedForeground }}>{note}</Text> : null}
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          {/* 22/28: the serif's dollar sign crowds the first digit, half a point of tracking parts them. */}
-          <Text style={{ fontFamily: SERIF, fontSize: 24, lineHeight: 28, letterSpacing: 0.5, color: selected ? c.foreground : c.mutedForeground }}>{price}</Text>
-          {per ? <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 11.5, color: c.mutedForeground }}>{per}</Text> : null}
-        </View>
-      </Pressable>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="checkmark" size={14} color={c.ink} />
+      </View>
+      <Text style={{ fontFamily: SANS_B, fontSize: 15.5, lineHeight: 20, color: c.foreground }}>{text}</Text>
     </View>
+  );
+}
+
+/**
+ * Half of the plan switch. The chosen half is lifted onto a card with the
+ * house orange round it; the year carries its saving as a gel chip, yellow
+ * only ever behind ink.
+ */
+function Segment({ selected, onPress, label, badge }: { selected: boolean; onPress: () => void; label: string; badge: string | null }) {
+  const { colors: c } = useTheme();
+  return (
+    <Pressable
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={badge ? `${label}, ${badge.toLowerCase()}` : label}
+      style={{
+        flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
+        borderWidth: 1.5, borderColor: selected ? c.accentText : 'transparent', backgroundColor: selected ? c.card : 'transparent',
+      }}
+    >
+      <Text style={{ fontFamily: SANS_B, fontSize: 16, color: selected ? c.foreground : c.mutedForeground }}>{label}</Text>
+      {badge ? (
+        <View style={{ paddingHorizontal: 7, height: 20, borderRadius: 6, backgroundColor: c.yellow, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: CAP, fontSize: 9.5, letterSpacing: 0.8, color: c.ink }}>{badge}</Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }

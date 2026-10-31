@@ -134,6 +134,11 @@ export function useTrialOffer({
   const annualBilled = annualPkg?.product.priceString ?? FALLBACK_ANNUAL;
   const monthlyBilled = monthlyPkg?.product.priceString ?? FALLBACK_MONTHLY;
   const annualPerMonth = perMonthString(annualPkg?.product, 12) ?? FALLBACK_PER_MONTH;
+  // What the year saves on twelve months, from the store's own prices; the
+  // fallbacks' 59.99 against 9.99 when there is no offering to ask.
+  const aP = annualPkg?.product.price ?? (offering ? 0 : 59.99);
+  const mP = monthlyPkg?.product.price ?? (offering ? 0 : 9.99);
+  const savePercent = aP > 0 && mP > 0 && aP < mP * 12 ? Math.round((1 - aP / (mP * 12)) * 100) : null;
 
   const selectedPkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
   const billed = plan === 'annual' ? annualBilled : monthlyBilled;
@@ -237,6 +242,8 @@ export function useTrialOffer({
     annualBilled,
     monthlyBilled,
     annualPerMonth,
+    /** How much cheaper the year is than twelve months, as a whole percent, or null. */
+    savePercent,
     /** The yearly plan's trial, whichever plan is picked: for the plan card's own label. */
     annualTrialLabel: annualTrial?.label ?? null,
     billed,
