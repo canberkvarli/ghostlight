@@ -84,7 +84,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { gcTime: 24 * 
 const persister = createAsyncStoragePersister({ storage: AsyncStorage, key: 'ghostlight-queries', throttleTime: 1000 });
 /** Answers that are the same for every actor: kept across a sign-out. */
 const SHARED = new Set(['guided', 'scenes', 'trending', 'tonight', 'discover', 'catalogue-size', 'screen-shelf']);
-const PERSISTED = new Set(['favorites', 'auditions', 'trending', 'screen-shelf', 'tonight', 'discover', 'catalogue-size', 'scripts', 'scenes', 'run-stats', 'guided', 'runs', 'recents-local']);
+const PERSISTED = new Set(['favorites', 'auditions', 'trending', 'screen-shelf', 'tonight', 'discover', 'catalogue-size', 'scripts', 'scenes', 'run-stats', 'guided', 'runs', 'recents-local', 'read-wall']);
 const persistOptions = {
   persister,
   maxAge: 7 * 24 * 60 * 60 * 1000,

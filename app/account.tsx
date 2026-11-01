@@ -93,11 +93,13 @@ function SignedIn({ session }: { session: Session }) {
   const [checkingIn, setCheckingIn] = useState(false);
   // A new name is shown the moment it is saved, not when the session catches up.
   const [newName, setNewName] = useState<string | null>(null);
-  const sub = useQuery({ queryKey: ['subscription'], queryFn: getSubscription, staleTime: 5 * 60_000, enabled: isPaid });
-  // The page comes up whole, the streak, the plan and the counts together,
-  // never a zero that turns into a number in front of you. They are fetched
-  // as the app opens and kept between launches, so this is almost never seen.
-  const settled = !runs.isPending && !recents.isPending && !stats.isPending && (wall !== undefined || wallFailed) && (!isPaid || !sub.isPending);
+  // The page is up at once: the name is on the phone. Each part below it
+  // waits for its own answer and comes up out of a fade, so nothing shows a
+  // zero that turns into a number, and nothing holds the rest back. All of it
+  // is kept between launches, so after the first time it is simply there.
+  const nightsReady = !runs.isPending && !recents.isPending;
+  const planReady = wall !== undefined || wallFailed;
+  const countsReady = !stats.isPending && wall !== undefined;
   // The profile is a sheet over a room: a count opens its tab, with the sheet put away first, never a page stacked on the sheet.
   const toRoom = (href: string) => {
     if (router.canGoBack()) router.back();
@@ -118,14 +120,6 @@ function SignedIn({ session }: { session: Session }) {
   const nameFade = useAnimatedStyle(() => ({ opacity: nameOpacity.value }));
   const letter = (who.first || session.user.email || 'A').trim().charAt(0).toUpperCase();
   const since = sinceLabel(session.user.created_at);
-
-  if (!settled) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', paddingTop: 120 }}>
-        <GhostLight size={30} />
-      </View>
-    );
-  }
 
   return (
     <>
@@ -150,17 +144,20 @@ function SignedIn({ session }: { session: Session }) {
       </View>
 
       {/* Nights in the work: the streak and this week, counted as the lamp on Search counts them. */}
-      <StreakCard streak={nights.streak} onCheckIn={() => setCheckingIn(true)} />
-      <NightsLog entries={nights.entries} />
+      <Reveal ready={nightsReady} hold={190}>
+        <StreakCard streak={nights.streak} onCheckIn={() => setCheckingIn(true)} />
+        <NightsLog entries={nights.entries} />
+      </Reveal>
 
-      {/* Your plan: the one card. */}
-      <View style={{ marginTop: 28 }}>
+      {/* Your plan: the one card. Free or paid is not known until the server says. */}
+      <Reveal ready={planReady} hold={250} style={{ marginTop: 28 }}>
         {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => push(paywallHref('account'))} />}
-      </View>
+      </Reveal>
 
       <AuditionRecord auditions={auditions ?? []} onOpen={() => toRoom('/(board)/auditions')} />
 
       {/* The counts, said as one line; kept and scenes run open their rooms. */}
+      <Reveal ready={countsReady} hold={50}>
       <View style={{ marginTop: 26, paddingVertical: 14, borderTopWidth: 1, borderColor: c.divider, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
         <Count n={saved?.length ?? 0} label="kept" onPress={() => toRoom('/(book)/saves')} />
         <Text style={{ marginHorizontal: 10, fontFamily: SANS, fontSize: 14, color: c.chevron }}>·</Text>
@@ -168,6 +165,7 @@ function SignedIn({ session }: { session: Session }) {
         <Text style={{ marginHorizontal: 10, fontFamily: SANS, fontSize: 14, color: c.chevron }}>·</Text>
         <Count n={stats.data?.runs ?? 0} label={(stats.data?.runs ?? 0) === 1 ? 'scene run' : 'scenes run'} onPress={() => toRoom('/(scene)/rehearse')} />
       </View>
+      </Reveal>
     </Animated.ScrollView>
       {/* Outside the scroll view: inside it, the first tap on Save only put the keyboard away. */}
       <NameSheet
@@ -190,6 +188,22 @@ function SignedIn({ session }: { session: Session }) {
       <CheckInSheet open={checkingIn} streak={nights.streak} entries={nights.entries} onClose={() => setCheckingIn(false)} />
     </>
   );
+}
+
+/**
+ * A part of the page that waits for its own answer. Until it comes, the room
+ * it will take is held empty, so what is under it does not jump; then it fades
+ * up. A part already known as the page opens is simply there, with no fade.
+ * Opacity on a shared value, not an `entering`: that left buttons untappable.
+ */
+function Reveal({ ready, hold, style, children }: { ready: boolean; hold: number; style?: object; children: React.ReactNode }) {
+  const shown = useSharedValue(ready ? 1 : 0);
+  useEffect(() => {
+    if (ready) shown.value = withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) });
+  }, [ready, shown]);
+  const fade = useAnimatedStyle(() => ({ opacity: shown.value }));
+  if (!ready) return <View style={[{ height: hold }, style]} />;
+  return <Animated.View style={[style, fade]}>{children}</Animated.View>;
 }
 
 function Avatar({ letter, paid }: { letter: string; paid: boolean }) {
