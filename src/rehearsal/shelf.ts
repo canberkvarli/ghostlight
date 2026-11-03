@@ -1,4 +1,5 @@
 import type { ScriptSummary } from '../api/rehearsal';
+import { currentLocale } from '../i18n/pick';
 
 /**
  * The Scene room's shelf of the actor's own sides, made sense of: what they
@@ -14,6 +15,18 @@ export const SHELF_SORTS: { key: ShelfSort; label: string; short: string }[] = [
   { key: 'title', label: 'By title', short: 'a to z' },
   { key: 'scenes', label: 'Most scenes', short: 'most scenes' },
 ];
+
+const SORTS_TR: Record<ShelfSort, { label: string; short: string }> = {
+  recent: { label: 'Son çalışılan', short: 'son' },
+  newest: { label: 'En yeni', short: 'en yeni' },
+  title: { label: 'Ada göre', short: 'a dan z ye' },
+  scenes: { label: 'En çok sahne', short: 'en çok sahne' },
+};
+
+/** The sorts, in the app's language: SHELF_SORTS for English. */
+export function shelfSorts(): { key: ShelfSort; label: string; short: string }[] {
+  return currentLocale() === 'tr' ? SHELF_SORTS.map((o) => ({ key: o.key, ...SORTS_TR[o.key] })) : SHELF_SORTS;
+}
 
 /** Grouped once the shelf is this long; below it one list is clearer. */
 export const GROUP_FROM = 6;

@@ -11,7 +11,8 @@ import { GhostLight } from './GhostLight';
 import { TAB_BAR_SPACE } from './TabBar';
 import { SCRIPTS_KEY, useCancelExtraction, useScriptProgress, useShelfHead } from '../hooks/useScenePartner';
 import { StageDirection } from './StageDirection';
-import { SCRIPT_STEPS, aboutLeft, stepOf } from '../lib/scriptSteps';
+import { SCRIPT_STEP_COUNT, aboutLeft, scriptSteps, stepOf } from '../lib/scriptSteps';
+import { useL } from '../i18n';
 import { useSession } from '../lib/useSession';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -35,6 +36,7 @@ export function ReadingBanner() {
   const segments = useSegments() as string[];
   const insets = useSafeAreaInsets();
   const { colors: c } = useTheme();
+  const L = useL();
 
   const reading = (scripts.data ?? []).find((s) => !s.is_sample && s.processing_status !== 'completed' && s.processing_status !== 'failed' && s.processing_status !== 'deleted');
   const progress = useScriptProgress(reading ? reading.id : null, 3000);
@@ -99,8 +101,8 @@ export function ReadingBanner() {
     else setDetails(true);
   };
   const step = p?.step ? stepOf(p.step) : null;
-  const stepAt = Math.max(0, Math.min(step ?? 0, SCRIPT_STEPS.length - 1));
-  const stepWords = SCRIPT_STEPS[stepAt].replace(/\.$/, '');
+  const stepAt = Math.max(0, Math.min(step ?? 0, SCRIPT_STEP_COUNT - 1));
+  const stepWords = scriptSteps()[stepAt].replace(/\.$/, '');
   const elapsed = p?.elapsed_seconds ?? null;
   const since = elapsed === null ? '' : elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${String(elapsed % 60).padStart(2, '0')}s`;
   const halt = () => {
@@ -121,20 +123,20 @@ export function ReadingBanner() {
               <Ionicons name="checkmark" size={17} color={c.ink} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: '#f7f3ec' }}>Your sides are in.</Text>
+              <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: '#f7f3ec' }}>{L('Your sides are in.', 'Metnin hazır.')}</Text>
               <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: '#b5ada3' }}>
-                ({done.title}{done.scenes ? `, ${done.scenes} ${done.scenes === 1 ? 'scene' : 'scenes'}` : ''}.)
+                ({done.title}{done.scenes ? `, ${done.scenes} ${L(done.scenes === 1 ? 'scene' : 'scenes', 'sahne')}` : ''}.)
               </Text>
             </View>
-            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: c.yellow }}>Open</Text>
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: c.yellow }}>{L('Open', 'Aç')}</Text>
           </View>
         ) : (
           <>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <GhostLight size={16} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: '#f7f3ec' }}>Reading {reading?.title ?? 'your sides'}</Text>
-                <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: '#b5ada3' }}>({aboutLeft(left)} we will say when it is in.)</Text>
+                <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: '#f7f3ec' }}>{L(`Reading ${reading?.title ?? 'your sides'}`, `Okunuyor: ${reading?.title ?? 'metnin'}`)}</Text>
+                <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: '#b5ada3' }}>{L(`(${aboutLeft(left)} we will say when it is in.)`, `(${aboutLeft(left)} hazır olunca haber gelir.)`)}</Text>
               </View>
             </View>
             <View style={{ marginTop: 10, height: 3, borderRadius: 1.5, backgroundColor: '#3a2c24', overflow: 'hidden' }}>
@@ -146,48 +148,48 @@ export function ReadingBanner() {
 
       <Modal visible={details && Boolean(reading)} transparent animationType="none" onRequestClose={() => setDetails(false)} statusBarTranslucent>
         <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,7,4,0.66)' }}>
-          <Pressable style={{ flex: 1 }} onPress={() => setDetails(false)} accessibilityLabel="Close" />
+          <Pressable style={{ flex: 1 }} onPress={() => setDetails(false)} accessibilityLabel={L('Close', 'Kapat')} />
           <Animated.View entering={FadeIn.duration(240).delay(40)}
             style={{ backgroundColor: c.panel, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: c.border, paddingHorizontal: 24, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 10 }}>
             <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: c.border, marginBottom: 16 }} />
-            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11, letterSpacing: 1.6, color: c.mutedForeground }}>READING YOUR SIDES</Text>
-            <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>{reading?.title ?? 'Your sides'}</Text>
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11, letterSpacing: 1.6, color: c.mutedForeground }}>{L('READING YOUR SIDES', 'METNİN OKUNUYOR')}</Text>
+            <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>{reading?.title ?? L('Your sides', 'Metnin')}</Text>
 
             <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <GhostLight size={14} />
               <Text style={{ flex: 1, fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 20, color: c.accentText }}>{stepWords.charAt(0).toUpperCase() + stepWords.slice(1)}</Text>
-              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{stepAt + 1} OF {SCRIPT_STEPS.length}</Text>
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{L(`${stepAt + 1} OF ${SCRIPT_STEP_COUNT}`, `${SCRIPT_STEP_COUNT} ADIMDAN ${stepAt + 1}`)}</Text>
             </View>
             <View style={{ marginTop: 12, height: 4, borderRadius: 2, backgroundColor: c.divider, overflow: 'hidden' }}>
               <Animated.View style={[{ height: 4, backgroundColor: c.accentText }, bar]} />
             </View>
             <View style={{ marginTop: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>{since ? `(reading for ${since}.)` : '(just begun.)'}</Text>
-              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>({aboutLeft(left).replace(/\.$/, '')} left.)</Text>
+              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>{since ? L(`(reading for ${since}.)`, `(${since} süredir okunuyor.)`) : L('(just begun.)', '(daha yeni başladı.)')}</Text>
+              <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>{L(`(${aboutLeft(left).replace(/\.$/, '')} left.)`, `(kalan: ${aboutLeft(left).replace(/\.$/, '')}.)`)}</Text>
             </View>
-            <StageDirection numberOfLines={2} style={{ marginTop: 16 }}>(it keeps reading wherever you go. you will be told when it is in.)</StageDirection>
+            <StageDirection numberOfLines={2} style={{ marginTop: 16 }}>{L('(it keeps reading wherever you go. you will be told when it is in.)', '(sen nereye gidersen git okumaya devam eder. hazır olunca haber gelir.)')}</StageDirection>
 
             {stopping ? (
               <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: 22, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border }}>
-                <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, lineHeight: 20, color: c.foreground }}>Stop reading it? The sides come off your shelf and the upload is given back. You can send them again any time.</Text>
+                <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, lineHeight: 20, color: c.foreground }}>{L('Stop reading it? The sides come off your shelf and the upload is given back. You can send them again any time.', 'Okuma dursun mu? Metin rafından kalkar ve yükleme hakkın geri verilir. İstediğin zaman yeniden gönderebilirsin.')}</Text>
                 <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 20 }}>
                   <Pressable onPress={() => setStopping(false)} hitSlop={10} accessibilityRole="button">
-                    <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: c.mutedForeground }}>Keep reading</Text>
+                    <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: c.mutedForeground }}>{L('Keep reading', 'Okumaya devam')}</Text>
                   </Pressable>
                   <Pressable onPress={halt} disabled={stop.isPending} accessibilityRole="button"
                     style={{ height: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: '#c0392b', alignItems: 'center', justifyContent: 'center' }}>
-                    {stop.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: '#fff' }}>Stop it</Text>}
+                    {stop.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: '#fff' }}>{L('Stop it', 'Durdur')}</Text>}
                   </Pressable>
                 </View>
               </Animated.View>
             ) : (
               <View style={{ marginTop: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setStopping(true); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Stop reading these sides">
-                  <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: '#d0574b' }}>Stop reading</Text>
+                <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setStopping(true); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={L('Stop reading these sides', 'Bu metnin okunmasını durdur')}>
+                  <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: '#d0574b' }}>{L('Stop reading', 'Okumayı durdur')}</Text>
                 </Pressable>
                 <Pressable onPress={() => toShelf(reading?.id)} accessibilityRole="button"
                   style={{ height: 44, paddingHorizontal: 20, borderRadius: 22, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.foreground }}>See the shelf</Text>
+                  <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.foreground }}>{L('See the shelf', 'Rafa bak')}</Text>
                 </Pressable>
               </View>
             )}

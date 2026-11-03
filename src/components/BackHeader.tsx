@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '../theme/ThemeContext';
+import { useL } from '../i18n';
 
 /**
  * The way back, top-left on every screen except Search (handoff §5): a chevron
@@ -23,11 +24,12 @@ export function BackHeader({
   close?: boolean;
 }) {
   const { colors: c } = useTheme();
+  const L = useL();
   if (close) {
     return (
       <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 5 }}>
         <Fade />
-        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"
+        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')}
           style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginLeft: -6 }}>
           <Ionicons name="close" size={24} color={c.foreground} />
         </Pressable>
@@ -45,7 +47,7 @@ export function BackHeader({
         }}
         hitSlop={12}
         accessibilityRole="button"
-        accessibilityLabel={`Back to ${label}`}
+        accessibilityLabel={L(`Back to ${label}`, `Geri dön: ${label}`)}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 6, paddingRight: 10 }}
       >
         <Ionicons name="chevron-back" size={20} color={c.mutedForeground} />

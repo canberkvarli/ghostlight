@@ -16,6 +16,8 @@ import { useTheme } from '../../theme/ThemeContext';
 import { PrimaryPill } from '../PrimaryPill';
 import { playSample, primeSample, stopSample } from '../../rehearsal/native/sample';
 import { StageDirection } from '../StageDirection';
+import { pick as say, useL } from '../../i18n';
+import { lower } from '../../i18n/pick';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const MONO_I = 'CourierPrime_400Regular_Italic';
@@ -51,6 +53,7 @@ interface Props {
 export function CastSheet({ payload, guided, preparing, waiting, error, gated, onBegin, onPlans, onClose }: Props) {
   const router = useRouter();
   const { colors: c } = useTheme();
+  const L = useL();
   const insets = useSafeAreaInsets();
   const resume = guided ? null : payload.resume;
   const [mine, setMine] = useState<string | null>(() => (guided ? null : (payload.characters[0] ?? null)));
@@ -128,7 +131,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
   return (
     <View style={{ flex: 1, justifyContent: 'flex-end' }}>
       {/* The stage behind, dimmed. A tap on it is a way out. */}
-      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#15110f', opacity: 0.22 }} />
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#15110f', opacity: 0.22 }} />
       <Animated.View entering={FadeIn.duration(280)} style={{ maxHeight: '88%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: c.background, paddingBottom: insets.bottom + 12 }}>
         <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.border, marginTop: 10 }} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 22, paddingBottom: 8 }}>
@@ -138,20 +141,20 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
           <Text style={{ marginTop: 4, fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.5, color: c.foreground }}>{payload.scene.title}</Text>
           {!guided && !payload.scene.is_library ? (
             /* Your own sides can be read through and put right before the run: a speaker, a direction, a line split in two. */
-            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/edit/[id]', params: { id: String(payload.scene.id) } }); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Read and fix the sides"
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/edit/[id]', params: { id: String(payload.scene.id) } }); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={L('Read and fix the sides', 'Metni oku ve düzelt')}
               style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
               <Ionicons name="create-outline" size={14} color={c.accentText} />
-              <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>Fix the sides</Text>
+              <Text numberOfLines={1} style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>{L('Fix the sides', 'Metni düzelt')}</Text>
             </Pressable>
           ) : null}
 
           {guided ? (
             <Text style={{ marginTop: 16, fontFamily: SANS, fontSize: 15, lineHeight: 22, color: c.foreground }}>
-              Two minutes with a partner. Your lines are lit; speak them, and the scene moves on your last word.
+              {L('Two minutes with a partner. Your lines are lit; speak them, and the scene moves on your last word.', 'Bir partnerle iki dakika. Repliklerin ışıklı; onları söyle, sahne son kelimende ilerler.')}
             </Text>
           ) : (
             <>
-              <Text style={{ marginTop: 18, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(who are you?)</Text>
+              <Text style={{ marginTop: 18, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>{L('(who are you?)', '(sen kimsin?)')}</Text>
               <View style={{ marginTop: 12, gap: 12 }}>
                 {payload.characters.map(ch => {
                   const on = mine !== null && sameCharacter(ch, mine);
@@ -164,11 +167,11 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 34, color: c.foreground }}>{ch}</Text>
                           {on ? (
-                            <StageDirection on="paper" numberOfLines={1}>(you · {linesOf(ch)} {linesOf(ch) === 1 ? 'line' : 'lines'}.)</StageDirection>
+                            <StageDirection on="paper" numberOfLines={1}>{L(`(you · ${linesOf(ch)} ${linesOf(ch) === 1 ? 'line' : 'lines'}.)`, `(sen · ${linesOf(ch)} replik.)`)}</StageDirection>
                           ) : (
-                            <Pressable onPress={() => pick(ch)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Voice for ${ch}: ${v ? nameOf(v) : ''}. Tap to choose another`}
+                            <Pressable onPress={() => pick(ch)} hitSlop={8} accessibilityRole="button" accessibilityLabel={L(`Voice for ${ch}: ${v ? nameOf(v) : ''}. Tap to choose another`, `${ch} için ses: ${v ? nameOf(v) : ''}. Başkasını seçmek için dokun`)}
                               style={{ marginTop: 6, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10, paddingRight: 8, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: c.paperRule }}>
-                              <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 13, color: c.paperInk }}>read by {v ? nameOf(v) : '…'}</Text>
+                              <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 13, color: c.paperInk }}>{L(`read by ${v ? nameOf(v) : '…'}`, `${v ? nameOf(v) : '…'} okuyor`)}</Text>
                               <Ionicons name="chevron-down" size={13} color={c.paperMuted} />
                             </Pressable>
                           )}
@@ -192,28 +195,28 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
             ) : (
               <>
                 {error ? (
-                  <StageDirection numberOfLines={3} style={{ marginBottom: 12 }}>({error.toLowerCase()})</StageDirection>
+                  <StageDirection numberOfLines={3} style={{ marginBottom: 12 }}>({lower(error)})</StageDirection>
                 ) : preparing && waiting ? (
                   <Animated.View entering={FadeIn.duration(200)}><StageDirection numberOfLines={2} style={{ marginBottom: 12 }}>({waiting})</StageDirection></Animated.View>
                 ) : null}
                 {resume && !preparing ? (
                   <View style={{ gap: 10 }}>
-                    <StageDirection>(you left this one at line {resume.line_index + 1}.)</StageDirection>
-                    <PrimaryPill label={`Pick up at line ${resume.line_index + 1}`} onPress={() => begin({ runId: resume.run_id, lineIndex: resume.line_index })} height={54} block haptic="medium" />
-                    <PrimaryPill label={mine ? `Begin as ${mine}, from the top` : 'From the top'} variant="outline" onPress={() => begin()} height={50} block />
+                    <StageDirection>{L(`(you left this one at line ${resume.line_index + 1}.)`, `(burada ${resume.line_index + 1}. replikte kalmıştın.)`)}</StageDirection>
+                    <PrimaryPill label={L(`Pick up at line ${resume.line_index + 1}`, `${resume.line_index + 1}. replikten devam et`)} onPress={() => begin({ runId: resume.run_id, lineIndex: resume.line_index })} height={54} block haptic="medium" />
+                    <PrimaryPill label={mine ? L(`Begin as ${mine}, from the top`, `${mine} olarak baştan başla`) : L('From the top', 'Baştan başla')} variant="outline" onPress={() => begin()} height={50} block />
                   </View>
                 ) : (
-                  <PrimaryPill label={preparing ? 'Warming up' : guided ? 'Begin' : mine ? `Begin as ${mine}` : 'Begin'} onPress={() => begin()} disabled={preparing || (!mine && !guided)} height={54} block haptic="medium" />
+                  <PrimaryPill label={preparing ? L('Warming up', 'Hazırlanıyor') : guided ? L('Begin', 'Başla') : mine ? L(`Begin as ${mine}`, `${mine} olarak başla`) : L('Begin', 'Başla')} onPress={() => begin()} disabled={preparing || (!mine && !guided)} height={54} block haptic="medium" />
                 )}
               </>
             )}
         </View>
         {/* The voices, as a list to choose from. */}
         <Modal visible={picking !== null} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
-          <Pressable onPress={() => setPicking(null)} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(21,17,15,0.45)' }}>
+          <Pressable onPress={() => setPicking(null)} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(21,17,15,0.45)' }}>
             <Pressable onPress={() => {}} style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.background, paddingBottom: insets.bottom + 12, maxHeight: '70%' }}>
               <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.border, marginTop: 10 }} />
-              <Text style={{ marginTop: 16, marginHorizontal: 24, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(who reads {picking}?)</Text>
+              <Text style={{ marginTop: 16, marginHorizontal: 24, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>{L(`(who reads ${picking}?)`, `(${picking} rolünü kim okusun?)`)}</Text>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8 }}>
                 {payload.voices.map(v => {
                   const on = picking !== null && voiceOf(picking) === v.id;
@@ -229,7 +232,7 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
                       </View>
                       {on ? <Ionicons name="checkmark" size={18} color={c.foreground} /> : null}
                       {/* Hear it: the character's first line in this voice. */}
-                      <Pressable onPress={() => hear(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={hearing?.id === v.id ? `Stop ${nameOf(v)}` : `Hear ${nameOf(v)}`}
+                      <Pressable onPress={() => hear(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={hearing?.id === v.id ? L(`Stop ${nameOf(v)}`, `${nameOf(v)} sesini durdur`) : L(`Hear ${nameOf(v)}`, `${nameOf(v)} sesini dinle`)}
                         style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: hearing?.id === v.id ? c.accentText : c.border, alignItems: 'center', justifyContent: 'center' }}>
                         {hearing?.id === v.id && hearing.state === 'waiting' ? (
                           <ActivityIndicator size="small" color={c.accentText} />
@@ -258,37 +261,39 @@ export function CastSheet({ payload, guided, preparing, waiting, error, gated, o
  */
 function GateFoot({ mine, onBought, onPlans }: { mine: string | null; onBought: () => void; onPlans: () => void }) {
   const { colors: c } = useTheme();
+  const L = useL();
   const router = useRouter();
   const offer = useTrialOffer({ from: 'cast', trigger: 'run_limit', onDone: onBought, onSignIn: () => router.push('/auth') });
   const week = offer.trialDays === 7 ? 'week' : offer.trialLabel ?? '';
-  const then = mine ? `, then begin as ${mine}` : ', then begin';
+  const weekTr = offer.trialDays === 7 ? 'haftayı' : offer.trialLabel ?? '';
+  const then = mine ? L(`, then begin as ${mine}`, `, sonra ${mine} olarak başla`) : L(', then begin', ', sonra başla');
   const line = offer.storeDown
-    ? '(the app store is out of reach. try again in a moment.)'
+    ? L('(the app store is out of reach. try again in a moment.)', '(app store\'a ulaşılamıyor. birazdan tekrar dene.)')
     : offer.trialLabel
-      ? `(your free run this month is spent. free for ${offer.trialLabel}, then ${offer.billed} ${offer.cadence}.)`
-      : `(your free run this month is spent. ${offer.billed} ${offer.cadence}, cancel any time.)`;
+      ? L(`(your free run this month is spent. free for ${offer.trialLabel}, then ${offer.billed} ${offer.cadence}.)`, `(bu ayki ücretsiz provanı kullandın. ${offer.trialLabel} ücretsiz, sonra ${offer.cadence} ${offer.billed}.)`)
+      : L(`(your free run this month is spent. ${offer.billed} ${offer.cadence}, cancel any time.)`, `(bu ayki ücretsiz provanı kullandın. ${offer.cadence} ${offer.billed}, istediğin zaman iptal et.)`);
   return (
     <View>
       <StageDirection numberOfLines={3} style={{ marginBottom: 12 }}>{line}</StageDirection>
       {offer.busy ? (
         <ActivityIndicator color={c.accentText} style={{ height: 54 }} />
       ) : offer.storeDown ? (
-        <PrimaryPill label="Try again" onPress={offer.retry} height={54} block haptic="medium" />
+        <PrimaryPill label={L('Try again', 'Tekrar dene')} onPress={offer.retry} height={54} block haptic="medium" />
       ) : (
-        <PrimaryPill label={offer.trialLabel ? `Start the free ${week}${then}` : `Unlock everything${then}`} onPress={offer.buy} height={54} block haptic="medium" />
+        <PrimaryPill label={offer.trialLabel ? L(`Start the free ${week}${then}`, `Ücretsiz ${weekTr} başlat${then}`) : L(`Unlock everything${then}`, `Her şeyi aç${then}`)} onPress={offer.buy} height={54} block haptic="medium" />
       )}
       {offer.note ? <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 12, lineHeight: 17, color: c.mutedForeground }}>{offer.note}</Text> : null}
       <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable onPress={onPlans} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>See the plans</Text></Pressable>
-        <Pressable onPress={offer.onRestore} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{offer.restoring ? 'Restoring…' : 'Restore purchases'}</Text></Pressable>
+        <Pressable onPress={onPlans} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{L('See the plans', 'Planları gör')}</Text></Pressable>
+        <Pressable onPress={offer.onRestore} hitSlop={8} accessibilityRole="button"><Text style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{offer.restoring ? L('Restoring…', 'Geri yükleniyor…') : L('Restore purchases', 'Satın alımları geri yükle')}</Text></Pressable>
       </View>
       {/* What Apple asks for wherever something is sold: the length, the price after, that it renews, and the two policies. */}
       {!offer.storeDown ? (
         <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron }}>
           {offer.terms}{' '}
-          <Text onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} style={{ textDecorationLine: 'underline' }}>Terms</Text>
+          <Text onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} style={{ textDecorationLine: 'underline' }}>{L('Terms', 'Koşullar')}</Text>
           {' · '}
-          <Text onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} style={{ textDecorationLine: 'underline' }}>Privacy</Text>
+          <Text onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} style={{ textDecorationLine: 'underline' }}>{L('Privacy', 'Gizlilik')}</Text>
         </Text>
       ) : null}
     </View>
@@ -300,5 +305,5 @@ function nameOf(v: Voice): string { return v.label.split('·')[0].trim(); }
 /** What the server says about it after the dot, or just whether it is a woman's or a man's. */
 function asideOf(v: Voice): string {
   const rest = v.label.split('·').slice(1).join('·').trim();
-  return rest || (v.gender === 'female' ? 'a woman' : 'a man');
+  return rest || (v.gender === 'female' ? say('a woman', 'kadın') : say('a man', 'erkek'));
 }

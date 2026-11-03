@@ -7,6 +7,7 @@
  */
 import { type ScenePayload, sameCharacter } from './contract';
 import type { Script } from './script';
+import { pick } from '../i18n/pick';
 
 /** What the Curtain waits on. Begin needs `line1 && stt && !error`; `mic` is shown, not required. */
 export interface Readiness {
@@ -120,15 +121,16 @@ export function neededFailure(failed: Map<number, string>, cursor: number): numb
  */
 export type ErrorKind = 'stt' | 'mic' | 'line' | 'gate' | 'other';
 
-const PLAIN: Record<ErrorKind, string> = {
-  stt: 'The live microphone dropped. Reload to run again.',
-  mic: 'The microphone is blocked. Allow it in your browser and reload.',
-  line: 'A partner line could not load. Reload to run again.',
-  gate: 'This scene needs Plus.', // only when a gate reply carries no message of its own
-  other: 'Something broke. Reload to run again.',
+// Read when the error is said, not at import, so it is in the language now.
+const PLAIN: Record<ErrorKind, () => string> = {
+  stt: () => pick('The live microphone dropped. Reload to run again.', 'Canlı mikrofon koptu. Yeniden prova için sayfayı yenile.'),
+  mic: () => pick('The microphone is blocked. Allow it in your browser and reload.', 'Mikrofon kapalı. Tarayıcında izin ver ve sayfayı yenile.'),
+  line: () => pick('A partner line could not load. Reload to run again.', 'Partnerin bir repliği yüklenemedi. Yeniden prova için sayfayı yenile.'),
+  gate: () => pick('This scene needs Plus.', 'Bu sahne için Plus gerekiyor.'), // only when a gate reply carries no message of its own
+  other: () => pick('Something broke. Reload to run again.', 'Bir şey bozuldu. Yeniden prova için sayfayı yenile.'),
 };
 
-export const plainError = (kind: ErrorKind): string => PLAIN[kind];
+export const plainError = (kind: ErrorKind): string => PLAIN[kind]();
 
 /** The live session failed: it is the microphone's fault when no stream was ever obtained. */
 export const liveFailureKind = (micObtained: boolean): ErrorKind => (micObtained ? 'stt' : 'mic');

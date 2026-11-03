@@ -7,6 +7,7 @@ import { AuditionsScene } from './AuditionsScene';
 import { PrimaryPill } from './PrimaryPill';
 import { StageDirection } from './StageDirection';
 import { useTheme } from '../theme/ThemeContext';
+import { useL } from '../i18n';
 
 /**
  * "How this works", behind a question mark rather than on the board itself.
@@ -19,9 +20,9 @@ export function HowItWorksSheet({
   onClose,
   primaryLabel,
   onPrimary,
-  title = 'Paste the email.',
-  accent = 'The board does the rest.',
-  body = 'The casting email goes in and a ticket comes out: the date, the room, the part, what to bring. The night before, your phone taps you on the shoulder. Or fill it in by hand, that is always free.',
+  title: titleGiven,
+  accent: accentGiven,
+  body: bodyGiven,
   scene,
 }: {
   open: boolean;
@@ -36,11 +37,15 @@ export function HowItWorksSheet({
   scene?: React.ReactNode;
 }) {
   const { colors: c } = useTheme();
+  const L = useL();
   const insets = useSafeAreaInsets();
+  const title = titleGiven ?? L('Paste the email.', 'E-postayı yapıştır.');
+  const accent = accentGiven ?? L('The board does the rest.', 'Gerisini pano halleder.');
+  const body = bodyGiven ?? L('The casting email goes in and a ticket comes out: the date, the room, the part, what to bring. The night before, your phone taps you on the shoulder. Or fill it in by hand, that is always free.', 'Seçme e-postası girer, bir bilet çıkar: tarih, oda, rol, yanına ne alacağın. Bir gece önce telefonun omzuna dokunur. Ya da elle doldur, o hep ücretsiz.');
   return (
     <Modal visible={open} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View entering={FadeIn.duration(220)} style={{ flex: 1, backgroundColor: 'rgba(12,7,4,0.72)' }}>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1 }} />
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')} style={{ flex: 1 }} />
         <Animated.View
           entering={FadeIn.duration(260).delay(60)}
           style={{
@@ -56,8 +61,8 @@ export function HowItWorksSheet({
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <StageDirection>(how this works.)</StageDirection>
-            <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+            <StageDirection>{L('(how this works.)', '(nasıl çalışıyor.)')}</StageDirection>
+            <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')}>
               <Ionicons name="close" size={22} color={c.mutedForeground} />
             </Pressable>
           </View>

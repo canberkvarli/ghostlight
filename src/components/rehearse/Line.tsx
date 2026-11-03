@@ -6,6 +6,7 @@ import type { RehearsalLine } from '../../rehearsal/contract';
 import { displayRuns } from '../../rehearsal/display-words';
 import type { SpeechLang } from '../../rehearsal/speech-language';
 import { useTheme } from '../../theme/ThemeContext';
+import { useL } from '../../i18n';
 
 /** Where the line sits against the run: already said, being said now, still to come. */
 export type When = 'past' | 'live' | 'next';
@@ -53,6 +54,7 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  */
 function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout, onCursor, lang = 'en' }: Props) {
   const { colors: c } = useTheme();
+  const L = useL();
   const words = useMemo(() => displayRuns(line.text, lang), [line.text, lang]);
   const live = when === 'live';
   const yours = live && mine;
@@ -112,13 +114,13 @@ function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout, onC
   return (
     <Pressable onPress={onJump} disabled={!onJump} onLayout={onLayout}
       accessibilityRole={onJump ? 'button' : 'text'}
-      accessibilityLabel={onJump ? `Start from ${line.character}: ${line.text.slice(0, 40)}` : undefined}>
+      accessibilityLabel={onJump ? L(`Start from ${line.character}: ${line.text.slice(0, 40)}`, `${line.character} repliğinden başla: ${line.text.slice(0, 40)}`) : undefined}>
       <Animated.View style={[faded, { paddingVertical: yours ? 14 : 12, paddingHorizontal: 8, paddingLeft: yours ? 14 : 8, borderLeftWidth: yours ? 3 : 0, borderLeftColor: c.yellow, marginLeft: yours ? -6 : 0 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.6, color: mine ? c.accentText : c.mutedForeground, textTransform: 'uppercase' }}>{line.character}</Text>
           {yours ? (
             <View style={{ paddingHorizontal: 10, height: 22, borderRadius: 11, backgroundColor: c.yellow, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 0.6, color: c.ink }}>YOUR LINE</Text>
+              <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 0.6, color: c.ink }}>{L('YOUR LINE', 'SENİN REPLİĞİN')}</Text>
             </View>
           ) : live && speaking === 'sounding' ? (
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.stageGlow }} />

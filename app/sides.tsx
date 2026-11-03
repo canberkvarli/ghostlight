@@ -20,8 +20,9 @@ import { RehearsalApiError, getScript } from '../src/api/rehearsal';
 import { track } from '../src/lib/analytics';
 import { paywallHref } from '../src/lib/paywall';
 import { useGoBack } from '../src/lib/nav';
-import { SCRIPT_STEPS, aboutLeft, stepOf } from '../src/lib/scriptSteps';
+import { SCRIPT_STEP_COUNT, aboutLeft, scriptSteps, stepOf } from '../src/lib/scriptSteps';
 import { useTheme } from '../src/theme/ThemeContext';
+import { pick as say, useL } from '../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -43,13 +44,13 @@ function inWords(e: unknown): string {
   if (e instanceof RehearsalApiError) {
     if (e.gated) return m.toLowerCase();
     if (e.status === 400) return m.toLowerCase();
-    if (e.status === 401 || e.status === 403) return 'sign in first, then send it again.';
-    if (e.status === 413) return 'that file is too big. under 10 mb, please.';
-    if (e.status >= 500) return 'the house is dark for a moment. try again.';
+    if (e.status === 401 || e.status === 403) return say('sign in first, then send it again.', 'önce giriş yap, sonra yeniden gönder.');
+    if (e.status === 413) return say('that file is too big. under 10 mb, please.', 'bu dosya çok büyük. 10 mb altı olsun lütfen.');
+    if (e.status >= 500) return say('the house is dark for a moment. try again.', 'salon bir anlığına karanlık. yeniden dene.');
   }
-  if (/network|timed out|offline/i.test(m)) return 'no signal. try again when there is one.';
-  if (/formdata|unsupported|blob/i.test(m)) return 'that file could not be sent. a pdf, a word file or plain text will.';
-  return 'it could not be read. a pdf, a word file or plain text will.';
+  if (/network|timed out|offline/i.test(m)) return say('no signal. try again when there is one.', 'çekmiyor. çekince yeniden dene.');
+  if (/formdata|unsupported|blob/i.test(m)) return say('that file could not be sent. a pdf, a word file or plain text will.', 'bu dosya gönderilemedi. pdf, word ya da düz metin olur.');
+  return say('it could not be read. a pdf, a word file or plain text will.', 'okunamadı. pdf, word ya da düz metin olur.');
 }
 
 /** A name the server can read: the picker's, or one made from the type when the name has no extension. */
@@ -69,6 +70,7 @@ function named(name: string | null | undefined, mimeType?: string | null): strin
  */
 export default function AddSides() {
   const { colors: c } = useTheme();
+  const L = useL();
   const router = useRouter();
   const goBack = useGoBack('/rehearse');
   const { tiltX, tiltY } = useStageMotion();
@@ -127,7 +129,7 @@ export default function AddSides() {
     } else if (p.status === 'failed') {
       settled.current = readingId;
       setReadingId(null);
-      setReadFailure(p.error ?? 'it could not be read.');
+      setReadFailure(p.error ?? say('it could not be read.', 'okunamadı.'));
       failed(how);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,14 +196,14 @@ export default function AddSides() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="Scene partner" onPress={goBack} />
+        <BackHeader label={L('Scene partner', 'Sahne partneri')} onPress={goBack} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 40 }}>
             <View style={{ paddingTop: 8, paddingHorizontal: 2 }}>
               <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 52, letterSpacing: -0.8, color: c.foreground }}>
-                Bring your <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>sides.</Text>
+                {L('Bring your ', 'Metnini ')}<Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{L('sides.', 'getir.')}</Text>
               </Text>
-              <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>(any file with the words in it, or the text itself.)</StageDirection>
+              <StageDirection numberOfLines={2} style={{ marginTop: 6 }}>{L('(any file with the words in it, or the text itself.)', '(içinde sözlerin olan her dosya, ya da metnin kendisi.)')}</StageDirection>
             </View>
 
             {pending ? (
@@ -216,22 +218,22 @@ export default function AddSides() {
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: 36 }}>
                 <StageDirection numberOfLines={4}>({readFailure ? readFailure.toLowerCase().replace(/\.$/, '') + '.' : inWords(error)})</StageDirection>
                 {!readFailure && error instanceof RehearsalApiError && error.gated ? (
-                  <PrimaryPill label="See Premium" onPress={() => router.push(paywallHref('script_limit'))} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+                  <PrimaryPill label={L('See Premium', "Premium'a bak")} onPress={() => router.push(paywallHref('script_limit'))} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 ) : (
-                  <PrimaryPill label="Try again" variant="outline" onPress={() => { upload.reset(); paste.reset(); setReadFailure(null); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+                  <PrimaryPill label={L('Try again', 'Yeniden dene')} variant="outline" onPress={() => { upload.reset(); paste.reset(); setReadFailure(null); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 )}
               </Animated.View>
             ) : mode === 'doors' ? (
               <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} style={{ marginTop: 30, gap: 14 }}>
-                <Door cap="FROM FILES" title="A file on this phone." line="(pdf, word, text, whatever you were sent. or share it to Ghost Light from Mail.)" onPress={pick} tilt={-0.4} />
-                <Door cap="PASTE" title="The text itself." line="(from a message, an email, anywhere.)" onPress={() => { Haptics.selectionAsync().catch(() => {}); setMode('paste'); }} tilt={0.4} />
+                <Door cap={L('FROM FILES', 'DOSYALARDAN')} title={L('A file on this phone.', 'Bu telefondaki bir dosya.')} line={L('(pdf, word, text, whatever you were sent. or share it to Ghost Light from Mail.)', "(pdf, word, metin, sana ne geldiyse. ya da Mail'den Ghost Light'a paylaş.)")} onPress={pick} tilt={-0.4} />
+                <Door cap={L('PASTE', 'YAPIŞTIR')} title={L('The text itself.', 'Metnin kendisi.')} line={L('(from a message, an email, anywhere.)', '(bir mesajdan, bir e-postadan, her yerden.)')} onPress={() => { Haptics.selectionAsync().catch(() => {}); setMode('paste'); }} tilt={0.4} />
               </Animated.View>
             ) : (
               <Animated.View entering={FadeIn.duration(220)} style={{ marginTop: 26 }}>
                 <TextInput
                   value={title}
                   onChangeText={setTitle}
-                  placeholder="Title (optional)"
+                  placeholder={L('Title (optional)', 'Başlık (isteğe bağlı)')}
                   placeholderTextColor={c.mutedForeground}
                   selectionColor={c.accentText}
                   style={{ fontFamily: SANS, fontSize: 16, color: c.foreground, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider }}
@@ -241,16 +243,16 @@ export default function AddSides() {
                   onChangeText={setText}
                   multiline
                   autoFocus
-                  placeholder={'HAMLET: To be, or not to be...\nOPHELIA: My lord?'}
+                  placeholder={L('HAMLET: To be, or not to be...\nOPHELIA: My lord?', 'HAMLET: Olmak ya da olmamak...\nOPHELIA: Efendim?')}
                   placeholderTextColor={c.mutedForeground}
                   selectionColor={c.accentText}
                   textAlignVertical="top"
                   style={{ marginTop: 14, minHeight: 220, fontFamily: MONO, fontSize: 14, lineHeight: 21, color: c.foreground, padding: 14, borderWidth: 1, borderColor: c.border, borderRadius: 8 }}
                 />
-                <StageDirection style={{ marginTop: 10 }} numberOfLines={2}>(a name, a colon, the line. it finds the rest.)</StageDirection>
+                <StageDirection style={{ marginTop: 10 }} numberOfLines={2}>{L('(a name, a colon, the line. it finds the rest.)', '(bir isim, iki nokta, replik. gerisini o bulur.)')}</StageDirection>
                 <View style={{ marginTop: 16, flexDirection: 'row', gap: 12 }}>
-                  <PrimaryPill label="Read it" onPress={sendText} disabled={text.trim().length < 40} />
-                  <PrimaryPill label="A file instead" variant="outline" onPress={() => setMode('doors')} />
+                  <PrimaryPill label={L('Read it', 'Okut')} onPress={sendText} disabled={text.trim().length < 40} />
+                  <PrimaryPill label={L('A file instead', 'Dosya olsun')} variant="outline" onPress={() => setMode('doors')} />
                 </View>
               </Animated.View>
             )}
@@ -285,9 +287,10 @@ function Door({ cap, title, line, onPress, tilt }: { cap: string; title: string;
  */
 function TheMap({ step, sending, left, onLeave, onStop }: { step: number; sending: boolean; left: number | null; onLeave: () => void; onStop: () => void }) {
   const { colors: c } = useTheme();
-  const total = SCRIPT_STEPS.length;
+  const L = useL();
+  const total = SCRIPT_STEP_COUNT;
   const i = Math.max(0, Math.min(step, total - 1));
-  const label = SCRIPT_STEPS[i].replace(/\.$/, '');
+  const label = scriptSteps()[i].replace(/\.$/, '');
   const words = label.charAt(0).toUpperCase() + label.slice(1);
   // The rule fills a step at a time, each move over half a second.
   const frac = useSharedValue(0);
@@ -305,23 +308,23 @@ function TheMap({ step, sending, left, onLeave, onStop }: { step: number; sendin
         <View style={{ flex: 1, height: 3, borderRadius: 1.5, backgroundColor: c.divider, overflow: 'hidden' }}>
           <Animated.View style={[fill, { height: 3, backgroundColor: c.accentText }]} />
         </View>
-        <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{i + 1} OF {total}</Text>
+        <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{L(`${i + 1} OF ${total}`, `${total} ADIMDAN ${i + 1}`)}</Text>
       </View>
-      <StageDirection numberOfLines={2} style={{ marginTop: 20, textAlign: 'center' }}>{sending ? '(sending the file.)' : `(${aboutLeft(left)})`}</StageDirection>
+      <StageDirection numberOfLines={2} style={{ marginTop: 20, textAlign: 'center' }}>{sending ? L('(sending the file.)', '(dosya gönderiliyor.)') : `(${aboutLeft(left)})`}</StageDirection>
       {sending ? null : (
         <Animated.View entering={FadeIn.duration(260)} style={{ marginTop: 22, alignItems: 'center' }}>
           {/* Not a Close button: leaving is safe, so the page says so and the way out is the one in the corner. */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: c.panel, borderWidth: 1, borderColor: c.border }}>
             <Ionicons name="walk-outline" size={16} color={c.accentText} />
-            <Text style={{ flexShrink: 1, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.foreground }}>Go anywhere. It keeps reading, and you'll be told when it's in.</Text>
+            <Text style={{ flexShrink: 1, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.foreground }}>{L("Go anywhere. It keeps reading, and you'll be told when it's in.", 'İstediğin yere git. Okumaya devam eder, hazır olunca haber gelir.')}</Text>
           </View>
           <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 22 }}>
-            <Pressable onPress={onLeave} hitSlop={10} accessibilityRole="button" accessibilityLabel="Look around while it reads">
-              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>Look around</Text>
+            <Pressable onPress={onLeave} hitSlop={10} accessibilityRole="button" accessibilityLabel={L('Look around while it reads', 'Okurken etrafa bak')}>
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>{L('Look around', 'Etrafa bak')}</Text>
             </Pressable>
             <Text style={{ color: c.chevron }}>·</Text>
-            <Pressable onPress={onStop} hitSlop={10} accessibilityRole="button" accessibilityLabel="Stop reading this script">
-              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.accentText }}>Stop</Text>
+            <Pressable onPress={onStop} hitSlop={10} accessibilityRole="button" accessibilityLabel={L('Stop reading this script', 'Bu metni okumayı durdur')}>
+              <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.accentText }}>{L('Stop', 'Durdur')}</Text>
             </Pressable>
           </View>
         </Animated.View>

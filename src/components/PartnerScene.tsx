@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useTheme } from '../theme/ThemeContext';
+import { useL } from '../i18n';
 
 /**
  * How the partner works, in one looping picture with almost no words, the
@@ -63,6 +64,7 @@ const CARD_OUT = { from: 5100, to: 5600 }; // the card gives way to the read
 const P1 = { from: 5700, to: 7500 }; // partner line 1 sounds
 const YOU = { from: 7700, to: 10400 }; // your line, word by word
 const P2 = { from: 10450, to: 12000 }; // partner line 2 sounds
+/** Four words in both languages: the timing below is cut for four. */
 const WORDS = ['I', 'know.', "I'm", 'sorry.'];
 const WORD_MS = (YOU.to - YOU.from - 500) / WORDS.length;
 
@@ -73,6 +75,8 @@ function seg(v: number, a: number, b: number): number {
 
 export function PartnerScene({ style }: { style?: ViewStyle }) {
   const { colors: c } = useTheme();
+  const L = useL();
+  const words = L(WORDS.join(' '), 'Biliyorum. Çok özür dilerim.').split(' ');
   const reduce = useReducedMotion();
   const t = useSharedValue(reduce ? 10300 : 0);
 
@@ -113,7 +117,7 @@ export function PartnerScene({ style }: { style?: ViewStyle }) {
   return (
     <View
       accessible
-      accessibilityLabel="Your sides come in, you pick your part and hear a voice for the other, then the partner reads its line, your line lights up word by word as you say it, and on your last word the partner answers at once."
+      accessibilityLabel={L('Your sides come in, you pick your part and hear a voice for the other, then the partner reads its line, your line lights up word by word as you say it, and on your last word the partner answers at once.', 'Metnin gelir, rolünü seçersin ve diğeri için bir ses duyarsın. Sonra partner repliğini okur, seninki sen söyledikçe kelime kelime yanar, son kelimende partner hemen cevap verir.')}
       style={[{ height: H, borderRadius: 18, backgroundColor: STAGE.bg, borderWidth: 1, borderColor: STAGE.line, overflow: 'hidden' }, style]}
     >
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: -150, left: -130, width: 340, height: 340, borderRadius: 170, backgroundColor: c.yellow }, gel]} />
@@ -123,7 +127,7 @@ export function PartnerScene({ style }: { style?: ViewStyle }) {
           <View style={{ borderRadius: 10, backgroundColor: STAGE.paper, paddingHorizontal: 16, paddingVertical: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="document-text-outline" size={14} color={STAGE.inkMuted} />
-              <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 1.6, color: STAGE.inkMuted }}>LATE.PDF</Text>
+              <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 1.6, color: STAGE.inkMuted }}>{L('LATE.PDF', 'GECİKME.PDF')}</Text>
             </View>
             <View style={{ marginTop: 10, gap: 5 }}>
               {[0.92, 0.7, 0.84, 0.5].map((w, i) => <View key={i} style={{ height: 6, width: `${w * 100}%`, borderRadius: 3, backgroundColor: 'rgba(28,21,17,0.12)' }} />)}
@@ -131,7 +135,7 @@ export function PartnerScene({ style }: { style?: ViewStyle }) {
             <Animated.View style={[{ marginTop: 14, flexDirection: 'row', gap: 8 }, names]}>
               <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: STAGE.ink }, pickA]}>
                 <Text style={{ fontFamily: SANS_B, fontSize: 12, letterSpacing: 0.4, color: STAGE.ink }}>ALEX</Text>
-                <Animated.Text style={[{ fontFamily: MONO_I, fontSize: 11, color: STAGE.ink }, youTag]}>(you.)</Animated.Text>
+                <Animated.Text style={[{ fontFamily: MONO_I, fontSize: 11, color: STAGE.ink }, youTag]}>{L('(you.)', '(sen.)')}</Animated.Text>
               </Animated.View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(28,21,17,0.35)' }}>
                 <Text style={{ fontFamily: SANS_B, fontSize: 12, letterSpacing: 0.4, color: STAGE.ink }}>RILEY</Text>
@@ -145,7 +149,7 @@ export function PartnerScene({ style }: { style?: ViewStyle }) {
         {/* Beat 3: the read. */}
         <Animated.View style={[{ flex: 1, paddingHorizontal: 20, paddingTop: 22, gap: 18 }, read]}>
           <Cue who="RILEY" beat={P1} t={t}>
-            <Animated.Text style={[{ fontFamily: MONO, fontSize: 15, lineHeight: 22, color: STAGE.fg }, line1]}>You&apos;re late.</Animated.Text>
+            <Animated.Text style={[{ fontFamily: MONO, fontSize: 15, lineHeight: 22, color: STAGE.fg }, line1]}>{L("You're late.", 'Geç kaldın.')}</Animated.Text>
           </Cue>
           <View style={{ flexDirection: 'row' }}>
             <Animated.View style={[{ width: 3, borderRadius: 2, backgroundColor: c.yellow, marginRight: 12 }, yours]} />
@@ -153,20 +157,20 @@ export function PartnerScene({ style }: { style?: ViewStyle }) {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Text style={{ fontFamily: SANS_B, fontSize: 10, letterSpacing: 1.6, color: c.yellow }}>ALEX</Text>
                 <Animated.View style={[{ paddingHorizontal: 8, height: 18, borderRadius: 9, backgroundColor: c.yellow, justifyContent: 'center' }, yours]}>
-                  <Text style={{ fontFamily: SANS_B, fontSize: 9, letterSpacing: 0.6, color: '#1c1511' }}>YOUR LINE</Text>
+                  <Text style={{ fontFamily: SANS_B, fontSize: 9, letterSpacing: 0.6, color: '#1c1511' }}>{L('YOUR LINE', 'SENİN REPLİĞİN')}</Text>
                 </Animated.View>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-                {WORDS.map((w, i) => <Word key={i} word={w} i={i} t={t} yellow={c.yellow} />)}
+                {words.map((w, i) => <Word key={i} word={w} i={i} t={t} yellow={c.yellow} />)}
               </View>
               <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }, listening]}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.yellow }} />
-                <Text style={{ fontFamily: MONO_I, fontSize: 11.5, letterSpacing: 0.6, color: STAGE.muted }}>(listening.)</Text>
+                <Text style={{ fontFamily: MONO_I, fontSize: 11.5, letterSpacing: 0.6, color: STAGE.muted }}>{L('(listening.)', '(dinliyor.)')}</Text>
               </Animated.View>
             </View>
           </View>
           <Cue who="RILEY" beat={P2} t={t}>
-            <Animated.Text style={[{ fontFamily: MONO, fontSize: 15, lineHeight: 22, color: STAGE.fg }, line3]}>I waited an hour. I almost left.</Animated.Text>
+            <Animated.Text style={[{ fontFamily: MONO, fontSize: 15, lineHeight: 22, color: STAGE.fg }, line3]}>{L('I waited an hour. I almost left.', 'Bir saat bekledim. Az kalsın gidiyordum.')}</Animated.Text>
           </Cue>
         </Animated.View>
       </Animated.View>

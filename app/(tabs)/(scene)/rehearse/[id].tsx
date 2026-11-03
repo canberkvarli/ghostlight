@@ -30,6 +30,8 @@ import { useGoBack } from '../../../../src/lib/nav';
 import type { ScenePayload } from '../../../../src/rehearsal/contract';
 import { speechLang } from '../../../../src/rehearsal/speech-language';
 import { useTheme } from '../../../../src/theme/ThemeContext';
+import { homeHref, pick, useL } from '../../../../src/i18n';
+import { lower } from '../../../../src/i18n/pick';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -57,6 +59,7 @@ export default function Rehearse() {
   const sceneId = guided ? guidedPick?.scene_id ?? null : Number(id);
   const { data: payload, isLoading, isError, refetch } = useRehearsalScene(Number.isFinite(sceneId as number) ? sceneId : null);
   const { colors: c } = useTheme();
+  const L = useL();
   const { tiltX, tiltY } = useStageMotion();
   const goBack = useGoBack('/rehearse');
   const router = useRouter();
@@ -81,13 +84,13 @@ export default function Rehearse() {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
             {failed ? (
               <>
-                <StageDirection style={{ textAlign: 'center' }} numberOfLines={2}>(the scene would not open.)</StageDirection>
-                <PrimaryPill label="Try again" variant="outline" onPress={() => void refetch()} style={{ marginTop: 18 }} />
+                <StageDirection style={{ textAlign: 'center' }} numberOfLines={2}>{L('(the scene would not open.)', '(sahne açılmadı.)')}</StageDirection>
+                <PrimaryPill label={L('Try again', 'Tekrar dene')} variant="outline" onPress={() => void refetch()} style={{ marginTop: 18 }} />
               </>
             ) : (
               <>
                 <ActivityIndicator color={c.mutedForeground} />
-                <StageDirection style={{ marginTop: 14 }}>{isLoading || guided ? '(finding the pages.)' : '(…)'}</StageDirection>
+                <StageDirection style={{ marginTop: 14 }}>{isLoading || guided ? L('(finding the pages.)', '(sayfalar bulunuyor.)') : '(…)'}</StageDirection>
               </>
             )}
           </View>
@@ -99,9 +102,9 @@ export default function Rehearse() {
 
 /** What Begin is waiting on, as one stage direction. */
 function waitingLine(r: { line1: boolean; stt: boolean; mic: boolean }): string | null {
-  if (!r.line1) return 'recording the partner. the first time takes a moment.';
-  if (!r.mic) return 'listening needs the microphone.';
-  if (!r.stt) return 'the recogniser is not there yet.';
+  if (!r.line1) return pick('recording the partner. the first time takes a moment.', 'partner kaydediliyor. ilk sefer biraz sürer.');
+  if (!r.mic) return pick('listening needs the microphone.', 'dinlemek için mikrofon gerekiyor.');
+  if (!r.stt) return pick('the recogniser is not there yet.', 'ses tanıma henüz hazır değil.');
   return null;
 }
 
@@ -110,7 +113,10 @@ function phoneError(e: string | null): string | null {
   if (!e) return null;
   return e
     .replace('Reload to run again.', 'Leave and open the scene again.')
-    .replace('Allow it in your browser and reload.', 'Allow it in Settings and come back.');
+    .replace('Allow it in your browser and reload.', 'Allow it in Settings and come back.')
+    // The same, in the Turkish of src/rehearsal/prepare.ts.
+    .replace('Yeniden prova için sayfayı yenile.', 'Çık ve sahneyi yeniden aç.')
+    .replace('Tarayıcında izin ver ve sayfayı yenile.', 'Ayarlar\'dan izin ver ve geri gel.');
 }
 
 function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guidedPart, go, pickUp, from, onLeave, onDone, onAgain }: {
@@ -122,6 +128,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
   pickUp: boolean; from: string | undefined; onLeave: () => void; onDone: () => void; onAgain: () => void;
 }) {
   const { colors: c } = useTheme();
+  const L = useL();
   const router = useRouter();
   const r = useRehearsal(payload);
   // The meter, read ahead: a free actor with no run left this month meets
@@ -235,8 +242,8 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
     // Everything under this run, the cards included, goes: back from the
     // home must never find the stranger's path again.
     try { router.dismissAll(); } catch { /* nothing under it */ }
-    if (to === 'week') { router.replace('/search'); router.push(paywallHref('curtain')); return; }
-    router.replace('/search');
+    if (to === 'week') { router.replace(homeHref()); router.push(paywallHref('curtain')); return; }
+    router.replace(homeHref());
   };
 
   return (
@@ -258,13 +265,13 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
             onNotTonight={() => leaveDemo('curtain')}
             stranger={!isAuthenticated}
             onSignedUp={() => { try { router.dismissAll(); } catch { /* the root */ } router.replace('/welcome'); }}
-            onLookAround={() => { try { router.dismissAll(); } catch { /* the root */ } router.replace('/search'); }}
+            onLookAround={() => { try { router.dismissAll(); } catch { /* the root */ } router.replace(homeHref()); }}
           />
         </ScrollView>
       ) : ended && curtain ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <Animated.View entering={FadeIn.duration(900)}>
-            <StageDirection>(lights down.)</StageDirection>
+            <StageDirection>{L('(lights down.)', '(ışıklar sönüyor.)')}</StageDirection>
           </Animated.View>
           <Animated.View entering={FadeIn.duration(900).delay(450)} style={{ alignItems: 'center' }}>
             <Text style={{ marginTop: 18, textAlign: 'center', fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.5, color: c.foreground }}>
@@ -276,19 +283,19 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           </Animated.View>
           <Animated.View entering={FadeIn.duration(900).delay(1000)}>
             <Text style={{ marginTop: 26, textAlign: 'center', fontFamily: SERIF_I, fontSize: 22, color: c.accentText }}>
-              {guided ? 'That is the whole of it.' : 'Again, from the top?'}
+              {guided ? L('That is the whole of it.', 'Hepsi bu kadar.') : L('Again, from the top?', 'Bir daha, baştan?')}
             </Text>
           </Animated.View>
           {isAuthenticated ? (
             <Animated.View entering={FadeIn.duration(700).delay(1250)} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Ionicons name="checkmark-circle" size={16} color={c.accentText} />
-              <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, color: c.mutedForeground }}>{`Night ${night}. Tonight is in.`}</Text>
+              <Text style={{ fontFamily: 'BricolageGrotesque_500Medium', fontSize: 14, color: c.mutedForeground }}>{L(`Night ${night}. Tonight is in.`, `${night}. gece. Bu gece de tamam.`)}</Text>
             </Animated.View>
           ) : null}
           <Animated.View entering={FadeIn.duration(700).delay(1500)} style={{ marginTop: 30, alignItems: 'center', alignSelf: 'stretch' }}>
-            <PrimaryPill label="Again" height={50} onPress={() => { track('app_rehearse_opened', { from: 'library' }); onAgain(); }} style={{ alignSelf: 'center', minWidth: 220 }} />
+            <PrimaryPill label={L('Again', 'Tekrar')} height={50} onPress={() => { track('app_rehearse_opened', { from: 'library' }); onAgain(); }} style={{ alignSelf: 'center', minWidth: 220 }} />
             <Pressable onPress={from === 'demo' ? onDone : leave} hitSlop={12} accessibilityRole="button" style={{ marginTop: 18, paddingVertical: 6, paddingHorizontal: 20 }}>
-              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.mutedForeground }}>Done</Text>
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.mutedForeground }}>{L('Done', 'Bitti')}</Text>
             </Pressable>
           </Animated.View>
         </View>
@@ -299,13 +306,13 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
           <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 10, backgroundColor: c.background }, dimStyle]} />
           <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} lang={speechLang(payload.language)} />
           {r.readiness.error ? (
-            <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
+            <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({lower(phoneError(r.readiness.error))})</StageDirection>
           ) : null}
           {/* A first scene says, once, what is about to happen, until the first word of yours is heard. */}
           {demoN && !(r.snapshot && r.snapshot.heard.size > 0) && !(r.snapshot?.read.matched.size) ? (
             <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(200)} style={{ paddingHorizontal: 24, paddingBottom: 6 }}>
               <StageDirection numberOfLines={2} style={{ textAlign: 'center' }}>
-                {state === 'actor' ? '(your line. say it; the words light as you go.)' : `(it reads ${payload.characters.filter(ch => !sameCharacter(ch, actor)).join(' and ').toLowerCase() || 'the others'}. your line is lit when it is yours.)`}
+                {state === 'actor' ? L('(your line. say it; the words light as you go.)', '(senin repliğin. söyle; kelimeler sen söyledikçe yanar.)') : L(`(it reads ${payload.characters.filter(ch => !sameCharacter(ch, actor)).join(' and ').toLowerCase() || 'the others'}. your line is lit when it is yours.)`, `(okuyan o: ${payload.characters.filter(ch => !sameCharacter(ch, actor)).join(' ve ').toLocaleLowerCase('tr-TR') || 'diğerleri'}. sıra sende olunca repliğin yanar.)`)}
               </StageDirection>
             </Animated.View>
           ) : null}
@@ -314,7 +321,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
             {state === 'actor' && !r.readiness.error ? (
               <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(160)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary }} />
-                <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>(listening.)</Text>
+                <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 13, letterSpacing: 0.8, color: c.accentText }}>{L('(listening.)', '(seni dinliyor.)')}</Text>
               </Animated.View>
             ) : null}
           </View>
@@ -351,9 +358,10 @@ const progressOf = (line: number, of: number) => (of > 0 ? Math.min(1, line / of
 /** The bar across the top: leave, the title with a thin bar of progress under it, and where in the scene as a count. */
 function TopBar({ title, onLeave, progress = null, counter = null }: { title: string; onLeave: () => void; progress?: number | null; counter?: string | null }) {
   const { colors: c } = useTheme();
+  const L = useL();
   return (
     <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 12 }}>
-      <Pressable onPress={onLeave} hitSlop={12} accessibilityRole="button" accessibilityLabel="Leave the scene" style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+      <Pressable onPress={onLeave} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Leave the scene', 'Sahneden çık')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="close" size={24} color={c.foreground} />
       </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -372,24 +380,25 @@ function TopBar({ title, onLeave, progress = null, counter = null }: { title: st
 /** Say it again, a 76pt ink pause with its glyph in gel yellow in the exact middle, and Next to skip ahead. */
 function Dock({ paused, onPause, onResume, onSkip, onBack }: { paused: boolean; onPause: () => void; onResume: () => void; onSkip: () => void; onBack: () => void }) {
   const { colors: c } = useTheme();
+  const L = useL();
   const tap = (fn: () => void) => () => { Haptics.selectionAsync().catch(() => {}); fn(); };
   const pill = { height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: c.border, alignItems: 'center' as const, justifyContent: 'center' as const, flexDirection: 'row' as const, gap: 6 };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: 6, paddingBottom: 10 }}>
       {/* Three equal columns, so the pause sits on the centre line whatever the words beside it weigh. */}
       <View style={{ flex: 1, alignItems: 'flex-start' }}>
-        <Pressable onPress={tap(onBack)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Say it again" style={[pill, { paddingHorizontal: 18 }]}>
+        <Pressable onPress={tap(onBack)} hitSlop={8} accessibilityRole="button" accessibilityLabel={L('Say it again', 'Tekrar söyle')} style={[pill, { paddingHorizontal: 18 }]}>
           <Ionicons name="refresh-outline" size={18} color={c.foreground} />
-          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>Again</Text>
+          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>{L('Again', 'Tekrar')}</Text>
         </Pressable>
       </View>
-      <Pressable onPress={tap(paused ? onResume : onPause)} accessibilityRole="button" accessibilityLabel={paused ? 'Resume' : 'Pause'}
+      <Pressable onPress={tap(paused ? onResume : onPause)} accessibilityRole="button" accessibilityLabel={paused ? L('Resume', 'Devam et') : L('Pause', 'Duraklat')}
         style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={paused ? 'play' : 'pause'} size={28} color={c.yellow} style={paused ? { marginLeft: 3 } : undefined} />
       </Pressable>
       <View style={{ flex: 1, alignItems: 'flex-end' }}>
-        <Pressable onPress={tap(onSkip)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Skip to the next line" style={[pill, { paddingHorizontal: 18 }]}>
-          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>Next</Text>
+        <Pressable onPress={tap(onSkip)} hitSlop={8} accessibilityRole="button" accessibilityLabel={L('Skip to the next line', 'Sonraki repliğe atla')} style={[pill, { paddingHorizontal: 18 }]}>
+          <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>{L('Next', 'Sonraki')}</Text>
           <Ionicons name="chevron-forward" size={16} color={c.foreground} />
         </Pressable>
       </View>

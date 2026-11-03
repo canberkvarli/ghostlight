@@ -1,3 +1,5 @@
+import { pick } from '../i18n/pick';
+
 /**
  * The server reads a script aloud as it goes, one short line at a time
  * ("Found 2 characters", "Mapping acts"); the phone folds those into the
@@ -32,19 +34,24 @@ const GROUPS: { match: string; step: number }[] = [
   { match: 'AI cleanup', step: 9 },
 ];
 
-/** The map, in order, in the phone's words. */
-export const SCRIPT_STEPS = [
-  'opening the script.',
-  'reading every page.',
-  'finding the scenes.',
-  'learning who the characters are.',
-  'mapping the acts and scenes.',
-  'pulling every line of dialogue.',
-  'setting the rehearsal scenes.',
-  'naming the script.',
-  'reading the tone of it.',
-  'cleaning up the dialogue.',
-];
+/** The map, in order, in the phone's words, in the app's language. */
+export function scriptSteps(): string[] {
+  return [
+    pick('opening the script.', 'metin açılıyor.'),
+    pick('reading every page.', 'her sayfa okunuyor.'),
+    pick('finding the scenes.', 'sahneler bulunuyor.'),
+    pick('learning who the characters are.', 'karakterler tanınıyor.'),
+    pick('mapping the acts and scenes.', 'perdeler ve sahneler çıkarılıyor.'),
+    pick('pulling every line of dialogue.', 'her replik ayıklanıyor.'),
+    pick('setting the rehearsal scenes.', 'prova sahneleri hazırlanıyor.'),
+    pick('naming the script.', 'metne ad veriliyor.'),
+    pick('reading the tone of it.', 'havası okunuyor.'),
+    pick('cleaning up the dialogue.', 'replikler temizleniyor.'),
+  ];
+}
+
+/** How many steps the map has (the same in every language). */
+export const SCRIPT_STEP_COUNT = 10;
 
 /** Which step a raw server line belongs to, or null when it names none. */
 export function stepOf(raw: string): number | null {
@@ -54,9 +61,9 @@ export function stepOf(raw: string): number | null {
 
 /** How long is left, as a person would say it: never a countdown, always an "about". */
 export function aboutLeft(left: number | null): string {
-  if (left === null) return 'a minute or two.';
-  if (left <= 15) return 'nearly there.';
-  if (left < 60) return 'under a minute.';
+  if (left === null) return pick('a minute or two.', 'bir iki dakika.');
+  if (left <= 15) return pick('nearly there.', 'az kaldı.');
+  if (left < 60) return pick('under a minute.', 'bir dakikadan az.');
   const m = Math.round(left / 60);
-  return m <= 1 ? 'about a minute.' : `about ${m} minutes.`;
+  return m <= 1 ? pick('about a minute.', 'aşağı yukarı bir dakika.') : pick(`about ${m} minutes.`, `aşağı yukarı ${m} dakika.`);
 }
