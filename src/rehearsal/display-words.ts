@@ -13,6 +13,7 @@
  * word before it (or the one after, at the start of a line).
  */
 import { lineWords } from './live-read';
+import type { SpeechLang } from './speech-language';
 
 export interface DisplayWord {
   word: string;
@@ -22,19 +23,22 @@ export interface DisplayWord {
 
 /** Split a chunk where a token starts after a separator: "Twenty-four," → "Twenty-", "four,". */
 const TOKEN_START = /(?<=[^a-z0-9'‘’`])(?=[a-z0-9])/i;
+/** The same for Turkish, whose words carry ç ğ ı ö ş ü (and â î û). */
+const TOKEN_START_TR = /(?<=[^\p{L}\p{N}'‘’`])(?=[\p{L}\p{N}])/u;
 
-export function displayRuns(text: string): DisplayWord[] {
+export function displayRuns(text: string, lang: SpeechLang = 'en'): DisplayWord[] {
+  const tokenStart = lang === 'tr' ? TOKEN_START_TR : TOKEN_START;
   const out: DisplayWord[] = [];
   let prefix = ''; // tokenless chunks before the first word
   for (const chunk of text.split(/\s+/).filter(Boolean)) {
-    const n = lineWords(chunk).length;
+    const n = lineWords(chunk, lang).length;
     if (n === 0) {
       const last = out[out.length - 1];
       if (last) last.word += ' ' + chunk;
       else prefix += chunk + ' ';
       continue;
     }
-    let pieces = n === 1 ? [chunk] : mergeEmpty(chunk.split(TOKEN_START));
+    let pieces = n === 1 ? [chunk] : mergeEmpty(chunk.split(tokenStart), lang);
     if (pieces.length !== n) pieces = [chunk, ...Array<string>(n - 1).fill('')];
     pieces.forEach((p, i) => out.push({ word: p, gap: i === pieces.length - 1 }));
     if (prefix) { out[out.length - pieces.length].word = prefix + out[out.length - pieces.length].word; prefix = ''; }
@@ -45,11 +49,11 @@ export function displayRuns(text: string): DisplayWord[] {
 }
 
 /** Pieces with no token ("(" before "Twenty") are glued onto the next piece. */
-function mergeEmpty(pieces: string[]): string[] {
+function mergeEmpty(pieces: string[], lang: SpeechLang): string[] {
   const out: string[] = [];
   let carry = '';
   for (const p of pieces) {
-    if (lineWords(p).length === 0) { carry += p; continue; }
+    if (lineWords(p, lang).length === 0) { carry += p; continue; }
     out.push(carry + p);
     carry = '';
   }
@@ -57,6 +61,6 @@ function mergeEmpty(pieces: string[]): string[] {
   return out;
 }
 
-export function displayWords(text: string): string[] {
-  return displayRuns(text).map(r => r.word);
+export function displayWords(text: string, lang: SpeechLang = 'en'): string[] {
+  return displayRuns(text, lang).map(r => r.word);
 }

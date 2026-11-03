@@ -14,6 +14,7 @@
  * gone at L16 of 60) sat through ten minutes of everybody else.
  */
 import { lineWords } from './live-read';
+import type { SpeechLang } from './speech-language';
 import { type RehearsalLine, sameCharacter } from './contract';
 
 export interface PartnerTurn { kind: 'partner'; index: number; lineIndices: number[] }
@@ -26,32 +27,45 @@ export interface Script {
   turns: Turn[];
   /** line index → turn index */
   turnOfLine: number[];
+  /** What the scene is spoken in: the matcher, the call word and the keywords follow it. English when absent. */
+  lang?: SpeechLang;
 }
 
 function titleCase(s: string) {
   return s.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 }
 
+/** Turkish title case: "ŞİRİN" → "Şirin", not "Şi̇ri̇n". */
+function titleCaseTurkish(s: string) {
+  return s.toLocaleLowerCase('tr-TR').replace(/(^|\s)\S/g, c => c.toLocaleUpperCase('tr-TR'));
+}
+
+/** A capitalised word of three letters or more, by language. Turkish capitals are Ç Ğ İ Ö Ş Ü too. */
+function capitalised(text: string, lang: SpeechLang): string[] {
+  if (lang === 'tr') return text.match(/(?<![\p{L}\p{N}])\p{Lu}\p{Ll}{2,}(?![\p{L}\p{N}])/gu) ?? [];
+  return text.match(/\b[A-Z][a-z]{2,}\b/g) ?? [];
+}
+
 /** Character names and capitalised words the transcriber would otherwise mangle. */
-function sceneKeywords(lines: RehearsalLine[]): string[] {
+function sceneKeywords(lines: RehearsalLine[], lang: SpeechLang): string[] {
   const names = new Set<string>();
-  for (const l of lines) names.add(titleCase(l.character));
+  for (const l of lines) names.add(lang === 'tr' ? titleCaseTurkish(l.character) : titleCase(l.character));
   for (const l of lines) {
-    for (const w of l.text.match(/\b[A-Z][a-z]{2,}\b/g) ?? []) names.add(w);
+    for (const w of capitalised(l.text, lang)) names.add(w);
   }
   return [...names].slice(0, 60);
 }
 
-export function buildScript(lines: RehearsalLine[], actor: string): Script {
+export function buildScript(lines: RehearsalLine[], actor: string, lang: SpeechLang = 'en'): Script {
   const turns: Turn[] = [];
   const turnOfLine: number[] = [];
-  const shared = sceneKeywords(lines);
+  const shared = sceneKeywords(lines, lang);
   for (const line of lines) {
     const mine = sameCharacter(line.character, actor);
     const last = turns[turns.length - 1];
     if (mine) {
-      const words = lineWords(line.text);
-      const own = [...new Set(line.text.match(/\b[A-Z][a-z]{2,}\b/g) ?? [])];
+      const words = lineWords(line.text, lang);
+      const own = [...new Set(capitalised(line.text, lang))];
       turns.push({ kind: 'actor', index: turns.length, lineIndex: line.index, words,
         keywords: [...new Set([...shared, ...own])].slice(0, 100) });
     } else if (last && last.kind === 'partner') {
@@ -63,5 +77,5 @@ export function buildScript(lines: RehearsalLine[], actor: string): Script {
   }
   const tail = turns[turns.length - 1];
   if (tail?.kind === 'partner' && turns.some(t => t.kind === 'actor')) tail.lineIndices.length = 1;
-  return { lines, actor, turns, turnOfLine };
+  return lang === 'en' ? { lines, actor, turns, turnOfLine } : { lines, actor, turns, turnOfLine, lang };
 }

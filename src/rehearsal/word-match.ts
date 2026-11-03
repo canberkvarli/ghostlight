@@ -18,6 +18,8 @@
  * rather than by running a rehearsal and listening.
  */
 
+import type { SpeechLang } from './speech-language';
+
 /* ─── Normalizing ────────────────────────────────────────────────────── */
 
 /**
@@ -26,8 +28,12 @@
  * Hyphens and dashes become spaces (they separate spoken words), apostrophes
  * simply vanish (they don't — "I've" is one word), and a missing space after
  * sentence punctuation is repaired so "talk.We" reads as two words.
+ *
+ * `lang` is the language the line is spoken in (speech-language.ts). English
+ * keeps a-z and 0-9 only, as it always has. Turkish keeps its letters.
  */
-export function normWords(s: string): string {
+export function normWords(s: string, lang: SpeechLang = 'en'): string {
+  if (lang === 'tr') return normWordsTurkish(s);
   return s
     .toLowerCase()
     .replace(/[‐-―−-]+/g, ' ') // hyphens and dashes separate words
@@ -38,9 +44,33 @@ export function normWords(s: string): string {
     .trim();
 }
 
+/**
+ * Turkish: the same folding, Unicode-aware.
+ *
+ * Lowercased the Turkish way, so I is ı and İ is i ("IŞIK" → "ışık", "İSMAİL"
+ * → "ismail"; plain toLowerCase makes the second "i̇smai̇l", a dotted i plus a
+ * stray combining dot). ç ğ ı ö ş ü are letters and stay: "kadın" is one
+ * word, not "kad n". The circumflex is spelling, not sound (older editions
+ * print "hâlâ", a transcriber writes "hala"), so â î û fold to a i u. An
+ * apostrophe vanishes as in English: "Hamlet'in" is said as one word.
+ */
+function normWordsTurkish(s: string): string {
+  return s
+    .normalize('NFC')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/[âà]/g, 'a').replace(/[îì]/g, 'i').replace(/[ûù]/g, 'u')
+    .replace(/\p{M}/gu, '') // a combining dot an English lowercasing left behind
+    .replace(/[‐-―−-]+/g, ' ')
+    .replace(/([.!?;:,])([\p{L}\p{N}])/gu, '$1 $2')
+    .replace(/['‘’`]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Normalized words of a line, in order. */
-export function tokenize(s: string): string[] {
-  const n = normWords(s);
+export function tokenize(s: string, lang: SpeechLang = 'en'): string[] {
+  const n = normWords(s, lang);
   return n ? n.split(' ').filter(Boolean) : [];
 }
 
@@ -86,12 +116,30 @@ const CONTRACTIONS: Record<string, string> = {
   aint: 'amnot',
 };
 
+const BIRLER = ['sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
+const ONLAR = ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'altmış', 'yetmiş', 'seksen', 'doksan'];
+
+/** A number the Turkish way, no separators: 24 → "yirmidört", 100 → "yüz", 1001 → "binbir". */
+function spellNumberTurkish(n: number): string {
+  if (n < 10) return BIRLER[n];
+  if (n < 100) return ONLAR[Math.floor(n / 10)] + (n % 10 ? BIRLER[n % 10] : '');
+  if (n < 1000) {
+    const h = Math.floor(n / 100);
+    const rest = n % 100;
+    return (h === 1 ? '' : BIRLER[h]) + 'yüz' + (rest ? spellNumberTurkish(rest) : '');
+  }
+  const th = Math.floor(n / 1000);
+  const rest = n % 1000;
+  return (th === 1 ? '' : spellNumberTurkish(th)) + 'bin' + (rest ? spellNumberTurkish(rest) : '');
+}
+
 /** The form a word is compared in: numerals spelled out, contractions expanded. */
-function canonical(w: string): string {
+function canonical(w: string, lang: SpeechLang = 'en'): string {
   if (/^\d+$/.test(w)) {
     const n = parseInt(w, 10);
-    if (n >= 0 && n < 1_000_000) return spellNumber(n);
+    if (n >= 0 && n < 1_000_000) return lang === 'tr' ? spellNumberTurkish(n) : spellNumber(n);
   }
+  if (lang === 'tr') return w; // Turkish writes no contractions
   return CONTRACTIONS[w] ?? w;
 }
 
@@ -103,7 +151,8 @@ function canonical(w: string): string {
  * Unlike soundex this doesn't truncate, so long words stay distinguishable
  * ("ferguson" and "fergusen" agree; "ferguson" and "forgiveness" don't).
  */
-function phoneticKey(w: string): string {
+function phoneticKey(w: string, lang: SpeechLang = 'en'): string {
+  if (lang === 'tr') return phoneticKeyTurkish(w);
   let key = PHONETIC_KEYS.get(w);
   if (key === undefined) {
     // Seventeen regex passes a word, on every delta, for words the line
@@ -145,6 +194,40 @@ function computePhoneticKey(w: string): string {
   return s.replace(/(.)\1+/g, '$1'); // collapse doubles
 }
 
+/**
+ * Turkish sound-alike key. Turkish is written as it is said, so the English
+ * digraph rules above would only do harm ("ch" and "th" are not Turkish
+ * sounds, and c is j, not k). What a transcriber does get wrong is the
+ * letters with marks, writing "kadin" for "kadın" or "cok" for "çok", and the
+ * soft ğ, which is barely said at all. So: marks folded, ğ dropped, then the
+ * consonant skeleton as in English, first letter kept.
+ */
+function phoneticKeyTurkish(w: string): string {
+  let key = PHONETIC_KEYS_TR.get(w);
+  if (key === undefined) {
+    if (PHONETIC_KEYS_TR.size >= PHONETIC_CACHE_LIMIT) PHONETIC_KEYS_TR.clear();
+    key = computePhoneticKeyTurkish(w);
+    PHONETIC_KEYS_TR.set(w, key);
+  }
+  return key;
+}
+
+const PHONETIC_KEYS_TR = new Map<string, string>();
+
+/** ç→c, ş→s, ı→i, ö→o, ü→u, ğ dropped: how a transcriber that loses the marks spells. */
+export function foldTurkish(w: string): string {
+  return w
+    .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ı/g, 'i')
+    .replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ğ/g, '');
+}
+
+function computePhoneticKeyTurkish(w: string): string {
+  const s = foldTurkish(w);
+  const head = s.slice(0, 1);
+  const tail = s.slice(1).replace(/[aeiou]/g, '');
+  return (head + tail).replace(/(.)\1+/g, '$1');
+}
+
 /** Levenshtein distance, iterative single-row. */
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
@@ -179,17 +262,19 @@ const SIMILARITY_FLOOR = 0.8;
  * and "by" collapse together, and half a line lighting up on one syllable is
  * far worse than a missed highlight.
  */
-export function wordsMatch(a: string, b: string): boolean {
+export function wordsMatch(a: string, b: string, lang: SpeechLang = 'en'): boolean {
   if (!a || !b) return false;
   if (a === b) return true;
 
-  const ca = canonical(a);
-  const cb = canonical(b);
+  const ca = canonical(a, lang);
+  const cb = canonical(b, lang);
   if (ca === cb) return true;
+  // A transcriber that drops Turkish marks wrote the same word: "kadin", "cok".
+  if (lang === 'tr' && foldTurkish(ca) === foldTurkish(cb)) return true;
 
   if (ca.length < PHONETIC_MIN_LENGTH || cb.length < PHONETIC_MIN_LENGTH) return false;
 
-  if (phoneticKey(ca) === phoneticKey(cb)) return true;
+  if (phoneticKey(ca, lang) === phoneticKey(cb, lang)) return true;
 
   // The distance is at least the difference in length, so a pair that far
   // apart cannot reach the floor: skip the table.
@@ -249,6 +334,8 @@ export interface AlignOptions {
    */
   from?: number;
   lookahead?: number;
+  /** The language the line is spoken in. English when absent. */
+  lang?: SpeechLang;
 }
 
 /*
@@ -328,6 +415,7 @@ export function alignMatches(expected: string[], transcript: string[], options: 
   }
 
   const window = options.lookahead ?? LOOKAHEAD;
+  const lang = options.lang ?? 'en';
   const reach = (options.from ?? 0) + window; // a match starting at or before this is always in reach
 
   /* wordsMatch is the expensive part, and a line and its transcript repeat
@@ -356,7 +444,7 @@ export function alignMatches(expected: string[], transcript: string[], options: 
   const same = (w: number, h: number) => {
     if (w < 0 || h < 0) return false;
     const k = w * H + h;
-    if (!answers[k]) answers[k] = wordsMatch(writtenList[w], heardList[h]) ? 1 : 2;
+    if (!answers[k]) answers[k] = wordsMatch(writtenList[w], heardList[h], lang) ? 1 : 2;
     return answers[k] === 1;
   };
 
@@ -469,8 +557,8 @@ export function alignWords(expected: string[], transcript: string[], options: Al
 }
 
 /** Fraction of the written line the actor actually reached (0–1). */
-export function wordMatchScore(expected: string, transcript: string): number {
-  const expectedWords = tokenize(expected);
+export function wordMatchScore(expected: string, transcript: string, lang: SpeechLang = 'en'): number {
+  const expectedWords = tokenize(expected, lang);
   if (!expectedWords.length) return 1;
-  return alignWords(expectedWords, tokenize(transcript)).size / expectedWords.length;
+  return alignWords(expectedWords, tokenize(transcript, lang), { lang }).size / expectedWords.length;
 }

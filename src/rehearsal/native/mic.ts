@@ -72,8 +72,18 @@ export class Mic {
   private lastLevelAt = 0;
   private restarts = 0;
   private watch: ReturnType<typeof setInterval> | null = null;
+  /** The script's language (speech-language.ts), as the recogniser's locale. */
+  private lang = 'en-US';
 
   constructor(private cb: MicCallbacks) {}
+
+  /**
+   * Listen in the script's language: "tr-TR" for a Turkish script. Takes effect
+   * on the next start. English is what every run was before Turkish arrived.
+   */
+  setLanguage(locale: string) {
+    this.lang = locale || 'en-US';
+  }
 
   /** Ask for the microphone and the recogniser. True when both are granted. */
   static async permission(): Promise<boolean> {
@@ -185,11 +195,15 @@ export class Mic {
 
   private start() {
     const options: ExpoSpeechRecognitionOptions = {
-      lang: 'en-US',
+      lang: this.lang,
       interimResults: true,
       continuous: true,
       addsPunctuation: false,
-      requiresOnDeviceRecognition: this.onDevice,
+      // supportsOnDeviceRecognition() answers for the phone's default
+      // language, not this one. Requiring it for Turkish on a phone without
+      // the Turkish model fails the run, so another language takes Apple's
+      // server recogniser, which has Turkish. English is unchanged.
+      requiresOnDeviceRecognition: this.lang === 'en-US' ? this.onDevice : false,
       contextualStrings: this.keywords,
       iosTaskHint: 'dictation',
       // The plain mode: the speaker at its full volume. The chat modes cancel

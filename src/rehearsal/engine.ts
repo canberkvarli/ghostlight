@@ -200,7 +200,7 @@ export class Engine {
     if (this.timeline.get('first_delta') === undefined) this.timeline.mark('first_delta', now);
     // The read carries on from the last delta of this turn, so the reading
     // position only moves forward; enter() and resume() reset it to EMPTY_READ.
-    this.read = liveRead(turn.words, transcript, this.read);
+    this.read = liveRead(turn.words, transcript, this.read, this.script.lang ?? 'en');
     if (shouldHandOver({ ...this.read, turnEnded: false })) {
       this.finishActorTurn('last_word');
       return;
@@ -220,7 +220,7 @@ export class Engine {
     if (this.state !== 'partner') return;
     const next = this.script.turns[this.turnIndex + 1];
     if (!next || next.kind !== 'actor') return;
-    const read = liveRead(next.words, transcript, EMPTY_READ);
+    const read = liveRead(next.words, transcript, EMPTY_READ, this.script.lang ?? 'en');
     const need = Math.min(3, next.words.length);
     if (read.matched.size < need || !(read.matched.has(0) || read.matched.has(1))) return;
     const from = this.snapshot().lineIndex;

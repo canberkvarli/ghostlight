@@ -28,6 +28,7 @@ import { paywallHref } from '../../../../src/lib/paywall';
 import { recordFinishedRun } from '../../../../src/lib/reviewMoments';
 import { useGoBack } from '../../../../src/lib/nav';
 import type { ScenePayload } from '../../../../src/rehearsal/contract';
+import { speechLang } from '../../../../src/rehearsal/speech-language';
 import { useTheme } from '../../../../src/theme/ThemeContext';
 
 const SERIF = 'InstrumentSerif_400Regular';
@@ -296,7 +297,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
         <Animated.View entering={FadeIn.duration(700).delay(200)} exiting={FadeOut.duration(900)} style={{ flex: 1 }}>
           {/* The lights going down over the last line. */}
           <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 10, backgroundColor: c.background }, dimStyle]} />
-          <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} />
+          <Stage scene={payload.scene} lines={payload.lines} actor={actor} snapshot={r.snapshot} paused={paused} onJump={l => r.jumpTo(l)} lang={speechLang(payload.language)} />
           {r.readiness.error ? (
             <StageDirection numberOfLines={2} style={{ textAlign: 'center', paddingHorizontal: 24 }}>({phoneError(r.readiness.error)?.toLowerCase()})</StageDirection>
           ) : null}
@@ -326,7 +327,7 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
         <Animated.View entering={FadeIn.duration(240)} exiting={FadeOut.duration(260)} style={{ flex: 1 }}>
           {/* The stage, dark, under the sheet: the lines are there before you have a part. */}
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0.5 }}>
-            <Stage scene={payload.scene} lines={payload.lines} actor="" snapshot={null} paused={false} />
+            <Stage scene={payload.scene} lines={payload.lines} actor="" snapshot={null} paused={false} lang={speechLang(payload.language)} />
           </View>
           <CastSheet
             payload={payload}

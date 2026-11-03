@@ -3,6 +3,7 @@ import { ScrollView, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import type { RehearsalLine, ScenePayload } from '../../rehearsal/contract';
+import type { SpeechLang } from '../../rehearsal/speech-language';
 import type { Snapshot } from '../../rehearsal/engine';
 import { sameCharacter } from '../../rehearsal/contract';
 import { Line, type Speaking, type When } from './Line';
@@ -17,6 +18,8 @@ interface Props {
   onJump?: (line: number) => void;
   /** Begun but not yet sounding: the first line's light glows while it gets ready. */
   warming?: boolean;
+  /** What the scene is spoken in, for splitting the actor's words. */
+  lang?: SpeechLang;
 }
 
 /** Fraction of the stage height where the live line is held: the pool of light. */
@@ -38,7 +41,7 @@ const NO_WORDS = new Set<number>();
  * on the line inside it, which only ever knew it sat at the top of its
  * wrapper: that was why the script never moved.
  */
-export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming = false }: Props) {
+export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming = false, lang = 'en' }: Props) {
   const { height } = useWindowDimensions();
   const scroller = useRef<ScrollView>(null);
   const tops = useRef(new Map<number, number>());
@@ -93,6 +96,7 @@ export function Stage({ scene, lines, actor, snapshot, paused, onJump, warming =
               at={yours ? snapshot?.read.position ?? 0 : undefined}
               onJump={jump}
               onCursor={yours ? onCursor : undefined}
+              lang={lang}
             />
           </Animated.View>
         );

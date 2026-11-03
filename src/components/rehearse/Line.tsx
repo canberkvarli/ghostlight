@@ -4,6 +4,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 
 import type { RehearsalLine } from '../../rehearsal/contract';
 import { displayRuns } from '../../rehearsal/display-words';
+import type { SpeechLang } from '../../rehearsal/speech-language';
 import { useTheme } from '../../theme/ThemeContext';
 
 /** Where the line sits against the run: already said, being said now, still to come. */
@@ -25,6 +26,8 @@ interface Props {
   onLayout?: (e: LayoutChangeEvent) => void;
   /** On your live line: where the word you are on sits, as a height from the line's top. The script follows it. */
   onCursor?: (y: number) => void;
+  /** What the scene is spoken in, so the words split as the matcher splits them. */
+  lang?: SpeechLang;
 }
 
 /** Which row of the wrapped text holds `at`, from the rows the text laid itself out in. */
@@ -48,9 +51,9 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  * carries a rule in the accent, and neither ever moves back. A line's place
  * changes with a fade, not a cut.
  */
-function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout, onCursor }: Props) {
+function LineView({ line, mine, when, speaking, heard, at, onJump, onLayout, onCursor, lang = 'en' }: Props) {
   const { colors: c } = useTheme();
-  const words = useMemo(() => displayRuns(line.text), [line.text]);
+  const words = useMemo(() => displayRuns(line.text, lang), [line.text, lang]);
   const live = when === 'live';
   const yours = live && mine;
   // Where each word starts in the text as laid out, and the rows the text
@@ -140,4 +143,4 @@ function sameWords(a?: Set<number>, b?: Set<number>): boolean {
 /** The engine publishes a snapshot a frame; only a line whose place, position or heard words changed re-renders. */
 export const Line = memo(LineView, (p, n) =>
   p.line === n.line && p.mine === n.mine && p.when === n.when && p.speaking === n.speaking && p.at === n.at
-  && Boolean(p.onJump) === Boolean(n.onJump) && p.onCursor === n.onCursor && sameWords(p.heard, n.heard));
+  && Boolean(p.onJump) === Boolean(n.onJump) && p.onCursor === n.onCursor && p.lang === n.lang && sameWords(p.heard, n.heard));

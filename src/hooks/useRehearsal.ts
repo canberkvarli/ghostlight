@@ -25,6 +25,7 @@ import {
   type AudioSlot, canBegin, firstNeededLine, limit, makeFlusher, neededFailure, plainError, planPartnerAudio, type Readiness,
 } from '../rehearsal/prepare';
 import { buildScript } from '../rehearsal/script';
+import { recognitionLocale, speechLang } from '../rehearsal/speech-language';
 import { track } from '../lib/analytics';
 
 export interface Rehearsal {
@@ -126,7 +127,11 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       onDeaf: ({ sinceStartMs, restarts }) => track('app_mic_deaf', { where: 'scene', since_start_ms: sinceStartMs, restarts, granted_this_launch: Mic.grantedThisLaunch }),
     }));
     mic.attach();
-    const script = buildScript(payload.lines, run.character);
+    // The script's language, not the phone's: a Turkish script is heard and
+    // matched in Turkish (speech-language.ts).
+    const lang = speechLang(payload.language);
+    mic.setLanguage(recognitionLocale(lang));
+    const script = buildScript(payload.lines, run.character, lang);
     const engine = new Engine(script, {
       clock: { now: () => clock.now(), outputLatency: () => clock.outputLatency() },
       player: { duration: l => player.duration(l), play: (l, at) => player.play(l, at), stopAll: () => player.stopAll() },

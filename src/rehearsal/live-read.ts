@@ -45,6 +45,7 @@
  */
 
 import { alignMatches, PHONETIC_MIN_LENGTH, tokenize, wordsMatch } from './word-match';
+import type { SpeechLang } from './speech-language';
 
 export interface LiveRead {
   /**
@@ -123,14 +124,14 @@ const END_SLACK = 2;
  *
  * Pass the previous read of THE SAME turn. A new turn starts from EMPTY_READ.
  */
-export function liveRead(expectedWords: string[], transcript: string, previous: LiveRead = EMPTY_READ): LiveRead {
+export function liveRead(expectedWords: string[], transcript: string, previous: LiveRead = EMPTY_READ, lang: SpeechLang = 'en'): LiveRead {
   const n = expectedWords.length;
   if (!n) {
     return { matched: new Set(), position: 0, lastWordMatched: true, tailMatched: true, score: 1 };
   }
-  const heard = tokenize(transcript);
+  const heard = tokenize(transcript, lang);
   const from = Math.min(Math.max(previous.position, 0), n);
-  const matches = alignMatches(expectedWords, heard, { from });
+  const matches = alignMatches(expectedWords, heard, { from, lang });
 
   let position = from;
   for (let k = 0; k < matches.length; k++) {
@@ -156,7 +157,7 @@ export function liveRead(expectedWords: string[], transcript: string, previous: 
     matched,
     position,
     lastWordMatched,
-    tailMatched: lastWordMatched || matched.has(last - 1) || endsOnTail(expectedWords, heard),
+    tailMatched: lastWordMatched || matched.has(last - 1) || endsOnTail(expectedWords, heard, lang),
     score: matched.size / n,
   };
 }
@@ -174,7 +175,7 @@ export function liveRead(expectedWords: string[], transcript: string, previous: 
  * I'm not leaving you" is not the end of it. A short word counts only with the
  * written word before it heard just before it: "leaving you".
  */
-function endsOnTail(expected: string[], heard: string[]): boolean {
+function endsOnTail(expected: string[], heard: string[], lang: SpeechLang): boolean {
   const h = heard.length;
   if (!h) return false;
   const lastHeard = heard[h - 1];
@@ -183,11 +184,11 @@ function endsOnTail(expected: string[], heard: string[]): boolean {
     if (k < 0) continue;
     const word = expected[k];
     if (word.length < PHONETIC_MIN_LENGTH) {
-      if (!wordsMatch(word, lastHeard)) continue;
-      if (k === 0 || (h >= 2 && wordsMatch(expected[k - 1], heard[h - 2]))) return true;
+      if (!wordsMatch(word, lastHeard, lang)) continue;
+      if (k === 0 || (h >= 2 && wordsMatch(expected[k - 1], heard[h - 2], lang))) return true;
       continue;
     }
-    if (wordsMatch(word, lastHeard) || (lastTwo !== null && wordsMatch(word, lastTwo))) return true;
+    if (wordsMatch(word, lastHeard, lang) || (lastTwo !== null && wordsMatch(word, lastTwo, lang))) return true;
   }
   return false;
 }
@@ -198,8 +199,8 @@ function endsOnTail(expected: string[], heard: string[]): boolean {
  * Stage directions are stripped by the caller; this is only the tokenizing, so
  * that the page and the matcher cannot disagree about what counts as a word.
  */
-export function lineWords(text: string): string[] {
-  return tokenize(text);
+export function lineWords(text: string, lang: SpeechLang = 'en'): string[] {
+  return tokenize(text, lang);
 }
 
 /**

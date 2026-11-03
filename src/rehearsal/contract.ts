@@ -15,6 +15,8 @@ export interface ScenePayload {
   scene: { id: number; title: string; act: string | null; scene_number: string | null; play_title: string | null; is_library: boolean };
   lines: RehearsalLine[];
   characters: string[];
+  /** What the scene is spoken in, from the script (never the UI language). Absent on an older server: English. */
+  language?: string;
   voices: Voice[];
   defaults: Record<string, Record<string, string>>;
   vendor: string;
