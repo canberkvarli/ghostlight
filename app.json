@@ -120,16 +120,33 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Ghost Light listens while you run your lines, so the scene moves on when you reach the end of them."
+          "microphonePermission": "Ghost Light listens while you run your lines and records your voice when you tape yourself."
         }
       ],
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Ghost Light listens while you run your lines, so the scene moves on when you reach the end of them.",
-          "speechRecognitionPermission": "Your words are matched to the script as you say them, so your partner knows when to come in."
+          "microphonePermission": "Ghost Light listens while you run your lines and records your voice when you tape yourself.",
+          "speechRecognitionPermission": "Your words are matched to the script as you say them, so your partner knows when to come in and the tape knows a line from a cut."
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Ghost Light uses the camera when you tape yourself. Your takes stay on your phone.",
+          "microphonePermission": "Ghost Light listens while you run your lines and records your voice when you tape yourself.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Ghost Light saves the takes you choose to your photos.",
+          "savePhotosPermission": "Ghost Light saves the takes you choose to your photos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

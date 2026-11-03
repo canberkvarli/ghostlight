@@ -172,6 +172,11 @@ export type Event =
   /** Running a piece: which level it started at. */
   | { name: 'app_run_started'; props: { level: 'words' | 'hints' | 'dark'; has_cut: boolean } }
   | { name: 'app_run_finished'; props: { level: 'words' | 'hints' | 'dark'; lines: number; seconds: number } }
+  /** The tape room: opened, a take rolled and cut (by voice or a tap), a take saved or sent. */
+  | { name: 'app_tape_opened'; props: { id: string } }
+  | { name: 'app_tape_rolled'; props: { via: 'voice' | 'tap' } }
+  | { name: 'app_tape_cut'; props: { via: 'voice' | 'tap'; seconds: number; kept: boolean } }
+  | { name: 'app_tape_saved'; props: { how: 'photos' | 'share'; marked: boolean } }
   /** A row under the search field was tapped. */
   | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
   | { name: 'app_curtain'; props: { action: 'open' | 'swipe' | 'keep' | 'pass' | 'search' | 'sign_in' | 'house' | 'retry' | 'demo' } }

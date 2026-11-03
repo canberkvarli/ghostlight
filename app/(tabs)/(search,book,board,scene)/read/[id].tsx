@@ -328,6 +328,13 @@ export default function Read() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     router.push({ pathname: '/run/[id]', params: { id: monologue.id, medium } });
   };
+  // Taping it is its own room too (app/tape/[id].tsx): the camera, already
+  // listening for "action".
+  const enterTape = () => {
+    if (!monologue) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    router.push({ pathname: '/tape/[id]', params: { id: monologue.id } });
+  };
 
   // The title settles up into place from the card's size — a soft matched
   // hand-off, eased not sprung, so nothing bounces. Origin is the left edge so
@@ -832,6 +839,12 @@ export default function Read() {
                     label="run it"
                     onPress={enterRun}
                     accessibilityLabel="Run the piece"
+                  />
+                  <WorkButton
+                    icon="videocam-outline"
+                    label="tape it"
+                    onPress={enterTape}
+                    accessibilityLabel="Tape yourself doing the piece"
                   />
                 </View>
               ) : null}

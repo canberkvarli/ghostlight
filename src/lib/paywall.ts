@@ -18,7 +18,8 @@ export type PaywallTrigger =
   | 'curtain'
   | 'account'
   | 'copy'
-  | 'filter';
+  | 'filter'
+  | 'tape_mark';
 
 /** The paywall, opened for a reason. */
 export function paywallHref(trigger: PaywallTrigger): Href {
@@ -32,11 +33,12 @@ export const WHY_LINE: Partial<Record<PaywallTrigger, string>> = {
   script_limit: '(one script of your own is free.)',
   run_it: '(the whole speech, run with you.)',
   copy: '(copying comes with the whole stage.)',
+  tape_mark: '(your tapes, saved clean.)',
 };
 
 export function asTrigger(value: unknown): PaywallTrigger | null {
   const v = typeof value === 'string' ? value : null;
-  return v && ['read_limit', 'run_limit', 'script_limit', 'run_it', 'curtain', 'account', 'copy', 'filter'].includes(v)
+  return v && ['read_limit', 'run_limit', 'script_limit', 'run_it', 'curtain', 'account', 'copy', 'filter', 'tape_mark'].includes(v)
     ? (v as PaywallTrigger)
     : null;
 }

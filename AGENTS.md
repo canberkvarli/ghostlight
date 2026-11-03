@@ -20,6 +20,11 @@ Not a line-reader or scene-partner app — that is explicitly v2.
 | `src/theme/tokens.ts` | Colours for Skia and native props. Mirrors `src/global.css`. |
 | `src/theme/layout.ts` | Fixed row geometry the scroll spotlight depends on. |
 | `src/data/monologues.ts` | Step 0 fixtures. Replaced by the API in Step 3. |
+| `app/tape/[id].tsx` | The self-tape room (CAN-23). Camera, prompter, "action" / "cut" / "again" / "keeper" by voice, takes, save and send. |
+| `src/rehearsal/tape-cues.ts` | Pure: is a heard word a cue or a line of the script. Pinned by `tape-cues.test.ts`. Keep in step with the web when it gets the room. |
+| `src/rehearsal/native/tape-ear.ts` | The room's recogniser: every word with the moment it arrived, restarted when the camera's audio session deafens it. |
+| `src/lib/takes.ts` | Takes, on the phone only: files in documents/tapes, the list in AsyncStorage. No server, no database. |
+| `modules/tape-export/` | Local native module (Swift): trims a take and burns in the Ghost Light mark (free plan). Needs a new dev build. |
 
 ## Rules that are not style preferences
 
@@ -74,5 +79,6 @@ npx expo export --platform ios   # cheapest full-bundle smoke test
 
 ## Not in v1
 
-ScenePartner / AI line reading, self-tape recording, Android, social features, a web version.
-See spec §6.
+ScenePartner / AI line reading, Android, social features, a web version.
+See spec §6. Self-tape recording came in after v1 (the tape room, CAN-23): monologues only,
+takes kept on the phone.
