@@ -62,3 +62,26 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
 | `ctx stats` | Call the `ctx_stats` MCP tool and display the full output verbatim |
 | `ctx doctor` | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |
+
+---
+
+# Ghost Light project rules
+
+@AGENTS.md
+
+Ghost Light is the iOS app of ActorRise (repo `canberkvarli/actorrise`). Both run on the same
+API (`https://api.actorrise.com`, FastAPI on Render) and the same Supabase database. The
+standing rules in actorrise's `CLAUDE.md` ("Working rules", the voice rules, the email rules)
+hold here too; open both repos in one session when a change touches the API. The short of it:
+
+- Solo developer: no pull requests. Commit and push to `main`; delete merged branches. `main`
+  is the next release (1.1.2 as of 2026-11-03). Pushing ships nothing to users: there are no
+  over-the-air updates; a build goes out only through EAS and App Store Connect, by Canberk.
+- A cloud session is Linux: it cannot run the simulator, Xcode or an iOS build. Code, types
+  (`npx tsc --noEmit`) and tests (`npm test`) only; the build happens on the Mac.
+- Money: RevenueCat is the truth (`backend/scripts/revenuecat_report.py` in actorrise). Price
+  changes one at a time, read before the next. Any App Store listing or price change is typed
+  into App Store Connect by Canberk; draft the copy, never change the store yourself.
+- Words a user reads: first person singular, no dashes, no emojis, Canberk's voice.
+- No social posts or scheduling: videos go through TryPost, which he runs himself.
+- Never commit a name, email address or key. Keys live in `.env` and the cloud environment.
