@@ -7,6 +7,7 @@ import { PrimaryPill } from './PrimaryPill';
 import { StageDirection } from './StageDirection';
 import { track } from '../lib/analytics';
 import { useTheme } from '../theme/ThemeContext';
+import { monologueRoomsShown, useL, useLocale } from '../i18n';
 
 const SITE = 'https://actorrise.com';
 
@@ -28,6 +29,8 @@ export function AboutActorRiseSheet({
 }) {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
+  const L = useL();
+  const rooms = monologueRoomsShown(useLocale());
   const visit = () => {
     track('app_about_actorrise', { from, visited: true });
     void Linking.openURL(SITE);
@@ -35,7 +38,7 @@ export function AboutActorRiseSheet({
   return (
     <Modal visible={open} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View entering={FadeIn.duration(220)} style={{ flex: 1, backgroundColor: 'rgba(12,7,4,0.72)' }}>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1 }} />
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')} style={{ flex: 1 }} />
         <Animated.View
           entering={FadeIn.duration(260).delay(60)}
           style={{
@@ -51,8 +54,8 @@ export function AboutActorRiseSheet({
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <StageDirection>(what is actorrise.)</StageDirection>
-            <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+            <StageDirection>{L('(what is actorrise.)', '(actorrise nedir.)')}</StageDirection>
+            <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')}>
               <Ionicons name="close" size={22} color={c.mutedForeground} />
             </Pressable>
           </View>
@@ -74,16 +77,21 @@ export function AboutActorRiseSheet({
               color: c.foreground,
             }}
           >
-            The actor&apos;s site.{' '}
+            {L("The actor's site.", 'Oyuncunun sitesi.')}{' '}
             <Text style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: c.accentText }}>
-              Ghost Light is its phone.
+              {L('Ghost Light is its phone.', 'Ghost Light da telefonu.')}
             </Text>
           </Text>
 
           <View style={{ marginTop: 16, gap: 10 }}>
-            <Line icon="book-outline" text="Every monologue in here, with your cuts, your notes and the pieces you're off book on." />
-            <Line icon="calendar-outline" text="The audition board, the one the emails fill, with its reminders and the calendar feed." />
-            <Line icon="mic-outline" text="A rehearsal room: run a scene with a partner that reads with you, and tape yourself." />
+            {/* The Turkish app has no book and no board (src/i18n). */}
+            {rooms ? (
+              <>
+              <Line icon="book-outline" text={L("Every monologue in here, with your cuts, your notes and the pieces you're off book on.", 'Tüm monologlar, kesintilerin, notların ve ezberlediğin parçalarla birlikte.')} />
+            <Line icon="calendar-outline" text={L('The audition board, the one the emails fill, with its reminders and the calendar feed.', 'Seçme panosu: e-postaların doldurduğu, hatırlatmaları ve takvim akışıyla.')} />
+              </>
+            ) : null}
+            <Line icon="mic-outline" text={L('A rehearsal room: run a scene with a partner that reads with you, and tape yourself.', 'Bir prova odası: seninle okuyan bir partnerle sahne çalış, kendini kaydet.')} />
           </View>
 
           <Text
@@ -96,11 +104,11 @@ export function AboutActorRiseSheet({
               color: c.mutedForeground,
             }}
           >
-            (one account. your book and your board travel both ways.)
+            {rooms ? L('(one account. your book and your board travel both ways.)', '(tek hesap. defterin ve panon iki yerde de seninle.)') : '(tek hesap. sahnelerin ve metinlerin iki yerde de seninle.)'}
           </Text>
 
           <View style={{ marginTop: 18 }}>
-            <PrimaryPill label="Visit actorrise.com" onPress={visit} height={50} block haptic="medium" />
+            <PrimaryPill label={L('Visit actorrise.com', "actorrise.com'a git")} onPress={visit} height={50} block haptic="medium" />
           </View>
         </Animated.View>
       </Animated.View>

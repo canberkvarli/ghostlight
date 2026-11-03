@@ -5,6 +5,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { PrimaryPill } from './PrimaryPill';
 import { StageDirection } from './StageDirection';
 import { useTheme } from '../theme/ThemeContext';
+import { useL } from '../i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -19,7 +20,7 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
  * the backstage note. `danger` draws the pill in the warning red for the one
  * thing that cannot be undone.
  */
-export function ConfirmSheet({ open, title, accent, body, confirm, cancel = 'Not now', danger = false, busy = false, aside, onConfirm, onCancel }: {
+export function ConfirmSheet({ open, title, accent, body, confirm, cancel, danger = false, busy = false, aside, onConfirm, onCancel }: {
   open: boolean;
   title: string;
   /** The title's last word, in italic and the accent. */
@@ -36,6 +37,7 @@ export function ConfirmSheet({ open, title, accent, body, confirm, cancel = 'Not
 }) {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
+  const L = useL();
   return (
     <Modal visible={open} transparent animationType="none" onRequestClose={onCancel} statusBarTranslucent>
       <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,7,4,0.66)' }}>
@@ -60,7 +62,7 @@ export function ConfirmSheet({ open, title, accent, body, confirm, cancel = 'Not
           )}
           {aside ? <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>{aside}</StageDirection> : null}
           <Pressable onPress={onCancel} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 8 }}>
-            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.mutedForeground }}>{cancel}</Text>
+            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.mutedForeground }}>{cancel ?? L('Not now', 'Şimdi değil')}</Text>
           </Pressable>
         </Animated.View>
       </Animated.View>
@@ -78,10 +80,11 @@ export function Tooltip({ open, at, title, body, onClose }: {
   onClose: () => void;
 }) {
   const { colors: c } = useTheme();
+  const L = useL();
   if (!open || !at) return null;
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1 }}>
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')} style={{ flex: 1 }}>
         <Animated.View entering={FadeIn.duration(160)} pointerEvents="none" style={{ position: 'absolute', left: Math.max(16, at.x), top: at.y + 8, maxWidth: 300 }}>
           {/* The gel under the note, offset, the way a paper card sits on the stage. */}
           <View style={{ position: 'absolute', left: 5, top: 5, right: -5, bottom: -5, borderRadius: 12, backgroundColor: c.yellow }} />
@@ -112,6 +115,7 @@ export function ChoiceSheet<K extends string>({ open, title, accent, options, va
 }) {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
+  const L = useL();
   return (
     <Modal visible={open} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,7,4,0.66)' }}>
@@ -141,7 +145,7 @@ export function ChoiceSheet<K extends string>({ open, title, accent, options, va
             })}
           </View>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 8 }}>
-            <StageDirection link>(leave it.)</StageDirection>
+            <StageDirection link>{L('(leave it.)', '(kalsın.)')}</StageDirection>
           </Pressable>
         </Animated.View>
       </Animated.View>

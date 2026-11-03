@@ -14,6 +14,7 @@ import { useSession } from '../../src/lib/useSession';
 import { useGoBack } from '../../src/lib/nav';
 import { supabase } from '../../src/lib/supabase';
 import { useTheme } from '../../src/theme/ThemeContext';
+import { pick, useL } from '../../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SANS = 'BricolageGrotesque_500Medium';
@@ -34,16 +35,17 @@ export default function SignIn() {
   const { colors: c } = useTheme();
   const { session } = useSession();
   const [busy, setBusy] = useState(false);
+  const L = useL();
 
   const email = session?.user.email ?? null;
   const relay = Boolean(email?.endsWith('@privaterelay.appleid.com'));
   const provider = providerOf(session);
 
   const onDelete = () => {
-    Alert.alert('Delete account?', 'This permanently erases your account, saves, auditions and reading history. It cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(L('Delete account?', 'Hesap silinsin mi?'), L('This permanently erases your account, saves, auditions and reading history. It cannot be undone.', 'Bu, hesabını ve içindeki her şeyi kalıcı olarak siler: sahnelerini, metinlerini, geçmişini. Geri alınamaz.'), [
+      { text: L('Cancel', 'Vazgeç'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: L('Delete', 'Sil'),
         style: 'destructive',
         onPress: async () => {
           setBusy(true);
@@ -53,7 +55,7 @@ export default function SignIn() {
             if (router.canDismiss()) router.dismissAll();
             else router.replace('/');
           } catch {
-            Alert.alert('Could not delete', 'Please try again, or contact support.');
+            Alert.alert(L('Could not delete', 'Silinemedi'), L('Please try again, or contact support.', 'Tekrar dene ya da destekle iletişime geç.'));
           } finally {
             setBusy(false);
           }
@@ -66,28 +68,28 @@ export default function SignIn() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="Settings" onPress={goBack} />
+        <BackHeader label={L('Settings', 'Ayarlar')} onPress={goBack} />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 28, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-          <Text style={{ fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.4, color: c.foreground }}>Email & sign-in</Text>
+          <Text style={{ fontFamily: SERIF, fontSize: 36, lineHeight: 40, letterSpacing: -0.4, color: c.foreground }}>{L('Email & sign-in', 'E-posta ve giriş')}</Text>
 
           <View style={{ marginTop: 26, borderTopWidth: 1, borderTopColor: c.divider }}>
-            <Line label="Signed in with" value={provider ?? 'Ghost Light'} />
-            <Line label="Email" value={email ?? 'None on the account'} />
+            <Line label={L('Signed in with', 'GİRİŞ YÖNTEMİ')} value={provider ?? 'Ghost Light'} />
+            <Line label={L('Email', 'E-POSTA')} value={email ?? L('None on the account', 'Hesapta yok')} />
           </View>
           {relay ? (
-            <StageDirection style={{ marginTop: 12 }}>(apple&apos;s relay address. mail still reaches you.)</StageDirection>
+            <StageDirection style={{ marginTop: 12 }}>{L("(apple's relay address. mail still reaches you.)", "(apple'ın aktarma adresi. postan yine sana ulaşır.)")}</StageDirection>
           ) : null}
           <Text style={{ marginTop: 18, fontFamily: SANS, fontSize: 13, lineHeight: 19, color: c.mutedForeground }}>
-            Your subscription follows this account to any phone you sign into.
+            {L('Your subscription follows this account to any phone you sign into.', 'Aboneliğin, bu hesapla giriş yaptığın her telefonda seninle.')}
           </Text>
 
           <View style={{ flexGrow: 1 }} />
           <Pressable onPress={onDelete} disabled={busy} accessibilityRole="button" accessibilityState={{ busy }}
             style={{ marginTop: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderTopWidth: 1, borderTopColor: c.divider }}>
-            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: '#c0392b', opacity: busy ? 0.5 : 1 }}>Delete account</Text>
+            <Text style={{ fontFamily: SANS_B, fontSize: 15, color: '#c0392b', opacity: busy ? 0.5 : 1 }}>{L('Delete account', 'Hesabı sil')}</Text>
             <Ionicons name="chevron-forward" size={15} color={c.chevron} />
           </Pressable>
-          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.chevron }}>(erases everything. cannot be undone.)</Text>
+          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.chevron }}>{L('(erases everything. cannot be undone.)', '(her şeyi siler. geri alınamaz.)')}</Text>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -113,7 +115,7 @@ function providerOf(session: Session | null): string | null {
   switch (provider) {
     case 'apple': return 'Apple';
     case 'google': return 'Google';
-    case 'email': return 'Email';
+    case 'email': return pick('Email', 'E-posta');
     default: return provider ? provider[0].toUpperCase() + provider.slice(1) : null;
   }
 }

@@ -15,6 +15,7 @@ import { track } from '../src/lib/analytics';
 import { PLAYS_KEY, type Plays } from '../src/lib/plays';
 import { supabase } from '../src/lib/supabase';
 import { useTheme } from '../src/theme/ThemeContext';
+import { pick, useL } from '../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -23,19 +24,38 @@ const SANS_B = 'BricolageGrotesque_600SemiBold';
 
 export const WORKING_ON_KEY = 'ghostlight:working-on.v1';
 
-const WORKING_ON: { key: string; label: string; line: string }[] = [
-  { key: 'audition', label: 'An audition', line: 'sides to learn, a date on the board.' },
-  { key: 'role', label: 'A role', line: 'a part already cast, lines to get down.' },
-  { key: 'class', label: 'A class', line: 'scene study, a partner who is never late.' },
-  { key: 'practice', label: 'Keeping sharp', line: 'nothing booked. the work between jobs.' },
+// Functions, not constants, so the words follow the language. The keys, ages
+// and sources saved and tracked stay in English whatever the screen shows.
+const WORKING_ON = (): { key: string; label: string; line: string }[] => [
+  { key: 'audition', label: pick('An audition', 'Bir seçme'), line: pick('sides to learn, a date on the board.', 'öğrenilecek bir metin, takvimde bir tarih.') },
+  { key: 'role', label: pick('A role', 'Bir rol'), line: pick('a part already cast, lines to get down.', 'kesinleşmiş bir rol, ezberlenecek replikler.') },
+  { key: 'class', label: pick('A class', 'Bir ders'), line: pick('scene study, a partner who is never late.', 'sahne çalışması, hiç geç kalmayan bir partner.') },
+  { key: 'practice', label: pick('Keeping sharp', 'Formda kalmak'), line: pick('nothing booked. the work between jobs.', 'elde iş yok. iki iş arası çalışma.') },
 ];
-const HOUSES: { key: 'stage' | 'screen' | 'both'; label: string }[] = [
-  { key: 'stage', label: 'Stage' },
-  { key: 'screen', label: 'Screen' },
-  { key: 'both', label: 'Both' },
+const HOUSES = (): { key: 'stage' | 'screen' | 'both'; label: string }[] => [
+  { key: 'stage', label: pick('Stage', 'Sahne') },
+  { key: 'screen', label: pick('Screen', 'Ekran') },
+  { key: 'both', label: pick('Both', 'İkisi de') },
 ];
 const AGES = ['Teens', '20s', '30s', '40s+'];
-const SOURCES = ['The App Store', 'A friend', 'A teacher', 'TikTok', 'Instagram', 'ChatGPT or another AI', 'Somewhere else'];
+const ageLabel = (a: string): string => {
+  switch (a) {
+    case 'Teens': return pick('Teens', 'Genç');
+    case '20s': return pick('20s', "20'ler");
+    case '30s': return pick('30s', "30'lar");
+    case '40s+': return pick('40s+', '40+');
+    default: return a;
+  }
+};
+const SOURCES = (): { value: string; label: string }[] => [
+  { value: 'The App Store', label: pick('The App Store', 'App Store') },
+  { value: 'A friend', label: pick('A friend', 'Bir arkadaş') },
+  { value: 'A teacher', label: pick('A teacher', 'Bir hoca') },
+  { value: 'TikTok', label: 'TikTok' },
+  { value: 'Instagram', label: 'Instagram' },
+  { value: 'ChatGPT or another AI', label: pick('ChatGPT or another AI', 'ChatGPT ya da başka bir yapay zekâ') },
+  { value: 'Somewhere else', label: pick('Somewhere else', 'Başka bir yer') },
+];
 
 /**
  * Three quick questions after the account is made, one screen each, every one
@@ -52,6 +72,7 @@ export default function Welcome() {
   const [house, setHouse] = useState<Plays['house']>(null);
   const [age, setAge] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const L = useL();
 
   const finish = () => {
     void markDemoSeen();
@@ -113,19 +134,19 @@ export default function Welcome() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 }}>
-          <Text style={{ width: 60, fontFamily: SANS_B, fontSize: 13, color: c.mutedForeground }}>{step} of 3</Text>
+          <Text style={{ width: 60, fontFamily: SANS_B, fontSize: 13, color: c.mutedForeground }}>{L(`${step} of 3`, `${step} / 3`)}</Text>
           <GhostLight size={18} />
-          <Pressable onPress={skip} hitSlop={12} accessibilityRole="button" accessibilityLabel="Skip this question" style={{ width: 60, alignItems: 'flex-end' }}>
-            <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>Skip</Text>
+          <Pressable onPress={skip} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Skip this question', 'Bu soruyu geç')} style={{ width: 60, alignItems: 'flex-end' }}>
+            <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>{L('Skip', 'Geç')}</Text>
           </Pressable>
         </View>
 
         {step === 1 ? (
           <Animated.View key="1" entering={FadeIn.duration(360)} exiting={FadeOut.duration(160)} style={{ flex: 1, paddingHorizontal: 24, paddingTop: 10 }}>
-            {head('What are you', 'working on?')}
-            <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.mutedForeground }}>One tap. It decides what we put first.</Text>
+            {head(L('What are you', 'Ne üzerinde'), L('working on?', 'çalışıyorsun?'))}
+            <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.mutedForeground }}>{L('One tap. It decides what we put first.', 'Tek dokunuş. Neyi önce göstereceğimi o belirler.')}</Text>
             <View style={{ marginTop: 24, gap: 10 }}>
-              {WORKING_ON.map((o) => (
+              {WORKING_ON().map((o) => (
                 <Pressable key={o.key} onPress={() => pickWorkingOn(o.key)} accessibilityRole="button"
                   style={({ pressed }) => ({ paddingVertical: 16, paddingHorizontal: 18, borderRadius: 16, borderWidth: 1.5, borderColor: c.border, opacity: pressed ? 0.75 : 1 })}>
                   <Text style={{ fontFamily: SANS_B, fontSize: 18, color: c.foreground }}>{o.label}</Text>
@@ -136,25 +157,25 @@ export default function Welcome() {
           </Animated.View>
         ) : step === 2 ? (
           <Animated.View key="2" entering={FadeIn.duration(360)} exiting={FadeOut.duration(160)} style={{ flex: 1, paddingHorizontal: 24, paddingTop: 10 }}>
-            {head('What do', 'you play?')}
-            <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.mutedForeground }}>So the first speeches you see are ones you could be cast in.</Text>
-            {label('Mostly')}
+            {head(L('What do', 'Ne tür roller'), L('you play?', 'oynarsın?'))}
+            <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.mutedForeground }}>{L('So the first speeches you see are ones you could be cast in.', 'Seni biraz tanımak için.')}</Text>
+            {label(L('Mostly', 'ÇOĞUNLUKLA'))}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {HOUSES.map((h) => chip(h.label, house === h.key, () => { Haptics.selectionAsync().catch(() => {}); setHouse(house === h.key ? null : h.key); }))}
+              {HOUSES().map((h) => chip(h.label, house === h.key, () => { Haptics.selectionAsync().catch(() => {}); setHouse(house === h.key ? null : h.key); }))}
             </View>
-            {label('Seen for')}
+            {label(L('Seen for', 'OYNADIĞIN YAŞ'))}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {AGES.map((a) => chip(a, age === a, () => { Haptics.selectionAsync().catch(() => {}); setAge(age === a ? null : a); }))}
+              {AGES.map((a) => chip(ageLabel(a), age === a, () => { Haptics.selectionAsync().catch(() => {}); setAge(age === a ? null : a); }))}
             </View>
             <View style={{ flex: 1 }} />
-            <PrimaryPill label="Continue" onPress={savePlays} block height={54} style={{ marginBottom: 8, opacity: house || age ? 1 : 0.5 }} />
+            <PrimaryPill label={L('Continue', 'Devam')} onPress={savePlays} block height={54} style={{ marginBottom: 8, opacity: house || age ? 1 : 0.5 }} />
           </Animated.View>
         ) : (
           <Animated.View key="3" entering={FadeIn.duration(360)} exiting={FadeOut.duration(160)} style={{ flex: 1, paddingHorizontal: 24, paddingTop: 10 }}>
-            {head('How did you', 'hear of us?')}
-            <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.mutedForeground }}>Just for us. It tells us where actors are finding Ghost Light.</Text>
+            {head(L('How did you', "Ghost Light'ı"), L('hear of us?', 'nereden duydun?'))}
+            <Text style={{ marginTop: 10, fontFamily: SANS, fontSize: 14.5, lineHeight: 20, color: c.mutedForeground }}>{L('Just for us. It tells us where actors are finding Ghost Light.', "Sadece benim için. Oyuncuların Ghost Light'ı nerede bulduğunu bana söyler.")}</Text>
             <View style={{ marginTop: 24, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {SOURCES.map((s) => chip(s, false, () => pickSource(s)))}
+              {SOURCES().map((s) => chip(s.label, false, () => pickSource(s.value)))}
             </View>
           </Animated.View>
         )}

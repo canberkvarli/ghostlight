@@ -38,6 +38,7 @@ import { getSubscription, manageSubscription } from '../src/lib/purchases';
 import { track } from '../src/lib/analytics';
 import { paywallHref } from '../src/lib/paywall';
 import { useTheme } from '../src/theme/ThemeContext';
+import { homeHref, monologueRoomsShown, pick, useL, useLocale } from '../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -54,13 +55,14 @@ const MONO_I = 'CourierPrime_400Regular_Italic';
  */
 export default function You() {
   const router = useRouter();
-  const goBack = useGoBack('/search');
+  const goBack = useGoBack(homeHref());
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
   const { session, isAuthenticated } = useSession();
+  const L = useL();
 
   const gear = (
-    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/settings'); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="Settings" style={{ padding: 6 }}>
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/settings'); }} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Settings', 'Ayarlar')} style={{ padding: 6 }}>
       <Ionicons name="settings-outline" size={22} color={c.mutedForeground} />
     </Pressable>
   );
@@ -69,7 +71,7 @@ export default function You() {
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="Search" close onPress={goBack} right={gear} />
+        <BackHeader label={L('Search', 'Prova')} close onPress={goBack} right={gear} />
         {isAuthenticated && session ? <SignedIn session={session} /> : <SignedOut />}
       </SafeAreaView>
     </View>
@@ -83,6 +85,8 @@ function SignedIn({ session }: { session: Session }) {
   const push = useGuardedPush();
   const { colors: c } = useTheme();
   const { wall, isPaid, failed: wallFailed, refresh: refreshWall } = useEntitlement();
+  const L = useL();
+  const locale = useLocale();
   const { data: saved } = useFavorites(true);
   const stats = useRunStats(true);
   const runs = useRunsQuery({ queryKey: ['runs'], queryFn: ({ signal }) => listRuns(signal), staleTime: 60_000 });
@@ -129,7 +133,7 @@ function SignedIn({ session }: { session: Session }) {
         <Avatar letter={letter} paid={isPaid} />
         <View style={{ flex: 1, minWidth: 0 }}>
           {/* The name is theirs to change: a tap opens it. */}
-          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setNaming(true); }} accessibilityRole="button" accessibilityLabel={`Your name, ${who.first} ${who.rest}`.trim()} accessibilityHint="Tap to change it"
+          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setNaming(true); }} accessibilityRole="button" accessibilityLabel={L(`Your name, ${who.first} ${who.rest}`, `Adın, ${who.first} ${who.rest}`).trim()} accessibilityHint={L('Tap to change it', 'Değiştirmek için dokun')}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[{ flexShrink: 1, fontFamily: SERIF, fontSize: 30, lineHeight: 34, letterSpacing: -0.3, color: c.foreground }, nameFade]}>
               {who.first}
@@ -138,7 +142,7 @@ function SignedIn({ session }: { session: Session }) {
             <Ionicons name="pencil" size={15} color={c.mutedForeground} />
           </Pressable>
           <Text numberOfLines={1} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.mutedForeground }}>
-            {isPaid ? '(the whole stage.)' : since ? `(with ghost light since ${since}.)` : '(with ghost light.)'}
+            {isPaid ? L('(the whole stage.)', '(sahnenin tamamı.)') : since ? L(`(with ghost light since ${since}.)`, `(${since} ayından beri ghost light'ta.)`) : L('(with ghost light.)', "(ghost light'ta.)")}
           </Text>
         </View>
       </View>
@@ -154,28 +158,34 @@ function SignedIn({ session }: { session: Session }) {
         {isPaid ? <PaidCard /> : <FreeCard wall={wall} failed={wallFailed} onRetry={refreshWall} onPaywall={() => push(paywallHref('account'))} />}
       </Reveal>
 
-      <AuditionRecord auditions={auditions ?? []} onOpen={() => toRoom('/(board)/auditions')} />
+      {/* The board is not in the Turkish app, so neither is its record. */}
+      {monologueRoomsShown(locale) ? <AuditionRecord auditions={auditions ?? []} onOpen={() => toRoom('/(board)/auditions')} /> : null}
 
       {/* The counts, said as one line; kept and scenes run open their rooms. */}
       <Reveal ready={countsReady} hold={50}>
       <View style={{ marginTop: 26, paddingVertical: 14, borderTopWidth: 1, borderColor: c.divider, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-        <Count n={saved?.length ?? 0} label="kept" onPress={() => toRoom('/(book)/saves')} />
-        <Text style={{ marginHorizontal: 10, fontFamily: SANS, fontSize: 14, color: c.chevron }}>·</Text>
-        <Count n={wall?.reads_used ?? 0} label="read" />
-        <Text style={{ marginHorizontal: 10, fontFamily: SANS, fontSize: 14, color: c.chevron }}>·</Text>
-        <Count n={stats.data?.runs ?? 0} label={(stats.data?.runs ?? 0) === 1 ? 'scene run' : 'scenes run'} onPress={() => toRoom('/(scene)/rehearse')} />
+        {/* Kept and read are the monologue rooms' counts: the Turkish app has the scenes alone. */}
+        {monologueRoomsShown(locale) ? (
+          <>
+            <Count n={saved?.length ?? 0} label="kept" onPress={() => toRoom('/(book)/saves')} />
+            <Text style={{ marginHorizontal: 10, fontFamily: SANS, fontSize: 14, color: c.chevron }}>·</Text>
+            <Count n={wall?.reads_used ?? 0} label="read" />
+            <Text style={{ marginHorizontal: 10, fontFamily: SANS, fontSize: 14, color: c.chevron }}>·</Text>
+          </>
+        ) : null}
+        <Count n={stats.data?.runs ?? 0} label={(stats.data?.runs ?? 0) === 1 ? L('scene run', 'sahne provası') : L('scenes run', 'sahne provası')} onPress={() => toRoom('/(scene)/rehearse')} />
       </View>
       </Reveal>
     </Animated.ScrollView>
       {/* Outside the scroll view: inside it, the first tap on Save only put the keyboard away. */}
       <NameSheet
         open={naming}
-        title="Your"
-        accent="name."
-        initial={`${who.first === 'You' ? '' : who.first}${who.rest ? ` ${who.rest}` : ''}`}
-        placeholder="The name on your headshot"
-        fieldLabel="Your name"
-        confirm="Save"
+        title={L('Your', 'Senin')}
+        accent={L('name.', 'adın.')}
+        initial={`${who.first === L('You', 'Sen') ? '' : who.first}${who.rest ? ` ${who.rest}` : ''}`}
+        placeholder={L('The name on your headshot', 'Fotoğrafındaki adın')}
+        fieldLabel={L('Your name', 'Adın')}
+        confirm={L('Save', 'Kaydet')}
         onSave={(name) => {
           setNaming(false);
           setNewName(name);
@@ -245,27 +255,32 @@ function Count({ n, label, onPress }: { n: number; label: string; onPress?: () =
 function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | undefined; failed: boolean; onRetry: () => void; onPaywall: () => void }) {
   const { colors: c } = useTheme();
   const loaded = wall !== undefined;
+  const L = useL();
+  const locale = useLocale();
   return (
     <View>
       <View pointerEvents="none" style={{ position: 'absolute', left: 6, top: 6, right: -6, bottom: -6, borderRadius: 18, backgroundColor: c.yellow }} />
       <View style={{ borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, padding: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Eyebrow lit>FREE PLAN</Eyebrow>
-          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>(what is left.)</Text>
+          <Eyebrow lit>{L('FREE PLAN', 'ÜCRETSİZ PLAN')}</Eyebrow>
+          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>{L('(what is left.)', '(kalanlar.)')}</Text>
         </View>
         {!loaded && failed ? (
-          <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel="Check your plan again" hitSlop={8} style={{ marginTop: 14 }}>
-            <StageDirection link>(couldn&apos;t reach the house. tap to ask again.)</StageDirection>
+          <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel={L('Check your plan again', 'Planına tekrar bak')} hitSlop={8} style={{ marginTop: 14 }}>
+            <StageDirection link>{L("(couldn't reach the house. tap to ask again.)", '(salona ulaşılamadı. tekrar sormak için dokun.)')}</StageDirection>
           </Pressable>
         ) : (
           <View style={{ marginTop: 14, gap: 14 }}>
-            <Meter label="Speeches to read" used={wall?.reads_used ?? 0} limit={wall?.reads_limit ?? 0} loaded={loaded} note="today, back at midnight" />
-            <Meter label="Scene runs" used={wall?.runs_used ?? 0} limit={wall?.runs_limit ?? 0} loaded={loaded} note={`this month, back ${firstOfNextMonth()}`} />
-            <Meter label="Your own sides" used={wall?.scripts_used ?? 0} limit={wall?.scripts_limit ?? 0} loaded={loaded} note="scripts on the account" />
-            <StageDirection>(the first scenes never count.)</StageDirection>
+            {/* Speeches are the monologue rooms' allowance, not in the Turkish app. */}
+            {monologueRoomsShown(locale) ? (
+              <Meter label="Speeches to read" used={wall?.reads_used ?? 0} limit={wall?.reads_limit ?? 0} loaded={loaded} note="today, back at midnight" />
+            ) : null}
+            <Meter label={L('Scene runs', 'Sahne provaları')} used={wall?.runs_used ?? 0} limit={wall?.runs_limit ?? 0} loaded={loaded} note={L(`this month, back ${firstOfNextMonth()}`, `bu ay, yenilenme: ${firstOfNextMonth()}`)} />
+            <Meter label={L('Your own sides', 'Kendi metinlerin')} used={wall?.scripts_used ?? 0} limit={wall?.scripts_limit ?? 0} loaded={loaded} note={L('scripts on the account', 'hesaptaki metinler')} />
+            <StageDirection>{L('(the first scenes never count.)', '(ilk sahneler hiç sayılmaz.)')}</StageDirection>
           </View>
         )}
-        <ArrowRow label="Read without limits" onPress={onPaywall} />
+        <ArrowRow label={L('Read without limits', 'Sınırsız çalış')} onPress={onPaywall} />
       </View>
     </View>
   );
@@ -275,10 +290,11 @@ function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | unde
 function PaidCard() {
   const { colors: c } = useTheme();
   const { data } = useQuery({ queryKey: ['subscription'], queryFn: getSubscription, staleTime: 5 * 60_000 });
-  const name = data?.plan === 'annual' ? 'ANNUAL' : data?.plan === 'monthly' ? 'MONTHLY' : 'PREMIUM';
+  const L = useL();
+  const name = data?.plan === 'annual' ? L('ANNUAL', 'YILLIK') : data?.plan === 'monthly' ? L('MONTHLY', 'AYLIK') : 'PREMIUM';
   const when = data?.renews ? data.renews.toLocaleDateString(undefined, { day: 'numeric', month: 'long' }) : null;
-  const line = !data ? '' : data.inTrial ? (when ? `Trial ends ${when}` : 'On trial') : data.willRenew ? (when ? `Renews ${when}` : 'Renews') : when ? `Ends ${when}` : 'The whole stage';
-  const price = data?.price ? `(${data.price} ${data.plan === 'monthly' ? 'a month' : 'a year'}.)` : '(renews through the app store.)';
+  const line = !data ? '' : data.inTrial ? (when ? L(`Trial ends ${when}`, `Deneme ${when} bitiyor`) : L('On trial', 'Denemedesin')) : data.willRenew ? (when ? L(`Renews ${when}`, `${when} yenilenir`) : L('Renews', 'Yenilenir')) : when ? L(`Ends ${when}`, `${when} bitiyor`) : L('The whole stage', 'Sahnenin tamamı');
+  const price = data?.price ? L(`(${data.price} ${data.plan === 'monthly' ? 'a month' : 'a year'}.)`, `(${data.plan === 'monthly' ? 'aylık' : 'yıllık'} ${data.price}.)`) : L('(renews through the app store.)', '(app store üzerinden yenilenir.)');
   return (
     <View style={{ borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, padding: 20 }}>
       <Eyebrow lit>{name}</Eyebrow>
@@ -287,8 +303,8 @@ function PaidCard() {
           <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 22, lineHeight: 26, color: c.foreground }}>{line}</Text>
           <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 12, lineHeight: 16, letterSpacing: 0.3, color: c.mutedForeground }}>{price}</Text>
         </View>
-        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); void manageSubscription(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Manage subscription" style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-          <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>Manage</Text>
+        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); void manageSubscription(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={L('Manage subscription', 'Aboneliği yönet')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.accentText }}>{L('Manage', 'Yönet')}</Text>
           <Ionicons name="chevron-forward" size={14} color={c.accentText} />
         </Pressable>
       </View>
@@ -322,6 +338,8 @@ function SignedOut() {
   const { colors: c } = useTheme();
   const [appleReady, setAppleReady] = useState(false);
   const [busy, setBusy] = useState<null | 'apple' | 'google'>(null);
+  const L = useL();
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { isAppleAuthAvailable().then(setAppleReady).catch(() => setAppleReady(false)); }, []);
 
@@ -334,13 +352,16 @@ function SignedOut() {
     if (res.ok) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       track('signed_in', { method });
-    } else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
+    } else if (!res.canceled) setError(res.message ?? L('Could not sign in.', 'Giriş yapılamadı.'));
   };
 
+  // The book and the board are monologue rooms: the Turkish app keeps the scenes alone.
   const KEEPS: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; line: string }[] = [
-    { icon: 'bookmark-outline', title: 'Your book', line: 'the speeches you keep, with your cuts.' },
-    { icon: 'calendar-outline', title: 'Your board', line: 'auditions, and a nudge the night before.' },
-    { icon: 'people-outline', title: 'Your scenes', line: 'your sides, read back by a partner.' },
+    ...(monologueRoomsShown(locale) ? [
+      { icon: 'bookmark-outline' as const, title: 'Your book', line: 'the speeches you keep, with your cuts.' },
+      { icon: 'calendar-outline' as const, title: 'Your board', line: 'auditions, and a nudge the night before.' },
+    ] : []),
+    { icon: 'people-outline', title: L('Your scenes', 'Sahnelerin'), line: L('your sides, read back by a partner.', 'metinlerin, karşılığını bir sahne partneri okur.') },
   ];
 
   return (
@@ -348,9 +369,9 @@ function SignedOut() {
       <Animated.View entering={FadeIn.duration(420)} style={{ alignItems: 'center', marginTop: 18 }}>
         <GhostLight size={36} />
         <Text style={{ marginTop: 16, textAlign: 'center', fontFamily: SERIF, fontSize: 46, lineHeight: 50, letterSpacing: -0.6, color: c.foreground }}>
-          Take a <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>seat.</Text>
+          {L('Take a', 'Yerine')} <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{L('seat.', 'geç.')}</Text>
         </Text>
-        <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>(one account, on every phone and on the web.)</StageDirection>
+        <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>{L('(one account, on every phone and on the web.)', '(tek hesap, her telefonda ve webde.)')}</StageDirection>
       </Animated.View>
 
       <Animated.View entering={FadeIn.duration(420).delay(120)} style={{ marginTop: 28, borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, paddingHorizontal: 18, paddingVertical: 6 }}>
@@ -381,24 +402,27 @@ function SignedOut() {
           onPress={() => { void door('google'); }}
           disabled={busy !== null}
           accessibilityRole="button"
-          accessibilityLabel="Continue with Google"
+          accessibilityLabel={L('Continue with Google', 'Google ile devam et')}
           style={({ pressed }) => ({ width: 280, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: c.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed || busy === 'google' ? 0.6 : 1 })}
         >
           {busy === 'google' ? <ActivityIndicator color={c.foreground} /> : (
             <>
               <Ionicons name="logo-google" size={17} color={c.foreground} />
-              <Text style={{ fontFamily: SANS_B, fontSize: 16, color: c.foreground }}>Continue with Google</Text>
+              <Text style={{ fontFamily: SANS_B, fontSize: 16, color: c.foreground }}>{L('Continue with Google', 'Google ile devam et')}</Text>
             </>
           )}
         </Pressable>
         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/auth', params: { only: 'email' } }); }} hitSlop={10} accessibilityRole="button" style={{ paddingVertical: 6 }}>
-          <Text style={{ fontFamily: SANS_B, fontSize: 14.5, color: c.accentText }}>Use email instead</Text>
+          <Text style={{ fontFamily: SANS_B, fontSize: 14.5, color: c.accentText }}>{L('Use email instead', 'E-postayla devam et')}</Text>
         </Pressable>
         {error ? <Text style={{ textAlign: 'center', fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{error}</Text> : null}
       </Animated.View>
 
       <View style={{ flexGrow: 1 }} />
-      <StageDirection style={{ textAlign: 'center', marginTop: 28 }}>(search is free, no account needed.)</StageDirection>
+      {/* Search is a monologue room, not in the Turkish app. */}
+      {monologueRoomsShown(locale) ? (
+        <StageDirection style={{ textAlign: 'center', marginTop: 28 }}>(search is free, no account needed.)</StageDirection>
+      ) : null}
     </ScrollView>
   );
 }
@@ -438,7 +462,7 @@ function nameOf(session: Session): { first: string; rest: string } {
     const local = email.split('@')[0].split(/[._+]/)[0] ?? '';
     if (local && looksLikeAName(local)) return { first: titleCase(local), rest: '' };
   }
-  return { first: 'You', rest: '' };
+  return { first: pick('You', 'Sen'), rest: '' };
 }
 
 function looksLikeAName(value: string): boolean {
@@ -454,7 +478,7 @@ function sinceLabel(iso: string | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const month = d.toLocaleDateString('en-US', { month: 'long' }).toLowerCase();
+  const month = d.toLocaleDateString(pick('en-US', 'tr-TR'), { month: 'long' }).toLowerCase();
   const months = (Date.now() - d.getTime()) / (30.4 * 24 * 3600 * 1000);
   return months >= 12 ? `${month} ${d.getFullYear()}` : month;
 }
@@ -462,7 +486,8 @@ function sinceLabel(iso: string | undefined): string | null {
 /** "nov 1": when the partner's month turns over. */
 function firstOfNextMonth(now = new Date()): string {
   const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return `${d.toLocaleDateString('en-US', { month: 'short' }).toLowerCase()} 1`;
+  const month = d.toLocaleDateString(pick('en-US', 'tr-TR'), { month: 'short' }).toLowerCase();
+  return pick(`${month} 1`, `1 ${month}`);
 }
 
 
@@ -473,21 +498,22 @@ function firstOfNextMonth(now = new Date()): string {
  */
 function StreakCard({ streak: s, onCheckIn }: { streak: Streak; onCheckIn: () => void }) {
   const { colors: c } = useTheme();
+  const L = useL();
   const line = s.days === 0
-    ? '(tonight starts it. one scene, or one speech.)'
+    ? L('(tonight starts it. one scene, or one speech.)', '(bu gece başlıyor. tek bir sahne yeter.)')
     : s.today
-      ? `(${s.days === 1 ? 'one night' : `${s.days} nights`} in a row. come back tomorrow.)`
-      : '(tonight keeps it going.)';
+      ? L(`(${s.days === 1 ? 'one night' : `${s.days} nights`} in a row. come back tomorrow.)`, `(${s.days === 1 ? 'bir gece' : `${s.days} gece`} üst üste. yarın yine gel.)`)
+      : L('(tonight keeps it going.)', '(bu gece seriyi sürdürür.)');
   return (
     <View style={{ marginTop: 26, borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, padding: 18 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
         <Text style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 48, color: s.days ? c.accentText : c.foreground }}>{s.days}</Text>
-        <Text style={{ fontFamily: SERIF_I, fontSize: 22, color: c.foreground }}>{s.days === 1 ? 'night running.' : 'nights running.'}</Text>
+        <Text style={{ fontFamily: SERIF_I, fontSize: 22, color: c.foreground }}>{s.days === 1 ? L('night running.', 'gecedir sürüyor.') : L('nights running.', 'gecedir sürüyor.')}</Text>
       </View>
       <Text style={{ marginTop: 4, fontFamily: MONO_I, fontSize: 12.5, lineHeight: 17, color: c.mutedForeground }}>{line}</Text>
       <View style={{ marginTop: 16 }}><WeekMarks week={s.week} /></View>
       {/* Work away from the app (class, an audition, a rehearsal) is checked in here; a scene run or a speech counts by itself. */}
-      <PrimaryPill label={s.today ? 'Add to tonight' : 'Check in tonight'} variant={s.today ? 'outline' : 'primary'} onPress={onCheckIn} block height={46} style={{ marginTop: 18 }} />
+      <PrimaryPill label={s.today ? L('Add to tonight', 'Bu geceye ekle') : L('Check in tonight', 'Bu geceyi kaydet')} variant={s.today ? 'outline' : 'primary'} onPress={onCheckIn} block height={46} style={{ marginTop: 18 }} />
     </View>
   );
 }
@@ -496,6 +522,7 @@ function StreakCard({ streak: s, onCheckIn }: { streak: Streak; onCheckIn: () =>
 function Meter({ label, used, limit, loaded, note }: { label: string; used: number; limit: number; loaded: boolean; note: string }) {
   const { colors: c } = useTheme();
   const unlimited = limit < 0;
+  const L = useL();
   const left = unlimited ? 0 : Math.max(0, limit - used);
   const frac = unlimited || limit <= 0 ? 0 : Math.min(1, used / limit);
   const out = !unlimited && limit > 0 && left === 0;
@@ -504,7 +531,7 @@ function Meter({ label, used, limit, loaded, note }: { label: string; used: numb
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
         <Text style={{ fontFamily: SANS_B, fontSize: 15, color: c.foreground }}>{label}</Text>
         <Text style={{ fontFamily: SANS_B, fontSize: 15, color: out ? c.accentText : c.foreground }}>
-          {!loaded ? '·' : unlimited ? 'unlimited' : `${left} of ${limit} left`}
+          {!loaded ? '·' : unlimited ? L('unlimited', 'sınırsız') : L(`${left} of ${limit} left`, `${left}/${limit} kaldı`)}
         </Text>
       </View>
       {unlimited ? null : (
@@ -524,12 +551,13 @@ function Meter({ label, used, limit, loaded, note }: { label: string; used: numb
 function NightsLog({ entries }: { entries: PracticeEntry[] }) {
   const { colors: c } = useTheme();
   const shown = entries.slice(0, 10);
+  const L = useL();
   return (
     <View style={{ marginTop: 22 }}>
-      <Eyebrow>YOUR NIGHTS</Eyebrow>
+      <Eyebrow>{L('YOUR NIGHTS', 'GECELERİN')}</Eyebrow>
       {shown.length === 0 ? (
         <Text style={{ marginTop: 8, fontFamily: SANS, fontSize: 13.5, lineHeight: 19, color: c.mutedForeground }}>
-          A scene run or a speech read counts by itself. Check in here for the work done away from the app.
+          {L('A scene run or a speech read counts by itself. Check in here for the work done away from the app.', 'Bir sahne provası kendiliğinden sayılır. Uygulama dışında yaptığın çalışmayı buraya kaydet.')}
         </Text>
       ) : (
         shown.map((e) => (

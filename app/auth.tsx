@@ -25,6 +25,7 @@ import {
 import { useGoBack } from '../src/lib/nav';
 import { track } from '../src/lib/analytics';
 import { useTheme } from '../src/theme/ThemeContext';
+import { homeHref, useL } from '../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -52,9 +53,10 @@ export default function Auth() {
   const { next, create, only } = useLocalSearchParams<{ next?: string; create?: string; only?: string }>();
   // From a page that already offered Apple and Google: the form alone.
   const emailOnly = only === 'email';
-  const goBack = useGoBack('/search');
+  const goBack = useGoBack(homeHref());
   const { tiltX, tiltY } = useStageMotion();
   const { colors: c } = useTheme();
+  const L = useL();
   const [appleReady, setAppleReady] = useState(false);
   const [busy, setBusy] = useState<null | 'apple' | 'google' | 'email'>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export default function Auth() {
     setTimeout(() => {
       if (next) { try { router.dismissAll(); } catch { /* the root */ } router.replace(next as '/welcome'); return; }
       if (router.canGoBack()) router.back();
-      else router.replace('/search');
+      else router.replace(homeHref());
     }, 650);
   };
 
@@ -97,7 +99,7 @@ export default function Auth() {
     const res = await signInWithApple();
     setBusy(null);
     if (res.ok) done('apple');
-    else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
+    else if (!res.canceled) setError(res.message ?? L('Could not sign in.', 'Giriş yapılamadı.'));
   };
 
   const withGoogle = async () => {
@@ -106,41 +108,41 @@ export default function Auth() {
     const res = await signInWithGoogle();
     setBusy(null);
     if (res.ok) done('google');
-    else if (!res.canceled) setError(res.message ?? 'Could not sign in.');
+    else if (!res.canceled) setError(res.message ?? L('Could not sign in.', 'Giriş yapılamadı.'));
   };
 
   const withEmail = async () => {
     Keyboard.dismiss();
-    if (!email.trim() || !password) { setError('Your address and your password, both.'); return; }
+    if (!email.trim() || !password) { setError(L('Your address and your password, both.', 'Adresin ve şifren, ikisi de.')); return; }
     setBusy('email');
     clear();
     const res = await signInWithEmail(email, password);
     setBusy(null);
     if (res.ok) { done('email'); return; }
     if (res.noAccount) {
-      setError('No account with that address, or the password is wrong. New here? Make one below.');
+      setError(L('No account with that address, or the password is wrong. New here? Make one below.', 'Bu adreste hesap yok ya da şifre yanlış. Yeni misin? Aşağıdan bir tane aç.'));
       setCreating(true);
       return;
     }
-    setError(res.message ?? 'Could not sign in.');
+    setError(res.message ?? L('Could not sign in.', 'Giriş yapılamadı.'));
   };
 
   const createAccount = async () => {
     Keyboard.dismiss();
-    if (!email.trim()) { setError('An address first.'); return; }
-    if (password.length < 6) { setError('A password of at least six characters.'); return; }
+    if (!email.trim()) { setError(L('An address first.', 'Önce bir adres.')); return; }
+    if (password.length < 6) { setError(L('A password of at least six characters.', 'En az altı karakterli bir şifre.')); return; }
     setBusy('email');
     clear();
     const res = await signUpWithEmail(email, password);
     setBusy(null);
     if (res.ok) { done('email'); return; }
-    if (res.pending) { setNotice(res.message ?? 'Confirm the address from the email we sent.'); return; }
-    setError(res.message ?? 'Could not create the account.');
+    if (res.pending) { setNotice(res.message ?? L('Confirm the address from the email we sent.', 'Sana gelen e-postadan adresini onayla.')); return; }
+    setError(res.message ?? L('Could not create the account.', 'Hesap açılamadı.'));
   };
 
   const forgotPassword = async () => {
     if (resetting) return;
-    if (!email.trim()) { setError('Type the address first, then tap this.'); return; }
+    if (!email.trim()) { setError(L('Type the address first, then tap this.', 'Önce adresi yaz, sonra buna dokun.')); return; }
     setResetting(true);
     clear();
     const res = await sendPasswordReset(email);
@@ -148,8 +150,8 @@ export default function Auth() {
     // Deliberately the same words whether or not that address has an account:
     // this form must not answer "does this person use Ghost Light" for anyone
     // who can type.
-    if (res.ok) setNotice('If that address is registered, a reset link is on its way.');
-    else setError(res.message ?? 'Could not send the reset link.');
+    if (res.ok) setNotice(L('If that address is registered, a reset link is on its way.', 'Bu adres kayıtlıysa sıfırlama bağlantısı yolda.'));
+    else setError(res.message ?? L('Could not send the reset link.', 'Sıfırlama bağlantısı gönderilemedi.'));
   };
 
   const submit = () => { void (creating ? createAccount() : withEmail()); };
@@ -159,8 +161,8 @@ export default function Auth() {
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 28 }}>
-          <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Not now">
-            <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>not now</Text>
+          <Pressable onPress={goBack} hitSlop={14} accessibilityRole="button" accessibilityLabel={L('Not now', 'Şimdi değil')}>
+            <Text style={{ fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.6, color: c.mutedForeground }}>{L('not now', 'şimdi değil')}</Text>
           </Pressable>
         </View>
 
@@ -174,15 +176,15 @@ export default function Auth() {
         >
           {emailOnly ? (
             <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
-              Your <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>email.</Text>
+              {L('Your', 'Senin')} <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{L('email.', 'e-postan.')}</Text>
             </Text>
           ) : (
             <Text style={{ fontFamily: SERIF, fontSize: 40, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>
-              Keep <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>this one.</Text>
+              {L('Keep', 'Bunu')} <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{L('this one.', 'sakla.')}</Text>
             </Text>
           )}
           <StageDirection numberOfLines={2} style={{ marginTop: 8 }}>
-            {emailOnly ? '(an actorrise account works here too: same address, same password.)' : '(sign in to save. nothing you did is lost.)'}
+            {emailOnly ? L('(an actorrise account works here too: same address, same password.)', '(actorrise hesabın burada da çalışır: aynı adres, aynı şifre.)') : L('(sign in to save. nothing you did is lost.)', '(kaydetmek için giriş yap. yaptığın hiçbir şey kaybolmaz.)')}
           </StageDirection>
 
           {/* The two slabs. Apple's is the one its guidelines require to be the prominent one. */}
@@ -196,12 +198,12 @@ export default function Auth() {
                 onPress={() => { if (!busy) void withApple(); }}
               />
             ) : null}
-            <OutlineButton label="Continue with Google" icon="logo-google" onPress={() => { if (!busy) void withGoogle(); }} busy={busy === 'google'} />
+            <OutlineButton label={L('Continue with Google', 'Google ile devam et')} icon="logo-google" onPress={() => { if (!busy) void withGoogle(); }} busy={busy === 'google'} />
           </View>}
 
           {/* The two things the form can do, as two words on one rule: the chosen one carries the rule, like the houses on the curtain. */}
           <View style={{ marginTop: 28, flexDirection: 'row', alignItems: 'flex-end', borderBottomWidth: 1, borderBottomColor: c.divider }}>
-            {([['in', 'Sign in'], ['new', 'New account']] as const).map(([k, label]) => {
+            {([['in', L('Sign in', 'Giriş yap')], ['new', L('New account', 'Yeni hesap')]] as const).map(([k, label]) => {
               const on = (k === 'new') === creating;
               return (
                 <Pressable key={k} onPress={() => { if (on) return; Haptics.selectionAsync().catch(() => {}); setCreating(k === 'new'); clear(); }} hitSlop={8}
@@ -215,7 +217,7 @@ export default function Auth() {
 
           <View onLayout={(e) => { place.current.email = e.nativeEvent.layout.y; }} />
           <LabelledField
-            label="Email"
+            label={L('Email', 'E-posta')}
             onFocus={bring('email')}
             value={email}
             onChangeText={(t) => { setEmail(t); clear(); }}
@@ -229,7 +231,7 @@ export default function Auth() {
           />
           <View onLayout={(e) => { place.current.password = e.nativeEvent.layout.y; }} />
           <LabelledField
-            label="Password"
+            label={L('Password', 'Şifre')}
             onFocus={bring('password')}
             value={password}
             onChangeText={(t) => { setPassword(t); clear(); }}
@@ -240,7 +242,7 @@ export default function Auth() {
             onSubmitEditing={submit}
             style={{ marginTop: 18 }}
             accessory={
-              <Pressable onPress={() => setReveal((v) => !v)} hitSlop={12} accessibilityRole="button" accessibilityLabel={reveal ? 'Hide password' : 'Show password'}>
+              <Pressable onPress={() => setReveal((v) => !v)} hitSlop={12} accessibilityRole="button" accessibilityLabel={reveal ? L('Hide password', 'Şifreyi gizle') : L('Show password', 'Şifreyi göster')}>
                 <Ionicons name={reveal ? 'eye-off-outline' : 'eye-outline'} size={18} color={c.mutedForeground} />
               </Pressable>
             }
@@ -251,16 +253,16 @@ export default function Auth() {
             {creating ? null : (
               <Pressable onPress={() => { void forgotPassword(); }} hitSlop={10} accessibilityRole="button" disabled={resetting} style={{ paddingVertical: 6 }}>
                 {resetting ? <ActivityIndicator color={c.accentText} /> : (
-                  <Text style={{ fontFamily: SANS_B, fontSize: 13.5, color: c.accentText }}>Forgot password?</Text>
+                  <Text style={{ fontFamily: SANS_B, fontSize: 13.5, color: c.accentText }}>{L('Forgot password?', 'Şifreni mi unuttun?')}</Text>
                 )}
               </Pressable>
             )}
-            <PrimaryPill label={creating ? 'Create the account' : 'Enter'} onPress={submit} height={46} haptic="medium" style={{ paddingHorizontal: 8 }} />
+            <PrimaryPill label={creating ? L('Create the account', 'Hesabı aç') : L('Enter', 'Gir')} onPress={submit} height={46} haptic="medium" style={{ paddingHorizontal: 8 }} />
           </View>
           {creating ? (
-            <StageDirection style={{ marginTop: 14, textAlign: 'right' }}>(this address, that password. your saves come with you.)</StageDirection>
+            <StageDirection style={{ marginTop: 14, textAlign: 'right' }}>{L('(this address, that password. your saves come with you.)', '(bu adres, o şifre. kaydettiklerin seninle gelir.)')}</StageDirection>
           ) : !emailOnly ? (
-            <StageDirection numberOfLines={2} style={{ marginTop: 14 }}>(have an actorrise account? the same email and password work here.)</StageDirection>
+            <StageDirection numberOfLines={2} style={{ marginTop: 14 }}>{L('(have an actorrise account? the same email and password work here.)', '(actorrise hesabın var mı? aynı e-posta ve şifre burada da çalışır.)')}</StageDirection>
           ) : null}
 
           {error ? (
@@ -279,11 +281,11 @@ export default function Auth() {
             onPress={() => { track('app_about_actorrise', { from: 'auth', visited: false }); setAbout(true); }}
             hitSlop={10}
             accessibilityRole="button"
-            accessibilityLabel="What is ActorRise?"
+            accessibilityLabel={L('What is ActorRise?', 'ActorRise nedir?')}
             style={{ marginTop: 'auto', paddingTop: 28, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6 }}
           >
             <Ionicons name="help-circle-outline" size={15} color={c.mutedForeground} />
-            <StageDirection>(what is actorrise?)</StageDirection>
+            <StageDirection>{L('(what is actorrise?)', '(actorrise nedir?)')}</StageDirection>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -292,7 +294,7 @@ export default function Auth() {
       {busy || arriving ? (
         <Animated.View entering={FadeIn.duration(260)} pointerEvents="auto" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: c.background, alignItems: 'center', justifyContent: 'center' }}>
           <GhostLight size={58} />
-          <StageDirection style={{ marginTop: 22 }}>{arriving ? '(the house lights come up.)' : '(finding your seat.)'}</StageDirection>
+          <StageDirection style={{ marginTop: 22 }}>{arriving ? L('(the house lights come up.)', '(salonun ışıkları yanıyor.)') : L('(finding your seat.)', '(yerin hazırlanıyor.)')}</StageDirection>
         </Animated.View>
       ) : null}
     </View>

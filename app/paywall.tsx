@@ -14,6 +14,7 @@ import { useCatalogueSize } from '../src/hooks/useCatalogueSize';
 import { PRIVACY_URL, TERMS_URL, useTrialOffer } from '../src/hooks/useTrialOffer';
 import { asTrigger, WHY_LINE } from '../src/lib/paywall';
 import { useTheme } from '../src/theme/ThemeContext';
+import { monologueRoomsShown, pick, useL, useLocale } from '../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -42,6 +43,8 @@ export default function Paywall() {
   const { colors: c } = useTheme();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const L = useL();
+  const locale = useLocale();
   const { label: catalogue } = useCatalogueSize();
   const trigger = asTrigger(useLocalSearchParams<{ why?: string }>().why);
   const why = trigger ? WHY_LINE[trigger] : undefined;
@@ -50,7 +53,7 @@ export default function Paywall() {
   const offer = useTrialOffer({ from: 'paywall', trigger, onDone: close, onSignIn: () => router.replace('/auth') });
   const { plan, setPlan, busy, restoring, note, storeDown, retry, trialLabel, trialDays, buy, onRestore } = offer;
 
-  const cta = trialLabel ? `Start my free ${trialDays === 7 ? 'week' : trialLabel}` : 'Unlock everything';
+  const cta = trialLabel ? L(`Start my free ${trialDays === 7 ? 'week' : trialLabel}`, `${trialLabel} ücretsiz dene`) : L('Unlock everything', 'Her şeyi aç');
   const both = offer.hasAnnual && offer.hasMonthly;
   const yearly = plan === 'annual';
   const hero = Math.min(240, Math.max(170, height * 0.25));
@@ -66,14 +69,14 @@ export default function Paywall() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Restore on the left, because Apple asks for it and it is not the point; the way out on the right. */}
         <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, zIndex: 2 }}>
-          <Pressable onPress={onRestore} hitSlop={12} accessibilityRole="button" accessibilityLabel="Restore purchases" style={{ paddingVertical: 6 }}>
+          <Pressable onPress={onRestore} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Restore purchases', 'Satın alımları geri yükle')} style={{ paddingVertical: 6 }}>
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />
             ) : (
-              <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.chevron }}>Restore</Text>
+              <Text style={{ fontFamily: SANS_B, fontSize: 13, color: c.chevron }}>{L('Restore', 'Geri yükle')}</Text>
             )}
           </Pressable>
-          <Pressable onPress={close} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close" style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable onPress={close} hitSlop={14} accessibilityRole="button" accessibilityLabel={L('Close', 'Kapat')} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={19} color={c.mutedForeground} />
           </Pressable>
         </View>
@@ -85,7 +88,7 @@ export default function Paywall() {
           <View style={{ paddingHorizontal: 24 }}>
             {/* 42/46: Instrument Serif wants about 1.1x its size or the descender of "g" is clipped. */}
             <Text style={{ marginTop: 4, textAlign: 'center', fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.6, color: c.foreground }}>
-              The whole <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>stage.</Text>
+              {L('The whole', 'Sahnenin')} <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{L('stage.', 'tamamı.')}</Text>
             </Text>
             {/* What they just did, said back, when they came here by doing it. */}
             {why ? (
@@ -95,21 +98,28 @@ export default function Paywall() {
             ) : null}
 
             <View style={{ marginTop: 18, gap: 11, alignSelf: 'center' }}>
-              <Perk text="A scene partner for every side" />
-              <Perk text={`${catalogue} monologues, no limits`} />
-              <Perk text="Keep, cut and run them off book" />
+              <Perk text={L('A scene partner for every side', 'Her metin için bir sahne partneri')} />
+              {/* The Turkish app has no monologue rooms (src/i18n): it sells what it has. */}
+              {monologueRoomsShown(locale) ? (
+                <>
+                  <Perk text={`${catalogue} monologues, no limits`} />
+                  <Perk text="Keep, cut and run them off book" />
+                </>
+              ) : (
+                <Perk text="Kendi metnini getir, Türkçe prova et" />
+              )}
             </View>
 
             {storeDown ? (
               <Text style={{ marginTop: 24, textAlign: 'center', fontFamily: SANS, fontSize: 14, lineHeight: 21, color: c.mutedForeground }}>
-                The App Store isn’t reachable right now, so we can’t show you the subscription. Check your connection and try again in a moment.
+                {L('The App Store isn’t reachable right now, so we can’t show you the subscription. Check your connection and try again in a moment.', "App Store'a şu an ulaşılamıyor, o yüzden aboneliği gösteremiyorum. Bağlantını kontrol et, birazdan tekrar dene.")}
               </Text>
             ) : (
               <>
                 {both ? (
                   <View style={{ marginTop: 24, flexDirection: 'row', padding: 4, borderRadius: 18, borderWidth: 1, borderColor: c.border }}>
-                    <Segment selected={yearly} onPress={() => setPlan('annual')} label="Yearly" badge={offer.savePercent ? `SAVE ${offer.savePercent}%` : null} />
-                    <Segment selected={!yearly} onPress={() => setPlan('monthly')} label="Monthly" badge={null} />
+                    <Segment selected={yearly} onPress={() => setPlan('annual')} label={L('Yearly', 'Yıllık')} badge={offer.savePercent ? L(`SAVE ${offer.savePercent}%`, `%${offer.savePercent} İNDİRİM`) : null} />
+                    <Segment selected={!yearly} onPress={() => setPlan('monthly')} label={L('Monthly', 'Aylık')} badge={null} />
                   </View>
                 ) : null}
 
@@ -117,12 +127,12 @@ export default function Paywall() {
                 <View style={{ marginTop: 18, alignItems: 'center' }}>
                   <Text style={{ fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: 0.3, color: c.foreground }}>
                     {yearly ? offer.annualBilled : offer.monthlyBilled}
-                    <Text style={{ fontFamily: SERIF_I, fontSize: 22, color: c.mutedForeground }}>{yearly ? ' a year' : ' a month'}</Text>
+                    <Text style={{ fontFamily: SERIF_I, fontSize: 22, color: c.mutedForeground }}>{yearly ? L(' a year', ' / yıl') : L(' a month', ' / ay')}</Text>
                   </Text>
                   <Text style={{ marginTop: 4, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.mutedForeground }}>
                     {yearly
-                      ? `(${offer.annualPerMonth} a month.${offer.annualTrialLabel ? ` ${offer.annualTrialLabel} free.` : ''})`
-                      : '(billed monthly. no trial.)'}
+                      ? L(`(${offer.annualPerMonth} a month.${offer.annualTrialLabel ? ` ${offer.annualTrialLabel} free.` : ''})`, `(ayda ${offer.annualPerMonth}.${offer.annualTrialLabel ? ` ${offer.annualTrialLabel} ücretsiz.` : ''})`)
+                      : L('(billed monthly. no trial.)', '(her ay ödenir. deneme yok.)')}
                   </Text>
                 </View>
               </>
@@ -135,14 +145,14 @@ export default function Paywall() {
           {busy ? (
             <ActivityIndicator color={c.accentText} style={{ height: 56 }} />
           ) : storeDown ? (
-            <PrimaryPill label="Try again" onPress={retry} block haptic="medium" height={56} />
+            <PrimaryPill label={L('Try again', 'Tekrar dene')} onPress={retry} block haptic="medium" height={56} />
           ) : (
             <PrimaryPill label={cta} onPress={buy} block haptic="medium" height={56} />
           )}
 
           {!storeDown ? (
             <Text style={{ marginTop: 10, textAlign: 'center', fontFamily: SANS_B, fontSize: 13, lineHeight: 18, color: c.mutedForeground }}>
-              {trialLabel ? 'No payment today. Cancel anytime.' : 'Cancel anytime.'}
+              {trialLabel ? L('No payment today. Cancel anytime.', 'Bugün ödeme yok. İstediğin zaman iptal et.') : L('Cancel anytime.', 'İstediğin zaman iptal et.')}
             </Text>
           ) : null}
 
@@ -157,11 +167,11 @@ export default function Paywall() {
           ) : null}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4, paddingBottom: 2 }}>
             <Pressable onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)} hitSlop={8} accessibilityRole="link">
-              <Text style={{ fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron, textDecorationLine: 'underline' }}>Terms</Text>
+              <Text style={{ fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron, textDecorationLine: 'underline' }}>{L('Terms', 'Koşullar')}</Text>
             </Pressable>
             <Text style={{ fontFamily: SANS, fontSize: 10.5, color: c.chevron, paddingHorizontal: 6 }}>·</Text>
             <Pressable onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)} hitSlop={8} accessibilityRole="link">
-              <Text style={{ fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron, textDecorationLine: 'underline' }}>Privacy</Text>
+              <Text style={{ fontFamily: SANS, fontSize: 10.5, lineHeight: 15, color: c.chevron, textDecorationLine: 'underline' }}>{L('Privacy', 'Gizlilik')}</Text>
             </Pressable>
           </View>
         </View>
@@ -195,7 +205,7 @@ function Segment({ selected, onPress, label, badge }: { selected: boolean; onPre
       onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={badge ? `${label}, ${badge.toLowerCase()}` : label}
+      accessibilityLabel={badge ? `${label}, ${badge.toLocaleLowerCase(pick('en-US', 'tr-TR'))}` : label}
       style={{
         flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
         borderWidth: 1.5, borderColor: selected ? c.accentText : 'transparent', backgroundColor: selected ? c.card : 'transparent',

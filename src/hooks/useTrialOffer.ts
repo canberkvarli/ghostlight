@@ -11,6 +11,7 @@ import { hasNotificationPermission } from '../lib/notifications';
 import { getCurrentOffering, isPurchasesConfigured, purchase, restore } from '../lib/purchases';
 import { scheduleTrialReminder } from '../lib/trialReminder';
 import { useSession } from '../lib/useSession';
+import { pick, useL } from '../i18n';
 
 /**
  * The offer, wherever it is made: the paywall screen, the wall on the page
@@ -71,6 +72,7 @@ export function useTrialOffer({
   const [canRemind, setCanRemind] = useState(false);
   const queryClient = useQueryClient();
   const { isAuthenticated } = useSession();
+  const L = useL();
 
   // The wall firing at all is the event; whether it converts is the two below.
   // `reads_used` comes off the cached read state rather than a fresh fetch,
@@ -142,14 +144,14 @@ export function useTrialOffer({
 
   const selectedPkg: PurchasesPackage | null = plan === 'annual' ? annualPkg : monthlyPkg;
   const billed = plan === 'annual' ? annualBilled : monthlyBilled;
-  const cadence = plan === 'annual' ? 'a year' : 'a month';
+  const cadence = plan === 'annual' ? L('a year', 'yıllık') : L('a month', 'aylık');
   // The free week rides on the yearly plan only. Real trial from RevenueCat
   // when live; else the trial set in App Store Connect. `trialLabel` gates the
   // CTA and the terms; the fallback has to say what the store says ("1 week",
   // not "7 days") or the offline copy and the live copy disagree about the
   // length of the same trial. Monthly never claims one, whatever the store
   // attaches to it.
-  const annualTrial = introTrial(annualPkg) ?? (offering ? null : { label: '1 week', days: 7 });
+  const annualTrial = introTrial(annualPkg) ?? (offering ? null : { label: pick('1 week', '1 hafta'), days: 7 });
   const trialLabel = plan === 'annual' ? annualTrial?.label ?? null : null;
   const trialDays = plan === 'annual' ? annualTrial?.days ?? null : null;
   const storeDown = storeReachable === false;
@@ -157,19 +159,19 @@ export function useTrialOffer({
   // The disclosure 3.1.2(c) is about: trial length, the amount charged after
   // it, and that it renews on its own, in one place, for every screen.
   const terms = trialLabel
-    ? `Free for ${trialLabel}, then ${billed} ${cadence}. Payment is charged to your Apple Account at the end of the trial and the subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the trial ends.`
-    : `${billed} ${cadence}, charged to your Apple Account today. The subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the period ends.`;
+    ? L(`Free for ${trialLabel}, then ${billed} ${cadence}. Payment is charged to your Apple Account at the end of the trial and the subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the trial ends.`, `${trialLabel} ücretsiz, sonra ${cadence} ${billed}. Ödeme deneme bitince Apple Hesabından alınır ve abonelik, sen iptal edene kadar aynı fiyatla kendiliğinden yenilenir. Deneme bitmeden en az 24 saat önce Ayarlar'dan istediğin zaman iptal edebilirsin.`)
+    : L(`${billed} ${cadence}, charged to your Apple Account today. The subscription renews automatically at the same price until you cancel. Cancel any time in Settings, at least 24 hours before the period ends.`, `${cadence} ${billed}, bugün Apple Hesabından alınır. Abonelik, sen iptal edene kadar aynı fiyatla kendiliğinden yenilenir. Dönem bitmeden en az 24 saat önce Ayarlar'dan istediğin zaman iptal edebilirsin.`);
   // The same, in one line, for the foot of a card.
   const termsLine = trialLabel
-    ? `Free for ${trialLabel}, then ${billed}/${plan === 'annual' ? 'year' : 'month'}. Renews automatically unless cancelled 24h before the trial ends.`
-    : `${billed} ${cadence}, charged today. Renews automatically until cancelled.`;
+    ? L(`Free for ${trialLabel}, then ${billed}/${plan === 'annual' ? 'year' : 'month'}. Renews automatically unless cancelled 24h before the trial ends.`, `${trialLabel} ücretsiz, sonra ${billed}/${plan === 'annual' ? 'yıl' : 'ay'}. Deneme bitmeden 24 saat önce iptal edilmezse kendiliğinden yenilenir.`)
+    : L(`${billed} ${cadence}, charged today. Renews automatically until cancelled.`, `${cadence} ${billed}, bugün alınır. İptal edilene kadar kendiliğinden yenilenir.`);
 
   const buy = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     if (!isPurchasesConfigured() || !selectedPkg) {
       // Reachable whenever RevenueCat cannot fetch products, which is every
       // simulator run and any real device the App Store is having a bad day on.
-      setNote('Couldn’t reach the App Store. Try again in a moment.');
+      setNote(L('Couldn’t reach the App Store. Try again in a moment.', "App Store'a ulaşılamadı. Birazdan tekrar dene."));
       return;
     }
     setBusy(true);
@@ -192,11 +194,11 @@ export function useTrialOffer({
         // thinking about. Never block: they have paid, they get in either way.
         if (!isAuthenticated) {
           Alert.alert(
-            'Keep this subscription safe',
-            'Sign in and it follows you to any device. Without an account it lives on this phone only.',
+            L('Keep this subscription safe', 'Bu aboneliği güvenceye al'),
+            L('Sign in and it follows you to any device. Without an account it lives on this phone only.', 'Giriş yap, her cihazda seninle olsun. Hesap olmadan yalnızca bu telefonda kalır.'),
             [
-              { text: 'Not now', style: 'cancel', onPress: onDone },
-              { text: 'Sign in', onPress: onSignIn },
+              { text: L('Not now', 'Şimdi değil'), style: 'cancel', onPress: onDone },
+              { text: L('Sign in', 'Giriş yap'), onPress: onSignIn },
             ],
           );
           return;
@@ -205,11 +207,11 @@ export function useTrialOffer({
       }
     } catch (e) {
       const err = e as { userCancelled?: boolean; message?: string };
-      if (!err.userCancelled) setNote(err.message ?? 'Purchase failed.');
+      if (!err.userCancelled) setNote(err.message ?? L('Purchase failed.', 'Satın alma olmadı.'));
     } finally {
       setBusy(false);
     }
-  }, [selectedPkg, plan, trialLabel, trialDays, from, trigger, isAuthenticated, onDone, onSignIn, refreshEntitlement]);
+  }, [selectedPkg, plan, trialLabel, trialDays, from, trigger, isAuthenticated, onDone, onSignIn, refreshEntitlement, L]);
 
   const onRestore = useCallback(async () => {
     if (restoring) return;
@@ -220,13 +222,13 @@ export function useTrialOffer({
       if (entitled) {
         refreshEntitlement();
         onDone();
-      } else setNote('Nothing to restore on this account.');
+      } else setNote(L('Nothing to restore on this account.', 'Bu hesapta geri yüklenecek bir şey yok.'));
     } catch {
-      setNote('Couldn’t reach the store. Try again.');
+      setNote(L('Couldn’t reach the store. Try again.', 'Mağazaya ulaşılamadı. Tekrar dene.'));
     } finally {
       setRestoring(false);
     }
-  }, [restoring, refreshEntitlement, onDone]);
+  }, [restoring, refreshEntitlement, onDone, L]);
 
   return {
     plan,
@@ -266,7 +268,8 @@ function introTrial(pkg: PurchasesPackage | null): { label: string; days: number
   if (n <= 0) return null;
   const unit = String(intro.periodUnit ?? 'DAY').toLowerCase();
   const per = unit === 'week' ? 7 : unit === 'month' ? 30 : unit === 'year' ? 365 : 1;
-  return { label: `${n} ${unit}${n === 1 ? '' : 's'}`, days: n * per };
+  const unitTr = unit === 'week' ? 'hafta' : unit === 'month' ? 'ay' : unit === 'year' ? 'yıl' : 'gün';
+  return { label: pick(`${n} ${unit}${n === 1 ? '' : 's'}`, `${n} ${unitTr}`), days: n * per };
 }
 
 /** "$5.00" from an annual product's price / 12, keeping the store's currency symbol. */

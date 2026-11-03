@@ -1,5 +1,7 @@
 import type { Href } from 'expo-router';
 
+import { pick } from '../i18n/pick';
+
 /**
  * Why the paywall came up. Rides on `paywall_shown` as `trigger`, so the
  * dashboard can say which moment converts, and the paywall itself says it back
@@ -26,14 +28,17 @@ export function paywallHref(trigger: PaywallTrigger): Href {
   return { pathname: '/paywall', params: { why: trigger } } as Href;
 }
 
-/** The line under the title, in the actor's terms. Null where the title is enough. */
+/**
+ * The line under the title, in the actor's terms. Null where the title is enough.
+ * Getters, so each line is read in the language of the moment it is shown.
+ */
 export const WHY_LINE: Partial<Record<PaywallTrigger, string>> = {
-  read_limit: '(three tonight. three more tomorrow.)',
-  run_limit: '(one partner run a month is free.)',
-  script_limit: '(one script of your own is free.)',
-  run_it: '(the whole speech, run with you.)',
-  copy: '(copying comes with the whole stage.)',
-  tape_mark: '(your tapes, saved clean.)',
+  get read_limit() { return pick('(three tonight. three more tomorrow.)', '(bu gece üç. yarın üç daha.)'); },
+  get run_limit() { return pick('(one partner run a month is free.)', '(ayda bir partner provası ücretsiz.)'); },
+  get script_limit() { return pick('(one script of your own is free.)', '(kendi metinlerinden biri ücretsiz.)'); },
+  get run_it() { return pick('(the whole speech, run with you.)', '(monoloğun tamamı, seninle.)'); },
+  get copy() { return pick('(copying comes with the whole stage.)', '(kopyalama, sahnenin tamamıyla gelir.)'); },
+  get tape_mark() { return pick('(your tapes, saved clean.)', '(kayıtların, filigransız.)'); },
 };
 
 export function asTrigger(value: unknown): PaywallTrigger | null {
