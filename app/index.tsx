@@ -5,6 +5,7 @@ import { Redirect } from 'expo-router';
 import { hadAccount } from '../src/lib/demo';
 import { useSession } from '../src/lib/useSession';
 import { useTheme } from '../src/theme/ThemeContext';
+import { monologueRoomsShown, useLocale } from '../src/i18n';
 
 /**
  * The stage door. Decides where a launch lands: anyone without an account
@@ -17,6 +18,7 @@ import { useTheme } from '../src/theme/ThemeContext';
 export default function StageDoor() {
   const { loading, isAuthenticated } = useSession();
   const { colors: c } = useTheme();
+  const locale = useLocale();
   // Someone who has had an account here has seen the front door: Search.
   const [seen, setSeen] = useState<boolean | null>(null);
   useEffect(() => { hadAccount().then(setSeen).catch(() => setSeen(false)); }, []);
@@ -26,5 +28,7 @@ export default function StageDoor() {
   }
 
   // A stranger opens on the promise until there has been an account on this phone.
+  // Turkish has no monologue rooms and no English demo: the scene partner is home.
+  if (!monologueRoomsShown(locale)) return <Redirect href="/rehearse" />;
   return <Redirect href={isAuthenticated || seen ? '/search' : '/demo'} />;
 }

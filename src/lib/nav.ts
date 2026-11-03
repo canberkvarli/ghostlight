@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useRouter, type Href } from 'expo-router';
+import { homeHref } from '../i18n';
 
 /**
  * A back press that never throws. `router.back()` explodes with
@@ -8,7 +9,7 @@ import { useRouter, type Href } from 'expo-router';
  * that was itself the entry. So we only pop when there's history, and otherwise
  * fall back to a known-safe route (the home stage).
  */
-export function useGoBack(fallback: Href = '/search') {
+export function useGoBack(fallback: Href = homeHref()) {
   const router = useRouter();
   return useCallback(() => {
     if (router.canGoBack()) router.back();

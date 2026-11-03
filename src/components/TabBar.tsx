@@ -12,6 +12,7 @@ import { useSession } from '../lib/useSession';
 import { loadRecents } from '../lib/recents';
 import { FREE_TAPE, lastTapePiece } from '../lib/takes';
 import { useTheme } from '../theme/ThemeContext';
+import { monologueRoomsShown, useLocale } from '../i18n';
 
 /** The bar's height, its lift above the home indicator, and the room a root screen leaves for it. */
 export const TAB_BAR_H = 66;
@@ -59,7 +60,9 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
   const inRehearsal = segments.includes('rehearse') && leaf === '[id]';
   // The triggers stay mounted even while the bar is off: the navigator reads its rooms from them.
   const aside = useBarIsAside();
-  const hidden = !isAuthenticated || inReader || inRehearsal || aside;
+  // Turkish has one room, the scene partner (src/i18n): no bar to switch rooms with.
+  const oneRoom = !monologueRoomsShown(useLocale());
+  const hidden = !isAuthenticated || inReader || inRehearsal || aside || oneRoom;
   const room = segments.join('/');
   useEffect(() => { showBar(); }, [room]);
   // Off for the reader and the rehearsal: a fade, on the same thread as the scroll.

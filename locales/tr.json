@@ -1,0 +1,11 @@
+{
+  "NSMicrophoneUsageDescription": "Ghost Light, repliklerini çalışırken seni dinler ve kendini çekerken sesini kaydeder.",
+  "NSSpeechRecognitionUsageDescription": "Söylediklerin anında metinle eşleşir. Partnerin ne zaman gireceğini, çekim de bir repliği bir kesmeden ayırmayı böyle bilir.",
+  "NSCameraUsageDescription": "Ghost Light kendini çekerken kamerayı kullanır. Çekimlerin telefonunda kalır.",
+  "NSPhotoLibraryUsageDescription": "Ghost Light yalnızca sahne partnerine getirmek için seçtiğin metni açar. Fotoğraflarını kendi başına asla okumaz.",
+  "NSPhotoLibraryAddUsageDescription": "Ghost Light seçtiğin çekimleri fotoğraflarına kaydeder.",
+  "NSCalendarsUsageDescription": "Ghost Light bir seçmeyi takvimine yalnızca sen istediğinde ekler.",
+  "NSCalendarsFullAccessUsageDescription": "Ghost Light bir seçmeyi takvimine yalnızca sen istediğinde ekler.",
+  "NSCalendarsWriteOnlyAccessUsageDescription": "Ghost Light bir seçmeyi takvimine yalnızca sen istediğinde ekler.",
+  "NSMotionUsageDescription": "Ghost Light, telefonunu eğdikçe sahne ışığını oynatmak için cihazın hareketini kullanır."
+}

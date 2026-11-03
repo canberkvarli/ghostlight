@@ -26,6 +26,7 @@ import { track } from '../../src/lib/analytics';
 import { forgetPush } from '../../src/lib/push';
 import { paywallHref } from '../../src/lib/paywall';
 import { useTheme, type ThemeMode } from '../../src/theme/ThemeContext';
+import { homeHref, localePreference, monologueRoomsShown, setLocalePreference, useL, useLocale, type LocalePreference } from '../../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SANS = 'BricolageGrotesque_500Medium';
@@ -53,6 +54,8 @@ export default function Settings() {
   const [busy, setBusy] = useState<null | 'restore' | 'signout' | 'manage'>(null);
   const { data: auditions } = useAuditions(isAuthenticated);
   const push = useGuardedPush();
+  const L = useL();
+  const locale = useLocale();
 
   useFocusEffect(useCallback(() => {
     let alive = true;
@@ -89,9 +92,9 @@ export default function Settings() {
     const granted = (await hasNotificationPermission()) || (await requestNotificationPermission());
     setReminders(granted);
     if (!granted) {
-      Alert.alert('Reminders are off', 'Turn notifications on for Ghost Light in iOS Settings to be reminded the evening before an audition.', [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+      Alert.alert(L('Reminders are off', 'Hatırlatmalar kapalı'), L('Turn notifications on for Ghost Light in iOS Settings to be reminded the evening before an audition.', 'Seçmeden önceki akşam hatırlatılmak için iOS Ayarlar\'dan Ghost Light bildirimlerini aç.'), [
+        { text: L('Not now', 'Şimdi değil'), style: 'cancel' },
+        { text: L('Open Settings', 'Ayarları aç'), onPress: () => { void Linking.openSettings(); } },
       ]);
       return;
     }
@@ -102,19 +105,19 @@ export default function Settings() {
     setBusy('restore');
     try {
       const ok = await restore();
-      Alert.alert(ok ? 'Restored' : 'Nothing to restore', ok ? 'Welcome back.' : 'No purchase found on this account.');
+      Alert.alert(ok ? L('Restored', 'Geri yüklendi') : L('Nothing to restore', 'Geri yüklenecek bir şey yok'), ok ? L('Welcome back.', 'Tekrar hoş geldin.') : L('No purchase found on this account.', 'Bu hesapta bir satın alma bulunamadı.'));
     } finally {
       setBusy(null);
     }
   };
 
   const onHelp = () => {
-    Alert.alert('Help & legal', undefined, [
-      { text: 'Privacy Policy', onPress: () => { void WebBrowser.openBrowserAsync(PRIVACY_URL); } },
-      { text: 'Terms of Service', onPress: () => { void WebBrowser.openBrowserAsync(TERMS_URL); } },
-      { text: 'Restore purchases', onPress: () => { void onRestore(); } },
-      { text: 'Contact support', onPress: () => { void Linking.openURL(`mailto:${MAKER.email}`); } },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(L('Help & legal', 'Yardım ve yasal'), undefined, [
+      { text: L('Privacy Policy', 'Gizlilik Politikası'), onPress: () => { void WebBrowser.openBrowserAsync(PRIVACY_URL); } },
+      { text: L('Terms of Service', 'Kullanım Koşulları'), onPress: () => { void WebBrowser.openBrowserAsync(TERMS_URL); } },
+      { text: L('Restore purchases', 'Satın alımları geri yükle'), onPress: () => { void onRestore(); } },
+      { text: L('Contact support', 'Destekle iletişime geç'), onPress: () => { void Linking.openURL(`mailto:${MAKER.email}`); } },
+      { text: L('Cancel', 'Vazgeç'), style: 'cancel' },
     ]);
   };
 
@@ -131,40 +134,46 @@ export default function Settings() {
       setAskingOut(false);
       // Signed out, the house is Search: the front door was seen on the way in.
       if (router.canDismiss()) router.dismissAll();
-      router.replace('/search');
+      router.replace(homeHref());
     } finally {
       setBusy(null);
     }
   };
 
   const email = session?.user.email ?? null;
-  const planValue = !isPaid ? 'Free' : sub?.plan === 'annual' ? 'Annual' : sub?.plan === 'monthly' ? 'Monthly' : 'Premium';
+  const planValue = !isPaid ? L('Free', 'Ücretsiz') : sub?.plan === 'annual' ? L('Annual', 'Yıllık') : sub?.plan === 'monthly' ? L('Monthly', 'Aylık') : 'Premium';
   const version = Application.nativeApplicationVersion ?? '';
 
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <BackHeader label="You" onPress={goBack} />
+        <BackHeader label={L('You', 'Sen')} onPress={goBack} />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 28, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-          <Text style={{ fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>Settings</Text>
+          <Text style={{ fontFamily: SERIF, fontSize: 42, lineHeight: 46, letterSpacing: -0.5, color: c.foreground }}>{L('Settings', 'Ayarlar')}</Text>
 
-          <Group label="APPEARANCE" />
+          <Group label={L('APPEARANCE', 'GÖRÜNÜM')} />
           <Appearance />
 
-          <Group label="ACCOUNT" />
-          <Row label="Subscription" value={busy === 'manage' ? 'Opening…' : planValue} lit onPress={() => { void onSubscription(); }} busy={busy === 'manage'} />
+          <Group label={L('LANGUAGE', 'DİL')} />
+          <Language />
+
+          <Group label={L('ACCOUNT', 'HESAP')} />
+          <Row label={L('Subscription', 'Abonelik')} value={busy === 'manage' ? L('Opening…', 'Açılıyor…') : planValue} lit onPress={() => { void onSubscription(); }} busy={busy === 'manage'} />
           {isAuthenticated ? (
-            <Row label="Email & sign-in" value={email ?? 'Apple'} onPress={() => push('/settings/signin')} />
+            <Row label={L('Email & sign-in', 'E-posta ve giriş')} value={email ?? 'Apple'} onPress={() => push('/settings/signin')} last={!monologueRoomsShown(locale)} />
           ) : (
-            <Row label="Email & sign-in" value="Sign in" lit onPress={() => push('/auth')} />
+            <Row label={L('Email & sign-in', 'E-posta ve giriş')} value={L('Sign in', 'Giriş yap')} lit onPress={() => push('/auth')} last={!monologueRoomsShown(locale)} />
           )}
-          <SwitchRow label="Audition reminders" on={Boolean(reminders)} onChange={(on) => { void onReminders(on); }} last />
+          {/* The board is not in the Turkish app, so neither are its reminders. */}
+          {monologueRoomsShown(locale) ? (
+            <SwitchRow label="Audition reminders" on={Boolean(reminders)} onChange={(on) => { void onReminders(on); }} last />
+          ) : null}
 
           <Group label="GHOST LIGHT" />
-          <Row label="Help & legal" onPress={onHelp} busy={busy === 'restore'} />
-          <Row label="What is ActorRise?" onPress={() => { track('app_about_actorrise', { from: 'settings', visited: false }); setAbout(true); }} />
-          <Row label="Rate Ghost Light" onPress={() => { track('app_review_prompted', { from: 'settings' }); void rateGhostLight({ inApp: false }); }} last />
+          <Row label={L('Help & legal', 'Yardım ve yasal')} onPress={onHelp} busy={busy === 'restore'} />
+          <Row label={L('What is ActorRise?', 'ActorRise nedir?')} onPress={() => { track('app_about_actorrise', { from: 'settings', visited: false }); setAbout(true); }} />
+          <Row label={L('Rate Ghost Light', 'Ghost Light\'ı değerlendir')} onPress={() => { track('app_review_prompted', { from: 'settings' }); void rateGhostLight({ inApp: false }); }} last />
 
           {/* From the maker: a note, and two doors. */}
           <View style={{ marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -172,18 +181,18 @@ export default function Settings() {
               <Text style={{ fontFamily: SERIF, fontSize: 20, lineHeight: 24, color: c.accentText }}>{MAKER.name.charAt(0)}</Text>
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>(from the maker.)</Text>
-              <Text style={{ marginTop: 4, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.foreground }}>An actor building this alone. Say hi.</Text>
+              <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>{L('(from the maker.)', '(yapanından.)')}</Text>
+              <Text style={{ marginTop: 4, fontFamily: SANS, fontSize: 13, lineHeight: 18, color: c.foreground }}>{L('An actor building this alone. Say hi.', 'Bunu tek başına yapan bir oyuncu. Bir merhaba de.')}</Text>
             </View>
             <Door icon="logo-instagram" label="Instagram" onPress={openInstagram} />
-            <Door icon="mail-outline" label={`Email ${MAKER.email}`} onPress={() => emailMaker('Ghost Light')} />
+            <Door icon="mail-outline" label={`${L('Email', 'E-posta')} ${MAKER.email}`} onPress={() => emailMaker('Ghost Light')} />
           </View>
 
           <View style={{ flexGrow: 1 }} />
           <View style={{ marginTop: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             {isAuthenticated ? (
               <Pressable onPress={onSignOut} disabled={busy === 'signout'} hitSlop={10} accessibilityRole="button" accessibilityState={{ busy: busy === 'signout' }}>
-                <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.accentText, opacity: busy === 'signout' ? 0.5 : 1 }}>Sign out</Text>
+                <Text style={{ fontFamily: SANS_B, fontSize: 14, color: c.accentText, opacity: busy === 'signout' ? 0.5 : 1 }}>{L('Sign out', 'Çıkış yap')}</Text>
               </Pressable>
             ) : <View />}
             <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.chevron }}>{`(v${version} · ghost light.)`}</Text>
@@ -193,10 +202,10 @@ export default function Settings() {
       <AboutActorRiseSheet open={about} onClose={() => setAbout(false)} from="account" />
       <ConfirmSheet
         open={askingOut}
-        title="Sign"
-        accent="out?"
-        body="Your book, your board and your scenes stay on your account. Sign back in any time and they are where you left them."
-        confirm="Sign out"
+        title={L('Sign', 'Çıkış')}
+        accent={L('out?', 'yapılsın mı?')}
+        body={L('Your book, your board and your scenes stay on your account. Sign back in any time and they are where you left them.', 'Sahnelerin ve metinlerin hesabında kalır. İstediğin zaman tekrar giriş yap, bıraktığın yerde olurlar.')}
+        confirm={L('Sign out', 'Çıkış yap')}
         busy={busy === 'signout'}
         onConfirm={() => { void signOut(); }}
         onCancel={() => setAskingOut(false)}
@@ -244,10 +253,11 @@ function Row({ label, value, lit, onPress, busy, last }: { label: string; value?
 /** System / Dark / Light, one segmented control, the gel on the one that is on. */
 function Appearance() {
   const { mode, setMode, colors: c } = useTheme();
+  const L = useL();
   const opts: { k: ThemeMode; label: string }[] = [
-    { k: 'system', label: 'System' },
-    { k: 'dark', label: 'Dark' },
-    { k: 'light', label: 'Light' },
+    { k: 'system', label: L('System', 'Sistem') },
+    { k: 'dark', label: L('Dark', 'Koyu') },
+    { k: 'light', label: L('Light', 'Açık') },
   ];
   return (
     <View style={{ marginTop: 8, flexDirection: 'row', padding: 4, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.panel }}>
@@ -257,6 +267,41 @@ function Appearance() {
           <Pressable
             key={o.k}
             onPress={() => { Haptics.selectionAsync().catch(() => {}); setMode(o.k); }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            style={{ flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? c.yellow : 'transparent' }}
+          >
+            <Text style={{ fontFamily: SANS_B, fontSize: 13, color: active ? c.ink : c.mutedForeground }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * Phone / English / Türkçe, drawn like Appearance. "Phone" follows the
+ * iPhone's own language; the other two hold whatever the phone says. Each
+ * language names itself, so whoever cannot read the current one finds theirs.
+ */
+function Language() {
+  const { colors: c } = useTheme();
+  const L = useL();
+  useLocale(); // redraw when it changes
+  const [pref, setPref] = useState<LocalePreference>(localePreference());
+  const opts: { k: LocalePreference; label: string }[] = [
+    { k: 'phone', label: L('Phone', 'Telefon') },
+    { k: 'en', label: 'English' },
+    { k: 'tr', label: 'Türkçe' },
+  ];
+  return (
+    <View style={{ marginTop: 8, flexDirection: 'row', padding: 4, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.panel }}>
+      {opts.map(o => {
+        const active = pref === o.k;
+        return (
+          <Pressable
+            key={o.k}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); setPref(o.k); track('app_language_set', { to: o.k }); void setLocalePreference(o.k); }}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             style={{ flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? c.yellow : 'transparent' }}

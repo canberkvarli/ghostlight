@@ -1,6 +1,7 @@
 import type { components, paths } from './schema';
 import { deviceId } from '../lib/device';
 import { supabase } from '../lib/supabase';
+import { currentLocale } from '../i18n';
 
 /**
  * Typed client for the ActorRise FastAPI backend (`api.actorrise.com`) — the
@@ -73,6 +74,9 @@ export async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': CLIENT };
   if (ANON_KEY) headers.apikey = ANON_KEY;
   if (TIMEZONE) headers['X-Timezone'] = TIMEZONE;
+  // The Turkish app is served the Turkish library only, every other client
+  // English (actorrise services/library_language.py). Sent only in Turkish.
+  if (currentLocale() === 'tr') headers['X-ActorRise-Locale'] = 'tr';
   if (token) headers.Authorization = `Bearer ${token}`;
   // Survives sign-out, which `user_id` does not — see src/lib/device.ts. Inert
   // until the backend counts against it; sending it early means the server-side

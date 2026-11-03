@@ -224,7 +224,9 @@ export type Event =
   /** The gate stopped a run: the wall, and whether the paywall was opened from it. */
   | { name: 'app_rehearse_gated'; props: { source: 'library' | 'script'; to_paywall: boolean } }
   /** Sides came in. `how` is the door; `ok` whether the cast was found. */
-  | { name: 'app_sides_added'; props: { how: 'files' | 'share' | 'paste'; ok: boolean; characters: number } };
+  | { name: 'app_sides_added'; props: { how: 'files' | 'share' | 'paste'; ok: boolean; characters: number } }
+  // The language picked in Settings: the phone's, or one held (src/i18n).
+  | { name: 'app_language_set'; props: { to: 'phone' | 'en' | 'tr' } };
 
 export function track<E extends Event>(name: E['name'], props: E['props']): void {
   try {

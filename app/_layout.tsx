@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { AppState, LogBox } from 'react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -52,6 +52,7 @@ import { WhatsNewHost } from '../src/components/WhatsNew';
 import { useSession } from '../src/lib/useSession';
 import { setFavorite } from '../src/api/client';
 import { PENDING_KEEP } from '../src/lib/keep';
+import { loadLocalePreference, useLocale } from '../src/i18n';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -130,6 +131,19 @@ export default function RootLayout() {
     // to first result under three seconds is a hard requirement.
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);
+
+  // The language picked in Settings, if any; until it lands, the phone's.
+  useEffect(() => { void loadLocalePreference(); }, []);
+  // Every request says the language and the server answers in it (the Turkish
+  // library for the Turkish app): when it changes, so does every answer, the
+  // ones kept on the phone included. A stored choice landing at launch counts.
+  const locale = useLocale();
+  const seenLocale = useRef(locale);
+  useEffect(() => {
+    if (seenLocale.current === locale) return;
+    seenLocale.current = locale;
+    void queryClient.invalidateQueries();
+  }, [locale]);
 
   useEffect(() => {
     // The anonymous-first session (spec §4): mint a real user_id silently on
