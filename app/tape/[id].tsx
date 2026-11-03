@@ -43,7 +43,9 @@ import { colors } from '../../src/theme/tokens';
 import { EMPTY_READ, lineWords, liveRead, type LiveRead } from '../../src/rehearsal/live-read';
 import { hearCue, lineAt, takeEnd, type CueHit, type Heard, type ReadMark, type TapePhase } from '../../src/rehearsal/tape-cues';
 import { TapeEar } from '../../src/rehearsal/native/tape-ear';
-import { addTake, deleteTake, setStarred, takeFile, takesFor, type Take } from '../../src/lib/takes';
+import { addTake, deleteTake, FREE_TAPE, rememberTapePiece, setStarred, takeFile, takesFor, type Take } from '../../src/lib/takes';
+import { loadRecents, type RecentPiece } from '../../src/lib/recents';
+import { useFavorites } from '../../src/hooks/useFavorites';
 import { canExport, exportTake } from '../../modules/tape-export';
 
 /**
@@ -86,10 +88,11 @@ export default function TapeRoom() {
 
   /* ─── The piece ───────────────────────────────────────────────────── */
 
-  const fixture = id ? getMonologueById(id) : undefined;
+  const free = !id || id === FREE_TAPE;
+  const fixture = id && !free ? getMonologueById(id) : undefined;
   const { data: fetched } = useQuery<Monologue>({
     queryKey: ['monologue', id],
-    enabled: Boolean(id) && !fixture,
+    enabled: !free && !fixture,
     retry: false,
     queryFn: async ({ signal }) => {
       try {
@@ -101,9 +104,10 @@ export default function TapeRoom() {
       }
     },
   });
-  const monologue = fixture ?? fetched;
+  const monologue = free ? undefined : fixture ?? fetched;
   const { isAuthenticated } = useSession();
-  const saved = useSavedPiece(id ?? '', isAuthenticated);
+  const saved = useSavedPiece(free ? '' : id ?? '', isAuthenticated && !free);
+  const [picking, setPicking] = useState(false);
   const { isPaid } = useEntitlement();
 
   // The same lines the run uses: the cut alone when one is set.
@@ -151,9 +155,11 @@ export default function TapeRoom() {
   const refused = Boolean(camPerm && micPerm && (!camPerm.granted || !micPerm.granted) && asked.current && !(camPerm.canAskAgain && micPerm.canAskAgain));
 
   useEffect(() => {
-    if (!id) return;
-    takesFor(id).then(setTakes).catch(() => {});
-    track('app_tape_opened', { id });
+    const piece = id || FREE_TAPE;
+    setCurrent(null);
+    takesFor(piece).then(setTakes).catch(() => {});
+    void rememberTapePiece(piece);
+    track('app_tape_opened', { id: piece });
   }, [id]);
 
   /* ─── The ear ─────────────────────────────────────────────────────── */
@@ -260,7 +266,7 @@ export default function TapeRoom() {
   }, [setPhase]);
 
   const stop = useCallback(async (hit: CueHit | null, discard = false) => {
-    if (phaseRef.current !== 'rolling' || stopping.current || !id) return;
+    if (phaseRef.current !== 'rolling' || stopping.current) return;
     stopping.current = true;
     const stoppedAt = Date.now();
     const endMs = takeEnd({ startedAt: startedAt.current, stoppedAt, hit });
@@ -276,7 +282,7 @@ export default function TapeRoom() {
       setPhase('ready');
       return;
     }
-    const take = await addTake(id, uri, stoppedAt - startedAt.current, endMs);
+    const take = await addTake(id || FREE_TAPE, uri, stoppedAt - startedAt.current, endMs);
     setTakes((t) => [...t, take]);
     setCurrent(take);
     TapeEar.speakerOut();
@@ -495,6 +501,20 @@ export default function TapeRoom() {
           ) : (
             <>
               <Round icon={phase === 'review' ? 'close' : 'chevron-down'} label={phase === 'review' ? 'Back to the camera' : 'Leave the tape room'} turn={turn} onPress={phase === 'review' ? closeReview : goBack} />
+              {phase === 'ready' ? (
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setPicking(true); }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Piece: ${monologue?.character ?? 'no script'}. Change it.`}
+                  style={({ pressed }) => ({ flexShrink: 1, maxWidth: width * 0.46, height: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(8,5,4,0.42)', flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}
+                >
+                  <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: free ? 'BricolageGrotesque_500Medium' : 'InstrumentSerif_400Regular', fontSize: free ? 13 : 17, color: WHITE }}>
+                    {free ? 'No script' : monologue?.character ?? ' '}
+                  </Text>
+                  <Ionicons name="chevron-down" size={13} color={DIM} />
+                </Pressable>
+              ) : null}
               {phase === 'review' && current ? (
                 <Animated.View entering={FadeIn.duration(260)} style={{ flexDirection: 'row', gap: 10 }}>
                   <Round icon="trash-outline" label={`Delete take ${current.number}`} turn={turn} onPress={() => remove(current)} />
@@ -576,7 +596,76 @@ export default function TapeRoom() {
           </View>
         ) : null}
       </SafeAreaView>
+
+      {picking ? (
+        <PiecePicker
+          current={free ? FREE_TAPE : id ?? FREE_TAPE}
+          signedIn={isAuthenticated}
+          onClose={() => setPicking(false)}
+          onPick={(piece) => {
+            setPicking(false);
+            if (piece === (id || FREE_TAPE)) return;
+            Haptics.selectionAsync().catch(() => {});
+            router.setParams({ id: piece });
+          }}
+        />
+      ) : null}
     </View>
+  );
+}
+
+/**
+ * Which piece to tape: the ones you read lately and the ones in your Book,
+ * or none, for sides of your own. A sheet up from the bottom over the camera.
+ */
+function PiecePicker({ current, signedIn, onClose, onPick }: { current: string; signedIn: boolean; onClose: () => void; onPick: (id: string) => void }) {
+  const { height } = useWindowDimensions();
+  const [recents, setRecents] = useState<RecentPiece[]>([]);
+  useEffect(() => { loadRecents().then(setRecents).catch(() => {}); }, []);
+  const { data: book } = useFavorites(signedIn);
+  const rows = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; character: string; source: string }[] = [];
+    for (const p of [...recents, ...(book ?? [])]) {
+      if (!p.id || seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push({ id: p.id, character: p.character, source: p.source });
+    }
+    return out.slice(0, 30);
+  }, [recents, book]);
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(160)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,5,4,0.5)' }}>
+        <Pressable onPress={onClose} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel="Close" />
+      </Animated.View>
+      <Animated.View
+        entering={FadeInDown.duration(320).easing(EASE)}
+        exiting={FadeOutDown.duration(200)}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: height * 0.62, backgroundColor: colors.ink, borderTopWidth: 1, borderColor: 'rgba(255,250,243,0.12)' }}
+      >
+        <SafeAreaView edges={['bottom']}>
+          <ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
+            <PickRow title="No script" sub="Your own sides. No prompter." on={current === FREE_TAPE} onPress={() => onPick(FREE_TAPE)} plain />
+            {rows.map((r) => (
+              <PickRow key={r.id} title={r.character} sub={r.source} on={current === r.id} onPress={() => onPick(r.id)} />
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Animated.View>
+    </View>
+  );
+}
+
+function PickRow({ title, sub, on, plain, onPress }: { title: string; sub: string; on: boolean; plain?: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: on }}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingVertical: 12, gap: 12, backgroundColor: pressed ? 'rgba(255,250,243,0.06)' : 'transparent' })}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontFamily: plain ? 'BricolageGrotesque_600SemiBold' : 'InstrumentSerif_400Regular', fontSize: plain ? 15 : 21, color: WHITE }}>{title}</Text>
+        <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: 'BricolageGrotesque_500Medium', fontSize: 12, color: DIM }}>{sub}</Text>
+      </View>
+      {on ? <Ionicons name="checkmark" size={18} color={GLOW} /> : null}
+    </Pressable>
   );
 }
 

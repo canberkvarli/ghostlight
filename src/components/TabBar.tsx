@@ -1,7 +1,7 @@
 import { forwardRef, useEffect } from 'react';
 import { Pressable, Text, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSegments, type Href } from 'expo-router';
+import { useRouter, useSegments, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
@@ -9,6 +9,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 
 import { barShift, showBar, useBarIsAside } from '../lib/barScroll';
 import { useSession } from '../lib/useSession';
+import { loadRecents } from '../lib/recents';
+import { FREE_TAPE, lastTapePiece } from '../lib/takes';
 import { useTheme } from '../theme/ThemeContext';
 
 /** The bar's height, its lift above the home indicator, and the room a root screen leaves for it. */
@@ -80,6 +82,7 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
         <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: c.isLight ? 'rgba(253,251,247,0.66)' : 'rgba(30,22,18,0.6)' }} />
         {/* The triggers come in as children, declared in the layout: the navigator reads its rooms from them. */}
         {children}
+        <TapeButton />
       </View>
     </Animated.View>
   );
@@ -107,3 +110,31 @@ export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof I
     );
   },
 );
+
+/**
+ * Tape: not a room, a door. One tap and the camera is up, on the piece you
+ * last taped, or last read, or on nothing at all for your own sides.
+ */
+function TapeButton() {
+  const { colors: c } = useTheme();
+  const router = useRouter();
+  const open = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const id = (await lastTapePiece()) ?? (await loadRecents())[0]?.id ?? FREE_TAPE;
+    router.push({ pathname: '/tape/[id]', params: { id } });
+  };
+  return (
+    <Pressable
+      onPress={open}
+      accessibilityRole="button"
+      accessibilityLabel="Tape yourself"
+      style={({ pressed }) => ({ flex: 1, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 2, opacity: pressed ? 0.7 : 1 })}
+    >
+      <View>
+        <Ionicons name="videocam-outline" size={20} color={c.foreground} style={{ opacity: 0.72 }} />
+        <View style={{ position: 'absolute', top: -1, right: -3, width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} />
+      </View>
+      <Text style={{ fontFamily: SANS_B, fontSize: 10, color: c.foreground, opacity: 0.72 }}>Tape</Text>
+    </Pressable>
+  );
+}

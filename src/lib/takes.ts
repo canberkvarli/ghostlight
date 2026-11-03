@@ -10,6 +10,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
 
 const KEY = 'ghostlight:takes:v1';
+const LAST_KEY = 'ghostlight:tape:last';
+
+/** The room with no piece in it: tape your own sides, no prompter. */
+export const FREE_TAPE = 'free';
+
+/** The piece the actor last taped, so the bar's Tape button opens straight on it. */
+export async function lastTapePiece(): Promise<string | null> {
+  try { return await AsyncStorage.getItem(LAST_KEY); } catch { return null; }
+}
+
+export async function rememberTapePiece(id: string): Promise<void> {
+  try { await AsyncStorage.setItem(LAST_KEY, id); } catch { /* a convenience */ }
+}
 
 export interface Take {
   id: string;

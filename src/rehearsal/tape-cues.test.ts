@@ -112,6 +112,13 @@ describe('hearCue: rolling', () => {
     expect(hearCue({ phase: 'rolling', ...run, now: run.last + SETTLE_MS })?.cue).toBe('again');
   });
 
+  it('cuts with no script at all (your own sides), on a lone "cut" after a pause', () => {
+    const run = say('', [...flowing('these are my own sides tonight'), ['cut', 900]]);
+    expect(hearCue({ phase: 'rolling', ...run, now: run.last + SETTLE_MS })?.cue).toBe('cut');
+    const line = say('', flowing('then I cut the cord'));
+    expect(hearCue({ phase: 'rolling', ...line, now: line.last + SETTLE_MS })).toBeNull();
+  });
+
   it('does not take "action" or "keeper" during a take', () => {
     const run = say('Now listen to me. I have waited all my life.', [...flowing('Now listen'), ['keeper', 1000]]);
     expect(hearCue({ phase: 'rolling', ...run, now: run.last + SETTLE_MS })).toBeNull();
