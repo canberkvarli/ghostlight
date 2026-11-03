@@ -75,7 +75,7 @@ standing rules in actorrise's `CLAUDE.md` ("Working rules", the voice rules, the
 hold here too; open both repos in one session when a change touches the API. The short of it:
 
 - Solo developer: no pull requests. Commit and push to `main`; delete merged branches. `main`
-  is the next release (1.1.2 as of 2026-11-03). Pushing ships nothing to users: there are no
+  is the next release (1.1.3 as of 2026-11-03; 1.1.2 is approved and closed to new builds). Pushing ships nothing to users: there are no
   over-the-air updates; a build goes out only through EAS and App Store Connect, by Canberk.
 - A cloud session is Linux: it cannot run the simulator, Xcode or an iOS build. Code, types
   (`npx tsc --noEmit`) and tests (`npm test`) only; the build happens on the Mac.
