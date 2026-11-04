@@ -75,10 +75,21 @@ standing rules in actorrise's `CLAUDE.md` ("Working rules", the voice rules, the
 hold here too; open both repos in one session when a change touches the API. The short of it:
 
 - Solo developer: no pull requests. Commit and push to `main`; delete merged branches. `main`
-  is the next release (1.1.3 as of 2026-11-03; 1.1.2 is approved and closed to new builds). Pushing ships nothing to users: there are no
-  over-the-air updates; a build goes out only through EAS and App Store Connect, by Canberk.
-- A cloud session is Linux: it cannot run the simulator, Xcode or an iOS build. Code, types
-  (`npx tsc --noEmit`) and tests (`npm test`) only; the build happens on the Mac.
+  is the next release (1.1.3 as of 2026-11-03; 1.1.2 is approved and closed to new builds). Pushing ships nothing to users by itself.
+- **OTA first, a build only when it has to be one** (Canberk, 2026-11-04: "we shouldn't be running
+  new builds if we can do OTAs"). A change that is only JavaScript, TypeScript or assets goes out as
+  an update: `npx eas-cli update --channel production --message "<what changed>"`. A change that
+  adds or upgrades a native package, touches `modules/`, a config plugin, or `app.json`'s native
+  settings (permissions, plugins, version) needs a build: `npx eas-cli build --profile production
+  --platform ios`, then `npx eas-cli submit --platform ios --id <build>` (TestFlight). Tell which
+  it is before shipping with `npx eas-cli fingerprint:compare` against the installed build. An
+  update reaches only builds with the same native fingerprint, so while a version is only on
+  TestFlight it reaches TestFlight, and once it is on the App Store it reaches every user on it:
+  say which in the run's summary. Batch native changes so one build carries them. The App Store
+  listing, review and release stay Canberk's.
+- A cloud session is Linux: it cannot run the simulator or Xcode, but it can build and update
+  through EAS (Expo's servers) with `EXPO_TOKEN` in the environment. Code, types (`npx tsc
+  --noEmit`) and tests (`npm test`) locally.
 - Money: RevenueCat is the truth (`backend/scripts/revenuecat_report.py` in actorrise). Price
   changes one at a time, read before the next. Any App Store listing or price change is typed
   into App Store Connect by Canberk; draft the copy, never change the store yourself.
