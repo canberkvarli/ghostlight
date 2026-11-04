@@ -33,6 +33,7 @@ import { loadRecents } from '../src/lib/recents';
 import { markHadAccount } from '../src/lib/demo';
 import { ReadingBanner } from '../src/components/ReadingBanner';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
+import { startUpdates } from '../src/lib/otaUpdates';
 import { SidesInbox } from '../src/components/SidesInbox';
 import { bootstrapSession } from '../src/lib/session';
 import { supabase } from '../src/lib/supabase';
@@ -134,6 +135,8 @@ export default function RootLayout() {
 
   // The language picked in Settings, if any; until it lands, the phone's.
   useEffect(() => { void loadLocalePreference(); }, []);
+  // A new update is taken at launch, or the next time the app comes back to the front.
+  useEffect(() => { startUpdates(); }, []);
   // Every request says the language and the server answers in it (the Turkish
   // library for the Turkish app): when it changes, so does every answer, the
   // ones kept on the phone included. A stored choice landing at launch counts.
