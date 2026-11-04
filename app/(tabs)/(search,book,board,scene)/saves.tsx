@@ -68,6 +68,7 @@ const SERIF_I = 'InstrumentSerif_400Regular_Italic';
 const MONO = 'CourierPrime_400Regular';
 const MONO_B = 'CourierPrime_700Bold';
 const SANS = 'BricolageGrotesque_500Medium';
+const FOLD_KEY = 'ghostlight.book.folded.v1';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
 
 /** Alternating tilt, so a column of pages reads as paper rather than as rows. */
@@ -92,6 +93,19 @@ export default function Saves() {
   const { data: lists } = useLists(isAuthenticated && !pick);
   // The lists narrow the shelf, like playlists: null is the whole Book.
   const [listId, setListId] = useState<number | null>(null);
+  // The shelf's two houses fold away, one at a time; the phone remembers which.
+  const [folded, setFolded] = useState<{ stage: boolean; screen: boolean }>({ stage: false, screen: false });
+  useEffect(() => {
+    AsyncStorage.getItem(FOLD_KEY).then((v) => { if (v) setFolded((f) => ({ ...f, ...JSON.parse(v) })); }).catch(() => {});
+  }, []);
+  const fold = (house: 'stage' | 'screen') => {
+    Haptics.selectionAsync().catch(() => {});
+    setFolded((f) => {
+      const next = { ...f, [house]: !f[house] };
+      AsyncStorage.setItem(FOLD_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
   const shownList = listId != null ? (lists ?? []).find((l) => l.id === listId) ?? null : null;
   useEffect(() => { if (listId != null && lists && !lists.some((l) => l.id === listId)) setListId(null); }, [lists, listId]);
   const createList = useCreateList();
@@ -407,8 +421,8 @@ export default function Saves() {
                           ) : null}
                           {toneFilter(book.stage).length > 0 ? (
                             <>
-                              {book.screen.length > 0 ? <House label="Stage" /> : null}
-                              {picking || tone ? toneFilter(book.stage).map((m, i) => row(m, i)) : (
+                              {book.screen.length > 0 ? <House label="Stage" count={toneFilter(book.stage).length} folded={folded.stage} onPress={() => fold('stage')} /> : null}
+                              {book.screen.length > 0 && folded.stage ? null : picking || tone ? toneFilter(book.stage).map((m, i) => row(m, i)) : (
                                 <SortableList items={book.stage} keyOf={(m) => m.id} onHolding={setDragging}
                                   onReorder={(next) => putInOrder([...book.stage, ...book.screen], book.stage, next)}
                                   renderItem={(m) => row(m, book.stage.indexOf(m))} />
@@ -417,8 +431,8 @@ export default function Saves() {
                           ) : null}
                           {toneFilter(book.screen).length > 0 ? (
                             <>
-                              {book.stage.length > 0 ? <House label="Screen" /> : null}
-                              {picking || tone ? toneFilter(book.screen).map((m, i) => row(m, i)) : (
+                              {book.stage.length > 0 ? <House label="Screen" count={toneFilter(book.screen).length} folded={folded.screen} onPress={() => fold('screen')} /> : null}
+                              {book.stage.length > 0 && folded.screen ? null : picking || tone ? toneFilter(book.screen).map((m, i) => row(m, i)) : (
                                 <SortableList items={book.screen} keyOf={(m) => m.id} onHolding={setDragging}
                                   onReorder={(next) => putInOrder([...book.stage, ...book.screen], book.screen, next)}
                                   renderItem={(m) => row(m, book.screen.indexOf(m))} />
@@ -604,12 +618,23 @@ function ListView({ list, book, onOpen, onRemove }: { list: BookList; book: Save
 }
 
 /** The small-caps house label inside the shelf: STAGE, SCREEN. */
-function House({ label }: { label: string }) {
+/** A house on the shelf, Stage or Screen: tap to fold its pieces away, and again to open them. */
+function House({ label, count, folded, onPress }: { label: string; count: number; folded: boolean; onPress: () => void }) {
   const { colors: c } = useTheme();
   return (
-    <Text style={{ marginTop: 10, marginBottom: 10, fontFamily: MONO_B, fontSize: 11, letterSpacing: 2.2, textTransform: 'uppercase', color: c.mutedForeground }}>
-      {label}
-    </Text>
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${count} ${count === 1 ? 'piece' : 'pieces'}`}
+      accessibilityState={{ expanded: !folded }}
+      style={({ pressed }) => ({ marginTop: 10, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.6 : 1 })}
+    >
+      <Text style={{ fontFamily: MONO_B, fontSize: 11, letterSpacing: 2.2, textTransform: 'uppercase', color: c.mutedForeground }}>
+        {label} · {count}
+      </Text>
+      <Ionicons name={folded ? 'chevron-forward' : 'chevron-down'} size={13} color={c.mutedForeground} />
+    </Pressable>
   );
 }
 

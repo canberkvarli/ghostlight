@@ -8,6 +8,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 
 const KEY = 'ghostlight:takes:v1';
 const LAST_KEY = 'ghostlight:tape:last';
@@ -37,6 +38,13 @@ export interface Take {
   durationMs: number;
   endMs: number;
   starred: boolean;
+  /** The piece's name and play when it was taped, for the library. Absent on the earliest takes. */
+  character?: string;
+  source?: string;
+  /** Degrees the phone was turned while taping (0 upright, 90 or -90 on its side). */
+  turn?: number;
+  /** A still from the take, in tapes/, for the library. */
+  thumb?: string;
 }
 
 function tapesDir(): Directory {
@@ -70,16 +78,60 @@ export async function takesFor(pieceId: string): Promise<Take[]> {
 }
 
 /** Keep a fresh recording as the piece's next take. */
-export async function addTake(pieceId: string, recordedUri: string, durationMs: number, endMs: number): Promise<Take> {
+export async function addTake(
+  pieceId: string,
+  recordedUri: string,
+  durationMs: number,
+  endMs: number,
+  meta: { character?: string; source?: string; turn?: number } = {},
+): Promise<Take> {
   const all = await readAll();
   const number = all.filter((t) => t.pieceId === pieceId).reduce((m, t) => Math.max(m, t.number), 0) + 1;
   const id = `${pieceId}-${Date.now().toString(36)}`;
   const ext = recordedUri.toLowerCase().endsWith('.mp4') ? 'mp4' : 'mov';
   const file = `${id}.${ext}`;
   new File(recordedUri).move(new File(tapesDir(), file));
-  const take: Take = { id, pieceId, number, file, createdAt: Date.now(), durationMs, endMs, starred: false };
+  const take: Take = { id, pieceId, number, file, createdAt: Date.now(), durationMs, endMs, starred: false, ...meta };
+  take.thumb = await stillOf(take);
   await writeAll([...all, take]);
   return take;
+}
+
+/** A still from a take, a second in (or halfway through a short one), kept beside it. */
+async function stillOf(take: Take): Promise<string | undefined> {
+  try {
+    const at = Math.min(1000, Math.max(0, take.endMs / 2));
+    const { uri } = await VideoThumbnails.getThumbnailAsync(takeFile(take).uri, { time: at, quality: 0.6 });
+    const name = `${take.id}.jpg`;
+    const dest = new File(tapesDir(), name);
+    if (dest.exists) dest.delete();
+    new File(uri).move(dest);
+    return name;
+  } catch {
+    return undefined;
+  }
+}
+
+export function thumbFile(take: Take): File | null {
+  return take.thumb ? new File(tapesDir(), take.thumb) : null;
+}
+
+/** Every take on the phone, newest first. A take without a still gets one now. */
+export async function allTakes(): Promise<Take[]> {
+  const all = (await readAll()).filter((t) => takeFile(t).exists);
+  let changed = false;
+  for (const t of all) {
+    if (t.thumb && thumbFile(t)?.exists) continue;
+    t.thumb = await stillOf(t);
+    changed = changed || Boolean(t.thumb);
+  }
+  if (changed) await writeAll(all);
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** One take by its id. */
+export async function getTake(id: string): Promise<Take | null> {
+  return (await readAll()).find((t) => t.id === id) ?? null;
 }
 
 export async function setStarred(id: string, starred: boolean): Promise<void> {
@@ -92,6 +144,7 @@ export async function deleteTake(id: string): Promise<void> {
   const take = all.find((t) => t.id === id);
   if (take) {
     try { takeFile(take).delete(); } catch { /* already gone */ }
+    try { thumbFile(take)?.delete(); } catch { /* already gone */ }
   }
   await writeAll(all.filter((t) => t.id !== id));
 }
