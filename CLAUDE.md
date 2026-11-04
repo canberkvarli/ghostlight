@@ -78,7 +78,10 @@ hold here too; open both repos in one session when a change touches the API. The
   is the next release (1.1.3 as of 2026-11-03; 1.1.2 is approved and closed to new builds). Pushing ships nothing to users by itself.
 - **OTA first, a build only when it has to be one** (Canberk, 2026-11-04: "we shouldn't be running
   new builds if we can do OTAs"). A change that is only JavaScript, TypeScript or assets goes out as
-  an update: `npx eas-cli update --channel production --message "<what changed>"`. A change that
+  an update: `npx eas-cli update --channel production --environment production --platform ios
+  --message "<what changed>"`. **Export the `EXPO_PUBLIC_*` keys from `eas.json`'s production
+  `env` into the shell first**: `eas update` does not read a build profile's `env`, and without
+  them the update ships with no Supabase host and every request fails. A change that
   adds or upgrades a native package, touches `modules/`, a config plugin, or `app.json`'s native
   settings (permissions, plugins, version) needs a build: `npx eas-cli build --profile production
   --platform ios`, then `npx eas-cli submit --platform ios --id <build>` (TestFlight). Tell which
