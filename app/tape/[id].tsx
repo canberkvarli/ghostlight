@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Pressable, ScrollView, Share, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -27,6 +28,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
 
@@ -53,12 +55,16 @@ import {
   FREE_TAPE,
   rememberTapePiece,
   setStarred,
+  setTrim,
+  SLATE_TAPE,
   takeFile,
   takesFor,
   thumbFile,
   type Take,
 } from '../../src/lib/takes';
 import { canExport, exportTake } from '../../modules/tape-export';
+import { DEFAULT_SETTINGS, loadTapeSettings, saveTapeSettings, slateLines, type TapeSettings } from '../../src/lib/tapeSettings';
+import { playTone, releaseTones, ROLL_TONE_MS } from '../../src/lib/tapeTones';
 
 /**
  * Tape it: the self-tape room.
@@ -115,7 +121,14 @@ export default function TapeRoom() {
 
   /* ─── The piece ───────────────────────────────────────────────────── */
 
-  const free = !id || id === FREE_TAPE;
+  const [settings, setSettingsState] = useState<TapeSettings>(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  useEffect(() => { loadTapeSettings().then((s) => { setSettingsState(s); setSettingsLoaded(true); }).catch(() => setSettingsLoaded(true)); }, []);
+  const setSettings = useCallback((next: TapeSettings) => { setSettingsState(next); void saveTapeSettings(next); }, []);
+  useEffect(() => () => releaseTones(), []);
+
+  const slate = id === SLATE_TAPE;
+  const free = !id || id === FREE_TAPE || slate;
   const fixture = id && !free ? getMonologueById(id) : undefined;
   const { data: fetched, isFetching } = useQuery<Monologue>({
     queryKey: ['monologue', id],
@@ -128,11 +141,12 @@ export default function TapeRoom() {
   const { isAuthenticated } = useSession();
   const saved = useSavedPiece(free ? '' : id ?? '', isAuthenticated && !free);
   const { isPaid } = useEntitlement();
-  const [sheet, setSheet] = useState<'piece' | 'tapes' | null>(null);
-  const pieceName = free ? 'No script' : monologue?.character ?? nameParam ?? ' ';
+  const [sheet, setSheet] = useState<'piece' | 'tapes' | 'settings' | null>(null);
+  const pieceName = slate ? 'Slate' : free ? 'No script' : monologue?.character ?? nameParam ?? ' ';
 
-  // The same lines the run uses: the cut alone when one is set.
+  // The same lines the run uses: the cut alone when one is set. The slate's are your own.
   const lines = useMemo(() => {
+    if (slate) return slateLines(settings.slate);
     const units = unitsOf(monologue?.fullText ?? '');
     const src = saved ?? monologue;
     if (src?.cutStart != null && src?.cutEnd != null && units.length) {
@@ -141,7 +155,7 @@ export default function TapeRoom() {
       return units.slice(lo, hi + 1).map((u) => u.text);
     }
     return units.map((u) => u.text);
-  }, [monologue, saved]);
+  }, [monologue, saved, slate, settings.slate]);
   const lineWordsOf = useMemo(() => lines.map((l) => lineWords(l)), [lines]);
   const script = useMemo(() => lineWordsOf.flat(), [lineWordsOf]);
   const lineLengths = useMemo(() => lineWordsOf.map((w) => w.length), [lineWordsOf]);
@@ -151,7 +165,9 @@ export default function TapeRoom() {
   const [phase, setPhaseState] = useState<Phase>('ready');
   const phaseRef = useRef<Phase>('ready');
   const setPhase = useCallback((p: Phase) => { phaseRef.current = p; setPhaseState(p); }, []);
-  const [facing, setFacing] = useState<CameraType>('front');
+  // The camera you used last time. The back one is sharper; it works blind, by voice and tone.
+  const facing: CameraType = settings.facing;
+  const setFacing = (f: CameraType) => setSettings({ ...settings, facing: f === 'back' ? 'back' : 'front' });
   const [prompter, setPrompter] = useState(true);
   const [turn, setTurn] = useState(0); // degrees the room's chrome is turned, to follow the phone
   const turnRef = useRef(0);
@@ -238,7 +254,11 @@ export default function TapeRoom() {
         }
         listenForCue();
       },
-      onLevel: (v) => { level.value = withTiming(v, { duration: 140 }); },
+      onLevel: (v) => {
+        level.value = withTiming(v, { duration: 140 });
+        levels.current.push({ t: Date.now(), v });
+        if (levels.current.length > 40) levels.current.shift();
+      },
       onFailed: () => { ear.current?.detach(); ear.current = null; setHearing(false); },
     });
     e.attach();
@@ -263,10 +283,22 @@ export default function TapeRoom() {
     return () => clearTimeout(t);
   }, [cameraReady, allowed, earOff, startEar]);
   useEffect(() => { if (ear.current && script.length) ear.current.prime(script); }, [script]);
+  // The room check: loud for two seconds with no words heard is the room, not
+  // you, and the ear may miss a cue in it. Said once, quietly, before a take.
+  const levels = useRef<{ t: number; v: number }[]>([]);
+  const [noisy, setNoisy] = useState(false);
+  const noisyRef = useRef(false);
+  const checkRoom = useCallback(() => {
+    const now = Date.now();
+    const recent = levels.current.filter((l) => now - l.t < 2000);
+    const lastWord = heard.current.at[heard.current.at.length - 1] ?? 0;
+    const loud = phaseRef.current === 'ready' && recent.length >= 8 && now - lastWord > 2000 && recent.reduce((s, l) => s + l.v, 0) / recent.length > 0.5;
+    if (loud !== noisyRef.current) { noisyRef.current = loud; setNoisy(loud); }
+  }, []);
   useEffect(() => {
-    const t = setInterval(listenForCue, TICK_MS);
+    const t = setInterval(() => { listenForCue(); checkRoom(); }, TICK_MS);
     return () => clearInterval(t);
-  }, [listenForCue]);
+  }, [listenForCue, checkRoom]);
   useEffect(() => () => { ear.current?.detach(); ear.current = null; }, []);
 
   const toggleEar = useCallback(() => {
@@ -284,9 +316,19 @@ export default function TapeRoom() {
   const rolledTurn = useRef(0);
   const stopRef = useRef<(hit: CueHit | null, discard?: boolean) => Promise<void>>(async () => {});
 
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const countdownVia = useRef<'voice' | 'tap'>('tap');
+
   const roll = useCallback(async (via: 'voice' | 'tap') => {
     if (!camera.current || phaseRef.current === 'rolling') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    // The tone first, so it is heard across the room and is not in the take.
+    if (settingsRef.current.tones) {
+      void playTone('roll');
+      await new Promise((r) => setTimeout(r, ROLL_TONE_MS));
+      if (!camera.current) return;
+    }
     ear.current?.reset();
     heard.current = { words: [], at: [] };
     read.current = EMPTY_READ;
@@ -316,6 +358,7 @@ export default function TapeRoom() {
     let uri: string | undefined;
     try { uri = (await recording.current)?.uri; } catch { uri = undefined; }
     recording.current = null;
+    if (settingsRef.current.tones) void playTone('cut');
     track('app_tape_cut', { via: hit ? 'voice' : 'tap', seconds: Math.round(endMs / 1000), kept: !discard });
     if (!uri) { setPhase('ready'); return; }
     if (discard) {
@@ -324,7 +367,7 @@ export default function TapeRoom() {
       return;
     }
     const take = await addTake(id || FREE_TAPE, uri, stoppedAt - startedAt.current, endMs, {
-      character: free ? undefined : monologue?.character,
+      character: slate ? 'Slate' : free ? undefined : monologue?.character,
       source: free ? undefined : monologue?.source,
       turn: rolledTurn.current,
     });
@@ -332,26 +375,36 @@ export default function TapeRoom() {
     setCurrent(take);
     TapeEar.speakerOut();
     setPhase('review');
-  }, [id, free, monologue?.character, monologue?.source, setPhase]);
+  }, [id, free, slate, monologue?.character, monologue?.source, setPhase]);
   stopRef.current = stop;
 
   // A take that is thrown away by voice goes straight into the next one.
   const goAgain = useCallback(async (hit: CueHit) => {
     await stop(hit, true);
-    setTimeout(() => { void roll('voice'); }, 700);
-  }, [roll, stop]);
+    setTimeout(() => actionRef.current(), 700);
+  }, [stop]);
+  const actionRef = useRef<() => void>(() => {});
 
-  // The countdown, for a tap: three beats to walk back to your mark.
-  const countdown = useCallback(() => {
+  // The countdown: three beats after a tap to walk back to your mark, or the
+  // beat you chose after a spoken "action" to settle into it.
+  const countdown = useCallback((via: 'voice' | 'tap' = 'tap', from = 3) => {
     Haptics.selectionAsync().catch(() => {});
+    countdownVia.current = via;
     setCurrent(null);
     setSheet(null);
-    setCount(3);
+    setCount(from);
     setPhase('countdown');
   }, [setPhase]);
+  // "action", heard: straight in, or after the beat.
+  const action = useCallback(() => {
+    const beat = settingsRef.current.beat;
+    if (beat > 0) countdown('voice', beat);
+    else void roll('voice');
+  }, [countdown, roll]);
+  actionRef.current = action;
   useEffect(() => {
     if (phase !== 'countdown') return;
-    if (count === 0) { void roll('tap'); return; }
+    if (count === 0) { void roll(countdownVia.current); return; }
     const t = setTimeout(() => {
       Haptics.selectionAsync().catch(() => {});
       setCount((n) => n - 1);
@@ -370,7 +423,7 @@ export default function TapeRoom() {
     const p = phaseRef.current;
     if (p === 'rolling') void stop(null);
     else if (p === 'countdown') { Haptics.selectionAsync().catch(() => {}); setPhase('ready'); }
-    else countdown();
+    else countdown('tap', 3);
   }, [countdown, setPhase, stop]);
 
   /* ─── Watching it back ────────────────────────────────────────────── */
@@ -385,10 +438,10 @@ export default function TapeRoom() {
 
   onCue.current = (hit) => {
     const p = phaseRef.current;
-    if (hit.cue === 'action' && p === 'ready') void roll('voice');
+    if (hit.cue === 'action' && p === 'ready') action();
     else if (hit.cue === 'cut' && p === 'rolling') void stop(hit);
     else if (hit.cue === 'again' && p === 'rolling') void goAgain(hit);
-    else if (hit.cue === 'again' && p === 'review') void roll('voice');
+    else if (hit.cue === 'again' && p === 'review') action();
     else if (hit.cue === 'keeper' && p === 'review' && current) void toggleStar(current, true);
   };
 
@@ -430,7 +483,7 @@ export default function TapeRoom() {
     if (!canExport()) return src.uri;
     const who = (take.character ?? monologue?.character ?? 'Take').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || 'Take';
     const out = new File(Paths.cache, `${who}_Take_${take.number}.mp4`);
-    return exportTake({ input: src.uri, output: out.uri, endMs: take.endMs, mark: !isPaid });
+    return exportTake({ input: src.uri, output: out.uri, startMs: take.startMs ?? 0, endMs: take.endMs, mark: !isPaid });
   }, [isPaid, monologue?.character]);
 
   const save = useCallback(async (take: Take) => {
@@ -466,7 +519,17 @@ export default function TapeRoom() {
     }
   }, [busy, exported, isPaid]);
 
-  useEffect(() => { setSavedId(null); }, [current?.id]);
+  useEffect(() => { setSavedId(null); setTrimming(false); }, [current?.id]);
+
+  // Trimmed by hand: the new start and end, kept with the take.
+  const [trimming, setTrimming] = useState(false);
+  const trim = useCallback(async (take: Take, startMs: number, endMs: number) => {
+    await setTrim(take.id, startMs, endMs);
+    const next = { ...take, startMs, endMs };
+    setTakes((all) => all.map((t) => (t.id === take.id ? next : t)));
+    setCurrent((c) => (c?.id === take.id ? next : c));
+    setSavedId(null);
+  }, []);
 
   // Picked from Tapes: the take, in its own piece's room.
   const openTake = useCallback((t: Take) => {
@@ -484,13 +547,14 @@ export default function TapeRoom() {
     setSheet(null);
     if (piece === (id || FREE_TAPE)) return;
     Haptics.selectionAsync().catch(() => {});
-    if (piece !== FREE_TAPE) {
+    if (piece === SLATE_TAPE && !settings.slate.name.trim()) { setSheet('settings'); return; }
+    if (piece !== FREE_TAPE && piece !== SLATE_TAPE) {
       // Start the words on their way before the room changes over.
       void qc.prefetchQuery({ queryKey: ['monologue', piece], queryFn: () => loadPiece(piece) });
     }
     setPrompter(true);
     router.setParams({ id: piece, name, take: undefined });
-  }, [id, qc, router]);
+  }, [id, qc, router, settings.slate.name]);
 
   /* ─── The stage ───────────────────────────────────────────────────── */
 
@@ -499,7 +563,9 @@ export default function TapeRoom() {
   // The last line is behind you: the prompter goes, and you hold the moment.
   const atEnd = rolling && script.length > 0 && position >= script.length - 1;
   const topH = insets.top + BAR_H;
-  const showPrompter = allowed && prompter && phase !== 'review' && !atEnd && (lines.length > 0 || loading);
+  // On the back camera the screen faces away: no prompter, it works by voice and tone.
+  const showPrompter = allowed && prompter && facing === 'front' && phase !== 'review' && !atEnd && (lines.length > 0 || loading);
+  const upright = turn === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -557,6 +623,8 @@ export default function TapeRoom() {
           turn={turn}
           width={width}
           height={height}
+          trimming={trimming}
+          onTrim={(a, b) => trim(current, a, b)}
           onPlaying={(on) => {
             playing.current = on;
             if (!on) ear.current?.reset();
@@ -567,7 +635,7 @@ export default function TapeRoom() {
       {/* The top bar, on a soft shadow. */}
       <Scrim edge="top" height={topH + 40} />
       <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
-        <View style={{ width: 96, flexDirection: 'row' }}>
+        <View style={{ width: 142, flexDirection: 'row' }}>
           {rolling ? null : (
             <Round icon={phase === 'review' ? 'close' : 'chevron-down'} label={phase === 'review' ? 'Back to the camera' : 'Leave'} turn={turn} onPress={phase === 'review' ? closeReview : goBack} />
           )}
@@ -594,13 +662,16 @@ export default function TapeRoom() {
             </Pressable>
           ) : null}
         </View>
-        <View style={{ width: 96, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+        <View style={{ width: 142, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
           {rolling ? null : phase === 'review' && current ? (
             <Round icon="trash-outline" label={`Delete take ${current.number}`} turn={turn} onPress={() => remove(current)} />
           ) : allowed ? (
             <>
-              <Round icon={prompter ? 'reader' : 'reader-outline'} label={prompter ? 'Hide the lines' : 'Show the lines'} on={prompter && lines.length > 0} turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setPrompter((v) => !v); }} />
-              <Round icon="camera-reverse-outline" label="Flip the camera" turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setFacing((f) => (f === 'front' ? 'back' : 'front')); }} />
+              {facing === 'front' ? (
+                <Round icon={prompter ? 'reader' : 'reader-outline'} label={prompter ? 'Hide the lines' : 'Show the lines'} on={prompter && lines.length > 0} turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setPrompter((v) => !v); }} />
+              ) : null}
+              <Round icon="camera-reverse-outline" label={facing === 'front' ? 'Use the back camera' : 'Use the front camera'} turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setFacing(facing === 'front' ? 'back' : 'front'); }} />
+              <Round icon="options-outline" label="Tape settings and your slate" turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setSheet('settings'); }} />
             </>
           ) : null}
         </View>
@@ -620,7 +691,7 @@ export default function TapeRoom() {
       ) : null}
 
       {/* The bottom, on its own shadow. */}
-      <Scrim edge="bottom" height={phase === 'review' ? 260 : 210} />
+      <Scrim edge="bottom" height={phase === 'review' ? (trimming ? 330 : 260) : 210} />
       <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 10 }}>
         {phase === 'review' && current ? (
           <Animated.View entering={FadeInDown.duration(340).easing(EASE)} exiting={FadeOutDown.duration(180)}>
@@ -641,7 +712,8 @@ export default function TapeRoom() {
               </Animated.View>
             ) : null}
             <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-              <Action icon="refresh" label="Again" primary turn={turn} onPress={countdown} />
+              <Action icon="refresh" label="Again" primary turn={turn} onPress={() => countdown('tap', 3)} />
+              <Action icon="cut-outline" label={trimming ? 'Done' : 'Trim'} on={trimming} turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setTrimming((v) => !v); }} />
               <Action icon={current.starred ? 'star' : 'star-outline'} label={current.starred ? 'Kept' : 'Keep'} on={current.starred} turn={turn} onPress={() => toggleStar(current)} />
               <Action icon={savedId === current.id ? 'checkmark' : 'download-outline'} label={savedId === current.id ? 'Saved' : 'Save'} busy={busy === 'save'} turn={turn} onPress={() => save(current)} />
               <Action icon="paper-plane-outline" label="Send" busy={busy === 'share'} turn={turn} onPress={() => share(current)} />
@@ -649,7 +721,7 @@ export default function TapeRoom() {
           </Animated.View>
         ) : allowed ? (
           <View>
-            <Cue phase={phase} hearing={hearing} atEnd={atEnd} turn={turn} />
+            <Cue phase={phase} hearing={hearing} atEnd={atEnd} noisy={noisy} upright={upright} back={facing === 'back'} turn={turn} />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
               <View style={{ flex: 1, alignItems: 'center' }}>
                 {rolling ? null : <Ear on={hearing} level={level} turn={turn} onPress={toggleEar} />}
@@ -669,6 +741,17 @@ export default function TapeRoom() {
         <PiecePicker current={id || FREE_TAPE} signedIn={isAuthenticated} onClose={() => setSheet(null)} onPick={pickPiece} />
       ) : sheet === 'tapes' ? (
         <TapesLibrary current={current?.id ?? null} onClose={() => setSheet(null)} onOpen={openTake} />
+      ) : sheet === 'settings' ? (
+        <SettingsSheet
+          settings={settings}
+          onChange={setSettings}
+          onClose={() => setSheet(null)}
+          onSlate={() => {
+            setSheet(null);
+            if (!settings.slate.name.trim()) return;
+            if (id !== SLATE_TAPE) router.setParams({ id: SLATE_TAPE, name: 'Slate', take: undefined });
+          }}
+        />
       ) : null}
     </View>
   );
@@ -759,15 +842,19 @@ const Prompter = memo(function Prompter({ lines, loading, at, turn, width, top, 
   );
 });
 
-/** One quiet line over the record button: what to say next. */
-function Cue({ phase, hearing, atEnd, turn }: { phase: Phase; hearing: boolean; atEnd: boolean; turn: number }) {
+/** One quiet line over the record button: what to say next, or what is in the way. */
+function Cue({ phase, hearing, atEnd, noisy, upright, back, turn }: { phase: Phase; hearing: boolean; atEnd: boolean; noisy: boolean; upright: boolean; back: boolean; turn: number }) {
+  const say = hearing ? 'say “action”' : 'tap';
   const text =
     phase === 'countdown' ? '(tap to stop the count.)'
       : phase === 'rolling' ? (hearing ? (atEnd ? '(hold it. then say “cut”.)' : '(say “cut” when you are done.)') : '(tap to cut.)')
+      : noisy && hearing ? '(it’s loud in here. the ear may miss you.)'
+      : upright ? `(turn it sideways for casting. then ${say}.)`
+      : back && hearing ? '(back camera: listen for the tones. say “action”.)'
       : hearing ? '(say “action”, or tap.)' : '(tap to roll.)';
   return (
-    <View style={{ height: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-      <Animated.Text key={text} entering={FadeIn.duration(260)} exiting={FadeOut.duration(140)} style={{ fontFamily: TYPE_I, fontSize: 13, color: DIM, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6, transform: [{ rotate: `${turn}deg` }] }}>
+    <View style={{ height: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 6, paddingHorizontal: 20 }}>
+      <Animated.Text key={text} entering={FadeIn.duration(260)} exiting={FadeOut.duration(140)} numberOfLines={1} style={{ fontFamily: TYPE_I, fontSize: 13, color: noisy && phase === 'ready' ? GLOW : DIM, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6, transform: [{ rotate: `${turn}deg` }] }}>
         {text}
       </Animated.Text>
     </View>
@@ -775,12 +862,14 @@ function Cue({ phase, hearing, atEnd, turn }: { phase: Phase; hearing: boolean; 
 }
 
 /** The take, played straight back. Once through, then it waits. */
-function Review({ take, turn, width, height, onPlaying }: { take: Take; turn: number; width: number; height: number; onPlaying: (on: boolean) => void }) {
+function Review({ take, turn, width, height, trimming, onTrim, onPlaying }: { take: Take; turn: number; width: number; height: number; trimming: boolean; onTrim: (startMs: number, endMs: number) => void; onPlaying: (on: boolean) => void }) {
   const uri = takeFile(take).uri;
   const endS = take.endMs / 1000;
+  const startS = (take.startMs ?? 0) / 1000;
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.timeUpdateEventInterval = 0.1;
+    if (take.startMs) p.currentTime = take.startMs / 1000;
     p.play();
   });
   const [ended, setEnded] = useState(false);
@@ -796,7 +885,7 @@ function Review({ take, turn, width, height, onPlaying }: { take: Take; turn: nu
   const replay = () => {
     Haptics.selectionAsync().catch(() => {});
     if (player.playing) { player.pause(); return; }
-    if (ended || player.currentTime >= endS - 0.05) player.currentTime = 0;
+    if (ended || player.currentTime >= endS - 0.05 || player.currentTime < startS) player.currentTime = startS;
     setEnded(false);
     player.play();
   };
@@ -819,6 +908,86 @@ function Review({ take, turn, width, height, onPlaying }: { take: Take; turn: nu
           </Animated.View>
         ) : null}
       </Pressable>
+      {trimming ? (
+        <TrimBar
+          durationMs={take.durationMs}
+          startMs={take.startMs ?? 0}
+          endMs={take.endMs}
+          width={width}
+          onSeek={(ms) => { player.pause(); player.currentTime = ms / 1000; }}
+          onDone={(a, b) => { onTrim(a, b); player.currentTime = a / 1000; setEnded(false); player.play(); }}
+        />
+      ) : null}
+    </Animated.View>
+  );
+}
+
+/**
+ * Trimming: the take as a bar, a handle at each end. Drag one and the
+ * picture follows it; let go and the take keeps the new start and end.
+ */
+function TrimBar({ durationMs, startMs, endMs, width, onSeek, onDone }: { durationMs: number; startMs: number; endMs: number; width: number; onSeek: (ms: number) => void; onDone: (startMs: number, endMs: number) => void }) {
+  const insets = useSafeAreaInsets();
+  const W = width - 48;
+  const total = Math.max(1000, durationMs);
+  const MIN = (1000 / total) * W; // a take is never under a second
+  const a = useSharedValue((startMs / total) * W);
+  const b = useSharedValue((Math.min(endMs, total) / total) * W);
+  const a0 = useSharedValue(0);
+  const b0 = useSharedValue(0);
+  const [shown, setShown] = useState({ a: startMs, b: endMs });
+  // While dragging, the times and the picture follow about twelve times a second, not every frame.
+  const last = useRef(0);
+  const follow = (x: number, y: number, at: number) => {
+    const now = Date.now();
+    if (now - last.current < 80) return;
+    last.current = now;
+    setShown({ a: Math.round((x / W) * total), b: Math.round((y / W) * total) });
+    onSeek(Math.round((at / W) * total));
+  };
+  const done = (x: number, y: number) => {
+    setShown({ a: Math.round((x / W) * total), b: Math.round((y / W) * total) });
+    onDone(Math.round((x / W) * total), Math.round((y / W) * total));
+  };
+  const left = Gesture.Pan()
+    .onBegin(() => { a0.value = a.value; })
+    .onUpdate((e) => {
+      a.value = Math.max(0, Math.min(b.value - MIN, a0.value + e.translationX));
+      runOnJS(follow)(a.value, b.value, a.value);
+    })
+    .onEnd(() => { runOnJS(done)(a.value, b.value); });
+  const right = Gesture.Pan()
+    .onBegin(() => { b0.value = b.value; })
+    .onUpdate((e) => {
+      b.value = Math.min(W, Math.max(a.value + MIN, b0.value + e.translationX));
+      runOnJS(follow)(a.value, b.value, b.value);
+    })
+    .onEnd(() => { runOnJS(done)(a.value, b.value); });
+  const kept = useAnimatedStyle(() => ({ left: a.value, width: b.value - a.value }));
+  const leftKnob = useAnimatedStyle(() => ({ transform: [{ translateX: a.value - 14 }] }));
+  const rightKnob = useAnimatedStyle(() => ({ transform: [{ translateX: b.value - 14 }] }));
+  const clock = (ms: number) => { const s = Math.max(0, ms) / 1000; return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`; };
+  return (
+    <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} style={{ position: 'absolute', left: 24, right: 24, bottom: insets.bottom + 200 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+        <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 12, color: WHITE }}>{clock(shown.a)}</Text>
+        <Text style={{ fontFamily: TYPE_I, fontSize: 12, color: DIM }}>(drag the ends.)</Text>
+        <Text style={{ fontFamily: 'CourierPrime_700Bold', fontSize: 12, color: WHITE }}>{clock(shown.b)}</Text>
+      </View>
+      <View style={{ height: 40, justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, height: 6, backgroundColor: 'rgba(255,250,243,0.22)' }} />
+        <Animated.View style={[kept, { position: 'absolute', height: 6, backgroundColor: GLOW }]} />
+        <GestureDetector gesture={left}>
+          <Animated.View hitSlop={12} accessibilityRole="adjustable" accessibilityLabel="Start of the take" style={[leftKnob, { position: 'absolute', left: 0, width: 28, height: 40, borderRadius: 8, backgroundColor: WHITE, alignItems: 'center', justifyContent: 'center' }]}>
+            <View style={{ width: 2, height: 16, backgroundColor: colors.ink }} />
+          </Animated.View>
+        </GestureDetector>
+        <GestureDetector gesture={right}>
+          <Animated.View hitSlop={12} accessibilityRole="adjustable" accessibilityLabel="End of the take" style={[rightKnob, { position: 'absolute', left: 0, width: 28, height: 40, borderRadius: 8, backgroundColor: WHITE, alignItems: 'center', justifyContent: 'center' }]}>
+            <View style={{ width: 2, height: 16, backgroundColor: colors.ink }} />
+          </Animated.View>
+        </GestureDetector>
+      </View>
     </Animated.View>
   );
 }
@@ -957,10 +1126,11 @@ function Sheet({ title, onClose, children, tall }: { title: string; onClose: () 
       <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(160)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,5,4,0.55)' }}>
         <Pressable onPress={onClose} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel="Close" />
       </Animated.View>
+      <KeyboardAvoidingView behavior="padding" pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end' }}>
       <Animated.View
         entering={FadeInDown.duration(320).easing(EASE)}
         exiting={FadeOutDown.duration(200)}
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: tall ? height * 0.82 : undefined, maxHeight: height * 0.82, backgroundColor: colors.ink, borderTopWidth: 1, borderColor: 'rgba(255,250,243,0.12)', paddingBottom: insets.bottom }}
+        style={{ height: tall ? height * 0.82 : undefined, maxHeight: height * 0.82, backgroundColor: colors.ink, borderTopWidth: 1, borderColor: 'rgba(255,250,243,0.12)', paddingBottom: insets.bottom }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 16, paddingBottom: 8 }}>
           <Text style={{ fontFamily: SERIF, fontSize: 26, color: WHITE }}>{title}</Text>
@@ -971,6 +1141,7 @@ function Sheet({ title, onClose, children, tall }: { title: string; onClose: () 
         </View>
         {children}
       </Animated.View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -994,6 +1165,7 @@ function PiecePicker({ current, signedIn, onClose, onPick }: { current: string; 
   return (
     <Sheet title="Tape which piece?" onClose={onClose}>
       <ScrollView contentContainerStyle={{ paddingBottom: 14 }}>
+        <PickRow icon="person-circle-outline" title="Slate" sub="Your name, height and town, set once." on={current === SLATE_TAPE} onPress={() => onPick(SLATE_TAPE, 'Slate')} />
         <PickRow icon="create-outline" title="No script" sub="Your own sides. No prompter." on={current === FREE_TAPE} onPress={() => onPick(FREE_TAPE, 'No script')} />
         {rows.recent.length ? <SheetLabel>Lately</SheetLabel> : null}
         {rows.recent.map((r) => (
@@ -1095,6 +1267,84 @@ function TapeCell({ take, size, on, onPress }: { take: Take; size: number; on: b
       </View>
       <Text numberOfLines={1} style={{ marginTop: 7, fontFamily: SERIF, fontSize: 17, color: WHITE }}>{take.character ?? 'No script'}</Text>
       <Text numberOfLines={1} style={{ fontFamily: SANS_M, fontSize: 11, color: DIM }}>Take {take.number} · {when}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The room's settings: the tones, the beat after "action", and your slate,
+ * typed once and kept on the phone.
+ */
+function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: TapeSettings; onChange: (s: TapeSettings) => void; onClose: () => void; onSlate: () => void }) {
+  const [slate, setSlate] = useState(settings.slate);
+  const keep = (next: typeof slate) => { setSlate(next); onChange({ ...settings, slate: next }); };
+  const field = (key: keyof typeof slate, label: string, placeholder: string) => (
+    <View style={{ paddingHorizontal: 22, paddingVertical: 6 }}>
+      <Text style={{ fontFamily: SANS_M, fontSize: 12, color: DIM, marginBottom: 4 }}>{label}</Text>
+      <TextInput
+        value={slate[key]}
+        onChangeText={(v) => keep({ ...slate, [key]: v })}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(255,250,243,0.3)"
+        autoCorrect={false}
+        style={{ height: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,250,243,0.08)', color: WHITE, fontFamily: SANS_M, fontSize: 16 }}
+      />
+    </View>
+  );
+  return (
+    <Sheet title="Tape settings" onClose={onClose}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 18 }}>
+        <SheetLabel>Sound</SheetLabel>
+        <Row label="A tone when it rolls and cuts" sub="So you know it heard you from across the room.">
+          <Toggle on={settings.tones} onPress={() => onChange({ ...settings, tones: !settings.tones })} />
+        </Row>
+        <SheetLabel>After you say “action”</SheetLabel>
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 6 }}>
+          {([0, 2, 3] as const).map((b) => (
+            <Filter key={b} label={b === 0 ? 'Roll at once' : `${b} second beat`} on={settings.beat === b} onPress={() => onChange({ ...settings, beat: b })} />
+          ))}
+        </View>
+        <SheetLabel>Your slate</SheetLabel>
+        {field('name', 'Name', 'Your name')}
+        {field('height', 'Height', 'Like 5’10”')}
+        {field('location', 'Based in', 'Your town')}
+        {field('rep', 'Agent or manager (if any)', 'Leave it empty if none')}
+        <View style={{ paddingHorizontal: 22, paddingTop: 14 }}>
+          <Pressable
+            onPress={onSlate}
+            disabled={!slate.name.trim()}
+            accessibilityRole="button"
+            style={({ pressed }) => ({ height: 52, borderRadius: 999, backgroundColor: slate.name.trim() ? GLOW : 'rgba(255,250,243,0.12)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: pressed ? 0.85 : 1 })}
+          >
+            <Ionicons name="person-circle-outline" size={19} color={slate.name.trim() ? colors.ink : DIM} />
+            <Text style={{ fontFamily: SANS, fontSize: 15, color: slate.name.trim() ? colors.ink : DIM }}>Tape my slate</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </Sheet>
+  );
+}
+
+function Row({ label, sub, children }: { label: string; sub: string; children: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingVertical: 8, gap: 14 }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: SANS, fontSize: 15, color: WHITE }}>{label}</Text>
+        <Text style={{ fontFamily: SANS_M, fontSize: 12, color: DIM, marginTop: 2 }}>{sub}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
+  const x = useSharedValue(on ? 1 : 0);
+  useEffect(() => { x.value = withTiming(on ? 1 : 0, { duration: 180, easing: EASE }); }, [on, x]);
+  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: 3 + x.value * 20 }] }));
+  return (
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} accessibilityRole="switch" accessibilityState={{ checked: on }} hitSlop={8}
+      style={{ width: 50, height: 30, borderRadius: 15, backgroundColor: on ? GLOW : 'rgba(255,250,243,0.18)', justifyContent: 'center' }}>
+      <Animated.View style={[knob, { width: 24, height: 24, borderRadius: 12, backgroundColor: WHITE }]} />
     </Pressable>
   );
 }

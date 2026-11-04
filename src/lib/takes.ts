@@ -15,6 +15,8 @@ const LAST_KEY = 'ghostlight:tape:last';
 
 /** The room with no piece in it: tape your own sides, no prompter. */
 export const FREE_TAPE = 'free';
+/** The slate: a take of your own name, height and town, from the slate in the room's settings. */
+export const SLATE_TAPE = 'slate';
 
 /** The piece the actor last taped, so the bar's Tape button opens straight on it. */
 export async function lastTapePiece(): Promise<string | null> {
@@ -37,6 +39,8 @@ export interface Take {
   /** How long the file runs, and where the take ends inside it (the cut is past it). */
   durationMs: number;
   endMs: number;
+  /** Where the take starts inside the file, once trimmed by hand. */
+  startMs?: number;
   starred: boolean;
   /** The piece's name and play when it was taped, for the library. Absent on the earliest takes. */
   character?: string;
@@ -132,6 +136,12 @@ export async function allTakes(): Promise<Take[]> {
 /** One take by its id. */
 export async function getTake(id: string): Promise<Take | null> {
   return (await readAll()).find((t) => t.id === id) ?? null;
+}
+
+/** The take's start and end, trimmed by hand in review. */
+export async function setTrim(id: string, startMs: number, endMs: number): Promise<void> {
+  const all = await readAll();
+  await writeAll(all.map((t) => (t.id === id ? { ...t, startMs, endMs } : t)));
 }
 
 export async function setStarred(id: string, starred: boolean): Promise<void> {
