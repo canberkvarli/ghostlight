@@ -98,7 +98,8 @@ export interface CueHit {
 
 /** The phase's meaning for a heard cue word, or null where it means nothing. */
 function inPhase(phase: TapePhase, cue: Cue): Cue | null {
-  if (phase === 'ready') return cue === 'action' || cue === 'again' ? 'action' : null;
+  // Back on the camera after a cut, "keeper" stars the take that just went to Tapes.
+  if (phase === 'ready') return cue === 'action' || cue === 'again' ? 'action' : cue === 'keeper' ? 'keeper' : null;
   if (phase === 'rolling') return cue === 'cut' || cue === 'again' ? cue : null;
   // review: going again, or starring the one just watched.
   if (cue === 'action' || cue === 'again') return 'again';

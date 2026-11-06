@@ -28,6 +28,8 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  withDelay,
+  cancelAnimation,
   runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -46,6 +48,7 @@ import { track } from '../../src/lib/analytics';
 import { loadRecents, type RecentPiece } from '../../src/lib/recents';
 import { colors } from '../../src/theme/tokens';
 import { EMPTY_READ, lineWords, liveRead, type LiveRead } from '../../src/rehearsal/live-read';
+import { displayRuns } from '../../src/rehearsal/display-words';
 import { hearCue, lineAt, takeEnd, type CueHit, type Heard, type ReadMark, type TapePhase } from '../../src/rehearsal/tape-cues';
 import { TapeEar } from '../../src/rehearsal/native/tape-ear';
 import {
@@ -250,7 +253,7 @@ export default function TapeRoom() {
           read.current = r;
           reads.current.push({ t: Date.now(), position: r.position });
           if (reads.current.length > 2000) reads.current.splice(0, 500);
-          setPosition(r.position);
+          setPosition((p) => Math.max(p, r.position));
         }
         listenForCue();
       },
@@ -337,6 +340,8 @@ export default function TapeRoom() {
     setElapsed(0);
     setCurrent(null);
     setSheet(null);
+    if (justCut.current) { shelve(justCut.current); justCut.current = null; }
+    setFlight(null);
     setPhase('rolling');
     startedAt.current = Date.now();
     rolledTurn.current = turnRef.current;
@@ -347,6 +352,18 @@ export default function TapeRoom() {
     // The longest take, reached: it stops by itself and is kept whole.
     rec.then(() => { if (recording.current === rec && phaseRef.current === 'rolling' && !stopping.current) void stopRef.current(null); }).catch(() => {});
   }, [setPhase]);
+
+  // The take that just went to Tapes: "keeper" stars it, tapping it plays it.
+  const justCut = useRef<Take | null>(null);
+  const [flight, setFlight] = useState<Take | null>(null);
+  const shelve = useCallback((take: Take) => {
+    setTakes((all) => (all.some((t) => t.id === take.id) ? all.map((t) => (t.id === take.id ? take : t)) : [...all, take]));
+  }, []);
+  const tapesAt = useRef<{ x: number; y: number } | null>(null);
+  const tapesRef = useRef<View>(null);
+  const measureTapes = useCallback(() => {
+    tapesRef.current?.measureInWindow((x, y, w, h) => { if (w > 0) tapesAt.current = { x: x + w / 2, y: y + 28 }; });
+  }, []);
 
   const stop = useCallback(async (hit: CueHit | null, discard = false) => {
     if (phaseRef.current !== 'rolling' || stopping.current) return;
@@ -371,10 +388,18 @@ export default function TapeRoom() {
       source: free ? undefined : monologue?.source,
       turn: rolledTurn.current,
     });
-    setTakes((t) => [...t, take]);
-    setCurrent(take);
     TapeEar.speakerOut();
-    setPhase('review');
+    if (settingsRef.current.afterCut === 'play') {
+      setTakes((t) => [...t, take]);
+      setCurrent(take);
+      setPhase('review');
+      return;
+    }
+    // Saved to Tapes: the take shrinks like a screenshot and flies into the
+    // Tapes button, and the room is ready again, still listening.
+    justCut.current = take;
+    setFlight(take);
+    setPhase('ready');
   }, [id, free, slate, monologue?.character, monologue?.source, setPhase]);
   stopRef.current = stop;
 
@@ -443,7 +468,33 @@ export default function TapeRoom() {
     else if (hit.cue === 'again' && p === 'rolling') void goAgain(hit);
     else if (hit.cue === 'again' && p === 'review') action();
     else if (hit.cue === 'keeper' && p === 'review' && current) void toggleStar(current, true);
+    else if (hit.cue === 'keeper' && p === 'ready' && justCut.current) void keepJustCut();
   };
+
+  const keepJustCut = useCallback(async () => {
+    const t = justCut.current;
+    if (!t || t.starred) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    await setStarred(t.id, true);
+    const kept = { ...t, starred: true };
+    justCut.current = kept;
+    setFlight((f) => (f?.id === kept.id ? kept : f));
+    setTakes((all) => all.map((x) => (x.id === kept.id ? kept : x)));
+  }, []);
+
+  // The flying take, tapped while it waits: play it.
+  const openFlight = useCallback((t: Take) => {
+    Haptics.selectionAsync().catch(() => {});
+    const take = justCut.current?.id === t.id ? justCut.current : t;
+    shelve(take);
+    setFlight(null);
+    setCurrent(take);
+    setPhase('review');
+  }, [setPhase, shelve]);
+  const landed = useCallback((t: Take) => {
+    shelve(justCut.current?.id === t.id ? justCut.current : t);
+    setFlight((f) => (f?.id === t.id ? null : f));
+  }, [shelve]);
 
   const closeReview = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
@@ -598,7 +649,7 @@ export default function TapeRoom() {
 
       {/* The piece, under the lens. */}
       {showPrompter ? (
-        <Prompter key={`p${turn}${id}`} lines={lines} loading={loading} at={rolling ? here : 0} turn={turn} width={width} top={topH} rolling={rolling} />
+        <Prompter key={`p${turn}${id}`} lines={lines} loading={loading} at={rolling ? here : 0} said={rolling ? position - lineStart(lineLengths, here) : -1} turn={turn} width={width} top={topH} rolling={rolling} />
       ) : null}
 
       {/* Three, two, one. */}
@@ -635,12 +686,12 @@ export default function TapeRoom() {
       {/* The top bar, on a soft shadow. */}
       <Scrim edge="top" height={topH + 40} />
       <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top, left: 0, right: 0, height: BAR_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
-        <View style={{ width: 142, flexDirection: 'row' }}>
+        <View style={{ width: 42, flexDirection: 'row' }}>
           {rolling ? null : (
             <Round icon={phase === 'review' ? 'close' : 'chevron-down'} label={phase === 'review' ? 'Back to the camera' : 'Leave'} turn={turn} onPress={phase === 'review' ? closeReview : goBack} />
           )}
         </View>
-        <View style={{ flex: 1, alignItems: 'center' }}>
+        <View style={{ flex: 1, alignItems: 'center', marginHorizontal: 10 }}>
           {rolling ? (
             <Clock ms={elapsed} turn={turn} />
           ) : phase === 'review' && current ? (
@@ -662,7 +713,7 @@ export default function TapeRoom() {
             </Pressable>
           ) : null}
         </View>
-        <View style={{ width: 142, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+        <View style={{ minWidth: 42, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
           {rolling ? null : phase === 'review' && current ? (
             <Round icon="trash-outline" label={`Delete take ${current.number}`} turn={turn} onPress={() => remove(current)} />
           ) : allowed ? (
@@ -729,13 +780,27 @@ export default function TapeRoom() {
               <RecordButton rolling={rolling} counting={phase === 'countdown'} atEnd={atEnd} onPress={onRecord} />
               <View style={{ flex: 1, alignItems: 'center' }}>
                 {rolling || phase === 'countdown' ? null : (
-                  <Action icon="albums-outline" label="Tapes" turn={turn} badge={takes.length || undefined} onPress={() => { Haptics.selectionAsync().catch(() => {}); setSheet('tapes'); }} />
+                  <View ref={tapesRef} onLayout={measureTapes} collapsable={false} style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+                    <Action icon="albums-outline" label="Tapes" turn={turn} badge={takes.length || undefined} bounce={!reduce} onPress={() => { Haptics.selectionAsync().catch(() => {}); setSheet('tapes'); }} />
+                  </View>
                 )}
               </View>
             </View>
           </View>
         ) : null}
       </View>
+
+      {flight ? (
+        <CutFlight
+          key={flight.id}
+          take={flight}
+          turn={turn}
+          reduce={reduce}
+          target={tapesAt.current ?? { x: width - 12 - (width - 24 - 80) / 4, y: height - insets.bottom - 60 }}
+          onOpen={openFlight}
+          onLanded={landed}
+        />
+      ) : null}
 
       {sheet === 'piece' ? (
         <PiecePicker current={id || FREE_TAPE} signedIn={isAuthenticated} onClose={() => setSheet(null)} onPick={pickPiece} />
@@ -755,6 +820,13 @@ export default function TapeRoom() {
       ) : null}
     </View>
   );
+}
+
+/** Where a line's words start in the piece's run of words. */
+function lineStart(lengths: number[], line: number): number {
+  let n = 0;
+  for (let i = 0; i < line && i < lengths.length; i++) n += lengths[i];
+  return n;
 }
 
 /** The words of a piece: the phone's own copy first (instant for anything in the Book), then the server. */
@@ -792,7 +864,7 @@ function Scrim({ edge, height }: { edge: 'top' | 'bottom'; height: number }) {
  * The prompter: the line you are on, and the next, just under the top bar
  * where the lens is. Turned with the phone, it lies along the lens's edge.
  */
-const Prompter = memo(function Prompter({ lines, loading, at, turn, width, top, rolling }: { lines: string[]; loading: boolean; at: number; turn: number; width: number; top: number; rolling: boolean }) {
+const Prompter = memo(function Prompter({ lines, loading, at, said, turn, width, top, rolling }: { lines: string[]; loading: boolean; at: number; said: number; turn: number; width: number; top: number; rolling: boolean }) {
   const turned = Math.abs(turn) === 90;
   const box = { w: width, h: turned ? width * 0.62 : 190 };
   const inner = turned ? { w: box.h, h: box.w } : box;
@@ -823,7 +895,7 @@ const Prompter = memo(function Prompter({ lines, loading, at, turn, width, top, 
               style={{ fontFamily: TYPE, fontSize: long ? 17 : 20, lineHeight: long ? 24 : 28, color: WHITE, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 10 }}
               numberOfLines={turned ? 3 : 4}
             >
-              {line}
+              {rolling && said >= 0 ? <SpokenLine line={line} said={said} /> : line}
             </Animated.Text>
             {next && (rolling || at === 0) ? (
               <Animated.Text
@@ -842,14 +914,47 @@ const Prompter = memo(function Prompter({ lines, loading, at, turn, width, top, 
   );
 });
 
+/**
+ * The line as you say it: the words behind you in full light, the one you
+ * are on underlined in the ghost light's orange with a soft glow, the rest
+ * waiting, dimmed. It follows the read's position, which only goes forward,
+ * so a skipped or repeated word never sends the light backwards.
+ */
+const SpokenLine = memo(function SpokenLine({ line, said }: { line: string; said: number }) {
+  const runs = useMemo(() => displayRuns(line), [line]);
+  return (
+    <>
+      {runs.map((w, i) => {
+        const done = i < said;
+        const here = i === said;
+        return (
+          <Text key={i}>
+            <Text
+              style={{
+                color: done || here ? WHITE : 'rgba(255,250,243,0.48)',
+                textDecorationLine: here ? 'underline' : 'none',
+                textDecorationColor: GLOW,
+                textShadowColor: here ? 'rgba(224,115,31,0.85)' : 'rgba(0,0,0,0.7)',
+                textShadowRadius: here ? 14 : 10,
+              }}
+            >
+              {w.word}
+            </Text>
+            {w.gap ? ' ' : ''}
+          </Text>
+        );
+      })}
+    </>
+  );
+});
+
 /** One quiet line over the record button: what to say next, or what is in the way. */
 function Cue({ phase, hearing, atEnd, noisy, upright, back, turn }: { phase: Phase; hearing: boolean; atEnd: boolean; noisy: boolean; upright: boolean; back: boolean; turn: number }) {
-  const say = hearing ? 'say “action”' : 'tap';
   const text =
     phase === 'countdown' ? '(tap to stop the count.)'
       : phase === 'rolling' ? (hearing ? (atEnd ? '(hold it. then say “cut”.)' : '(say “cut” when you are done.)') : '(tap to cut.)')
       : noisy && hearing ? '(it’s loud in here. the ear may miss you.)'
-      : upright ? `(turn it sideways for casting. then ${say}.)`
+      : upright ? '(turn it sideways for casting.)'
       : back && hearing ? '(back camera: listen for the tones. say “action”.)'
       : hearing ? '(say “action”, or tap.)' : '(tap to roll.)';
   return (
@@ -993,6 +1098,105 @@ function TrimBar({ durationMs, startMs, endMs, width, onSeek, onDone }: { durati
 }
 
 /**
+ * "Cut", the way an iPhone takes a screenshot: the frame flashes, the take
+ * shrinks into a card with soft corners and a shadow, waits a beat (tap it
+ * to watch it), then flies into the Tapes button. With Reduce Motion it
+ * simply fades into the button. All on the UI thread.
+ */
+const HOLD_S = 0.3;
+const SHRINK_MS = 420;
+const HOLD_MS = 900;
+const FLY_MS = 480;
+
+const CutFlight = memo(function CutFlight({ take, turn, reduce, target, onOpen, onLanded }: {
+  take: Take; turn: number; reduce: boolean; target: { x: number; y: number };
+  onOpen: (t: Take) => void; onLanded: (t: Take) => void;
+}) {
+  const { width: W, height: H } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const turned = Math.abs(turn) === 90;
+  // The card is the screen, turned the way the phone is held.
+  // Turned, it is drawn landscape and rotated, so as seen it still covers the screen.
+  const card = turned ? { w: H, h: W } : { w: W, h: H };
+  // Where it waits: low on the left, like a screenshot.
+  const hold = { x: 22 + (W * HOLD_S) / 2, y: H - insets.bottom - 190 - (H * HOLD_S) / 2 };
+  const endS = 44 / Math.min(W, H);
+
+  const s = useSharedValue(reduce ? endS : 1);
+  const tx = useSharedValue(reduce ? target.x - W / 2 : 0);
+  const ty = useSharedValue(reduce ? target.y - H / 2 : 0);
+  const r = useSharedValue(0);
+  const op = useSharedValue(1);
+  const flash = useSharedValue(0);
+  const [waiting, setWaiting] = useState(false);
+  const done = useRef(false);
+  const land = useCallback(() => { if (!done.current) { done.current = true; onLanded(take); } }, [onLanded, take]);
+
+  useEffect(() => {
+    if (reduce) {
+      op.value = withDelay(250, withTiming(0, { duration: 350 }, (fin) => { if (fin) runOnJS(land)(); }));
+      return;
+    }
+    flash.value = withSequence(withTiming(0.5, { duration: 90 }), withTiming(0, { duration: 280 }));
+    // Shrink into the corner, wait a beat, then into Tapes.
+    const ease = Easing.out(Easing.cubic);
+    const fly = Easing.in(Easing.cubic);
+    const after = SHRINK_MS + HOLD_MS;
+    s.value = withSequence(withTiming(HOLD_S, { duration: SHRINK_MS, easing: ease }), withDelay(HOLD_MS, withTiming(endS, { duration: FLY_MS, easing: fly })));
+    tx.value = withSequence(withTiming(hold.x - W / 2, { duration: SHRINK_MS, easing: ease }), withDelay(HOLD_MS, withTiming(target.x - W / 2, { duration: FLY_MS, easing: fly })));
+    ty.value = withSequence(
+      withTiming(hold.y - H / 2, { duration: SHRINK_MS, easing: ease }, (fin) => { if (fin) runOnJS(setWaiting)(true); }),
+      withDelay(HOLD_MS, withTiming(target.y - H / 2, { duration: FLY_MS, easing: fly }, (fin) => { if (fin) runOnJS(land)(); })),
+    );
+    r.value = withSequence(withTiming(18 / HOLD_S, { duration: SHRINK_MS, easing: ease }), withDelay(HOLD_MS, withTiming(Math.min(W, H) / 2, { duration: FLY_MS, easing: fly })));
+    op.value = withDelay(after + FLY_MS * 0.6, withTiming(0, { duration: FLY_MS * 0.4 }));
+    const t = setTimeout(() => setWaiting(false), after);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: op.value,
+    borderRadius: r.value,
+    transform: [{ translateX: tx.value }, { translateY: ty.value }, { rotate: `${turn}deg` }, { scale: s.value }],
+  }));
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+
+  const open = () => {
+    cancelAnimation(s); cancelAnimation(tx); cancelAnimation(ty); cancelAnimation(r); cancelAnimation(op);
+    done.current = true;
+    onOpen(take);
+  };
+
+  const still = thumbFile(take);
+  return (
+    <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <Animated.View pointerEvents="none" style={[flashStyle, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: WHITE }]} />
+      <Animated.View
+        pointerEvents={waiting ? 'auto' : 'none'}
+        style={[style, {
+          position: 'absolute', width: card.w, height: card.h, left: (W - card.w) / 2, top: (H - card.h) / 2,
+          overflow: 'hidden', backgroundColor: '#000', borderWidth: 6, borderColor: 'rgba(255,250,243,0.9)',
+        }]}
+      >
+        <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`Take ${take.number}, saved to Tapes. Tap to watch it.`} style={{ flex: 1 }}>
+          {still?.exists ? <Image source={{ uri: still.uri }} style={{ flex: 1 }} contentFit="cover" /> : <FirstFrame take={take} />}
+          {take.starred ? (
+            <View style={{ position: 'absolute', top: 40, right: 40 }}><Ionicons name="star" size={90} color={GLOW} /></View>
+          ) : null}
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+});
+
+/** No still on hand (the web preview keeps none): the take itself, held on its first frame. */
+function FirstFrame({ take }: { take: Take }) {
+  const player = useVideoPlayer(takeFile(take).uri, (p) => { p.muted = true; p.pause(); });
+  return <VideoView player={player} nativeControls={false} contentFit="cover" style={{ flex: 1 }} />;
+}
+
+/**
  * The one button. A disc that becomes a square while rolling, the way a
  * camera's does; it breathes while counting down, and again once the piece
  * is over, to say the cut is yours.
@@ -1047,7 +1251,16 @@ function Ear({ on, level, turn, onPress }: { on: boolean; level: SharedValue<num
 }
 
 /** A labelled action: an icon on glass, its word under it. All the same width. */
-function Action({ icon, label, onPress, primary, on, busy, badge, turn }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; primary?: boolean; on?: boolean; busy?: boolean; badge?: number; turn: number }) {
+function Action({ icon, label, onPress, primary, on, busy, badge, bounce, turn }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; primary?: boolean; on?: boolean; busy?: boolean; badge?: number; bounce?: boolean; turn: number }) {
+  // A new take landed: the count goes up with a small bounce.
+  const pop = useSharedValue(1);
+  const lastBadge = useRef(badge ?? 0);
+  useEffect(() => {
+    const n = badge ?? 0;
+    if (bounce && n > lastBadge.current) pop.value = withSequence(withTiming(1.4, { duration: 140, easing: EASE }), withTiming(1, { duration: 220, easing: Easing.out(Easing.back(2)) }));
+    lastBadge.current = n;
+  }, [badge, bounce, pop]);
+  const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
   const t = useSharedValue(turn);
   useEffect(() => { t.value = withTiming(turn, { duration: 280, easing: EASE }); }, [turn, t]);
   const spin = useAnimatedStyle(() => ({ transform: [{ rotate: `${t.value}deg` }] }));
@@ -1062,9 +1275,9 @@ function Action({ icon, label, onPress, primary, on, busy, badge, turn }: { icon
           </Animated.View>
         )}
         {badge ? (
-          <View style={{ position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: GLOW, alignItems: 'center', justifyContent: 'center' }}>
+          <Animated.View style={[popStyle, { position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: GLOW, alignItems: 'center', justifyContent: 'center' }]}>
             <Text style={{ fontFamily: SANS, fontSize: 11, color: colors.ink }}>{badge}</Text>
-          </View>
+          </Animated.View>
         ) : null}
       </View>
       <Animated.Text style={[spin, { marginTop: 6, fontFamily: SANS, fontSize: 11, color: WHITE }]}>{label}</Animated.Text>
@@ -1298,6 +1511,11 @@ function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: Tap
         <Row label="A tone when it rolls and cuts" sub="So you know it heard you from across the room.">
           <Toggle on={settings.tones} onPress={() => onChange({ ...settings, tones: !settings.tones })} />
         </Row>
+        <SheetLabel>After you say “cut”</SheetLabel>
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 6 }}>
+          <Filter label="Save to Tapes" on={settings.afterCut === 'tapes'} onPress={() => onChange({ ...settings, afterCut: 'tapes' })} />
+          <Filter label="Play it back" on={settings.afterCut === 'play'} onPress={() => onChange({ ...settings, afterCut: 'play' })} />
+        </View>
         <SheetLabel>After you say “action”</SheetLabel>
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 6 }}>
           {([0, 2, 3] as const).map((b) => (

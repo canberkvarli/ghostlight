@@ -20,6 +20,8 @@ export interface TapeSettings {
   /** Seconds between "action" and rolling, to settle into it. */
   beat: 0 | 2 | 3;
   facing: 'front' | 'back';
+  /** On "cut": the take goes to Tapes and the room is ready again, or it plays straight back. */
+  afterCut: 'tapes' | 'play';
   slate: Slate;
 }
 
@@ -27,6 +29,7 @@ export const DEFAULT_SETTINGS: TapeSettings = {
   tones: true,
   beat: 0,
   facing: 'front',
+  afterCut: 'tapes',
   slate: { name: '', height: '', location: '', rep: '' },
 };
 

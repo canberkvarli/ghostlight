@@ -51,6 +51,16 @@ describe('hearCue: before a take', () => {
     expect(hearCue({ phase: 'ready', heard, now: last + SETTLE_MS })).toBeNull();
   });
 
+  it('takes "keeper" on the camera, for the take that just went to Tapes', () => {
+    const { heard, last } = say('', [['keeper', 0]]);
+    expect(hearCue({ phase: 'ready', heard, now: last + SETTLE_MS })?.cue).toBe('keeper');
+  });
+
+  it('does not take "keeper" inside a sentence', () => {
+    const { heard, last } = say('', flowing('my brother is the keeper'));
+    expect(hearCue({ phase: 'ready', heard, now: last + SETTLE_MS })).toBeNull();
+  });
+
   it('does not take "cut" before there is anything to cut', () => {
     const { heard, last } = say('', [['cut', 0]]);
     expect(hearCue({ phase: 'ready', heard, now: last + SETTLE_MS })).toBeNull();
