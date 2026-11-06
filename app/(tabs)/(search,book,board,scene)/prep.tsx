@@ -35,6 +35,7 @@ import {
   useLogOutcome,
   usePatchAudition,
 } from '../../../src/hooks/useAuditions';
+import { tapeHref, tapeSent } from '../../../src/lib/tapeFor';
 import { ApiError } from '../../../src/api/client';
 import {
   KIND_LABEL,
@@ -202,6 +203,7 @@ export default function Prep() {
               <Animated.View entering={FadeIn.delay(120).duration(300)}>
                 <Primary
                   a={a}
+                  onTape={() => router.push(tapeHref(a))}
                   onRead={(mid) => router.push(`/read/${mid}`)}
                   onCallback={onCallback}
                   busy={callback.isPending}
@@ -285,6 +287,14 @@ function Reveal({ order, children }: { order: number; children: React.ReactNode 
  */
 function Head({ a }: { a: Audition }) {
   const { colors: c } = useTheme();
+  const patch = usePatchAudition();
+  const sent = tapeSent(a);
+  // Sent, by hand: the reminders before it is due stop. Tapped again, it goes back.
+  const markSent = () => {
+    Haptics.impactAsync(sent ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    patch.mutate({ id: a.id, patch: { status: sent ? 'scheduled' : 'submitted' } });
+    track('app_tape_marked_sent', { on: !sent, from: 'file' });
+  };
   const role = [a.role?.trim(), KIND_LABEL[a.kind]].filter(Boolean).join(' · ');
   const place = a.kind === 'self_tape' ? null : a.location?.trim() || null;
   const directions = a.kind === 'in_person' && a.location?.trim() ? `http://maps.apple.com/?daddr=${encodeURIComponent(a.location.trim())}` : null;
@@ -347,8 +357,8 @@ function Head({ a }: { a: Audition }) {
             </Text>
           ) : null}
           {!hour ? <StageDirection on="paper" style={{ marginTop: 2 }}>(edit it to set one.)</StageDirection> : null}
-          {directions || link ? (
-            <View style={{ flexDirection: 'row', gap: 18, marginTop: 6 }}>
+          {directions || link || due ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, marginTop: 6 }}>
               {directions ? <TextLink icon="navigate-outline" label="Directions" onPress={() => Linking.openURL(directions).catch(() => {})} /> : null}
               {link ? (
                 <TextLink
@@ -356,6 +366,9 @@ function Head({ a }: { a: Audition }) {
                   label={a.kind === 'self_tape' ? 'Where to send it' : 'Meeting link'}
                   onPress={() => Linking.openURL(/^https?:\/\//.test(link) ? link : `https://${link}`).catch(() => {})}
                 />
+              ) : null}
+              {due && a.scope === 'upcoming' ? (
+                <TextLink icon={sent ? 'checkmark-circle' : 'paper-plane-outline'} label={sent ? 'Sent' : 'Mark it sent'} muted={sent} onPress={markSent} />
               ) : null}
             </View>
           ) : null}
@@ -373,11 +386,13 @@ function Head({ a }: { a: Audition }) {
  */
 function Primary({
   a,
+  onTape,
   onRead,
   onCallback,
   busy,
 }: {
   a: Audition;
+  onTape: () => void;
   onRead: (monologueId: number) => void;
   onCallback: () => void;
   busy: boolean;
@@ -390,6 +405,10 @@ function Primary({
       label = busy ? 'Adding it' : 'Add the callback';
       act = onCallback;
     }
+  } else if (a.kind === 'self_tape' && !tapeSent(a)) {
+    // A self-tape to make: the camera is the next thing to do.
+    label = 'Tape it';
+    act = onTape;
   } else if (piece?.monologue_id != null) {
     label = 'Read it once more';
     act = () => onRead(piece.monologue_id as number);

@@ -69,6 +69,11 @@ export function useReminderTaps() {
       // read the piece once more, so that one opens the reader.
       // The evening after opens the one question: how did it go.
       if (moment === 'after' && auditionId != null) { router.push({ pathname: '/outcome', params: { id: String(auditionId) } }); return; }
+      // A self-tape two hours from due: straight to the camera, on its piece.
+      if (moment === 'soon' && data?.tape && auditionId != null) {
+        router.push({ pathname: '/tape/[id]', params: { id: monologueId != null ? String(monologueId) : 'free', audition: String(auditionId) } });
+        return;
+      }
       if (moment === 'soon' && monologueId != null) router.push(`/read/${monologueId}`);
       else if (auditionId != null) router.push({ pathname: '/prep', params: { id: String(auditionId) } });
       else if (monologueId != null) router.push(`/read/${monologueId}`);

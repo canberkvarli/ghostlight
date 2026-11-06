@@ -266,13 +266,17 @@ export async function scheduleRemindersFor(a: Audition, { quiet = false } = {}):
     moment: 'eve',
     auditionId: a.id,
     monologueId: piece?.monologue_id ?? undefined,
+    tape: a.kind === 'self_tape',
   };
+  // A self-tape already sent: the two before it is due would only nag. The
+  // evening after still asks how it went.
+  const sent = a.kind === 'self_tape' && a.status === 'submitted';
   const ids: string[] = [];
 
   const eve = new Date(when);
   eve.setDate(eve.getDate() - 1);
   eve.setHours(EVE_HOUR, 0, 0, 0);
-  if (eve.getTime() - now.getTime() > MIN_LEAD_MS) {
+  if (!sent && eve.getTime() - now.getTime() > MIN_LEAD_MS) {
     const id = await schedule(a.project, eveBody(a, when), eve, { ...base, moment: 'eve' });
     if (id) {
       ids.push(id);
@@ -281,7 +285,7 @@ export async function scheduleRemindersFor(a: Audition, { quiet = false } = {}):
   }
 
   const soon = new Date(when.getTime() - SOON_MS);
-  if (soon.getTime() - now.getTime() > MIN_LEAD_MS) {
+  if (!sent && soon.getTime() - now.getTime() > MIN_LEAD_MS) {
     const id = await schedule(a.project, soonBody(a, when), soon, { ...base, moment: 'soon' });
     if (id) {
       ids.push(id);

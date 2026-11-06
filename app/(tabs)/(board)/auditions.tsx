@@ -19,6 +19,7 @@ import { useAuditions, useCalendarFeed } from '../../../src/hooks/useAuditions';
 import { KIND_LABEL, STATUS_LABEL, attachedPiece, type Audition } from '../../../src/api/auditions';
 import { useSession } from '../../../src/lib/useSession';
 import { clockLabel, daysUntil, eyebrow, stubLabel } from '../../../src/lib/when';
+import { tapeHref, tapeSent } from '../../../src/lib/tapeFor';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { TAB_BAR_H, TAB_BAR_LIFT, useTabBarSpace } from '../../../src/components/TabBar';
 import { useRoomScroll } from '../../../src/lib/barScroll';
@@ -258,6 +259,13 @@ function Hero({ a, onOpen }: { a: Audition; onOpen: () => void }) {
     else if (piece?.monologue_id) router.push({ pathname: '/run/[id]', params: { id: String(piece.monologue_id) } });
     else onOpen();
   };
+  // A self-tape's first job is the tape: straight to the camera, on its piece.
+  const selfTape = a.kind === 'self_tape';
+  const sent = tapeSent(a);
+  const tape = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    router.push(tapeHref(a));
+  };
   const directions = () => {
     if (!place) return;
     Haptics.selectionAsync().catch(() => {});
@@ -295,8 +303,14 @@ function Hero({ a, onOpen }: { a: Audition; onOpen: () => void }) {
           ) : null}
         </View>
         <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 22 }}>
+          {selfTape ? (
+            <Pressable onPress={tape} hitSlop={8} accessibilityRole="button" accessibilityLabel={sent ? 'Tape it again' : 'Tape it'} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name={sent ? 'checkmark-circle' : 'videocam'} size={16} color={sent ? c.paperMuted : c.primary} />
+              <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: sent ? c.paperMuted : c.paperInk }}>{sent ? 'Sent · tape again' : 'Tape it →'}</Text>
+            </Pressable>
+          ) : null}
           <Pressable onPress={rehearse} hitSlop={8} accessibilityRole="button">
-            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: c.paperInk }}>{piece ? 'Rehearse →' : 'Pick a piece →'}</Text>
+            <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 15, color: selfTape ? c.paperMuted : c.paperInk }}>{piece ? (selfTape ? 'Rehearse' : 'Rehearse →') : 'Pick a piece →'}</Text>
           </Pressable>
           {place ? (
             <Pressable onPress={directions} hitSlop={8} accessibilityRole="button">
@@ -316,7 +330,7 @@ function Row({ a, onPress, heard }: { a: Audition; onPress: () => void; heard: b
   const d = a.when ? new Date(a.when) : null;
   const sub = [KIND_LABEL[a.kind], a.when ? (a.kind === 'self_tape' ? `due ${clockLabel(a.when)}` : clockLabel(a.when)) : null].filter(Boolean).join(' · ');
   const piece = attachedPiece(a);
-  const status = a.status === 'callback' || a.status === 'booked' || a.status === 'passed' ? STATUS_LABEL[a.status] : null;
+  const status = a.status === 'callback' || a.status === 'booked' || a.status === 'passed' ? STATUS_LABEL[a.status] : tapeSent(a) ? 'Sent' : null;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${a.project}${a.role ? `, ${a.role}` : ''}, ${eyebrow(a)}`}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.7 : 1 })}>

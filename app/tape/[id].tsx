@@ -41,6 +41,9 @@ import { getOffline } from '../../src/lib/offline';
 import { unitsOf } from '../../src/lib/segments';
 import { useSession } from '../../src/lib/useSession';
 import { useFavorites, useSavedPiece } from '../../src/hooks/useFavorites';
+import { useAudition, usePatchAudition } from '../../src/hooks/useAuditions';
+import { tapeSent } from '../../src/lib/tapeFor';
+import { dayLabel, clockLabel } from '../../src/lib/when';
 import { useEntitlement } from '../../src/hooks/useEntitlement';
 import { paywallHref } from '../../src/lib/paywall';
 import { useGoBack } from '../../src/lib/nav';
@@ -113,7 +116,7 @@ const TYPE = 'CourierPrime_400Regular';
 const TYPE_I = 'CourierPrime_400Regular_Italic';
 
 export default function TapeRoom() {
-  const { id, take: takeParam, name: nameParam } = useLocalSearchParams<{ id: string; take?: string; name?: string }>();
+  const { id, take: takeParam, name: nameParam, audition: auditionParam } = useLocalSearchParams<{ id: string; take?: string; name?: string; audition?: string }>();
   const router = useRouter();
   const goBack = useGoBack('/search');
   const reduce = useReducedMotion();
@@ -144,6 +147,17 @@ export default function TapeRoom() {
   const { isAuthenticated } = useSession();
   const saved = useSavedPiece(free ? '' : id ?? '', isAuthenticated && !free);
   const { isPaid } = useEntitlement();
+  // Taping for an audition on the Board: the room says which, and the take can mark it sent.
+  const auditionId = auditionParam ? Number(auditionParam) || null : null;
+  const audition = useAudition(auditionId, isAuthenticated && auditionId != null);
+  const patchAudition = usePatchAudition();
+  const auditionSent = audition ? tapeSent(audition) : false;
+  const markSent = useCallback(() => {
+    if (!audition) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    patchAudition.mutate({ id: audition.id, patch: { status: auditionSent ? 'scheduled' : 'submitted' } });
+    track('app_tape_marked_sent', { on: !auditionSent, from: 'tape' });
+  }, [audition, auditionSent, patchAudition]);
   const [sheet, setSheet] = useState<'piece' | 'tapes' | 'settings' | null>(null);
   const pieceName = slate ? 'Slate' : free ? 'No script' : monologue?.character ?? nameParam ?? ' ';
 
@@ -387,6 +401,7 @@ export default function TapeRoom() {
       character: slate ? 'Slate' : free ? undefined : monologue?.character,
       source: free ? undefined : monologue?.source,
       turn: rolledTurn.current,
+      auditionId: auditionId ?? undefined,
     });
     TapeEar.speakerOut();
     if (settingsRef.current.afterCut === 'play') {
@@ -400,7 +415,7 @@ export default function TapeRoom() {
     justCut.current = take;
     setFlight(take);
     setPhase('ready');
-  }, [id, free, slate, monologue?.character, monologue?.source, setPhase]);
+  }, [id, free, slate, monologue?.character, monologue?.source, auditionId, setPhase]);
   stopRef.current = stop;
 
   // A take that is thrown away by voice goes straight into the next one.
@@ -762,6 +777,20 @@ export default function TapeRoom() {
                 </Pressable>
               </Animated.View>
             ) : null}
+            {audition ? (
+              <Animated.View entering={FadeIn.duration(300)} style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 16, marginBottom: 12, paddingHorizontal: 20 }}>
+                {audition.tape_link?.trim() && !auditionSent ? (
+                  <Pressable onPress={() => { const l = audition.tape_link!.trim(); Linking.openURL(/^https?:\/\//.test(l) ? l : `https://${l}`).catch(() => {}); }} hitSlop={8} accessibilityRole="button">
+                    <Text style={{ fontFamily: TYPE_I, fontSize: 13, color: GLOW }}>(open where to send it.)</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={markSent} hitSlop={8} accessibilityRole="button" accessibilityLabel={auditionSent ? `${audition.project} is marked sent. Tap to undo.` : `Mark ${audition.project} sent`}>
+                  <Text style={{ fontFamily: TYPE_I, fontSize: 13, color: auditionSent ? DIM : GLOW }}>
+                    {auditionSent ? '(marked sent. no more reminders before it’s due.)' : `(sent it? mark ${audition.project} sent.)`}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
             <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
               <Action icon="refresh" label="Again" primary turn={turn} onPress={() => countdown('tap', 3)} />
               <Action icon="cut-outline" label={trimming ? 'Done' : 'Trim'} on={trimming} turn={turn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setTrimming((v) => !v); }} />
@@ -772,6 +801,11 @@ export default function TapeRoom() {
           </Animated.View>
         ) : allowed ? (
           <View>
+            {audition && phase === 'ready' ? (
+              <Animated.Text entering={FadeIn.duration(260)} numberOfLines={1} style={{ textAlign: 'center', paddingHorizontal: 24, marginBottom: 2, fontFamily: SANS, fontSize: 12.5, color: WHITE, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6, transform: [{ rotate: `${turn}deg` }] }}>
+                {`For ${audition.project}${audition.role ? ` · ${audition.role}` : ''}${audition.when ? ` · due ${dayLabel(audition.when)} ${clockLabel(audition.when)}` : ''}${auditionSent ? ' · sent' : ''}`}
+              </Animated.Text>
+            ) : null}
             <Cue phase={phase} hearing={hearing} atEnd={atEnd} noisy={noisy} upright={upright} back={facing === 'back'} turn={turn} />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
               <View style={{ flex: 1, alignItems: 'center' }}>

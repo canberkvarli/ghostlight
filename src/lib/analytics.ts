@@ -177,6 +177,8 @@ export type Event =
   | { name: 'app_tape_rolled'; props: { via: 'voice' | 'tap' } }
   | { name: 'app_tape_cut'; props: { via: 'voice' | 'tap'; seconds: number; kept: boolean } }
   | { name: 'app_tape_saved'; props: { how: 'photos' | 'share'; marked: boolean } }
+  /** A self-tape marked sent (or back), from the audition's file or after a take. */
+  | { name: 'app_tape_marked_sent'; props: { on: boolean; from: 'file' | 'tape' } }
   /** A row under the search field was tapped. */
   | { name: 'app_home_row'; props: { row: 'book' | 'next' | 'trending' } }
   | { name: 'app_curtain'; props: { action: 'open' | 'swipe' | 'keep' | 'pass' | 'search' | 'sign_in' | 'house' | 'retry' | 'demo' } }

@@ -49,6 +49,8 @@ export interface Take {
   turn?: number;
   /** A still from the take, in tapes/, for the library. */
   thumb?: string;
+  /** The audition on the Board it was taped for, if any. */
+  auditionId?: number;
 }
 
 function tapesDir(): Directory {
@@ -87,7 +89,7 @@ export async function addTake(
   recordedUri: string,
   durationMs: number,
   endMs: number,
-  meta: { character?: string; source?: string; turn?: number } = {},
+  meta: { character?: string; source?: string; turn?: number; auditionId?: number } = {},
 ): Promise<Take> {
   const all = await readAll();
   const number = all.filter((t) => t.pieceId === pieceId).reduce((m, t) => Math.max(m, t.number), 0) + 1;
