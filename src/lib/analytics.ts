@@ -177,6 +177,9 @@ export type Event =
   | { name: 'app_tape_rolled'; props: { via: 'voice' | 'tap' } }
   | { name: 'app_tape_cut'; props: { via: 'voice' | 'tap'; seconds: number; kept: boolean } }
   | { name: 'app_tape_saved'; props: { how: 'photos' | 'share'; marked: boolean } }
+  /** The Callboard: opened (how many lines it had), a line tapped. */
+  | { name: 'app_callboard_opened'; props: { lines: number } }
+  | { name: 'app_callboard_tapped'; props: { kind: string } }
   /** A self-tape marked sent (or back), from the audition's file or after a take. */
   | { name: 'app_tape_marked_sent'; props: { on: boolean; from: 'file' | 'tape' } }
   /** A row under the search field was tapped. */

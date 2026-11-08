@@ -43,6 +43,7 @@ import { useSession } from '../../src/lib/useSession';
 import { useFavorites, useSavedPiece } from '../../src/hooks/useFavorites';
 import { useAudition, usePatchAudition } from '../../src/hooks/useAuditions';
 import { tapeSent } from '../../src/lib/tapeFor';
+import { refreshCallboard } from '../../src/hooks/useCallboard';
 import { dayLabel, clockLabel } from '../../src/lib/when';
 import { useEntitlement } from '../../src/hooks/useEntitlement';
 import { paywallHref } from '../../src/lib/paywall';
@@ -155,7 +156,7 @@ export default function TapeRoom() {
   const markSent = useCallback(() => {
     if (!audition) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    patchAudition.mutate({ id: audition.id, patch: { status: auditionSent ? 'scheduled' : 'submitted' } });
+    patchAudition.mutate({ id: audition.id, patch: { status: auditionSent ? 'scheduled' : 'submitted' } }, { onSettled: refreshCallboard });
     track('app_tape_marked_sent', { on: !auditionSent, from: 'tape' });
   }, [audition, auditionSent, patchAudition]);
   const [sheet, setSheet] = useState<'piece' | 'tapes' | 'settings' | null>(null);
@@ -404,6 +405,7 @@ export default function TapeRoom() {
       auditionId: auditionId ?? undefined,
     });
     TapeEar.speakerOut();
+    refreshCallboard();
     if (settingsRef.current.afterCut === 'play') {
       setTakes((t) => [...t, take]);
       setCurrent(take);
@@ -472,6 +474,7 @@ export default function TapeRoom() {
     const starred = on ?? !take.starred;
     Haptics.impactAsync(starred ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     await setStarred(take.id, starred);
+    refreshCallboard();
     setTakes((all) => all.map((t) => (t.id === take.id ? { ...t, starred } : t)));
     setCurrent((c) => (c?.id === take.id ? { ...c, starred } : c));
   }, []);
@@ -491,6 +494,7 @@ export default function TapeRoom() {
     if (!t || t.starred) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     await setStarred(t.id, true);
+    refreshCallboard();
     const kept = { ...t, starred: true };
     justCut.current = kept;
     setFlight((f) => (f?.id === kept.id ? kept : f));
@@ -526,6 +530,7 @@ export default function TapeRoom() {
         onPress: async () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
           await deleteTake(take.id);
+          refreshCallboard();
           const left = takes.filter((t) => t.id !== take.id);
           setTakes(left);
           if (current?.id === take.id) {

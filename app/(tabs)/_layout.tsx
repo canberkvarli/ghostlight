@@ -2,6 +2,7 @@ import { useSegments } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs } from 'expo-router/ui';
 
 import { RoomButton, TabBar, TAB_ROOMS } from '../../src/components/TabBar';
+import { useTabBadges } from '../../src/hooks/useCallboard';
 
 /**
  * The signed-in app. Four rooms, each its own stack, one bar across them
@@ -16,6 +17,8 @@ import { RoomButton, TabBar, TAB_ROOMS } from '../../src/components/TabBar';
 export default function TabsLayout() {
   const segments = useSegments() as string[];
   const inRoom = (name: string) => segments.some((s) => s === `(${name})`);
+  // Self-tapes due this week, on the Book (the Board lives at the top of it).
+  const { due } = useTabBadges();
   return (
     <Tabs style={{ flex: 1 }}>
       <TabSlot />
@@ -31,6 +34,7 @@ export default function TabsLayout() {
                   icon={r.icon}
                   active={r.active}
                   alsoLit={TAB_ROOMS.some((o) => o.lights === r.name && inRoom(o.name))}
+                  badge={r.name === 'book' ? due : undefined}
                 />
               </TabTrigger>
             ),

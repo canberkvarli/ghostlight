@@ -38,6 +38,7 @@ import { MediumToggle } from '../../../src/components/MediumToggle';
 import { FilterSheet } from '../../../src/components/FilterSheet';
 import { useAuditions } from '../../../src/hooks/useAuditions';
 import { useNudge } from '../../../src/hooks/useNudge';
+import { useCallboard } from '../../../src/hooks/useCallboard';
 import { useHouseList, useTonight } from '../../../src/hooks/useTonight';
 import { trackNudgeOpen, type Nudge } from '../../../src/lib/nudges';
 import { isFresh, loadRecents, type RecentPiece } from '../../../src/lib/recents';
@@ -443,6 +444,18 @@ export default function Search() {
     isAuthenticated ? auditionData : undefined,
     trendingList,
   );
+  // The Callboard's bell: lit while something on it is new.
+  const callExtras = useMemo(() => ({
+    tonight: tonight ? { id: String(tonight.id), character: tonight.character, source: tonight.source } : null,
+    left: lastPiece ? { id: lastPiece.id, character: lastPiece.character, medium: lastPiece.medium } : null,
+    medium,
+  }), [tonight, lastPiece, medium]);
+  const { unseen: callsNew } = useCallboard(callExtras);
+  const openCallboard = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push({ pathname: '/callboard', params: { medium } });
+  }, [router, medium]);
+
   const openNudge = useCallback(
     (n: Nudge) => {
       Haptics.selectionAsync().catch(() => {});
@@ -473,7 +486,17 @@ export default function Search() {
                 <Image source={MARK} style={{ width: 30, height: 30 }} contentFit="contain" accessibilityIgnoresInvertColors />
               </View>
             </Pressable>
-            <Initial />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Pressable onPress={openCallboard} hitSlop={10} accessibilityRole="button"
+                accessibilityLabel={callsNew ? `Callboard, ${callsNew} new` : 'Callboard'}
+                style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+                <Ionicons name={callsNew ? 'notifications' : 'notifications-outline'} size={21} color={c.foreground} style={{ opacity: callsNew ? 1 : 0.72 }} />
+                {callsNew ? (
+                  <Animated.View entering={FadeIn.duration(240)} style={{ position: 'absolute', top: 6, right: 6, width: 9, height: 9, backgroundColor: c.primary, borderWidth: 1.5, borderColor: pal.background ?? c.background }} />
+                ) : null}
+              </Pressable>
+              <Initial />
+            </View>
           </View>
 
           {/* A scroll, under the row. On a tall phone nothing moves; on a short

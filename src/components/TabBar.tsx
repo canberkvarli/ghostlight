@@ -11,6 +11,7 @@ import { barShift, showBar, useBarIsAside } from '../lib/barScroll';
 import { useSession } from '../lib/useSession';
 import { loadRecents } from '../lib/recents';
 import { FREE_TAPE, lastTapePiece } from '../lib/takes';
+import { useTabBadges } from '../hooks/useCallboard';
 import { useTheme } from '../theme/ThemeContext';
 import { monologueRoomsShown, useLocale } from '../i18n';
 
@@ -92,8 +93,8 @@ export const TabBar = forwardRef<View, ViewProps>(function TabBar({ children, ..
 });
 
 /** One room's button. The trigger hands it `isFocused` and the press. */
-export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; isFocused?: boolean; alsoLit?: boolean; onPress?: () => void } & ViewProps>(
-  function RoomButton({ label, icon, active, isFocused: focused = false, alsoLit = false, onPress, ...rest }, ref) {
+export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof Ionicons.glyphMap; active: keyof typeof Ionicons.glyphMap; isFocused?: boolean; alsoLit?: boolean; badge?: number; onPress?: () => void } & ViewProps>(
+  function RoomButton({ label, icon, active, isFocused: focused = false, alsoLit = false, badge, onPress, ...rest }, ref) {
     const { colors: c } = useTheme();
     // Lit for a room that lives under this one without a button of its own.
     const isFocused = focused || alsoLit;
@@ -104,10 +105,13 @@ export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof I
         onPress={() => { if (!isFocused) Haptics.selectionAsync().catch(() => {}); onPress?.(); }}
         accessibilityRole="tab"
         accessibilityState={{ selected: isFocused }}
-        accessibilityLabel={label}
+        accessibilityLabel={badge ? `${label}, ${badge} due this week` : label}
         style={{ flex: 1, height: 52, borderRadius: 26, backgroundColor: isFocused ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center', gap: 2 }}
       >
-        <Ionicons name={isFocused ? active : icon} size={20} color={isFocused ? c.yellow : c.foreground} style={isFocused ? undefined : { opacity: 0.72 }} />
+        <View>
+          <Ionicons name={isFocused ? active : icon} size={20} color={isFocused ? c.yellow : c.foreground} style={isFocused ? undefined : { opacity: 0.72 }} />
+          {badge ? <Badge n={badge} /> : null}
+        </View>
         <Text style={{ fontFamily: SANS_B, fontSize: 10, color: isFocused ? c.yellow : c.foreground, opacity: isFocused ? 1 : 0.72 }}>{label}</Text>
       </Pressable>
     );
@@ -121,6 +125,7 @@ export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof I
 function TapeButton() {
   const { colors: c } = useTheme();
   const router = useRouter();
+  const { unsent } = useTabBadges();
   const open = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const id = (await lastTapePiece()) ?? (await loadRecents())[0]?.id ?? FREE_TAPE;
@@ -130,14 +135,24 @@ function TapeButton() {
     <Pressable
       onPress={open}
       accessibilityRole="button"
-      accessibilityLabel="Tape yourself"
+      accessibilityLabel={unsent ? `Tape yourself. ${unsent} kept ${unsent === 1 ? 'take is' : 'takes are'} waiting to send` : 'Tape yourself'}
       style={({ pressed }) => ({ flex: 1, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 2, opacity: pressed ? 0.7 : 1 })}
     >
       <View>
         <Ionicons name="videocam-outline" size={20} color={c.foreground} style={{ opacity: 0.72 }} />
-        <View style={{ position: 'absolute', top: -1, right: -3, width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} />
+        {unsent ? <Badge n={unsent} /> : <View style={{ position: 'absolute', top: -1, right: -3, width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} />}
       </View>
       <Text style={{ fontFamily: SANS_B, fontSize: 10, color: c.foreground, opacity: 0.72 }}>Tape</Text>
     </Pressable>
+  );
+}
+
+/** A count on a tab: sharp (it is a mark, not a button), the brand orange. */
+function Badge({ n }: { n: number }) {
+  const { colors: c } = useTheme();
+  return (
+    <View style={{ position: 'absolute', top: -6, right: -11, minWidth: 16, height: 16, paddingHorizontal: 4, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: SANS_B, fontSize: 10, color: '#fff' }}>{n > 9 ? '9+' : n}</Text>
+    </View>
   );
 }
