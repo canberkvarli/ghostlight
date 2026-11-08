@@ -69,8 +69,8 @@ import {
   thumbFile,
   type Take,
 } from '../../src/lib/takes';
-import { canExport, exportTake } from '../../modules/tape-export';
-import { DEFAULT_SETTINGS, loadTapeSettings, saveTapeSettings, slateLines, type TapeSettings } from '../../src/lib/tapeSettings';
+import { canExport, canJoin, exportJoined, exportTake } from '../../modules/tape-export';
+import { castingName, DEFAULT_SETTINGS, loadTapeSettings, saveTapeSettings, slateLines, type TapeSettings } from '../../src/lib/tapeSettings';
 import { playTone, releaseTones, ROLL_TONE_MS } from '../../src/lib/tapeTones';
 
 /**
@@ -549,13 +549,31 @@ export default function TapeRoom() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [markNote, setMarkNote] = useState(false);
 
+  // Your newest slate, kept or not, for putting in front of a take.
+  const [slateTake, setSlateTake] = useState<Take | null>(null);
+  useEffect(() => {
+    takesFor(SLATE_TAPE).then((list) => setSlateTake(list.filter((t) => t.starred).pop() ?? list[list.length - 1] ?? null)).catch(() => {});
+  }, [takes.length, id]);
+  const joinsSlate = (take: Take) => settings.slateFirst && canJoin() && slateTake != null && take.pieceId !== SLATE_TAPE;
+
   const exported = useCallback(async (take: Take): Promise<string> => {
     const src = takeFile(take);
     if (!canExport()) return src.uri;
-    const who = (take.character ?? monologue?.character ?? 'Take').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || 'Take';
-    const out = new File(Paths.cache, `${who}_Take_${take.number}.mp4`);
+    const joined = settings.slateFirst && canJoin() && slateTake != null && take.pieceId !== SLATE_TAPE;
+    const role = audition?.role?.trim() || take.character || monologue?.character;
+    const out = new File(Paths.cache, `${castingName(settings.slate, role, take.number, joined)}.mp4`);
+    if (joined && slateTake) {
+      return exportJoined({
+        clips: [
+          { input: takeFile(slateTake).uri, startMs: slateTake.startMs ?? 0, endMs: slateTake.endMs },
+          { input: src.uri, startMs: take.startMs ?? 0, endMs: take.endMs },
+        ],
+        output: out.uri,
+        mark: !isPaid,
+      });
+    }
     return exportTake({ input: src.uri, output: out.uri, startMs: take.startMs ?? 0, endMs: take.endMs, mark: !isPaid });
-  }, [isPaid, monologue?.character]);
+  }, [isPaid, monologue?.character, settings.slate, settings.slateFirst, slateTake, audition?.role]);
 
   const save = useCallback(async (take: Take) => {
     if (busy) return;
@@ -647,7 +665,8 @@ export default function TapeRoom() {
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           facing={facing}
           mode="video"
-          videoQuality="1080p"
+          videoQuality={settings.quality}
+          videoStabilizationMode={facing === 'back' && settings.steady ? 'auto' : 'off'}
           responsiveOrientationWhenOrientationLocked
           onResponsiveOrientationChanged={({ orientation }) => {
             // The phone, not the screen: turned clockwise the room turns back the other way.
@@ -781,6 +800,9 @@ export default function TapeRoom() {
                   </Text>
                 </Pressable>
               </Animated.View>
+            ) : null}
+            {joinsSlate(current) ? (
+              <Text style={{ textAlign: 'center', marginBottom: 8, fontFamily: TYPE_I, fontSize: 12.5, color: DIM }}>(saves and sends with your slate first.)</Text>
             ) : null}
             {audition ? (
               <Animated.View entering={FadeIn.duration(300)} style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 16, marginBottom: 12, paddingHorizontal: 20 }}>
@@ -1549,6 +1571,17 @@ function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: Tap
         <SheetLabel>Sound</SheetLabel>
         <Row label="A tone when it rolls and cuts" sub="So you know it heard you from across the room.">
           <Toggle on={settings.tones} onPress={() => onChange({ ...settings, tones: !settings.tones })} />
+        </Row>
+        <SheetLabel>Picture</SheetLabel>
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 6 }}>
+          <Filter label="1080p" on={settings.quality === '1080p'} onPress={() => onChange({ ...settings, quality: '1080p' })} />
+          <Filter label="4K, bigger files" on={settings.quality === '2160p'} onPress={() => onChange({ ...settings, quality: '2160p' })} />
+        </View>
+        <Row label="Steady on the back camera" sub="Smooths a hand held or a wobbly stand.">
+          <Toggle on={settings.steady} onPress={() => onChange({ ...settings, steady: !settings.steady })} />
+        </Row>
+        <Row label="Slate first when I save or send" sub="Your newest slate and the take, as one file named the casting way.">
+          <Toggle on={settings.slateFirst} onPress={() => onChange({ ...settings, slateFirst: !settings.slateFirst })} />
         </Row>
         <SheetLabel>After you say “cut”</SheetLabel>
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 6 }}>

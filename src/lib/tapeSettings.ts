@@ -22,6 +22,12 @@ export interface TapeSettings {
   facing: 'front' | 'back';
   /** On "cut": the take goes to Tapes and the room is ready again, or it plays straight back. */
   afterCut: 'tapes' | 'play';
+  /** 4K is sharper and about four times the size. */
+  quality: '1080p' | '2160p';
+  /** Stabilization on the back camera (the front one stays as it is: it crops a face). */
+  steady: boolean;
+  /** Save and Send put your newest slate in front of the take, as one file. */
+  slateFirst: boolean;
   slate: Slate;
 }
 
@@ -30,6 +36,9 @@ export const DEFAULT_SETTINGS: TapeSettings = {
   beat: 0,
   facing: 'front',
   afterCut: 'tapes',
+  quality: '1080p',
+  steady: true,
+  slateFirst: true,
   slate: { name: '', height: '', location: '', rep: '' },
 };
 
@@ -58,4 +67,21 @@ export function slateLines(s: Slate, role?: string): string[] {
   if (s.rep.trim()) lines.push(`With ${s.rep.trim()}.`);
   if (role?.trim()) lines.push(`I'll be reading for ${role.trim()}.`);
   return lines;
+}
+
+/**
+ * The file's name the way casting asks: Lastname_Firstname_Role. Without a
+ * slate name it falls back to the role and the take.
+ */
+export function castingName(slate: Slate, role: string | undefined, take: number, joined: boolean): string {
+  const clean = (x: string) => x.normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '').trim();
+  const parts = slate.name.trim().split(/\s+/).filter(Boolean);
+  const r = clean(role ?? '');
+  if (parts.length) {
+    const first = clean(parts[0]);
+    const last = clean(parts.slice(1).join('')) || first;
+    const name = [last, last === first ? '' : first, r].filter(Boolean).join('_');
+    return joined ? name : `${name}_Take${take}`;
+  }
+  return [r || 'Take', `Take${take}`].join('_');
 }

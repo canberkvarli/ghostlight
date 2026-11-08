@@ -24,7 +24,9 @@ Not a line-reader or scene-partner app — that is explicitly v2.
 | `src/rehearsal/tape-cues.ts` | Pure: is a heard word a cue or a line of the script. Pinned by `tape-cues.test.ts`. Keep in step with the web when it gets the room. |
 | `src/rehearsal/native/tape-ear.ts` | The room's recogniser: every word with the moment it arrived, restarted when the camera's audio session deafens it. |
 | `src/lib/takes.ts` | Takes, on the phone only: files in documents/tapes, the list in AsyncStorage. No server, no database. |
-| `modules/tape-export/` | Local native module (Swift): trims a take and burns in the Ghost Light mark (free plan). Needs a new dev build. |
+| `modules/tape-export/` | Local native module (Swift): trims a take, joins the slate in front (CAN-25), burns in the Ghost Light mark (free plan). Needs a new dev build. |
+| `modules/tape-activity/` + `targets/widget/tape-activity.swift` | The self-tape countdown Live Activity (CAN-33). The `TapeDueAttributes` struct is in both and must stay identical. Kept in step by `src/lib/tapeActivity.ts`. |
+| `app/callboard.tsx`, `src/lib/callboard.ts` | The Callboard inbox and the tab badges (CAN-31, CAN-32). Rules pure and tested in `src/rehearsal/callboard.test.ts`. |
 
 ## Rules that are not style preferences
 

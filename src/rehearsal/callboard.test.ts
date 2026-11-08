@@ -72,3 +72,35 @@ describe('badges', () => {
     expect(tapeDue(aud({ kind: 'in_person' }), NOW)).toBe(false);
   });
 });
+
+import { castingName } from '../lib/tapeSettings';
+describe('castingName', () => {
+  const slate = { name: 'Maya Lin', height: '', location: '', rep: '' };
+  it('names a joined file Lastname_Firstname_Role', () => {
+    expect(castingName(slate, 'Catherine', 3, true)).toBe('Lin_Maya_Catherine');
+  });
+  it('adds the take when the slate is not in it', () => {
+    expect(castingName(slate, 'Catherine', 3, false)).toBe('Lin_Maya_Catherine_Take3');
+  });
+  it('falls back to the role and take with no slate name', () => {
+    expect(castingName({ ...slate, name: '' }, 'Hamlet', 2, false)).toBe('Hamlet_Take2');
+  });
+});
+
+import { countdownFor, countdownUrl } from '../lib/callboard';
+describe('countdownFor', () => {
+  it('counts down to a self-tape due within eight hours, not yet sent', () => {
+    const soon = aud({ id: 5, when: new Date(NOW.getTime() + 3 * 3600_000).toISOString() });
+    expect(countdownFor([soon], NOW)?.id).toBe(5);
+    expect(countdownUrl(soon)).toBe('ghostlight://tape/42?audition=5');
+  });
+  it('not a sent one, a far one, a past one, or an in-person one', () => {
+    const h = (n: number) => new Date(NOW.getTime() + n * 3600_000).toISOString();
+    expect(countdownFor([
+      aud({ when: h(3), status: 'submitted' }),
+      aud({ when: h(20) }),
+      aud({ when: h(-1) }),
+      aud({ when: h(2), kind: 'in_person' }),
+    ], NOW)).toBeNull();
+  });
+});

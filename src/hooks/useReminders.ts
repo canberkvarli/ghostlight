@@ -10,6 +10,7 @@ import {
   syncReminders,
   type ReminderData,
 } from '../lib/notifications';
+import { syncTapeCountdown } from '../lib/tapeActivity';
 
 /**
  * The two halves of reminders that need the app running: putting the week on
@@ -36,6 +37,7 @@ export function useReminderSync(isAuthenticated: boolean, userId: string | undef
       try {
         const list = await listAuditions();
         if (alive) await syncReminders(list);
+        if (alive) void syncTapeCountdown(list);
       } catch {
         // Offline: the phone keeps whatever it already had.
       }

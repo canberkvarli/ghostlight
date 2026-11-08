@@ -5,5 +5,6 @@ import SwiftUI
 struct TonightBundle: WidgetBundle {
     var body: some Widget {
         TonightWidget()
+        TapeDueActivity()
     }
 }

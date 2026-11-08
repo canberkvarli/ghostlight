@@ -36,7 +36,8 @@
         ],
         "LSSupportsOpeningDocumentsInPlace": false,
         "NSPhotoLibraryUsageDescription": "Ghost Light only opens a script you choose to bring to the scene partner. It never reads your photos on its own.",
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "NSSupportsLiveActivities": true
       },
       "entitlements": {
         "com.apple.security.application-groups": [

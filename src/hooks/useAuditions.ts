@@ -24,6 +24,7 @@ import {
   forgetAsk,
 } from '../api/auditions';
 import { track } from '../lib/analytics';
+import { syncTapeCountdown } from '../lib/tapeActivity';
 import {
   cancelRemindersFor,
   requestNotificationPermission,
@@ -112,6 +113,8 @@ export function useUpdateAudition() {
     onSuccess: (a) => {
       qc.setQueryData<Audition[]>(AUDITIONS_KEY, (list) => (list ?? []).map((x) => (x.id === a.id ? a : x)));
       void scheduleRemindersFor(a);
+      // Marked sent: the lock screen's countdown says so, then goes.
+      void syncTapeCountdown(qc.getQueryData<Audition[]>(AUDITIONS_KEY));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: AUDITIONS_KEY }),
   });

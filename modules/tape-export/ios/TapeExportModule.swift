@@ -14,7 +14,29 @@ public class TapeExportModule: Module {
       let out = try await TapeExporter.export(options)
       return out.absoluteString
     }
+
+    /// The slate and the take as one file, the way most casting sites want it.
+    AsyncFunction("exportJoined") { (options: TapeJoinOptions) async throws -> String in
+      let out = try await TapeExporter.join(options)
+      return out.absoluteString
+    }
   }
+}
+
+struct TapeClip: Record {
+  @Field var input: String = ""
+  @Field var startMs: Double = 0
+  /// 0 means the end of the file.
+  @Field var endMs: Double = 0
+}
+
+struct TapeJoinOptions: Record {
+  /// In order: the slate, then the take.
+  @Field var clips: [TapeClip] = []
+  @Field var output: String = ""
+  @Field var mark: Bool = true
+  /// Which clip sets the picture's shape (the take, not the slate).
+  @Field var shapeFrom: Int = 1
 }
 
 struct TapeExportOptions: Record {
@@ -111,6 +133,78 @@ enum TapeExporter {
     parent.addSublayer(frames)
     parent.addSublayer(markLayer(in: size))
     videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: frames, in: parent)
+
+    guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else { throw TapeExportError.noSession }
+    session.videoComposition = videoComposition
+    try await run(session, to: output)
+    return output
+  }
+
+  /// Several clips, one after another, into one MP4. Each clip keeps its own
+  /// way up; one held the other way (a portrait slate before a landscape
+  /// take) is fitted into the take's frame on black, never stretched.
+  static func join(_ o: TapeJoinOptions) async throws -> URL {
+    let output = fileURL(o.output)
+    try? FileManager.default.removeItem(at: output)
+    guard !o.clips.isEmpty else { throw TapeExportError.noVideo }
+
+    let composition = AVMutableComposition()
+    guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw TapeExportError.noSession }
+    let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+
+    struct Placed { let at: CMTime; let transform: CGAffineTransform; let size: CGSize }
+    var placed: [Placed] = []
+    var cursor = CMTime.zero
+    var fps: Float = 30
+    for (i, clip) in o.clips.enumerated() {
+      let asset = AVURLAsset(url: fileURL(clip.input))
+      let duration = try await asset.load(.duration)
+      let start = CMTime(seconds: max(0, clip.startMs / 1000), preferredTimescale: 600)
+      var end = clip.endMs > 0 ? CMTime(seconds: clip.endMs / 1000, preferredTimescale: 600) : duration
+      if CMTimeCompare(end, duration) > 0 { end = duration }
+      let range = CMTimeRange(start: start, end: end)
+      guard let sourceVideo = try await asset.loadTracks(withMediaType: .video).first else { throw TapeExportError.noVideo }
+      try video.insertTimeRange(range, of: sourceVideo, at: cursor)
+      if let audio, let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first {
+        try audio.insertTimeRange(range, of: sourceAudio, at: cursor)
+      }
+      let transform = try await sourceVideo.load(.preferredTransform)
+      let natural = try await sourceVideo.load(.naturalSize)
+      let turned = CGRect(origin: .zero, size: natural).applying(transform)
+      if i == o.shapeFrom { fps = try await sourceVideo.load(.nominalFrameRate) }
+      placed.append(Placed(at: cursor, transform: transform.concatenating(CGAffineTransform(translationX: -turned.origin.x, y: -turned.origin.y)),
+                           size: CGSize(width: abs(turned.width), height: abs(turned.height))))
+      cursor = CMTimeAdd(cursor, range.duration)
+    }
+
+    let shape = placed[min(max(0, o.shapeFrom), placed.count - 1)].size
+    let render = CGSize(width: shape.width.rounded(), height: shape.height.rounded())
+    let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: video)
+    for p in placed {
+      let scale = min(render.width / max(1, p.size.width), render.height / max(1, p.size.height))
+      let fit = p.transform
+        .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+        .concatenating(CGAffineTransform(translationX: (render.width - p.size.width * scale) / 2, y: (render.height - p.size.height * scale) / 2))
+      layer.setTransform(fit, at: p.at)
+    }
+    let instruction = AVMutableVideoCompositionInstruction()
+    instruction.timeRange = CMTimeRange(start: .zero, duration: composition.duration)
+    instruction.layerInstructions = [layer]
+    instruction.backgroundColor = UIColor.black.cgColor
+
+    let videoComposition = AVMutableVideoComposition()
+    videoComposition.renderSize = render
+    videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(fps > 1 ? fps.rounded() : 30))
+    videoComposition.instructions = [instruction]
+    if o.mark {
+      let parent = CALayer()
+      parent.frame = CGRect(origin: .zero, size: render)
+      let frames = CALayer()
+      frames.frame = parent.frame
+      parent.addSublayer(frames)
+      parent.addSublayer(markLayer(in: render))
+      videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: frames, in: parent)
+    }
 
     guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else { throw TapeExportError.noSession }
     session.videoComposition = videoComposition

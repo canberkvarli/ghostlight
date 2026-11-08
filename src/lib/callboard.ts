@@ -151,3 +151,21 @@ export function badges(auditions: Audition[], takes: Take[], now = new Date()): 
   const unsent = takes.filter((t) => t.starred && t.auditionId != null && dueIds.has(t.auditionId)).length;
   return { due: due.length, unsent };
 }
+
+/** iOS keeps a Live Activity up for about eight hours. */
+const COUNTDOWN_HOURS = 8;
+
+/** The self-tape the lock screen counts down to: the soonest due within eight hours, not yet sent. */
+export function countdownFor(auditions: Audition[], now = new Date()): Audition | null {
+  const soon = auditions
+    .filter((a) => a.kind === 'self_tape' && !sent(a) && a.when)
+    .filter((a) => { const ms = Date.parse(a.when!) - now.getTime(); return ms > 0 && ms <= COUNTDOWN_HOURS * 3600_000; })
+    .sort((x, y) => Date.parse(x.when!) - Date.parse(y.when!));
+  return soon[0] ?? null;
+}
+
+/** Where "Tape it" on the lock screen goes: the tape room on the audition's piece. */
+export function countdownUrl(a: Audition): string {
+  const mid = a.pieces.find((p) => p.monologue_id != null)?.monologue_id;
+  return `ghostlight://tape/${mid != null ? mid : 'free'}?audition=${a.id}`;
+}
