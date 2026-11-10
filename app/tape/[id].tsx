@@ -11,6 +11,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,7 +72,7 @@ import {
 } from '../../src/lib/takes';
 import { canExport, canJoin, exportJoined, exportTake } from '../../modules/tape-export';
 import { castingName, DEFAULT_SETTINGS, loadTapeSettings, saveTapeSettings, slateLines, type TapeSettings } from '../../src/lib/tapeSettings';
-import { playTone, releaseTones, ROLL_TONE_MS } from '../../src/lib/tapeTones';
+import { playTone, prepareTones, releaseTones, ROLL_TONE_MS } from '../../src/lib/tapeTones';
 
 /**
  * Tape it: the self-tape room.
@@ -109,6 +110,7 @@ const BAR_H = 56;
 const MAX_TAKE_S = 600;
 /** How often the ear's rules look again with nothing new heard (the settle rule needs time to pass). */
 const TICK_MS = 150;
+const INTRO_KEY = 'ghostlight:tape:intro.v1';
 
 const SANS = 'BricolageGrotesque_600SemiBold';
 const SANS_M = 'BricolageGrotesque_500Medium';
@@ -132,7 +134,8 @@ export default function TapeRoom() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   useEffect(() => { loadTapeSettings().then((s) => { setSettingsState(s); setSettingsLoaded(true); }).catch(() => setSettingsLoaded(true)); }, []);
   const setSettings = useCallback((next: TapeSettings) => { setSettingsState(next); void saveTapeSettings(next); }, []);
-  useEffect(() => () => releaseTones(), []);
+  // The tones' audio is set up now, before the camera, never mid-take.
+  useEffect(() => { void prepareTones(); return () => releaseTones(); }, []);
 
   const slate = id === SLATE_TAPE;
   const free = !id || id === FREE_TAPE || slate;
@@ -197,19 +200,34 @@ export default function TapeRoom() {
 
   const camera = useRef<CameraView>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const cameraReadyRef = useRef(false);
+  cameraReadyRef.current = cameraReady;
+  // Bumped to start the camera afresh after a take that would not record.
+  const [camKey, setCamKey] = useState(0);
+  // A short line where the hint goes, when something needs saying.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 6000); return () => clearTimeout(t); }, [notice]);
+  const [saving, setSaving] = useState(false);
   const [camPerm, askCam] = useCameraPermissions();
   const [micPerm, askMic] = useMicrophonePermissions();
-  const asked = useRef(false);
-  useEffect(() => {
-    if (asked.current || !camPerm || !micPerm) return;
-    asked.current = true;
-    (async () => {
-      if (!camPerm.granted && camPerm.canAskAgain) await askCam();
-      if (!micPerm.granted && micPerm.canAskAgain) await askMic();
-    })().catch(() => {});
-  }, [camPerm, micPerm, askCam, askMic]);
   const allowed = Boolean(camPerm?.granted && micPerm?.granted);
-  const refused = Boolean(camPerm && micPerm && (!camPerm.granted || !micPerm.granted) && asked.current && !(camPerm.canAskAgain && micPerm.canAskAgain));
+  const refused = Boolean(camPerm && micPerm && (!camPerm.granted || !micPerm.granted) && !(camPerm.canAskAgain && micPerm.canAskAgain));
+  // The first time in: a page that says what the room is, and asks for the
+  // camera only when the actor says go, not two iOS questions on arrival.
+  const [introSeen, setIntroSeen] = useState<boolean | null>(null);
+  useEffect(() => { AsyncStorage.getItem(INTRO_KEY).then((v) => setIntroSeen(v === '1')).catch(() => setIntroSeen(true)); }, []);
+  const showIntro = Boolean(camPerm && micPerm) && (!allowed || introSeen === false);
+  const goIn = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    try {
+      if (refused) { Linking.openSettings().catch(() => {}); return; }
+      if (camPerm && !camPerm.granted) await askCam();
+      if (micPerm && !micPerm.granted) await askMic();
+    } catch { /* the page stays, and says so */ }
+    setIntroSeen(true);
+    AsyncStorage.setItem(INTRO_KEY, '1').catch(() => {});
+    track('app_tape_intro', { allowed });
+  }, [refused, camPerm, micPerm, askCam, askMic, allowed]);
 
   // A piece's takes; and, opened from Tapes, straight onto the one picked.
   useEffect(() => {
@@ -338,8 +356,28 @@ export default function TapeRoom() {
   settingsRef.current = settings;
   const countdownVia = useRef<'voice' | 'tap'>('tap');
 
+  // A take that would not record or would not stop: back to ready, the
+  // camera started afresh, a line to say so, and the reason sent home so the
+  // cause can be found (it cannot be seen from here).
+  const failTake = useCallback((reason: 'timeout' | 'error' | 'not_ready', detail?: string) => {
+    track('app_tape_record_failed', { reason, detail: (detail ?? '').slice(0, 120), tones: settingsRef.current.tones, facing: settingsRef.current.facing });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    recording.current = null;
+    stopping.current = false;
+    setSaving(false);
+    setPhase('ready');
+    setNotice('(that take didn’t save. try again.)');
+    setCameraReady(false);
+    setCamKey((k) => k + 1);
+  }, [setPhase]);
+
   const roll = useCallback(async (via: 'voice' | 'tap') => {
     if (!camera.current || phaseRef.current === 'rolling') return;
+    if (!cameraReadyRef.current) {
+      // The camera is still waking: give it a moment, then say so.
+      for (let i = 0; i < 20 && !cameraReadyRef.current; i++) await new Promise((r) => setTimeout(r, 100));
+      if (!cameraReadyRef.current || !camera.current) { setPhase('ready'); setNotice('(the camera is still waking up. one more time.)'); return; }
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     // The tone first, so it is heard across the room and is not in the take.
     if (settingsRef.current.tones) {
@@ -361,12 +399,22 @@ export default function TapeRoom() {
     startedAt.current = Date.now();
     rolledTurn.current = turnRef.current;
     stopping.current = false;
+    setNotice(null);
     track('app_tape_rolled', { via });
-    const rec = camera.current.recordAsync({ maxDuration: MAX_TAKE_S, codec: 'avc1' });
+    let rec: Promise<{ uri: string } | undefined>;
+    try {
+      rec = camera.current.recordAsync({ maxDuration: MAX_TAKE_S, codec: 'avc1' });
+    } catch (e) {
+      failTake('error', e instanceof Error ? e.message : String(e));
+      return;
+    }
     recording.current = rec;
-    // The longest take, reached: it stops by itself and is kept whole.
-    rec.then(() => { if (recording.current === rec && phaseRef.current === 'rolling' && !stopping.current) void stopRef.current(null); }).catch(() => {});
-  }, [setPhase]);
+    rec
+      // The longest take, reached: it stops by itself and is kept whole.
+      .then(() => { if (recording.current === rec && phaseRef.current === 'rolling' && !stopping.current) void stopRef.current(null); })
+      // The camera would not record: not a take that runs on with nothing in it.
+      .catch((e) => { if (recording.current === rec && !stopping.current) failTake('error', e instanceof Error ? e.message : String(e)); });
+  }, [setPhase, failTake]);
 
   // The take that just went to Tapes: "keeper" stars it, tapping it plays it.
   const justCut = useRef<Take | null>(null);
@@ -386,13 +434,22 @@ export default function TapeRoom() {
     const stoppedAt = Date.now();
     const endMs = takeEnd({ startedAt: startedAt.current, stoppedAt, hit });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    camera.current?.stopRecording();
-    let uri: string | undefined;
-    try { uri = (await recording.current)?.uri; } catch { uri = undefined; }
+    setSaving(true);
+    try { camera.current?.stopRecording(); } catch { /* the wait below decides */ }
+    // The camera hands the file back within a moment; if it never does, the
+    // room is not left rolling for ever.
+    const pending = recording.current;
+    const got = await Promise.race([
+      (pending ?? Promise.resolve(undefined)).then((r) => r?.uri ?? null).catch(() => null),
+      new Promise<'late'>((r) => setTimeout(() => r('late'), 5000)),
+    ]);
+    if (got === 'late') { failTake('timeout'); return; }
+    const uri: string | undefined = got ?? undefined;
     recording.current = null;
+    setSaving(false);
     if (settingsRef.current.tones) void playTone('cut');
     track('app_tape_cut', { via: hit ? 'voice' : 'tap', seconds: Math.round(endMs / 1000), kept: !discard });
-    if (!uri) { setPhase('ready'); return; }
+    if (!uri) { stopping.current = false; setPhase('ready'); setNotice('(that take didn’t save. try again.)'); return; }
     if (discard) {
       try { new File(uri).delete(); } catch { /* gone */ }
       setPhase('ready');
@@ -417,7 +474,7 @@ export default function TapeRoom() {
     justCut.current = take;
     setFlight(take);
     setPhase('ready');
-  }, [id, free, slate, monologue?.character, monologue?.source, auditionId, setPhase]);
+  }, [id, free, slate, monologue?.character, monologue?.source, auditionId, setPhase, failTake]);
   stopRef.current = stop;
 
   // A take that is thrown away by voice goes straight into the next one.
@@ -666,7 +723,7 @@ export default function TapeRoom() {
           {`For ${audition.project}${audition.role ? ` · ${audition.role}` : ''}${audition.when ? ` · due ${dayLabel(audition.when)} ${clockLabel(audition.when)}` : ''}${auditionSent ? ' · sent' : ''}`}
         </Animated.Text>
       ) : null}
-      <Cue phase={phase} hearing={hearing} atEnd={atEnd} noisy={noisy} upright={upright} back={facing === 'back'} />
+      <Cue phase={phase} hearing={hearing} atEnd={atEnd} noisy={noisy} upright={upright} back={facing === 'back'} notice={saving ? '(saving the take…)' : notice} />
     </View>
   );
   // The strip, turned: as long as it may be, centred on the record button's
@@ -679,6 +736,7 @@ export default function TapeRoom() {
       <StatusBar hidden />
       {allowed ? (
         <CameraView
+          key={camKey}
           ref={camera}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           facing={facing}
@@ -712,14 +770,17 @@ export default function TapeRoom() {
       {/* Three, two, one. */}
       {phase === 'countdown' && count > 0 ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.Text
-            key={count}
-            entering={reduce ? FadeIn.duration(120) : ZoomIn.duration(360).easing(EASE)}
-            exiting={FadeOut.duration(260)}
-            style={{ fontFamily: SERIF, fontSize: 168, color: WHITE, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 24, transform: [{ rotate: `${turn}deg` }] }}
-          >
-            {count}
-          </Animated.Text>
+          {/* Turned with the phone. The turn is on the wrapper: the zoom animates the number's own transform. */}
+          <View style={{ transform: [{ rotate: `${turn}deg` }] }}>
+            <Animated.Text
+              key={count}
+              entering={reduce ? FadeIn.duration(120) : ZoomIn.duration(360).easing(EASE)}
+              exiting={FadeOut.duration(260)}
+              style={{ fontFamily: SERIF, fontSize: 168, color: WHITE, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 24 }}
+            >
+              {count}
+            </Animated.Text>
+          </View>
         </View>
       ) : null}
 
@@ -785,16 +846,9 @@ export default function TapeRoom() {
         </View>
       </View>
 
-      {!allowed ? (
+      {!allowed && !showIntro ? (
         <View style={{ position: 'absolute', top: topH, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
-          <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: DIM, textAlign: 'center' }}>
-            {refused ? '(the camera and the microphone are off for Ghost Light.)' : '(finding the camera…)'}
-          </Text>
-          {refused ? (
-            <Pressable onPress={() => Linking.openSettings().catch(() => {})} hitSlop={10} style={{ marginTop: 14 }} accessibilityRole="button">
-              <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: GLOW }}>(turn them on in settings.)</Text>
-            </Pressable>
-          ) : null}
+          <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: DIM, textAlign: 'center' }}>(finding the camera…)</Text>
         </View>
       ) : null}
 
@@ -852,7 +906,7 @@ export default function TapeRoom() {
               <View style={{ flex: 1, alignItems: 'center' }}>
                 {rolling ? null : <Ear on={hearing} level={level} turn={turn} onPress={toggleEar} />}
               </View>
-              <RecordButton rolling={rolling} counting={phase === 'countdown'} atEnd={atEnd} onPress={onRecord} />
+              <RecordButton rolling={rolling && !saving} counting={phase === 'countdown'} atEnd={atEnd} saving={saving} onPress={onRecord} />
               <View style={{ flex: 1, alignItems: 'center' }}>
                 {rolling || phase === 'countdown' ? null : (
                   <View ref={tapesRef} onLayout={measureTapes} collapsable={false} style={{ alignSelf: 'stretch', alignItems: 'center' }}>
@@ -882,6 +936,8 @@ export default function TapeRoom() {
           onLanded={landed}
         />
       ) : null}
+
+      {showIntro ? <Intro allowed={allowed} refused={refused} onGo={goIn} onLeave={goBack} reduce={reduce} /> : null}
 
       {sheet === 'piece' ? (
         <PiecePicker current={id || FREE_TAPE} signedIn={isAuthenticated} onClose={() => setSheet(null)} onPick={pickPiece} />
@@ -1030,9 +1086,9 @@ const SpokenLine = memo(function SpokenLine({ line, said }: { line: string; said
 });
 
 /** One quiet line over the record button: what to say next, or what is in the way. */
-function Cue({ phase, hearing, atEnd, noisy, upright, back }: { phase: Phase; hearing: boolean; atEnd: boolean; noisy: boolean; upright: boolean; back: boolean }) {
-  const text =
-    phase === 'countdown' ? '(tap to stop the count.)'
+function Cue({ phase, hearing, atEnd, noisy, upright, back, notice }: { phase: Phase; hearing: boolean; atEnd: boolean; noisy: boolean; upright: boolean; back: boolean; notice?: string | null }) {
+  const text = notice ? notice
+    : phase === 'countdown' ? '(tap to stop the count.)'
       : phase === 'rolling' ? (hearing ? (atEnd ? '(hold it. then say “cut”.)' : '(say “cut” when you are done.)') : '(tap to cut.)')
       : noisy && hearing ? '(it’s loud in here. the ear may miss you.)'
       : upright ? '(turn it sideways for casting.)'
@@ -1282,7 +1338,7 @@ function FirstFrame({ take }: { take: Take }) {
  * camera's does; it breathes while counting down, and again once the piece
  * is over, to say the cut is yours.
  */
-function RecordButton({ rolling, counting, atEnd, onPress }: { rolling: boolean; counting: boolean; atEnd: boolean; onPress: () => void }) {
+function RecordButton({ rolling, counting, atEnd, saving, onPress }: { rolling: boolean; counting: boolean; atEnd: boolean; saving?: boolean; onPress: () => void }) {
   const reduce = useReducedMotion();
   const shape = useSharedValue(0);
   const pulse = useSharedValue(1);
@@ -1309,7 +1365,7 @@ function RecordButton({ rolling, counting, atEnd, onPress }: { rolling: boolean;
       accessibilityLabel={rolling ? 'Cut' : counting ? 'Stop the countdown' : 'Action'}
       style={({ pressed }) => ({ width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: WHITE, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}
     >
-      <Animated.View style={[core, { backgroundColor: ROLL_RED }]} />
+      {saving ? <ActivityIndicator color={WHITE} /> : <Animated.View style={[core, { backgroundColor: ROLL_RED }]} />}
     </Pressable>
   );
 }
@@ -1656,5 +1712,57 @@ function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
       style={{ width: 50, height: 30, borderRadius: 15, backgroundColor: on ? GLOW : 'rgba(255,250,243,0.18)', justifyContent: 'center' }}>
       <Animated.View style={[knob, { width: 24, height: 24, borderRadius: 12, backgroundColor: WHITE }]} />
     </Pressable>
+  );
+}
+
+/**
+ * The first time in: what the room is, in three lines, and one button. The
+ * camera and the microphone are asked for only when the actor taps it.
+ */
+function Intro({ allowed, refused, onGo, onLeave, reduce }: { allowed: boolean; refused: boolean; onGo: () => void; onLeave: () => void; reduce: boolean }) {
+  const insets = useSafeAreaInsets();
+  const steps: { icon: React.ComponentProps<typeof Ionicons>['name']; say: string; sub: string }[] = [
+    { icon: 'mic', say: 'Say “action”.', sub: 'It rolls. Your lines run under the lens.' },
+    { icon: 'sparkles', say: 'Act.', sub: 'Each word lights up as you say it.' },
+    { icon: 'cut', say: 'Say “cut”.', sub: 'The take lands in Tapes. Say “keeper” to keep it.' },
+  ];
+  const enter = (i: number) => (reduce ? FadeIn.duration(200) : FadeInDown.delay(160 + i * 110).duration(420).easing(EASE));
+  return (
+    <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(260)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.ink, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 18, paddingHorizontal: 28 }}>
+      <Pressable onPress={onLeave} hitSlop={12} accessibilityRole="button" accessibilityLabel="Leave"
+        style={({ pressed }) => ({ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,250,243,0.08)', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+        <Ionicons name="chevron-down" size={20} color={WHITE} />
+      </Pressable>
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <Animated.View entering={reduce ? FadeIn.duration(200) : FadeInDown.duration(420).easing(EASE)}>
+          <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: GLOW, shadowColor: GLOW, shadowOpacity: 0.9, shadowRadius: 14, shadowOffset: { width: 0, height: 0 }, marginBottom: 22 }} />
+          <Text style={{ fontFamily: SERIF, fontSize: 46, lineHeight: 50, color: WHITE, letterSpacing: -0.6 }}>The tape room</Text>
+          <Text style={{ marginTop: 8, fontFamily: TYPE_I, fontSize: 14.5, color: DIM }}>(no hands. it listens.)</Text>
+        </Animated.View>
+        <View style={{ marginTop: 40, gap: 26 }}>
+          {steps.map((st, i) => (
+            <Animated.View key={st.say} entering={enter(i)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: i === 0 ? GLOW : 'rgba(255,250,243,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={st.icon} size={19} color={i === 0 ? colors.ink : WHITE} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: SERIF, fontSize: 25, lineHeight: 30, color: WHITE }}>{st.say}</Text>
+                <Text style={{ marginTop: 2, fontFamily: SANS_M, fontSize: 14, lineHeight: 20, color: DIM }}>{st.sub}</Text>
+              </View>
+            </Animated.View>
+          ))}
+        </View>
+      </View>
+      <Animated.View entering={reduce ? FadeIn.duration(200) : FadeInDown.delay(560).duration(420).easing(EASE)}>
+        <Pressable onPress={onGo} accessibilityRole="button"
+          style={({ pressed }) => ({ height: 58, borderRadius: 999, backgroundColor: GLOW, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+          <Ionicons name={allowed ? 'arrow-forward' : 'videocam'} size={19} color={colors.ink} />
+          <Text style={{ fontFamily: SANS, fontSize: 17, color: colors.ink }}>{allowed ? 'I’m ready' : refused ? 'Turn them on in Settings' : 'Turn on the camera'}</Text>
+        </Pressable>
+        <Text style={{ marginTop: 12, textAlign: 'center', fontFamily: TYPE_I, fontSize: 12.5, color: DIM }}>
+          {refused ? '(the camera and microphone are off for Ghost Light.)' : '(nothing leaves your phone.)'}
+        </Text>
+      </Animated.View>
+    </Animated.View>
   );
 }

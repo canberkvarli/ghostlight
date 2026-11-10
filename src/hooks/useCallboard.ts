@@ -11,7 +11,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { badges, callboard, type Call } from '../lib/callboard';
-import { allTakes, type Take } from '../lib/takes';
+import { allTakes, onTakesChanged, type Take } from '../lib/takes';
 import { useAuditions } from './useAuditions';
 import { useSession } from '../lib/useSession';
 import type { Medium } from '../theme/medium';
@@ -40,6 +40,7 @@ function subscribeTakes(l: () => void) {
     watching = true;
     void reloadTakes();
     AppState.addEventListener('change', (s) => { if (s === 'active') void reloadTakes(); });
+    try { onTakesChanged(() => { void reloadTakes(); }); } catch { /* the web preview's takes have no stills */ }
   }
   return () => { takeListeners.delete(l); };
 }

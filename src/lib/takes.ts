@@ -98,9 +98,22 @@ export async function addTake(
   const file = `${id}.${ext}`;
   new File(recordedUri).move(new File(tapesDir(), file));
   const take: Take = { id, pieceId, number, file, createdAt: Date.now(), durationMs, endMs, starred: false, ...meta };
-  take.thumb = await stillOf(take);
   await writeAll([...all, take]);
+  // The still is made after, so "cut" never waits on it.
+  void stillOf(take).then(async (thumb) => {
+    if (!thumb) return;
+    const now = await readAll();
+    await writeAll(now.map((t) => (t.id === take.id ? { ...t, thumb } : t)));
+    changed.forEach((cb) => cb());
+  });
   return take;
+}
+
+const changed = new Set<() => void>();
+/** Told when a take changes behind the screen's back (its still arrived). */
+export function onTakesChanged(cb: () => void): () => void {
+  changed.add(cb);
+  return () => { changed.delete(cb); };
 }
 
 /** A still from a take, a second in (or halfway through a short one), kept beside it. */

@@ -26,15 +26,24 @@ function ready() {
   return players;
 }
 
-export async function playTone(which: 'roll' | 'cut'): Promise<void> {
+/**
+ * Set up once, when the room opens and before the camera starts: changing
+ * the audio session later, just before a recording, can stop the camera
+ * from starting it at all (2026-11-10, "I tap record and it won't stop").
+ */
+export async function prepareTones(): Promise<void> {
+  try { ready(); await mode; } catch { /* no tones, then */ }
+  TapeEar.speakerOut();
+}
+
+/** Play a tone on the session as it is: nothing about the audio is changed here. */
+export function playTone(which: 'roll' | 'cut'): void {
   try {
-    const p = ready()[which];
-    await mode;
+    if (!players) return;
+    const p = players[which];
     p.seekTo(0);
     p.play();
   } catch { /* a cue, never a failure */ }
-  // The player can leave the session set for playback alone: back to play and record.
-  setTimeout(() => TapeEar.speakerOut(), 50);
 }
 
 export function releaseTones() {

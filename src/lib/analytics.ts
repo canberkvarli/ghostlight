@@ -176,6 +176,10 @@ export type Event =
   | { name: 'app_tape_opened'; props: { id: string } }
   | { name: 'app_tape_rolled'; props: { via: 'voice' | 'tap' } }
   | { name: 'app_tape_cut'; props: { via: 'voice' | 'tap'; seconds: number; kept: boolean } }
+  /** The tape room's first page: gone through, and whether the camera was already allowed. */
+  | { name: 'app_tape_intro'; props: { allowed: boolean } }
+  /** A take that would not record or would not stop, and why: the camera's own message when it gave one. */
+  | { name: 'app_tape_record_failed'; props: { reason: 'timeout' | 'error' | 'not_ready'; detail: string; tones: boolean; facing: string } }
   | { name: 'app_tape_saved'; props: { how: 'photos' | 'share'; marked: boolean } }
   /** The Callboard: opened (how many lines it had), a line tapped. */
   | { name: 'app_callboard_opened'; props: { lines: number } }
