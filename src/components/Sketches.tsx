@@ -92,6 +92,17 @@ const SKETCHES: Record<string, Stroke[]> = {
     { d: 'M18 38 L46 38 M18 46 L36 46', ink: 'accent' },
   ],
 
+  /**
+   * A phone on a tripod, sideways, the way a self-tape is shot. The lens and
+   * the light it takes in are the gel. For the Tape page.
+   */
+  tripod: [
+    { d: 'M19 11 L45 11 C46.7 11 48 12.3 48 14 L48 29 C48 30.7 46.7 32 45 32 L19 32 C17.3 32 16 30.7 16 29 L16 14 C16 12.3 17.3 11 19 11 Z' },
+    { d: 'M29 32 L29 36 L35 36 L35 32 M32 36 L32 42' },
+    { d: 'M32 42 L19 59 M32 42 L45 59 M32 42 L32 59' },
+    { d: 'M41 23.5 A2 2 0 1 1 41 19.5 A2 2 0 1 1 41 23.5 Z M22 15.5 A0.9 0.9 0 1 1 22 15.4 M52 15 L58 12 M52 21.5 L59 21.5 M52 28 L58 31', ink: 'accent' },
+  ],
+
   /*
    * The theme sketches. A play has no poster, so the reading page and the
    * saved shelf give it one of these instead, picked from the piece's themes
