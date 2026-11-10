@@ -33,6 +33,7 @@ import { useTabBarSpace } from '../../../src/components/TabBar';
 import { useRoomScroll } from '../../../src/lib/barScroll';
 import { RoomHeader, RoomTitle } from '../../../src/components/RoomHeader';
 import { AddButton, ListChips, NameSheet, NextRow } from '../../../src/components/BookSections';
+import { TapesShelf } from '../../../src/components/TapesShelf';
 import { useCreateList, useDeleteList, useLists, useRemoveFromList, useRenameList } from '../../../src/hooks/useLists';
 import { shareList, unshareList, type BookList, type ListItem } from '../../../src/api/book';
 
@@ -344,6 +345,7 @@ export default function Saves() {
             {!picking ? (
               <Reveal order={0}>
                 <NextRow auditions={auditions ?? []} book={items} />
+                <TapesShelf />
                 <ListChips
                   lists={lists ?? []}
                   selected={listId}

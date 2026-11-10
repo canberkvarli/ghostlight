@@ -134,6 +134,9 @@ function TapeButton() {
   return (
     <Pressable
       onPress={open}
+      // Held: your tapes, without the camera.
+      onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); router.push('/tapes' as Href); }}
+      accessibilityHint="Hold for your tapes"
       accessibilityRole="button"
       accessibilityLabel={unsent ? `Tape yourself. ${unsent} kept ${unsent === 1 ? 'take is' : 'takes are'} waiting to send` : 'Tape yourself'}
       style={({ pressed }) => ({ flex: 1, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 2, opacity: pressed ? 0.7 : 1 })}

@@ -656,6 +656,24 @@ export default function TapeRoom() {
   const showPrompter = allowed && prompter && facing === 'front' && phase !== 'review' && !atEnd && (lines.length > 0 || loading);
   const upright = turn === 0;
 
+  // What to say next, and which audition this is for. Upright it sits over
+  // the record button; turned, a long line on its side would run straight
+  // through the button, so it gets a strip of its own beside it.
+  const hints = (
+    <View pointerEvents="none">
+      {audition && phase === 'ready' ? (
+        <Animated.Text entering={FadeIn.duration(260)} numberOfLines={1} style={{ textAlign: 'center', paddingHorizontal: 24, marginBottom: 2, fontFamily: SANS, fontSize: 12.5, color: WHITE, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>
+          {`For ${audition.project}${audition.role ? ` · ${audition.role}` : ''}${audition.when ? ` · due ${dayLabel(audition.when)} ${clockLabel(audition.when)}` : ''}${auditionSent ? ' · sent' : ''}`}
+        </Animated.Text>
+      ) : null}
+      <Cue phase={phase} hearing={hearing} atEnd={atEnd} noisy={noisy} upright={upright} back={facing === 'back'} />
+    </View>
+  );
+  // The strip, turned: as long as it may be, centred on the record button's
+  // line and set back from it, so to the actor it reads beside the button.
+  const stripLen = Math.min(height * 0.5, 360);
+  const recordMid = height - insets.bottom - 10 - 40;
+
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar hidden />
@@ -828,12 +846,8 @@ export default function TapeRoom() {
           </Animated.View>
         ) : allowed ? (
           <View>
-            {audition && phase === 'ready' ? (
-              <Animated.Text entering={FadeIn.duration(260)} numberOfLines={1} style={{ textAlign: 'center', paddingHorizontal: 24, marginBottom: 2, fontFamily: SANS, fontSize: 12.5, color: WHITE, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6, transform: [{ rotate: `${turn}deg` }] }}>
-                {`For ${audition.project}${audition.role ? ` · ${audition.role}` : ''}${audition.when ? ` · due ${dayLabel(audition.when)} ${clockLabel(audition.when)}` : ''}${auditionSent ? ' · sent' : ''}`}
-              </Animated.Text>
-            ) : null}
-            <Cue phase={phase} hearing={hearing} atEnd={atEnd} noisy={noisy} upright={upright} back={facing === 'back'} turn={turn} />
+            {/* Upright, the hints sit over the record button. Turned, they move to their own strip (below). */}
+            {upright ? hints : <View style={{ height: 36 }} />}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
               <View style={{ flex: 1, alignItems: 'center' }}>
                 {rolling ? null : <Ear on={hearing} level={level} turn={turn} onPress={toggleEar} />}
@@ -850,6 +864,12 @@ export default function TapeRoom() {
           </View>
         ) : null}
       </View>
+
+      {!upright && allowed && phase !== 'review' ? (
+        <View pointerEvents="none" style={{ position: 'absolute', width: stripLen, height: 64, left: width / 2 - stripLen / 2, top: recordMid - 40 - 18 - stripLen / 2 - 32, justifyContent: 'center', transform: [{ rotate: `${turn}deg` }] }}>
+          {hints}
+        </View>
+      ) : null}
 
       {flight ? (
         <CutFlight
@@ -1010,7 +1030,7 @@ const SpokenLine = memo(function SpokenLine({ line, said }: { line: string; said
 });
 
 /** One quiet line over the record button: what to say next, or what is in the way. */
-function Cue({ phase, hearing, atEnd, noisy, upright, back, turn }: { phase: Phase; hearing: boolean; atEnd: boolean; noisy: boolean; upright: boolean; back: boolean; turn: number }) {
+function Cue({ phase, hearing, atEnd, noisy, upright, back }: { phase: Phase; hearing: boolean; atEnd: boolean; noisy: boolean; upright: boolean; back: boolean }) {
   const text =
     phase === 'countdown' ? '(tap to stop the count.)'
       : phase === 'rolling' ? (hearing ? (atEnd ? '(hold it. then say “cut”.)' : '(say “cut” when you are done.)') : '(tap to cut.)')
@@ -1020,7 +1040,7 @@ function Cue({ phase, hearing, atEnd, noisy, upright, back, turn }: { phase: Pha
       : hearing ? '(say “action”, or tap.)' : '(tap to roll.)';
   return (
     <View style={{ height: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 6, paddingHorizontal: 20 }}>
-      <Animated.Text key={text} entering={FadeIn.duration(260)} exiting={FadeOut.duration(140)} numberOfLines={1} style={{ fontFamily: TYPE_I, fontSize: 13, color: noisy && phase === 'ready' ? GLOW : DIM, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6, transform: [{ rotate: `${turn}deg` }] }}>
+      <Animated.Text key={text} entering={FadeIn.duration(260)} exiting={FadeOut.duration(140)} numberOfLines={1} style={{ fontFamily: TYPE_I, fontSize: 13, color: noisy && phase === 'ready' ? GLOW : DIM, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>
         {text}
       </Animated.Text>
     </View>
