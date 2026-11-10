@@ -119,8 +119,9 @@ export const RoomButton = forwardRef<View, { label: string; icon: keyof typeof I
 );
 
 /**
- * Tape: not a room, a door. One tap and the camera is up, on the piece you
- * last taped, or last read, or on nothing at all for your own sides.
+ * Tape: the Tape page, where the button to start is and the takes land.
+ * Held, it is a door straight to the camera, on the piece you last taped,
+ * or last read, or on nothing at all for your own sides.
  */
 function TapeButton() {
   const { colors: c } = useTheme();
@@ -133,10 +134,11 @@ function TapeButton() {
   };
   return (
     <Pressable
-      onPress={open}
-      // Held: your tapes, without the camera.
-      onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); router.push('/tapes' as Href); }}
-      accessibilityHint="Hold for your tapes"
+      // A tap: the Tape page (the button to start, what is due, your takes).
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/tapes' as Href); }}
+      // Held: straight to the camera, for those who know.
+      onLongPress={() => { void open(); }}
+      accessibilityHint="Hold to go straight to the camera"
       accessibilityRole="button"
       accessibilityLabel={unsent ? `Tape yourself. ${unsent} kept ${unsent === 1 ? 'take is' : 'takes are'} waiting to send` : 'Tape yourself'}
       style={({ pressed }) => ({ flex: 1, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 2, opacity: pressed ? 0.7 : 1 })}
