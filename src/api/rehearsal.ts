@@ -68,7 +68,8 @@ export const openRun = (sceneId: number, character: string, voices: Record<strin
 /**
  * The guided run: unmetered, any signed-in actor. With nothing, the server
  * picks the scene and the part; with one of the phone's first scenes, the
- * part the actor picked and the voice they heard, it opens that.
+ * part the actor picked and the voice they heard, it opens that. The part in
+ * the answer is the part the run is logged under, and the one played.
  */
 export const openGuidedRun = (pick?: { sceneId: number; character: string; voices: Record<string, string> }) =>
   call<GuidedRun>('/api/rehearsal/runs/guided', {
@@ -87,6 +88,8 @@ export interface GuidedScene {
   scene_id: number;
   title: string;
   hook: string | null;
+  /** The part that speaks first, the one the picker offers. Absent from a server older than 2026-11-10. */
+  opens?: string | null;
   characters: { name: string; line: string | null; first_line: number | null }[];
 }
 

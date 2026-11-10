@@ -20,6 +20,7 @@ import type { ScenePayload, Voice } from '../src/rehearsal/contract';
 import { sameCharacter } from '../src/rehearsal/contract';
 import { playSample, primeSample, stopSample } from '../src/rehearsal/native/sample';
 import { KEY_WORDS, firstScenes, markDemoSeen } from '../src/lib/demo';
+import { openerOf } from '../src/rehearsal/opener';
 import { useSession } from '../src/lib/useSession';
 import { track } from '../src/lib/analytics';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -37,12 +38,14 @@ const OFFERED = 3;
 type Step = 1 | 2 | 3;
 
 /**
- * The first scenes. What a stranger meets at the stage door: three questions,
+ * The first scenes. What a stranger meets at the stage door: two questions,
  * one a screen, and the screen never scrolls. A key: three cards, a fight, a
- * flirt, a confession. Your part: two tiles, each with that part's first line,
- * so the choice is made by reading. The voice opposite: three, each with a
- * hear icon, the first already chosen, and Begin at the foot. Three taps to
- * the first line.
+ * flirt, a confession. Each is offered as the part that speaks first (the
+ * server's `opens`, else the speaker of the first line): an actor whose first
+ * move is answering a stranger stalls (Canberk, 2026-11-10). The voice
+ * opposite: three, each with a hear icon, the first already chosen, and Begin
+ * at the foot. Two taps to the first line. Only when nothing names the opener
+ * is the part asked for, two tiles with each part's first line, as before.
  *
  * Everything is pulled down ahead of the tap. The three scenes come in with
  * the cards; every voice's sample for every part is primed into the cache
@@ -92,13 +95,23 @@ export default function Demo() {
   const [voice, setVoice] = useState<string | null>(null);
   const [hearing, setHearing] = useState<{ id: string; state: 'waiting' | 'sounding' } | null>(null);
   const payload = useRehearsalScene(scene?.scene_id ?? null);
+  // The opener of a scene: the server's word, or the first line of the scene if it is in hand.
+  const openerFor = useCallback((s: GuidedScene) =>
+    openerOf(s, qc.getQueryData<ScenePayload>(['rehearsal-scene', s.scene_id])?.lines), [qc]);
+  // The part is asked for only when the scene in hand (or, before one is, any of them) names no opener.
+  const asksPart = scene ? !openerFor(scene) && scene.characters.length > 1 : scenes.some(s => !openerOf(s) && s.characters.length > 1);
+  /** Into a scene: straight to the voice as the opener, or to the part when there is no opener to name. */
+  const enter = useCallback((s: GuidedScene) => {
+    const opener = openerFor(s) ?? (s.characters.length === 1 ? s.characters[0].name : null);
+    if (opener) { setMe(opener); setStep(3); } else setStep(2);
+  }, [openerFor]);
 
   useEffect(() => { void markDemoSeen(); track('demo_shown', { after: done }); }, [done]);
   useEffect(() => {
     if (!keyParam || scene) return;
     const s = scenes.find(x => x.key === keyParam);
-    if (s) { setScene(s); setStep(2); }
-  }, [keyParam, scenes, scene]);
+    if (s) { setScene(s); setVoice(null); enter(s); }
+  }, [keyParam, scenes, scene, enter]);
   useEffect(() => () => stopSample(), []);
 
   // Ahead of the tap: the three scenes, then every voice's sample for every part.
@@ -135,14 +148,14 @@ export default function Demo() {
   const back = () => {
     Haptics.selectionAsync().catch(() => {});
     stopSample(); setHearing(null);
-    setStep(s => (s > 1 ? ((s - 1) as Step) : s));
+    // With the part never asked, back from the voice is back to the keys.
+    setStep(s => (s === 3 && !asksPart ? 1 : s > 1 ? ((s - 1) as Step) : s));
   };
   const pickScene = (s: GuidedScene) => {
     Haptics.selectionAsync().catch(() => {});
     track('demo_card', { key: s.key });
     if (scene?.key !== s.key) { setScene(s); setMe(null); setVoice(null); }
-    // A scene for one part has nothing to ask on the second step.
-    if (s.characters.length === 1) { setMe(s.characters[0].name); setStep(3); } else setStep(2);
+    enter(s);
   };
   const pickPart = (name: string) => {
     if (!scene) return;
@@ -212,7 +225,7 @@ export default function Demo() {
               <Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{lit}</Text>
             </Text>
           </Animated.View>
-          <Steps stage={step} front={front} />
+          <Steps stage={step} front={front} asksPart={asksPart} />
 
           {step === 1 && front ? (
             <Animated.View key="s0" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1 }}>
@@ -257,7 +270,17 @@ export default function Demo() {
                             <Ionicons name="arrow-forward" size={15} color={c.paperMuted} />
                           </View>
                           <Text style={{ marginTop: 8, fontFamily: SERIF, fontSize: 25, lineHeight: 29, letterSpacing: -0.3, color: c.paperInk }}>{s.hook ?? s.title}</Text>
-                          <Text style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, letterSpacing: 1.2, textTransform: 'uppercase', color: c.paperMuted }}>{s.characters.map(ch => ch.name).join('  ·  ')}</Text>
+                          {(() => {
+                            const opens = openerOf(s);
+                            const part = opens ? s.characters.find(ch => sameCharacter(ch.name, opens)) : null;
+                            if (!part) return <Text style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, letterSpacing: 1.2, textTransform: 'uppercase', color: c.paperMuted }}>{s.characters.map(ch => ch.name).join('  ·  ')}</Text>;
+                            return (
+                              <>
+                                <Text style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, letterSpacing: 1.2, textTransform: 'uppercase', color: c.paperMuted }}>you are {part.name}</Text>
+                                {part.line ? <Text numberOfLines={2} style={{ marginTop: 4, fontFamily: SANS, fontSize: 13.5, lineHeight: 19, color: c.paperMuted }}>{part.line}</Text> : null}
+                              </>
+                            );
+                          })()}
                         </PaperCard>
                       </Pressable>
                     );
@@ -290,6 +313,10 @@ export default function Demo() {
             </Animated.View>
           ) : step === 3 && scene && me ? (
             <Animated.View key="s3" entering={FadeIn.duration(280)} exiting={FadeOut.duration(140)} style={{ flex: 1, paddingTop: 22 }}>
+              {!asksPart ? (() => {
+                const part = scene.characters.find(ch => sameCharacter(ch.name, me));
+                return <StageDirection numberOfLines={2} style={{ marginBottom: 14 }}>({`you are ${me.toLowerCase()}${part?.line ? `. ${part.line.replace(/[.\s]+$/, '').toLowerCase()}` : ''}`}.)</StageDirection>;
+              })() : null}
               {!voices.length ? (
                 <ActivityIndicator color={c.mutedForeground} style={{ marginTop: 30 }} />
               ) : (
@@ -331,19 +358,22 @@ export default function Demo() {
 }
 
 /** The rule and the caption: which of the three choices is next. */
-function Steps({ stage, front = false }: { stage: Step; front?: boolean }) {
+function Steps({ stage, front = false, asksPart = true }: { stage: Step; front?: boolean; asksPart?: boolean }) {
   const { colors: c } = useTheme();
-  const lines = [front ? 'two minutes. nothing to set up.' : 'pick a key.', 'pick your part.', 'pick a voice. then begin.'];
+  // Without the part to pick, two steps: the key, then the voice.
+  const shown: Step[] = asksPart ? [1, 2, 3] : [1, 3];
+  const lines: Record<Step, string> = { 1: front ? 'two minutes. nothing to set up.' : 'pick a key.', 2: 'pick your part.', 3: 'pick a voice. then begin.' };
+  const at = Math.max(1, shown.indexOf(stage) + 1);
   return (
     <View style={{ marginTop: 14 }}>
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        {[1, 2, 3].map(n => (
-          <View key={n} style={{ flex: 1, height: 3, borderRadius: 1.5, backgroundColor: n <= stage ? c.accentText : c.divider }} />
+        {shown.map((n, i) => (
+          <View key={n} style={{ flex: 1, height: 3, borderRadius: 1.5, backgroundColor: i < at ? c.accentText : c.divider }} />
         ))}
       </View>
       <Animated.View key={stage} entering={FadeIn.duration(220)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{stage} OF 3</Text>
-        <StageDirection numberOfLines={1} style={{ flex: 1 }}>({lines[stage - 1]})</StageDirection>
+        <Text style={{ fontFamily: SANS_B, fontSize: 11, letterSpacing: 1.4, color: c.accentText }}>{at} OF {shown.length}</Text>
+        <StageDirection numberOfLines={1} style={{ flex: 1 }}>({lines[stage]})</StageDirection>
       </Animated.View>
     </View>
   );

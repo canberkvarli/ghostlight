@@ -215,7 +215,8 @@ function Run({ payload, guided, picked, cast, castVoices, demoN, demoKey, guided
   const dimStyle = useAnimatedStyle(() => ({ opacity: dim.value * 0.92 }));
   const lingering = ended && !curtain;
   const paused = state === 'paused';
-  const actor = chosen ?? payload.characters[0] ?? '';
+  // The part the run plays, as the server opened it; the tap until it has.
+  const actor = r.character ?? chosen ?? payload.characters[0] ?? '';
   // The play and the scene, unless they are the same words: an uploaded scene is titled after its script.
   const sceneLine = useMemo(() => {
     const play = payload.scene.play_title?.trim(); const title = payload.scene.title.trim();

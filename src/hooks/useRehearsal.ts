@@ -25,6 +25,7 @@ import {
   type AudioSlot, canBegin, firstNeededLine, limit, makeFlusher, neededFailure, plainError, planPartnerAudio, type Readiness,
 } from '../rehearsal/prepare';
 import { buildScript } from '../rehearsal/script';
+import { playedPart } from '../rehearsal/opener';
 import { recognitionLocale, speechLang } from '../rehearsal/speech-language';
 import { track } from '../lib/analytics';
 
@@ -34,6 +35,8 @@ export interface Rehearsal {
   canBegin: boolean;
   /** The gate said no: the wall, not an error. */
   gated: boolean;
+  /** The part this run plays, once it is open: the server's answer, not the tap. */
+  character: string | null;
   prepare: (character: string, voices: Record<string, string>, opts?: { guided?: boolean | 'pick'; resumeRunId?: number; resumeLine?: number }) => Promise<void>;
   begin: () => void;
   pause: () => void; resume: () => void; skip: () => void; back: () => void; jumpTo: (line: number) => void;
@@ -55,6 +58,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
   const [base, setBase] = useState<Readiness>({ line1: false, stt: false, mic: false, error: null, upgradeUrl: null });
   const [lineError, setLineError] = useState<string | null>(null);
   const [gated, setGated] = useState(false);
+  const [played, setPlayed] = useState<string | null>(null);
   const engineRef = useRef<Engine | null>(null);
   const clockRef = useRef<Clock | null>(null);
   const playerRef = useRef<LinePlayer | null>(null);
@@ -92,11 +96,11 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       } else if (opts?.guided) {
         // One of the phone's first scenes, with the part and the voice chosen
         // on the way in; or the server's own pick when the scene is the one it names.
-        // The part picked on the way in is the part, whatever the server
-        // writes in the run: a server older than the three scenes casts its
-        // own actor, and the engine would read the wrong lines aloud.
+        // The part the server returns is the part played: it is the one the
+        // run is logged under (the server may cast the opener whatever was
+        // asked). The local pick stands in only when the answer names none.
         const opened = (await openGuidedRun(opts.guided === 'pick' ? { sceneId: payload.scene.id, character, voices } : undefined)) as GuidedRun;
-        run = opts.guided === 'pick' ? { ...opened, character } : opened;
+        run = { ...opened, character: playedPart(opened, character) };
       } else {
         const opened = await openRun(payload.scene.id, character, voices);
         run = { scene_id: payload.scene.id, character, ...opened };
@@ -113,6 +117,7 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
       preparedRef.current = false;
       return;
     }
+    setPlayed(run.character);
 
     const clock = (clockRef.current ??= new Clock());
     const player = (playerRef.current ??= new LinePlayer(clock));
@@ -211,5 +216,5 @@ export function useRehearsal(payload: ScenePayload): Rehearsal {
   }), []);
 
   const readiness: Readiness = { ...base, error: base.error ?? lineError };
-  return { snapshot, readiness, canBegin: canBegin(readiness), prepare, begin, gated, ...controls };
+  return { snapshot, readiness, canBegin: canBegin(readiness), prepare, begin, gated, character: played, ...controls };
 }
