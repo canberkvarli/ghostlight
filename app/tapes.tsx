@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +45,8 @@ export default function TapesScreen() {
   const router = useRouter();
   const { colors: c } = useTheme();
   const { tiltX, tiltY } = useStageMotion();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const takes = useTakeList();
   const [kept, setKept] = useState(false);
   const { isAuthenticated } = useSession();
@@ -94,53 +95,79 @@ export default function TapesScreen() {
     </Pressable>
   );
 
+  const ink = '#f7f3ec';
+  // Portrait, the way a self-tape is framed; shorter once there are takes to show under it.
+  const frameH = takes.length || due.length ? Math.min(width * 0.92, height * 0.4) : Math.min(width * 1.2, height * 0.54);
+  const bar = 62 + 34 + insets.bottom + 16;
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8 }}>
-          <Text style={{ fontFamily: SERIF, fontSize: 38, lineHeight: 44, color: c.foreground }}>Tape</Text>
+      {/* The insets by hand: inside a full-screen modal SafeAreaView reads 0 at first, and the title ran under the clock. */}
+      <View style={{ flex: 1, paddingTop: insets.top }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 6, paddingBottom: 4 }}>
+          <View>
+            <Text style={{ fontFamily: CAPS, fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: c.accentText }}>Ghost Light</Text>
+            <Text style={{ fontFamily: SERIF, fontSize: 34, lineHeight: 38, color: c.foreground }}>Tape room</Text>
+          </View>
           <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"
-            style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, backgroundColor: c.foreground + '14', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+            style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, backgroundColor: c.foreground + '12', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
             <Ionicons name="close" size={19} color={c.foreground} />
           </Pressable>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
-          {/* What you are taping: the dropdown. */}
-          <Animated.View entering={FadeInDown.duration(340).easing(EASE)}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: bar + 12 }}>
+          {/* The viewfinder: what you are taping, framed the way the camera will see it. Tap it to change. */}
+          <Animated.View entering={FadeInDown.duration(360).easing(EASE)}>
             <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setPicking(true); }} accessibilityRole="button"
               accessibilityLabel={`Taping ${piece.name}. Change it.`}
-              style={({ pressed }) => ({ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 18, backgroundColor: c.paper, borderWidth: 1.5, borderColor: c.cardBorder, transform: [{ scale: pressed ? 0.99 : 1 }], opacity: pressed ? 0.9 : 1 })}>
-              <Sketch name={piece.id === SLATE_TAPE ? 'masks' : piece.id === FREE_TAPE ? 'scriptPages' : 'tripod'} size={56} stroke={c.paperInk} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontFamily: CAPS, fontSize: 10.5, letterSpacing: 1.3, textTransform: 'uppercase', color: c.accentText }}>Taping</Text>
-                <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SERIF, fontSize: 26, lineHeight: 30, color: c.paperInk }}>{piece.name}</Text>
-                {piece.source ? <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 13, color: c.paperMuted }}>{piece.source}</Text> : null}
+              style={({ pressed }) => ({ height: frameH, borderRadius: 26, backgroundColor: '#130b08', overflow: 'hidden', transform: [{ scale: pressed ? 0.985 : 1 }] })}>
+              {/* Thirds, faint. */}
+              {[1, 2].map((k) => (
+                <View key={`v${k}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(k * 100) / 3}%`, width: StyleSheet.hairlineWidth, backgroundColor: ink + '14' }} />
+              ))}
+              {[1, 2].map((k) => (
+                <View key={`h${k}`} style={{ position: 'absolute', left: 0, right: 0, top: `${(k * 100) / 3}%`, height: StyleSheet.hairlineWidth, backgroundColor: ink + '14' }} />
+              ))}
+              {/* Corner marks. */}
+              {(['tl', 'tr', 'bl', 'br'] as const).map((k) => (
+                <View key={k} style={{
+                  position: 'absolute', width: 26, height: 26, borderColor: ink + 'b3',
+                  top: k[0] === 't' ? 16 : undefined, bottom: k[0] === 'b' ? 16 : undefined,
+                  left: k[1] === 'l' ? 16 : undefined, right: k[1] === 'r' ? 16 : undefined,
+                  borderTopWidth: k[0] === 't' ? 2 : 0, borderBottomWidth: k[0] === 'b' ? 2 : 0,
+                  borderLeftWidth: k[1] === 'l' ? 2 : 0, borderRightWidth: k[1] === 'r' ? 2 : 0,
+                  borderTopLeftRadius: k === 'tl' ? 8 : 0, borderTopRightRadius: k === 'tr' ? 8 : 0,
+                  borderBottomLeftRadius: k === 'bl' ? 8 : 0, borderBottomRightRadius: k === 'br' ? 8 : 0,
+                }} />
+              ))}
+              <View style={{ position: 'absolute', top: 26, left: 50, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.primary }} />
+                <Text style={{ fontFamily: CAPS, fontSize: 10.5, letterSpacing: 1.6, color: ink + 'cc' }}>STANDBY</Text>
               </View>
-              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.paperInk + '12', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="chevron-down" size={17} color={c.paperInk} />
+              <View style={{ position: 'absolute', top: 20, right: 46, flexDirection: 'row', alignItems: 'center', gap: 4, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: ink + '1f' }}>
+                <Text style={{ fontFamily: SANS_B, fontSize: 12.5, color: ink }}>Change</Text>
+                <Ionicons name="chevron-down" size={14} color={ink} />
               </View>
-            </Pressable>
 
-            {/* The way in, right under it. */}
-            <Pressable onPress={start} accessibilityRole="button" accessibilityLabel={`Start taping ${piece.name}`}
-              style={({ pressed }) => ({ marginTop: 12, height: 62, borderRadius: 999, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
-              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#fff' }} />
-              <Text style={{ fontFamily: SANS_B, fontSize: 17.5, color: '#fff' }}>Start taping</Text>
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
+                <Sketch name={piece.id === SLATE_TAPE ? 'masks' : piece.id === FREE_TAPE ? 'scriptPages' : 'tripod'} size={Math.min(84, frameH * 0.24)} stroke={ink} />
+                <Text style={{ marginTop: 14, fontFamily: CAPS, fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: c.primary }}>Taping</Text>
+                <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} style={{ marginTop: 2, textAlign: 'center', fontFamily: SERIF, fontSize: 38, lineHeight: 42, color: ink }}>{piece.name}</Text>
+                {piece.source ? <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SANS, fontSize: 14, color: ink + '99' }}>{piece.source}</Text> : null}
+              </View>
             </Pressable>
-            <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>(say “action” to roll, “cut” to stop.)</StageDirection>
           </Animated.View>
 
           {/* Due this week, still to send. */}
           {due.length ? (
-            <View style={{ marginTop: 30 }}>
-              <Text style={{ fontFamily: CAPS, fontSize: 11, letterSpacing: 1.3, textTransform: 'uppercase', color: c.mutedForeground, marginBottom: 6 }}>Due this week</Text>
+            <View style={{ marginTop: 28 }}>
+              <Text style={{ fontFamily: CAPS, fontSize: 11, letterSpacing: 1.3, textTransform: 'uppercase', color: c.mutedForeground, marginBottom: 2 }}>Due this week</Text>
               {due.map((a, i) => (
                 <Animated.View key={a.id} entering={FadeInDown.delay(80 + i * 60).duration(320)}>
                   <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.replace(tapeHref(a)); }} accessibilityRole="button"
                     accessibilityLabel={`Tape ${a.project}, due ${dayLabel(a.when!)} ${clockLabel(a.when!)}`}
-                    style={({ pressed }) => ({ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.6 : 1 })}>
+                    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.6 : 1 })}>
                     <Sketch name="clapper" size={40} stroke={c.foreground} />
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 21, color: c.foreground }}>{a.project}</Text>
@@ -154,12 +181,14 @@ export default function TapesScreen() {
           ) : null}
 
           {/* Your takes. */}
-          <View style={{ marginTop: 30 }}>
+          <View style={{ marginTop: 28 }}>
             {takes.length === 0 ? (
-              <Animated.View entering={FadeIn.duration(360)} style={{ alignItems: 'center', paddingTop: 10 }}>
-                <Sketch name="tripod" size={Math.min(150, width * 0.4)} stroke={c.foreground} />
-                <Text style={{ marginTop: 18, fontFamily: SERIF, fontSize: 26, color: c.foreground }}>Your takes land here</Text>
-                <StageDirection style={{ marginTop: 6, textAlign: 'center' }}>(on this phone only. nothing is uploaded.)</StageDirection>
+              <Animated.View entering={FadeIn.delay(120).duration(360)} style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Sketch name="clapper" size={44} stroke={c.foreground} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: SERIF, fontSize: 22, color: c.foreground }}>Your takes land here</Text>
+                  <StageDirection numberOfLines={2}>(on this phone only. nothing is uploaded.)</StageDirection>
+                </View>
               </Animated.View>
             ) : (
               <>
@@ -185,7 +214,17 @@ export default function TapesScreen() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+
+        {/* The way in, under the thumb. */}
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom + 12, backgroundColor: c.background + 'f2' }}>
+          <Pressable onPress={start} accessibilityRole="button" accessibilityLabel={`Start taping ${piece.name}`}
+            style={({ pressed }) => ({ height: 62, borderRadius: 999, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#fff' }} />
+            <Text style={{ fontFamily: SANS_B, fontSize: 17.5, color: '#fff' }}>Start taping</Text>
+          </Pressable>
+          <StageDirection numberOfLines={1} style={{ marginTop: 8, textAlign: 'center' }}>(say “action” to roll, “cut” to stop.)</StageDirection>
+        </View>
+      </View>
 
       {picking ? (
         <PiecePicker
