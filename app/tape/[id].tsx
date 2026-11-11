@@ -224,9 +224,27 @@ export default function TapeRoom() {
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 6000); return () => clearTimeout(t); }, [notice]);
   const [saving, setSaving] = useState(false);
+  // The camera that never comes up: started afresh once after three seconds,
+  // then, if it still has not, what it said is put on the screen to be read out.
+  const [camError, setCamError] = useState<string | null>(null);
+  const restarted = useRef(false);
   const [camPerm, askCam] = useCameraPermissions();
   const [micPerm, askMic] = useMicrophonePermissions();
   const allowed = Boolean(camPerm?.granted && micPerm?.granted);
+  useEffect(() => {
+    if (!allowed || cameraReady) return;
+    const t = setTimeout(() => {
+      if (cameraReadyRef.current) return;
+      if (!restarted.current) {
+        restarted.current = true;
+        track('app_tape_record_failed', { reason: 'not_ready', detail: 'no picture after 3s, restarting', tones: settingsRef.current.tones, facing: settingsRef.current.facing });
+        setCamKey((k) => k + 1);
+      } else {
+        setCamError((e) => e ?? 'the camera did not start');
+      }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [allowed, cameraReady, camKey]);
   const refused = Boolean(camPerm && micPerm && (!camPerm.granted || !micPerm.granted) && !(camPerm.canAskAgain && micPerm.canAskAgain));
   // The first time in: a page that says what the room is, and asks for the
   // camera only when the actor says go, not two iOS questions on arrival.
@@ -389,6 +407,7 @@ export default function TapeRoom() {
 
   const roll = useCallback(async (via: 'voice' | 'tap') => {
     if (!camera.current || phaseRef.current === 'rolling') return;
+    if (stopping.current) { setNotice('(one moment, the last take is saving.)'); return; }
     if (!cameraReadyRef.current) {
       // The camera is still waking: give it a moment, then say so.
       for (let i = 0; i < 20 && !cameraReadyRef.current; i++) await new Promise((r) => setTimeout(r, 100));
@@ -452,6 +471,8 @@ export default function TapeRoom() {
     const stoppedAt = Date.now();
     const endMs = takeEnd({ startedAt: startedAt.current, stoppedAt, hit });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // Stopped, at once: the clock and the red go now, the file follows behind.
+    setPhase('ready');
     setSaving(true);
     try { camera.current?.stopRecording(); } catch { /* the wait below decides */ }
     // The camera hands the file back within a moment; if it never does, the
@@ -465,6 +486,7 @@ export default function TapeRoom() {
     const uri: string | undefined = got ?? undefined;
     recording.current = null;
     setSaving(false);
+    stopping.current = false;
     void signal();
     track('app_tape_cut', { via: hit ? 'voice' : 'tap', seconds: Math.round(endMs / 1000), kept: !discard });
     if (!uri) { stopping.current = false; setPhase('ready'); setNotice('(that take didn’t save. try again.)'); return; }
@@ -767,8 +789,23 @@ export default function TapeRoom() {
             // The phone, not the screen: turned clockwise the room turns back the other way.
             setTurn(orientation === 'landscapeRight' ? -90 : orientation === 'landscapeLeft' ? 90 : 0);
           }}
-          onCameraReady={() => { TapeEar.speakerOut(); setCameraReady(true); }}
+          onCameraReady={() => { TapeEar.speakerOut(); setCameraReady(true); setCamError(null); }}
+          onMountError={(e) => {
+            const msg = (e as { message?: string; nativeEvent?: { message?: string } }).message ?? (e as { nativeEvent?: { message?: string } }).nativeEvent?.message ?? 'unknown';
+            track('app_tape_record_failed', { reason: 'not_ready', detail: `mount: ${msg}`.slice(0, 120), tones: settingsRef.current.tones, facing: settingsRef.current.facing });
+            setCamError(msg);
+          }}
         />
+      ) : null}
+
+      {camError && !cameraReady ? (
+        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
+          <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: WHITE, textAlign: 'center' }}>(the camera didn’t come up.)</Text>
+          <Text style={{ marginTop: 8, fontFamily: SANS_M, fontSize: 12, color: DIM, textAlign: 'center' }}>{camError}</Text>
+          <Pressable onPress={() => { setCamError(null); restarted.current = false; setCamKey((k) => k + 1); }} hitSlop={10} accessibilityRole="button" style={{ marginTop: 18 }}>
+            <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: GLOW }}>(try again.)</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {/* The front camera's signal: the screen, flashed white. */}

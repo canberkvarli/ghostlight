@@ -4,8 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut, FadeOutDown, Easing } from 'react-native-reanimated';
 
 import { StageBackdrop } from '../src/components/StageBackdrop';
 import { StageDirection } from '../src/components/StageDirection';
@@ -26,71 +25,67 @@ import { clockLabel, dayLabel } from '../src/lib/when';
 const SERIF = 'InstrumentSerif_400Regular';
 const SANS = 'BricolageGrotesque_500Medium';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
-/** The dock at the foot: which piece, the button, and its name. */
-const DOCK_H = 186;
+const CAPS = 'BricolageGrotesque_700Bold';
+const EASE = Easing.out(Easing.cubic);
+
+interface Piece { id: string; name: string; source: string }
+const SLATE: Piece = { id: SLATE_TAPE, name: 'Slate', source: 'Your name, height and town' };
+const NONE: Piece = { id: FREE_TAPE, name: 'No script', source: 'Your own sides, no prompter' };
 
 /**
  * Tape: the page the Tape tab opens.
  *
- * The drawing at the top (a phone on a tripod), anything due this week,
- * then your takes, two to a row. The way in sits at the foot where the thumb
- * is: which piece, as a row of chips (recent, the Book, the slate, none),
- * and the orange button, named for it. Choosing is right there, not a step
- * of its own. Holding the Tape tab skips the page.
+ * What you are taping, as one card that opens a list (the dropdown), and
+ * the button to start right under it. Then anything due this week, then
+ * your takes. Starting swaps this page for the camera rather than opening
+ * the camera over it: a live camera over a sheet is what went black on
+ * 2026-11-10. Holding the Tape tab skips the page.
  */
 export default function TapesScreen() {
   const router = useRouter();
   const { colors: c } = useTheme();
   const { tiltX, tiltY } = useStageMotion();
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const takes = useTakeList();
   const [kept, setKept] = useState(false);
   const { isAuthenticated } = useSession();
   const { data: auditions } = useAuditions(isAuthenticated);
+  const { data: book } = useFavorites(isAuthenticated);
+  const [recents, setRecents] = useState<RecentPiece[]>([]);
+  const [picking, setPicking] = useState(false);
 
-  // The piece the button names: the one last taped, or last read, or none.
-  const [piece, setPiece] = useState<{ id: string; name: string | null }>({ id: FREE_TAPE, name: null });
+  // What the card says: the piece last taped, or last read, or none.
+  const [piece, setPiece] = useState<Piece>(NONE);
   useEffect(() => {
     void (async () => {
-      const recents: RecentPiece[] = await loadRecents().catch(() => []);
-      const id = (await lastTapePiece()) ?? recents[0]?.id ?? FREE_TAPE;
-      const name = id === SLATE_TAPE ? 'your slate'
-        : id === FREE_TAPE ? null
-        : recents.find((r) => r.id === id)?.character ?? takes.find((t) => t.pieceId === id)?.character ?? null;
-      setPiece({ id, name });
+      const list: RecentPiece[] = await loadRecents().catch(() => []);
+      setRecents(list);
+      const id = (await lastTapePiece()) ?? list[0]?.id ?? FREE_TAPE;
+      if (id === SLATE_TAPE) return setPiece(SLATE);
+      if (id === FREE_TAPE) return setPiece(NONE);
+      const r = list.find((x) => x.id === id);
+      const t = takes.find((x) => x.pieceId === id);
+      setPiece({ id, name: r?.character ?? t?.character ?? 'This piece', source: r?.source ?? t?.source ?? '' });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [takes.length]);
-  // The choices: what you read lately and what is in your Book, then the slate and none.
-  const [recentList, setRecentList] = useState<RecentPiece[]>([]);
-  useEffect(() => { loadRecents().then(setRecentList).catch(() => {}); }, []);
-  const { data: book } = useFavorites(isAuthenticated);
-  const choices = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { id: string; name: string }[] = [];
-    const add = (id: string, name: string) => { if (!id || seen.has(id)) return; seen.add(id); out.push({ id, name }); };
-    if (piece.name && piece.id !== FREE_TAPE && piece.id !== SLATE_TAPE) add(piece.id, piece.name);
-    for (const r of recentList.slice(0, 6)) add(r.id, r.character);
-    for (const m of (book ?? []).slice(0, 8)) add(String(m.id), m.character);
-    add(SLATE_TAPE, 'Slate');
-    add(FREE_TAPE, 'No script');
-    return out;
-  }, [recentList, book, piece.id, piece.name]);
-  const choose = (id: string, name: string) => {
-    Haptics.selectionAsync().catch(() => {});
-    setPiece({ id, name: id === FREE_TAPE ? null : id === SLATE_TAPE ? 'your slate' : name });
-  };
+  }, []);
+
+  const lately = useMemo(() => recents.slice(0, 6).map((r) => ({ id: r.id, name: r.character, source: r.source })), [recents]);
+  const inBook = useMemo(() => {
+    const seen = new Set(lately.map((p) => p.id));
+    return (book ?? []).filter((m) => !seen.has(String(m.id))).slice(0, 30).map((m) => ({ id: String(m.id), name: m.character, source: m.source }));
+  }, [book, lately]);
+
   const due = useMemo(() => (auditions ?? []).filter((a) => tapeDue(a)).sort((x, y) => Date.parse(x.when!) - Date.parse(y.when!)), [auditions]);
   const start = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    router.push({ pathname: '/tape/[id]', params: { id: piece.id } } as Href);
+    // Swapped for the camera, not stacked under it.
+    router.replace({ pathname: '/tape/[id]', params: { id: piece.id } } as Href);
   };
   const shown = takes.filter((t) => !kept || t.starred);
   const keptCount = takes.filter((t) => t.starred).length;
   const gap = 14;
   const cell = (width - 24 * 2 - gap) / 2;
-  const first = takes.length === 0;
 
   const filter = (label: string, on: boolean, press: () => void) => (
     <Pressable key={label} onPress={() => { Haptics.selectionAsync().catch(() => {}); press(); }} accessibilityRole="button" accessibilityState={{ selected: on }}
@@ -102,129 +97,150 @@ export default function TapesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 4 }}>
-          <Text style={{ fontFamily: SERIF, fontSize: 34, lineHeight: 40, color: c.foreground }}>Tape</Text>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8 }}>
+          <Text style={{ fontFamily: SERIF, fontSize: 38, lineHeight: 44, color: c.foreground }}>Tape</Text>
           <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"
-            style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, backgroundColor: c.foreground + '14', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
-            <Ionicons name="close" size={18} color={c.foreground} />
+            style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, backgroundColor: c.foreground + '14', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+            <Ionicons name="close" size={19} color={c.foreground} />
           </Pressable>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: DOCK_H + insets.bottom + 24, minHeight: first ? height - insets.top - 60 : undefined }}>
-          {first ? (
-            /* Before the first take: the drawing, and what the room does, in one breath. */
-            <Animated.View entering={FadeIn.duration(360)} style={{ alignItems: 'center', paddingHorizontal: 36, paddingTop: height * 0.08 }}>
-              <Sketch name="tripod" size={Math.min(200, width * 0.5)} stroke={c.foreground} />
-              <Text style={{ marginTop: 26, fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.4, color: c.foreground, textAlign: 'center' }}>Your first take</Text>
-              <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>(say “action”. act. say “cut”. it lands here.)</StageDirection>
-            </Animated.View>
-          ) : (
-            /* The drawing, small, with the count beside it. */
-            <Animated.View entering={FadeIn.duration(300)} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 24, paddingTop: 8 }}>
-              <Sketch name="tripod" size={78} stroke={c.foreground} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: SERIF, fontSize: 28, lineHeight: 32, color: c.foreground }}>
-                  {takes.length} {takes.length === 1 ? 'take' : 'takes'}
-                </Text>
-                <Text style={{ marginTop: 2, fontFamily: SANS, fontSize: 13.5, color: c.mutedForeground }}>
-                  {keptCount ? `${keptCount} kept · ` : ''}on this phone only
-                </Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+          {/* What you are taping: the dropdown. */}
+          <Animated.View entering={FadeInDown.duration(340).easing(EASE)}>
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setPicking(true); }} accessibilityRole="button"
+              accessibilityLabel={`Taping ${piece.name}. Change it.`}
+              style={({ pressed }) => ({ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 18, backgroundColor: c.paper, borderWidth: 1.5, borderColor: c.cardBorder, transform: [{ scale: pressed ? 0.99 : 1 }], opacity: pressed ? 0.9 : 1 })}>
+              <Sketch name={piece.id === SLATE_TAPE ? 'masks' : piece.id === FREE_TAPE ? 'scriptPages' : 'tripod'} size={56} stroke={c.paperInk} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: CAPS, fontSize: 10.5, letterSpacing: 1.3, textTransform: 'uppercase', color: c.accentText }}>Taping</Text>
+                <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SERIF, fontSize: 26, lineHeight: 30, color: c.paperInk }}>{piece.name}</Text>
+                {piece.source ? <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 13, color: c.paperMuted }}>{piece.source}</Text> : null}
               </View>
-            </Animated.View>
-          )}
-
-          {/* Due this week, still to send: a card each, the clapper on it. */}
-          {due.map((a, i) => (
-            <Animated.View key={a.id} entering={FadeInDown.delay(80 + i * 60).duration(320)}>
-              <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push(tapeHref(a)); }} accessibilityRole="button"
-                accessibilityLabel={`Tape due ${dayLabel(a.when!)} ${clockLabel(a.when!)}, ${a.project}`}
-                style={({ pressed }) => ({ marginHorizontal: 24, marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 16, backgroundColor: c.paper, borderWidth: 1.5, borderColor: c.cardBorder, opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
-                <Sketch name="clapper" size={44} stroke={c.paperInk} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontFamily: 'BricolageGrotesque_700Bold', fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: c.accentText }}>
-                    Due {dayLabel(a.when!)} {clockLabel(a.when!)}
-                  </Text>
-                  <Text numberOfLines={1} style={{ marginTop: 2, fontFamily: SERIF, fontSize: 21, color: c.paperInk }}>{a.project}</Text>
-                  {a.role ? <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 12.5, color: c.paperMuted }}>{a.role}</Text> : null}
-                </View>
-                <Ionicons name="videocam" size={18} color={c.accentText} />
-              </Pressable>
-            </Animated.View>
-          ))}
-
-          {!first ? (
-            <>
-              <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 24, paddingTop: 26, paddingBottom: 14 }}>
-                {filter(`All · ${takes.length}`, !kept, () => setKept(false))}
-                {filter(`Kept · ${keptCount}`, kept, () => setKept(true))}
+              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.paperInk + '12', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="chevron-down" size={17} color={c.paperInk} />
               </View>
-              {shown.length === 0 ? (
-                <StageDirection style={{ paddingHorizontal: 24, paddingTop: 20, textAlign: 'center' }}>(nothing kept yet. star a take to keep it.)</StageDirection>
-              ) : (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap, paddingHorizontal: 24 }}>
-                  {shown.map((t, i) => (
-                    <Animated.View key={t.id} entering={FadeInDown.delay(Math.min(i, 10) * 35).duration(300)}>
-                      <Still take={t} width={cell} onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push(takeHref(t)); }} />
-                    </Animated.View>
-                  ))}
-                </View>
-              )}
-            </>
+            </Pressable>
+
+            {/* The way in, right under it. */}
+            <Pressable onPress={start} accessibilityRole="button" accessibilityLabel={`Start taping ${piece.name}`}
+              style={({ pressed }) => ({ marginTop: 12, height: 62, borderRadius: 999, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#fff' }} />
+              <Text style={{ fontFamily: SANS_B, fontSize: 17.5, color: '#fff' }}>Start taping</Text>
+            </Pressable>
+            <StageDirection style={{ marginTop: 10, textAlign: 'center' }}>(say “action” to roll, “cut” to stop.)</StageDirection>
+          </Animated.View>
+
+          {/* Due this week, still to send. */}
+          {due.length ? (
+            <View style={{ marginTop: 30 }}>
+              <Text style={{ fontFamily: CAPS, fontSize: 11, letterSpacing: 1.3, textTransform: 'uppercase', color: c.mutedForeground, marginBottom: 6 }}>Due this week</Text>
+              {due.map((a, i) => (
+                <Animated.View key={a.id} entering={FadeInDown.delay(80 + i * 60).duration(320)}>
+                  <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.replace(tapeHref(a)); }} accessibilityRole="button"
+                    accessibilityLabel={`Tape ${a.project}, due ${dayLabel(a.when!)} ${clockLabel(a.when!)}`}
+                    style={({ pressed }) => ({ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.6 : 1 })}>
+                    <Sketch name="clapper" size={40} stroke={c.foreground} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 21, color: c.foreground }}>{a.project}</Text>
+                      <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 13, color: c.mutedForeground }}>Due {dayLabel(a.when!)} {clockLabel(a.when!)}{a.role ? ` · ${a.role}` : ''}</Text>
+                    </View>
+                    <Ionicons name="videocam" size={17} color={c.accentText} />
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </View>
           ) : null}
+
+          {/* Your takes. */}
+          <View style={{ marginTop: 30 }}>
+            {takes.length === 0 ? (
+              <Animated.View entering={FadeIn.duration(360)} style={{ alignItems: 'center', paddingTop: 10 }}>
+                <Sketch name="tripod" size={Math.min(150, width * 0.4)} stroke={c.foreground} />
+                <Text style={{ marginTop: 18, fontFamily: SERIF, fontSize: 26, color: c.foreground }}>Your takes land here</Text>
+                <StageDirection style={{ marginTop: 6, textAlign: 'center' }}>(on this phone only. nothing is uploaded.)</StageDirection>
+              </Animated.View>
+            ) : (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <Text style={{ fontFamily: SERIF, fontSize: 26, color: c.foreground }}>Your takes</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {filter(`All ${takes.length}`, !kept, () => setKept(false))}
+                    {filter(`Kept ${keptCount}`, kept, () => setKept(true))}
+                  </View>
+                </View>
+                {shown.length === 0 ? (
+                  <StageDirection style={{ paddingTop: 16, textAlign: 'center' }}>(nothing kept yet. star a take to keep it.)</StageDirection>
+                ) : (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+                    {shown.map((t, i) => (
+                      <Animated.View key={t.id} entering={FadeInDown.delay(Math.min(i, 10) * 35).duration(300)}>
+                        <Still take={t} width={cell} onPress={() => { Haptics.selectionAsync().catch(() => {}); router.replace(takeHref(t)); }} />
+                      </Animated.View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </View>
         </ScrollView>
       </SafeAreaView>
 
-      {/* The dock: the room's own record button, at the thumb, on a fade. */}
-      <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: DOCK_H + insets.bottom }}>
-        <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
-          <Rect x={0} y={0} width={width} height={DOCK_H + insets.bottom}>
-            <LinearGradient start={vec(0, 0)} end={vec(0, 56)} colors={[c.background + '00', c.background]} />
-          </Rect>
-        </Canvas>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ gap: 8, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 14 }}>
-          {choices.map((p) => {
-            const on = p.id === piece.id;
-            return (
-              <Pressable key={p.id} onPress={() => choose(p.id, p.name)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`Tape ${p.name}`}
-                style={({ pressed }) => ({ height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary : c.background, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.75 : 1 })}>
-                {p.id === SLATE_TAPE ? <Ionicons name="person-circle-outline" size={14} color={on ? '#fff' : c.foreground} /> : p.id === FREE_TAPE ? <Ionicons name="create-outline" size={14} color={on ? '#fff' : c.foreground} /> : null}
-                <Text numberOfLines={1} style={{ maxWidth: 150, fontFamily: p.id === SLATE_TAPE || p.id === FREE_TAPE ? SANS_B : SERIF, fontSize: p.id === SLATE_TAPE || p.id === FREE_TAPE ? 13 : 17, color: on ? '#fff' : c.foreground }}>{p.name}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-        <View style={{ alignItems: 'center' }}>
-          <RecordDock onPress={start} label={piece.name ? `Tape ${piece.name}` : 'Tape yourself'} pulse={first} />
-        </View>
-      </View>
+      {picking ? (
+        <PiecePicker
+          current={piece.id}
+          lately={lately}
+          inBook={inBook}
+          onClose={() => setPicking(false)}
+          onPick={(p) => { Haptics.selectionAsync().catch(() => {}); setPiece(p); setPicking(false); }}
+        />
+      ) : null}
     </View>
   );
 }
 
-/** The way in: the room's record button in the house orange, a camera in it, its name under it. */
-function RecordDock({ onPress, label, pulse }: { onPress: () => void; label: string; pulse: boolean }) {
+/** The dropdown's list: a sheet up from the foot, Lately, then the Book, then the slate and none. */
+function PiecePicker({ current, lately, inBook, onClose, onPick }: { current: string; lately: Piece[]; inBook: Piece[]; onClose: () => void; onPick: (p: Piece) => void }) {
   const { colors: c } = useTheme();
-  const reduce = useReducedMotion();
-  const breathe = useSharedValue(1);
-  useEffect(() => {
-    // Before the first take it breathes, once a second or so, to say "here".
-    breathe.value = pulse && !reduce ? withRepeat(withSequence(withTiming(0.9, { duration: 900 }), withTiming(1, { duration: 900 })), -1) : withTiming(1);
-  }, [pulse, reduce, breathe]);
-  const core = useAnimatedStyle(() => ({ transform: [{ scale: breathe.value }] }));
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const row = (p: Piece, icon?: React.ComponentProps<typeof Ionicons>['name']) => {
+    const on = p.id === current;
+    return (
+      <Pressable key={p.id} onPress={() => onPick(p)} accessibilityRole="button" accessibilityState={{ selected: on }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: 22, backgroundColor: pressed || on ? c.foreground + '0d' : 'transparent' })}>
+        {icon ? <Ionicons name={icon} size={18} color={on ? c.accentText : c.mutedForeground} /> : <View style={{ width: 18 }} />}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ fontFamily: SERIF, fontSize: 21, color: c.foreground }}>{p.name}</Text>
+          {p.source ? <Text numberOfLines={1} style={{ fontFamily: SANS, fontSize: 12.5, color: c.mutedForeground }}>{p.source}</Text> : null}
+        </View>
+        {on ? <Ionicons name="checkmark" size={19} color={c.accentText} /> : null}
+      </Pressable>
+    );
+  };
+  const label = (t: string) => (
+    <Text style={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 4, fontFamily: CAPS, fontSize: 10.5, letterSpacing: 1.3, textTransform: 'uppercase', color: c.mutedForeground }}>{t}</Text>
+  );
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={12} style={{ alignItems: 'center' }}>
-      {({ pressed }) => (
-        <>
-          <View style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: c.foreground, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] }}>
-            <Animated.View style={[core, { width: 60, height: 60, borderRadius: 30, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }]}>
-              <Ionicons name="videocam" size={22} color="#fff" />
-            </Animated.View>
-          </View>
-          <Text numberOfLines={1} style={{ marginTop: 8, maxWidth: 280, fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>{label}</Text>
-        </>
-      )}
-    </Pressable>
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(160)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,5,4,0.45)' }}>
+        <Pressable onPress={onClose} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel="Close" />
+      </Animated.View>
+      <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: height * 0.78, backgroundColor: c.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: insets.bottom + 8 }}>
+        <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, marginTop: 10 }} />
+        <Text style={{ paddingHorizontal: 22, paddingTop: 14, fontFamily: SERIF, fontSize: 28, color: c.foreground }}>What are you taping?</Text>
+        <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
+          {lately.length ? label('Lately') : null}
+          {lately.map((p) => row(p, 'time-outline'))}
+          {inBook.length ? label('In your Book') : null}
+          {inBook.map((p) => row(p, 'bookmark-outline'))}
+          {label('Or')}
+          {row(SLATE, 'person-circle-outline')}
+          {row(NONE, 'create-outline')}
+        </ScrollView>
+      </Animated.View>
+    </View>
   );
 }

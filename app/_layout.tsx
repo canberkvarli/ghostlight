@@ -363,7 +363,7 @@ function Shell() {
         {/* The rehearsal room for a monologue: a sheet over the page; pull it down to come back to the words. */}
         <Stack.Screen name="run/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="callboard" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="tapes" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="tapes" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="tape/[id]" options={{ presentation: 'fullScreenModal', animation: 'fade', animationDuration: 320 }} />
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
