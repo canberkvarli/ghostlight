@@ -72,7 +72,6 @@ import {
 } from '../../src/lib/takes';
 import { canExport, canJoin, exportJoined, exportTake } from '../../modules/tape-export';
 import { castingName, DEFAULT_SETTINGS, loadTapeSettings, saveTapeSettings, slateLines, type TapeSettings } from '../../src/lib/tapeSettings';
-import { playTone, prepareTones, releaseTones, ROLL_TONE_MS } from '../../src/lib/tapeTones';
 
 /**
  * Tape it: the self-tape room.
@@ -134,8 +133,25 @@ export default function TapeRoom() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   useEffect(() => { loadTapeSettings().then((s) => { setSettingsState(s); setSettingsLoaded(true); }).catch(() => setSettingsLoaded(true)); }, []);
   const setSettings = useCallback((next: TapeSettings) => { setSettingsState(next); void saveTapeSettings(next); }, []);
-  // The tones' audio is set up now, before the camera, never mid-take.
-  useEffect(() => { void prepareTones(); return () => releaseTones(); }, []);
+  // The cue that it heard you, for an actor across the room: light, not
+  // sound. Sound meant changing the audio session, which can black out the
+  // camera's picture and stop it recording (2026-11-10). The back camera
+  // blinks its torch; the front, which faces you, flashes the screen. Both
+  // land just before the recording starts and just after it stops.
+  const [torch, setTorch] = useState(false);
+  const blink = useSharedValue(0);
+  const blinkStyle = useAnimatedStyle(() => ({ opacity: blink.value }));
+  const signal = useCallback(async () => {
+    if (!settingsRef.current.tones) return;
+    if (settingsRef.current.facing === 'back') {
+      setTorch(true);
+      await new Promise((r) => setTimeout(r, 260));
+      setTorch(false);
+    } else {
+      blink.value = withSequence(withTiming(0.85, { duration: 70 }), withTiming(0, { duration: 260 }));
+      await new Promise((r) => setTimeout(r, 330));
+    }
+  }, [blink]);
 
   const slate = id === SLATE_TAPE;
   const free = !id || id === FREE_TAPE || slate;
@@ -380,11 +396,13 @@ export default function TapeRoom() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     // The tone first, so it is heard across the room and is not in the take.
+    // The signal first, so it is seen across the room and is not in the take,
+    // then a breath for the camera's exposure to settle after the light.
     if (settingsRef.current.tones) {
-      void playTone('roll');
-      await new Promise((r) => setTimeout(r, ROLL_TONE_MS));
-      if (!camera.current) return;
+      await signal();
+      await new Promise((r) => setTimeout(r, 280));
     }
+    if (!camera.current) return;
     ear.current?.reset();
     heard.current = { words: [], at: [] };
     read.current = EMPTY_READ;
@@ -414,7 +432,7 @@ export default function TapeRoom() {
       .then(() => { if (recording.current === rec && phaseRef.current === 'rolling' && !stopping.current) void stopRef.current(null); })
       // The camera would not record: not a take that runs on with nothing in it.
       .catch((e) => { if (recording.current === rec && !stopping.current) failTake('error', e instanceof Error ? e.message : String(e)); });
-  }, [setPhase, failTake]);
+  }, [setPhase, failTake, signal]);
 
   // The take that just went to Tapes: "keeper" stars it, tapping it plays it.
   const justCut = useRef<Take | null>(null);
@@ -447,7 +465,7 @@ export default function TapeRoom() {
     const uri: string | undefined = got ?? undefined;
     recording.current = null;
     setSaving(false);
-    if (settingsRef.current.tones) void playTone('cut');
+    void signal();
     track('app_tape_cut', { via: hit ? 'voice' : 'tap', seconds: Math.round(endMs / 1000), kept: !discard });
     if (!uri) { stopping.current = false; setPhase('ready'); setNotice('(that take didn’t save. try again.)'); return; }
     if (discard) {
@@ -474,7 +492,7 @@ export default function TapeRoom() {
     justCut.current = take;
     setFlight(take);
     setPhase('ready');
-  }, [id, free, slate, monologue?.character, monologue?.source, auditionId, setPhase, failTake]);
+  }, [id, free, slate, monologue?.character, monologue?.source, auditionId, setPhase, failTake, signal]);
   stopRef.current = stop;
 
   // A take that is thrown away by voice goes straight into the next one.
@@ -742,6 +760,7 @@ export default function TapeRoom() {
           facing={facing}
           mode="video"
           videoQuality={settings.quality}
+          enableTorch={torch && facing === 'back'}
           videoStabilizationMode={facing === 'back' && settings.steady ? 'auto' : 'off'}
           responsiveOrientationWhenOrientationLocked
           onResponsiveOrientationChanged={({ orientation }) => {
@@ -751,6 +770,9 @@ export default function TapeRoom() {
           onCameraReady={() => { TapeEar.speakerOut(); setCameraReady(true); }}
         />
       ) : null}
+
+      {/* The front camera's signal: the screen, flashed white. */}
+      <Animated.View pointerEvents="none" style={[blinkStyle, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: WHITE }]} />
 
       {/* The eye line, before a take: a hairline a third of the way down. */}
       {allowed && phase === 'ready' ? (
@@ -1645,7 +1667,7 @@ function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: Tap
     <Sheet title="Tape settings" onClose={onClose}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 18 }}>
         <SheetLabel>Sound</SheetLabel>
-        <Row label="A tone when it rolls and cuts" sub="So you know it heard you from across the room.">
+        <Row label="A flash when it rolls and cuts" sub="The torch on the back camera, the screen on the front. You see it heard you from across the room.">
           <Toggle on={settings.tones} onPress={() => onChange({ ...settings, tones: !settings.tones })} />
         </Row>
         <SheetLabel>Picture</SheetLabel>

@@ -15,6 +15,7 @@ import { useTakeList } from '../src/hooks/useCallboard';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { useTheme } from '../src/theme/ThemeContext';
 import { useAuditions } from '../src/hooks/useAuditions';
+import { useFavorites } from '../src/hooks/useFavorites';
 import { useSession } from '../src/lib/useSession';
 import { loadRecents, type RecentPiece } from '../src/lib/recents';
 import { FREE_TAPE, lastTapePiece, SLATE_TAPE } from '../src/lib/takes';
@@ -25,17 +26,17 @@ import { clockLabel, dayLabel } from '../src/lib/when';
 const SERIF = 'InstrumentSerif_400Regular';
 const SANS = 'BricolageGrotesque_500Medium';
 const SANS_B = 'BricolageGrotesque_600SemiBold';
-const ROLL_RED = '#e5484d';
-/** The dock at the foot: the record button and its name. */
-const DOCK_H = 132;
+/** The dock at the foot: which piece, the button, and its name. */
+const DOCK_H = 186;
 
 /**
  * Tape: the page the Tape tab opens.
  *
  * The drawing at the top (a phone on a tripod), anything due this week,
  * then your takes, two to a row. The way in sits at the foot where the thumb
- * is: the same red record button the room has, named for the piece, so the
- * page and the room read as one place. Holding the Tape tab skips the page.
+ * is: which piece, as a row of chips (recent, the Book, the slate, none),
+ * and the orange button, named for it. Choosing is right there, not a step
+ * of its own. Holding the Tape tab skips the page.
  */
 export default function TapesScreen() {
   const router = useRouter();
@@ -61,6 +62,25 @@ export default function TapesScreen() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [takes.length]);
+  // The choices: what you read lately and what is in your Book, then the slate and none.
+  const [recentList, setRecentList] = useState<RecentPiece[]>([]);
+  useEffect(() => { loadRecents().then(setRecentList).catch(() => {}); }, []);
+  const { data: book } = useFavorites(isAuthenticated);
+  const choices = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; name: string }[] = [];
+    const add = (id: string, name: string) => { if (!id || seen.has(id)) return; seen.add(id); out.push({ id, name }); };
+    if (piece.name && piece.id !== FREE_TAPE && piece.id !== SLATE_TAPE) add(piece.id, piece.name);
+    for (const r of recentList.slice(0, 6)) add(r.id, r.character);
+    for (const m of (book ?? []).slice(0, 8)) add(String(m.id), m.character);
+    add(SLATE_TAPE, 'Slate');
+    add(FREE_TAPE, 'No script');
+    return out;
+  }, [recentList, book, piece.id, piece.name]);
+  const choose = (id: string, name: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setPiece({ id, name: id === FREE_TAPE ? null : id === SLATE_TAPE ? 'your slate' : name });
+  };
   const due = useMemo(() => (auditions ?? []).filter((a) => tapeDue(a)).sort((x, y) => Date.parse(x.when!) - Date.parse(y.when!)), [auditions]);
   const start = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -162,7 +182,20 @@ export default function TapesScreen() {
             <LinearGradient start={vec(0, 0)} end={vec(0, 56)} colors={[c.background + '00', c.background]} />
           </Rect>
         </Canvas>
-        <View style={{ alignItems: 'center', paddingTop: 18 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ gap: 8, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 14 }}>
+          {choices.map((p) => {
+            const on = p.id === piece.id;
+            return (
+              <Pressable key={p.id} onPress={() => choose(p.id, p.name)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`Tape ${p.name}`}
+                style={({ pressed }) => ({ height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary : c.background, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.75 : 1 })}>
+                {p.id === SLATE_TAPE ? <Ionicons name="person-circle-outline" size={14} color={on ? '#fff' : c.foreground} /> : p.id === FREE_TAPE ? <Ionicons name="create-outline" size={14} color={on ? '#fff' : c.foreground} /> : null}
+                <Text numberOfLines={1} style={{ maxWidth: 150, fontFamily: p.id === SLATE_TAPE || p.id === FREE_TAPE ? SANS_B : SERIF, fontSize: p.id === SLATE_TAPE || p.id === FREE_TAPE ? 13 : 17, color: on ? '#fff' : c.foreground }}>{p.name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={{ alignItems: 'center' }}>
           <RecordDock onPress={start} label={piece.name ? `Tape ${piece.name}` : 'Tape yourself'} pulse={first} />
         </View>
       </View>
@@ -170,7 +203,7 @@ export default function TapesScreen() {
   );
 }
 
-/** The room's record button, as the way in: a white ring, the red disc, its name under it. */
+/** The way in: the room's record button in the house orange, a camera in it, its name under it. */
 function RecordDock({ onPress, label, pulse }: { onPress: () => void; label: string; pulse: boolean }) {
   const { colors: c } = useTheme();
   const reduce = useReducedMotion();
@@ -185,7 +218,9 @@ function RecordDock({ onPress, label, pulse }: { onPress: () => void; label: str
       {({ pressed }) => (
         <>
           <View style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: c.foreground, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] }}>
-            <Animated.View style={[core, { width: 60, height: 60, borderRadius: 30, backgroundColor: ROLL_RED }]} />
+            <Animated.View style={[core, { width: 60, height: 60, borderRadius: 30, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="videocam" size={22} color="#fff" />
+            </Animated.View>
           </View>
           <Text numberOfLines={1} style={{ marginTop: 8, maxWidth: 280, fontFamily: SANS_B, fontSize: 14, color: c.foreground }}>{label}</Text>
         </>
