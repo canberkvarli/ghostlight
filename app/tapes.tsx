@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
@@ -78,10 +78,20 @@ export default function TapesScreen() {
   }, [book, lately]);
 
   const due = useMemo(() => (auditions ?? []).filter((a) => tapeDue(a)).sort((x, y) => Date.parse(x.when!) - Date.parse(y.when!)), [auditions]);
+  // The camera opens from the tabs, the way it did when it worked: this page
+  // closes first, then the room comes up. Swapping this full-screen modal for
+  // the room in one step left the camera black and a take that would not stop
+  // (2026-11-11): the camera reports ready, then loses its session in the swap.
+  const leaving = useRef(false);
+  const openRoom = (href: Href) => {
+    if (leaving.current) return;
+    leaving.current = true;
+    router.back();
+    setTimeout(() => router.push(href), 450);
+  };
   const start = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    // Swapped for the camera, not stacked under it.
-    router.replace({ pathname: '/tape/[id]', params: { id: piece.id } } as Href);
+    openRoom({ pathname: '/tape/[id]', params: { id: piece.id } } as Href);
   };
   const shown = takes.filter((t) => !kept || t.starred);
   const keptCount = takes.filter((t) => t.starred).length;
@@ -165,7 +175,7 @@ export default function TapesScreen() {
               <Text style={{ fontFamily: CAPS, fontSize: 11, letterSpacing: 1.3, textTransform: 'uppercase', color: c.mutedForeground, marginBottom: 2 }}>Due this week</Text>
               {due.map((a, i) => (
                 <Animated.View key={a.id} entering={FadeInDown.delay(80 + i * 60).duration(320)}>
-                  <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.replace(tapeHref(a)); }} accessibilityRole="button"
+                  <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); openRoom(tapeHref(a)); }} accessibilityRole="button"
                     accessibilityLabel={`Tape ${a.project}, due ${dayLabel(a.when!)} ${clockLabel(a.when!)}`}
                     style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.divider, opacity: pressed ? 0.6 : 1 })}>
                     <Sketch name="clapper" size={40} stroke={c.foreground} />
@@ -205,7 +215,7 @@ export default function TapesScreen() {
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
                     {shown.map((t, i) => (
                       <Animated.View key={t.id} entering={FadeInDown.delay(Math.min(i, 10) * 35).duration(300)}>
-                        <Still take={t} width={cell} onPress={() => { Haptics.selectionAsync().catch(() => {}); router.replace(takeHref(t)); }} />
+                        <Still take={t} width={cell} onPress={() => { Haptics.selectionAsync().catch(() => {}); openRoom(takeHref(t)); }} />
                       </Animated.View>
                     ))}
                   </View>

@@ -349,7 +349,8 @@ export default function TapeRoom() {
   // session is already set when the recogniser builds on it.
   useEffect(() => {
     if (!cameraReady || !allowed || earOff || ear.current) return;
-    const t = setTimeout(() => { void startEar(); }, 350);
+    // A full second: the picture is up before the recogniser touches the audio session.
+    const t = setTimeout(() => { void startEar(); }, 1000);
     return () => clearTimeout(t);
   }, [cameraReady, allowed, earOff, startEar]);
   useEffect(() => { if (ear.current && script.length) ear.current.prime(script); }, [script]);
