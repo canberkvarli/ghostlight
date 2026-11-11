@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Pressable, ScrollView, Share, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions, useMicrophonePermissions, type CameraType } from 'expo-camera';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -1686,6 +1686,7 @@ function TapeCell({ take, size, on, onPress }: { take: Take; size: number; on: b
  * typed once and kept on the phone.
  */
 function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: TapeSettings; onChange: (s: TapeSettings) => void; onClose: () => void; onSlate: () => void }) {
+  const checkRouter = useRouter();
   const [slate, setSlate] = useState(settings.slate);
   const keep = (next: typeof slate) => { setSlate(next); onChange({ ...settings, slate: next }); };
   const field = (key: keyof typeof slate, label: string, placeholder: string) => (
@@ -1704,6 +1705,11 @@ function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: Tap
   return (
     <Sheet title="Tape settings" onClose={onClose}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 18 }}>
+        {/* Temporary: the black-picture test bench. The room closes first so two cameras never run at once. */}
+        <Pressable onPress={() => { onClose(); checkRouter.back(); setTimeout(() => checkRouter.push('/tape-check' as Href), 500); }} accessibilityRole="button"
+          style={{ marginHorizontal: 22, marginTop: 4, marginBottom: 6, height: 46, borderRadius: 23, backgroundColor: 'rgba(194,78,16,0.9)', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: SANS_M, fontSize: 15, color: WHITE }}>Camera check (black picture)</Text>
+        </Pressable>
         <SheetLabel>Sound</SheetLabel>
         <Row label="A flash when it rolls and cuts" sub="The torch on the back camera, the screen on the front. You see it heard you from across the room.">
           <Toggle on={settings.tones} onPress={() => onChange({ ...settings, tones: !settings.tones })} />

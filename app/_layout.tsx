@@ -365,6 +365,7 @@ function Shell() {
         <Stack.Screen name="callboard" options={{ presentation: 'modal' }} />
         <Stack.Screen name="tapes" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="tape/[id]" options={{ presentation: 'fullScreenModal', animation: 'fade', animationDuration: 320 }} />
+        <Stack.Screen name="tape-check" options={{ presentation: 'fullScreenModal' }} />
         {/* Auth is a sheet raised over a save (spec §5), not a full push. */}
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', gestureEnabled: false }} />
