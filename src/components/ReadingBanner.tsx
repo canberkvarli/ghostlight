@@ -100,6 +100,11 @@ export function ReadingBanner() {
     if (done) toShelf(done.id);
     else setDetails(true);
   };
+  // "Untitled Script" is the server's stand-in until the read learns the
+  // real title (it writes it back, and the shelf head is polled every few
+  // seconds), so it is never said: the card says "your sides" until then.
+  const named = (t?: string | null) => (t && !/^untitled( script)?$/i.test(t.trim()) ? t.trim() : null);
+  const title = named(reading?.title);
   const step = p?.step ? stepOf(p.step) : null;
   const stepAt = Math.max(0, Math.min(step ?? 0, SCRIPT_STEP_COUNT - 1));
   const stepWords = scriptSteps()[stepAt].replace(/\.$/, '');
@@ -124,8 +129,8 @@ export function ReadingBanner() {
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14.5, color: '#f7f3ec' }}>{L('Your sides are in.', 'Metnin hazır.')}</Text>
-              <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: '#b5ada3' }}>
-                ({done.title}{done.scenes ? `, ${done.scenes} ${L(done.scenes === 1 ? 'scene' : 'scenes', 'sahne')}` : ''}.)
+              <Text numberOfLines={2} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: '#b5ada3' }}>
+                ({named(done.title) ?? L('your sides', 'metnin')}{done.scenes ? `, ${done.scenes} ${L(done.scenes === 1 ? 'scene' : 'scenes', 'sahne')}` : ''}.)
               </Text>
             </View>
             <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: c.yellow }}>{L('Open', 'Aç')}</Text>
@@ -135,8 +140,8 @@ export function ReadingBanner() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <GhostLight size={16} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: '#f7f3ec' }}>{L(`Reading ${reading?.title ?? 'your sides'}`, `Okunuyor: ${reading?.title ?? 'metnin'}`)}</Text>
-                <Text numberOfLines={1} style={{ marginTop: 1, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, color: '#b5ada3' }}>{L(`(${aboutLeft(left)} we will say when it is in.)`, `(${aboutLeft(left)} hazır olunca haber gelir.)`)}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 14, color: '#f7f3ec' }}>{title ? L(`Reading ${title}`, `Okunuyor: ${title}`) : L('Reading your sides', 'Metnin okunuyor')}</Text>
+                <Text numberOfLines={2} style={{ marginTop: 2, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12, lineHeight: 16, color: '#b5ada3' }}>{`(${stepWords.toLowerCase()}, ${aboutLeft(left)})`}</Text>
               </View>
             </View>
             <View style={{ marginTop: 10, height: 3, borderRadius: 1.5, backgroundColor: '#3a2c24', overflow: 'hidden' }}>
@@ -153,7 +158,8 @@ export function ReadingBanner() {
             style={{ backgroundColor: c.panel, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: c.border, paddingHorizontal: 24, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 10 }}>
             <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: c.border, marginBottom: 16 }} />
             <Text style={{ fontFamily: 'BricolageGrotesque_600SemiBold', fontSize: 11, letterSpacing: 1.6, color: c.mutedForeground }}>{L('READING YOUR SIDES', 'METNİN OKUNUYOR')}</Text>
-            <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>{reading?.title ?? L('Your sides', 'Metnin')}</Text>
+            <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: 'InstrumentSerif_400Regular', fontSize: 30, lineHeight: 34, letterSpacing: -0.4, color: c.foreground }}>{title ?? L('Your sides', 'Metnin')}</Text>
+            {!title ? <Text style={{ marginTop: 2, fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>{L('(the title shows here as soon as I find it.)', '(adını bulur bulmaz burada görünür.)')}</Text> : null}
 
             <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <GhostLight size={14} />
@@ -167,7 +173,7 @@ export function ReadingBanner() {
               <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>{since ? L(`(reading for ${since}.)`, `(${since} süredir okunuyor.)`) : L('(just begun.)', '(daha yeni başladı.)')}</Text>
               <Text style={{ fontFamily: 'CourierPrime_400Regular_Italic', fontSize: 12.5, color: c.mutedForeground }}>{L(`(${aboutLeft(left).replace(/\.$/, '')} left.)`, `(kalan: ${aboutLeft(left).replace(/\.$/, '')}.)`)}</Text>
             </View>
-            <StageDirection numberOfLines={2} style={{ marginTop: 16 }}>{L('(it keeps reading wherever you go. you will be told when it is in.)', '(sen nereye gidersen git okumaya devam eder. hazır olunca haber gelir.)')}</StageDirection>
+            <StageDirection numberOfLines={3} style={{ marginTop: 16 }}>{L('(it keeps reading wherever you go. I’ll tell you when it’s in.)', '(sen nereye gidersen git okumaya devam eder. hazır olunca haber veririm.)')}</StageDirection>
 
             {stopping ? (
               <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: 22, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border }}>
