@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GuidedPick, GuidedScene } from '../api/rehearsal';
 import type { ScenePayload } from '../rehearsal/contract';
 import { sameCharacter } from '../rehearsal/contract';
+import { supabase } from './supabase';
 
 /**
  * The first scenes: what the phone remembers about them, and how each key is
@@ -23,6 +24,18 @@ export async function hadAccount(): Promise<boolean> {
 }
 export async function markHadAccount(): Promise<void> {
   try { await AsyncStorage.setItem(HAD_ACCOUNT, '1'); } catch { /* the front door again, at worst */ }
+}
+
+/** This phone has put the welcome to the account signed in now. Keyed by account. */
+const WELCOMED = 'ghostlight:welcomed.v1:';
+export async function welcomedHere(userId: string): Promise<boolean> {
+  try { return (await AsyncStorage.getItem(WELCOMED + userId)) === '1'; } catch { return true; }
+}
+export async function markWelcomed(userId?: string): Promise<void> {
+  try {
+    const id = userId ?? (await supabase.auth.getSession()).data.session?.user.id;
+    if (id) await AsyncStorage.setItem(WELCOMED + id, '1');
+  } catch { /* asked again at worst, and the account's own flag stops that */ }
 }
 
 export async function demoSeen(): Promise<boolean> {

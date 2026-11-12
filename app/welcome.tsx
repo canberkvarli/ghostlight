@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,12 +10,13 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { GhostLight } from '../src/components/GhostLight';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { markDemoSeen } from '../src/lib/demo';
+import { markDemoSeen, markWelcomed } from '../src/lib/demo';
+import { roomFor } from './first-night';
 import { track } from '../src/lib/analytics';
 import { PLAYS_KEY, type Plays } from '../src/lib/plays';
 import { supabase } from '../src/lib/supabase';
 import { useTheme } from '../src/theme/ThemeContext';
-import { pick, useL } from '../src/i18n';
+import { monologueRoomsShown, pick, useL, useLocale } from '../src/i18n';
 
 const SERIF = 'InstrumentSerif_400Regular';
 const SERIF_I = 'InstrumentSerif_400Regular_Italic';
@@ -61,8 +62,8 @@ const SOURCES = (): { value: string; label: string }[] => [
  * Three quick questions after the account is made, one screen each, every one
  * skippable: what you are working on, what you play, how you heard of us. The
  * first two shape the app from the first night (Search opens on your house);
- * the third is ours. Nothing is sold here: the app opens on the Scene room,
- * where they began, and the paywall waits for a moment they earn.
+ * the third is ours. Nothing is sold here: the first answer opens its own room
+ * (app/first-night.tsx), and the paywall waits for a moment they earn.
  */
 export default function Welcome() {
   const router = useRouter();
@@ -74,9 +75,16 @@ export default function Welcome() {
   const [busy, setBusy] = useState(false);
   const L = useL();
 
+  // The first answer picks the first night. Turkish has no monologue rooms: the
+  // scene partner is home there, as before.
+  const [workingOn, setWorkingOn] = useState<string | null>(null);
+  const locale = useLocale();
+  useEffect(() => { void markWelcomed(); }, []);
   const finish = () => {
     void markDemoSeen();
-    router.replace('/rehearse');
+    void supabase.auth.updateUser({ data: { welcomed: '1' } }).catch(() => {});
+    if (!monologueRoomsShown(locale)) { router.replace('/rehearse'); return; }
+    router.replace({ pathname: '/first-night', params: { room: roomFor(workingOn) } });
   };
   const skip = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -94,6 +102,7 @@ export default function Welcome() {
     setBusy(true);
     Haptics.selectionAsync().catch(() => {});
     track('onboarding_working_on', { on: key });
+    setWorkingOn(key);
     void AsyncStorage.setItem(WORKING_ON_KEY, key).catch(() => {});
     remember({ working_on: key });
     setTimeout(() => { setBusy(false); setStep(2); }, 320);

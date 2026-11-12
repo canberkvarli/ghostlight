@@ -74,10 +74,11 @@ export default function AddSides() {
   const router = useRouter();
   const goBack = useGoBack('/rehearse');
   const { tiltX, tiltY } = useStageMotion();
-  const { uri, name } = useLocalSearchParams<{ uri?: string; name?: string }>();
+  const { uri, name, door } = useLocalSearchParams<{ uri?: string; name?: string; door?: string }>();
   const upload = useUploadScript();
   const paste = useScriptFromText();
-  const [mode, setMode] = useState<'doors' | 'paste'>('doors');
+  // The first night says which door was chosen: paste opens on the box, files on the picker.
+  const [mode, setMode] = useState<'doors' | 'paste'>(door === 'paste' ? 'paste' : 'doors');
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const [how, setHow] = useState<'files' | 'share' | 'paste'>('files');
@@ -181,6 +182,15 @@ export default function AddSides() {
     const a = res.assets[0];
     sendFile({ uri: a.uri, name: named(a.name, a.mimeType), mimeType: a.mimeType ?? undefined }, 'files');
   };
+
+  const picked = useRef(false);
+  useEffect(() => {
+    if (door !== 'files' || uri || picked.current) return;
+    picked.current = true;
+    const t = setTimeout(() => { void pick(); }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [door]);
 
   const sendText = () => {
     const body = text.trim();

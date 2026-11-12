@@ -81,7 +81,7 @@ export default function AuditionForm() {
   const router = useRouter();
   const goBack = useGoBack('/auditions');
   const { tiltX, tiltY } = useStageMotion();
-  const { id, paste } = useLocalSearchParams<{ id?: string; paste?: string }>();
+  const { id, paste, when: whenParam } = useLocalSearchParams<{ id?: string; paste?: string; when?: string }>();
   const { isAuthenticated } = useSession();
 
   const { data: auditions } = useAuditions(isAuthenticated);
@@ -97,7 +97,11 @@ export default function AuditionForm() {
   const [project, setProject] = useState('');
   const [role, setRole] = useState('');
   const [kind, setKind] = useState<AuditionKind>('in_person');
-  const [when, setWhen] = useState<Date>(defaultAuditionDate());
+  // The first night hands a date it already asked for; anything else starts on the default.
+  const [when, setWhen] = useState<Date>(() => {
+    const d = whenParam ? new Date(whenParam) : null;
+    return d && !Number.isNaN(d.getTime()) && d.getTime() > Date.now() ? d : defaultAuditionDate();
+  });
   const [place, setPlace] = useState('');
   const [notes, setNotes] = useState('');
   const scroll = useRef<ScrollView>(null);

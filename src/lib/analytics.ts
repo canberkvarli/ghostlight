@@ -228,6 +228,8 @@ export type Event =
   | { name: 'onboarding_working_on'; props: { on: string } }
   | { name: 'onboarding_plays'; props: { house: string; age: string } }
   | { name: 'onboarding_source'; props: { from: string } }
+  | { name: 'first_night_shown'; props: { room: string } }
+  | { name: 'first_night_action'; props: { room: string; action: string } }
   | { name: 'onboarding_question_skipped'; props: { step: number } }
   | { name: 'app_rehearse_begun'; props: { source: 'library' | 'script' | 'guided'; lines: number; resumed: boolean } }
   | { name: 'app_rehearse_ended'; props: { source: 'library' | 'script' | 'guided'; how: 'completed' | 'left'; lines: number; seconds: number } }

@@ -31,6 +31,7 @@ import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { getGuided, getRunStats, getShelf, listRuns, listScenes } from '../src/api/rehearsal';
 import { loadRecents } from '../src/lib/recents';
 import { markHadAccount } from '../src/lib/demo';
+import { useWelcomeOnce } from '../src/hooks/useWelcomeOnce';
 import { ReadingBanner } from '../src/components/ReadingBanner';
 import { LaunchOverlay } from '../src/components/LaunchOverlay';
 import { startUpdates } from '../src/lib/otaUpdates';
@@ -305,6 +306,8 @@ function Shell() {
   usePushAndWidget(isAuthenticated, session?.user.id);
   // Remembered, so a sign-out lands on Search and never on the front door again.
   useEffect(() => { if (isAuthenticated) void markHadAccount(); }, [isAuthenticated]);
+  // A new account is asked the three questions once, however it was made.
+  useWelcomeOnce(session, isAuthenticated);
   // The Scene room is fetched as the app opens, so its shelves are there when the tab is.
   useEffect(() => {
     if (!session) return;
@@ -376,6 +379,7 @@ function Shell() {
         <Stack.Screen name="audition" options={{ presentation: 'modal' }} />
         {/* Sides coming in: a sheet over the scene room. */}
         <Stack.Screen name="sides" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="first-night" options={{ animation: 'fade', animationDuration: 320, gestureEnabled: false }} />
         {/* The evening after an audition: how did it go, as a sheet that stops short of the top. */}
         <Stack.Screen name="outcome" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.72], sheetGrabberVisible: true }} />
       </Stack>
