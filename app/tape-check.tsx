@@ -77,6 +77,22 @@ export default function TapeCheck() {
     track('app_tape_check', { setup: setup.key, record: got.slice(0, 60) });
   };
 
+  // A photo asks the session for a frame: if it is not running, the native
+  // error comes back as text, which nothing else in expo-camera reports.
+  const photo = async () => {
+    if (!cam.current) { say('no camera'); return; }
+    say('photo…');
+    const got = await Promise.race([
+      cam.current.takePictureAsync({ quality: 0.1, skipProcessing: true, shutterSound: false })
+        .then((p) => `ok ${p?.width}x${p?.height}`)
+        .catch((e) => `error: ${e instanceof Error ? e.message : String(e)}`),
+      new Promise<string>((r) => setTimeout(() => r('no photo after 6s'), 6000)),
+    ]);
+    say(`photo: ${got}`);
+    try { say(`lenses: ${JSON.stringify(await cam.current.getAvailableLensesAsync()).slice(0, 120)}`); } catch (e) { say(`lenses error: ${e instanceof Error ? e.message : String(e)}`); }
+    track('app_tape_check', { setup: setup.key, record: `photo ${got}`.slice(0, 60) });
+  };
+
   const allowed = Boolean(camPerm?.granted && micPerm?.granted);
   return (
     <View style={{ flex: 1, backgroundColor: '#130b08', paddingTop: insets.top }}>
@@ -102,6 +118,9 @@ export default function TapeCheck() {
               <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>{s.key}</Text>
             </Pressable>
           ))}
+          <Pressable onPress={photo} style={{ paddingHorizontal: 14, height: 40, borderRadius: 20, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.25)' }}>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Photo test</Text>
+          </Pressable>
           <Pressable onPress={record} style={{ paddingHorizontal: 14, height: 40, borderRadius: 20, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.25)' }}>
             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Record 3s</Text>
           </Pressable>
