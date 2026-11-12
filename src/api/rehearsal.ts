@@ -210,6 +210,16 @@ export function getShelf(
   return call<ShelfPage>(`/api/scripts/shelf?${qs.toString()}`, {}, signal);
 }
 
+/** The actor's own map of a script: every scene in order, each under its act or episode. */
+export const setScriptLayout = (id: number, scenes: { id: number; act: string | null }[]) =>
+  call<ScriptDetail>(`/api/scripts/${id}/layout`, { method: 'PUT', body: JSON.stringify({ scenes }) });
+/** A scene's name, put right. */
+export const renameScriptScene = (scriptId: number, sceneId: number, title: string) =>
+  call<{ message: string }>(`/api/scripts/${scriptId}/scenes/${sceneId}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+/** A scene taken off a script: its lines and its runs go with it. */
+export const deleteScriptScene = (scriptId: number, sceneId: number) =>
+  call<{ message: string }>(`/api/scripts/${scriptId}/scenes/${sceneId}`, { method: 'DELETE' });
+
 /** Taken off the shelf in the last thirty days, newest first; each can come back. */
 export const listDeletedScripts = (signal?: AbortSignal) => call<ScriptSummary[]>('/api/scripts/deleted', {}, signal);
 export const restoreScript = (id: number) => call<ScriptSummary>(`/api/scripts/${id}/restore`, { method: 'POST' });

@@ -8,7 +8,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 
 import {
   cancelExtraction, deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, getScriptProgress, listScenes, listScripts,
-  uploadScriptBackground, getSceneMap, addScenes, listDeletedScripts, restoreScript, getShelf,
+  uploadScriptBackground, getSceneMap, addScenes, setScriptLayout, renameScriptScene, deleteScriptScene, listDeletedScripts, restoreScript, getShelf,
   type ShelfSortKey,
   type Sendable,
   type SidesSource,
@@ -119,6 +119,27 @@ export function useAddScenes() {
       void qc.invalidateQueries({ queryKey: SCRIPTS_KEY });
       void qc.invalidateQueries({ queryKey: ['script', v.id] });
       void qc.invalidateQueries({ queryKey: ['scene-map', v.id] });
+    },
+  });
+}
+
+/**
+ * The edited map saved: deletes first, then the new order and acts, then the
+ * names. One mutation, so the screen has one thing to wait on.
+ */
+export function useSaveScriptMap() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: number; deleted: number[]; renamed: { id: number; title: string }[]; layout: { id: number; act: string | null }[] | null }) => {
+      for (const sceneId of v.deleted) await deleteScriptScene(v.id, sceneId);
+      if (v.layout) await setScriptLayout(v.id, v.layout);
+      for (const r of v.renamed) await renameScriptScene(v.id, r.id, r.title);
+    },
+    onSettled: (_d, _e, v) => {
+      void qc.invalidateQueries({ queryKey: SCRIPTS_KEY });
+      void qc.invalidateQueries({ queryKey: ['script', v.id] });
+      void qc.invalidateQueries({ queryKey: ['scene-map', v.id] });
+      void qc.invalidateQueries({ queryKey: ['latest-run'] });
     },
   });
 }

@@ -382,6 +382,8 @@ function Shell() {
         <Stack.Screen name="first-night" options={{ animation: 'fade', animationDuration: 320, gestureEnabled: false }} />
         {/* More scenes from a script on the shelf: the same map, the built ones locked. */}
         <Stack.Screen name="more-scenes" options={{ presentation: 'modal' }} />
+        {/* The script's map put right by hand: drag, refile, rename, delete. */}
+        <Stack.Screen name="edit-map" options={{ presentation: 'modal' }} />
         {/* The evening after an audition: how did it go, as a sheet that stops short of the top. */}
         <Stack.Screen name="outcome" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.72], sheetGrabberVisible: true }} />
       </Stack>

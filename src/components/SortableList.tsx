@@ -38,6 +38,7 @@ export function SortableList<T>({
   onReorder,
   onHolding,
   byHandle = false,
+  liftable,
 }: {
   items: T[];
   keyOf: (item: T) => string | number;
@@ -47,6 +48,8 @@ export function SortableList<T>({
   byHandle?: boolean;
   onReorder: (next: T[]) => void;
   onHolding?: (holding: boolean) => void;
+  /** A row that is not to be lifted just now (one opened, whose own rows take the hold). */
+  liftable?: (item: T) => boolean;
 }) {
   const ids = items.map((it) => String(keyOf(it)));
   const order = useSharedValue<string[]>(ids);
@@ -109,7 +112,7 @@ export function SortableList<T>({
         const id = String(keyOf(item));
         return (
           <SortableItem key={id} id={id} count={ids.length} order={order} heights={heights} active={active} ready={ready} measure={measure}
-            onLift={lift} onCross={cross} onDrop={drop} byHandle={byHandle} render={(grip) => renderItem(item, grip)} />
+            onLift={lift} onCross={cross} onDrop={drop} byHandle={byHandle} enabled={liftable ? liftable(item) : true} render={(grip) => renderItem(item, grip)} />
         );
       })}
     </Animated.View>
@@ -127,7 +130,7 @@ function topOf(id: string, order: string[], heights: Record<string, number>): nu
 }
 
 function SortableItem({
-  id, count, order, heights, active, ready, measure, onLift, onCross, onDrop, byHandle, render,
+  id, count, order, heights, active, ready, measure, onLift, onCross, onDrop, byHandle, enabled, render,
 }: {
   id: string;
   count: number;
@@ -140,6 +143,7 @@ function SortableItem({
   onCross: () => void;
   onDrop: (next: string[]) => void;
   byHandle: boolean;
+  enabled: boolean;
   render: (grip: (node: React.ReactNode) => React.ReactNode) => React.ReactNode;
 }) {
   const y = useSharedValue(0);
@@ -157,6 +161,7 @@ function SortableItem({
   });
 
   const hold = Gesture.LongPress()
+    .enabled(enabled)
     .minDuration(300)
     .maxDistance(12)
     .onStart(() => {
@@ -167,6 +172,7 @@ function SortableItem({
       runOnJS(onLift)();
     });
   const pan = Gesture.Pan()
+    .enabled(enabled)
     .manualActivation(true)
     .onTouchesDown((e) => { downY.value = e.allTouches[0]?.absoluteY ?? 0; })
     .onTouchesMove((e, mgr) => {

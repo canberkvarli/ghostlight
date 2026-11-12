@@ -29,6 +29,7 @@ import { SwipeRow } from '../../../../src/components/SwipeRow';
 import { KEY_WORDS, firstScenes } from '../../../../src/lib/demo';
 import { aboutLeft } from '../../../../src/lib/scriptSteps';
 import { loadTouched, markTouched } from '../../../../src/lib/scriptTouched';
+import { groupByAct } from '../../../../src/rehearsal/script-layout';
 import { FIND_FROM, REST_FOLDED, SHELF_SORTS, shelfSorts, type ShelfSort } from '../../../../src/rehearsal/shelf';
 import { ChoiceSheet } from '../../../../src/components/ConfirmSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -128,6 +129,9 @@ export default function RehearseHub() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [forgetting, setForgetting] = useState<ScriptSummary | null>(null);
   const [sorting, setSorting] = useState(false);
+  // Scripts open on the working shelf: they don't lift, so a hold on a scene is the scene's.
+  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
+  const onOpen = (id: number, open: boolean) => setOpened(prev => { if (prev.has(id) === open) return prev; const n = new Set(prev); if (open) n.add(id); else n.delete(id); return n; });
   const reorder = (next: ScriptSummary[]) => {
     const ids = next.map((x) => x.id);
     setOrder(ids);
@@ -313,10 +317,11 @@ export default function RehearseHub() {
                         keyOf={(s) => s.id}
                         onReorder={(next) => reorder([...next, ...restAll.filter((x) => !next.includes(x))])}
                         onHolding={setSorting}
+                        liftable={(s) => !opened.has(s.id)}
                         renderItem={(s) => (
                           <SwipeRow word={L('Delete', 'Sil')} label={L(`Delete ${s.title}`, `Sil: ${s.title}`)} onRemove={() => drop(s)} style={{ backgroundColor: c.background }}>
                             <View style={{ backgroundColor: c.background }}>
-                              <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} onTouch={touch} />
+                              <ScriptRow script={s} startOpen={openScript === String(s.id)} left={left} onTouch={touch} onOpen={onOpen} />
                             </View>
                           </SwipeRow>
                         )}
@@ -522,13 +527,16 @@ function Shelf({ title, aside, onAside, children }: { title: string; aside?: str
  * A tap opens the list of its scenes under it (one scene goes straight to the
  * sheet the first time); the scene you left carries its bar of progress.
  */
-function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null; why?: string | null; onTouch?: (id: number) => void }) {
+function ScriptRow({ script, startOpen, left, why, onTouch, onOpen }: { script: ScriptSummary; startOpen: boolean; left: LatestRun | null; why?: string | null; onTouch?: (id: number) => void; onOpen?: (id: number, open: boolean) => void }) {
   const { colors: c } = useTheme();
   const L = useL();
   const router = useRouter();
   const [open, setOpen] = useState(startOpen);
   const [keeping, setKeeping] = useState(false);
   const detail = useScript(script.id, open);
+  // Open, the row stays put on the shelf: a hold on one of its scenes is for that scene.
+  useEffect(() => { onOpen?.(script.id, open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editMap = (sceneId?: number) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); router.push({ pathname: '/edit-map', params: { id: String(script.id), ...(sceneId ? { scene: String(sceneId) } : {}) } }); };
   const ready = script.processing_status === 'completed';
   const broke = script.processing_status === 'failed';
   const cast = script.characters.map(ch => ch.name).filter(Boolean).slice(0, 3).join(', ');
@@ -581,7 +589,7 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
             const here = left && left.scene_id === sc.id ? left : null;
             const progress = here && here.line_count > 0 ? Math.min(1, (here.line_index + 1) / here.line_count) : 0;
             return (
-              <Pressable key={sc.id} onPress={() => go(sc.id)} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', paddingRight: 6, opacity: pressed ? 0.7 : 1 })}>
+              <Pressable key={sc.id} onPress={() => go(sc.id)} onLongPress={script.is_sample ? undefined : () => editMap(sc.id)} delayLongPress={350} accessibilityRole="button" accessibilityHint={script.is_sample ? undefined : L('Hold to edit the map', 'Haritayı düzenlemek için basılı tut')} style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', paddingRight: 6, opacity: pressed ? 0.7 : 1 })}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <Text style={{ flex: 1, fontFamily: SANS, fontSize: 15, lineHeight: 21, color: c.foreground }}>{g.act ? underAct(sc.title, g.act) : sc.title}</Text>
                   <Text style={{ fontFamily: MONO, fontSize: 12, color: c.mutedForeground }}>{here ? L(`line ${here.line_index + 1} of ${here.line_count}`, `${here.line_count} replikten ${here.line_index + 1}`) : L(`${Math.max(1, Math.round(sc.estimated_duration_seconds / 60))} min`, `${Math.max(1, Math.round(sc.estimated_duration_seconds / 60))} dk`)}</Text>
@@ -603,6 +611,12 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
               <StageDirection link>{L('(choose more scenes.)', '(daha çok sahne seç.)')}</StageDirection>
             </Pressable>
           ) : null}
+          {!script.is_sample ? (
+            <Pressable onPress={() => editMap()} accessibilityRole="button" accessibilityLabel={L(`Edit the map of ${script.title}`, `Haritayı düzenle: ${script.title}`)}
+              style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+              <StageDirection link>{L('(edit the map.)', '(haritayı düzenle.)')}</StageDirection>
+            </Pressable>
+          ) : null}
           {/* The Book's lists hold sides too: two contrasting, this term's class, the callback. */}
           <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setKeeping(true); }} accessibilityRole="button"
             accessibilityLabel={L(`Keep ${script.title} in a list`, `Listeye ekle: ${script.title}`)} style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
@@ -620,22 +634,6 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
       <KeepSheet open={keeping} what={{ user_script_id: script.id }} name={script.title} onClose={() => setKeeping(false)} />
     </View>
   );
-}
-
-/**
- * A script's scenes as its own map: each run of scenes under the act or
- * episode the server read for it, in the order of the pages. A script with
- * no acts at all is one group with no heading, the flat list it always was.
- */
-function groupByAct(scenes: ScriptScene[]): { act: string | null; scenes: ScriptScene[] }[] {
-  const out: { act: string | null; scenes: ScriptScene[] }[] = [];
-  for (const sc of scenes) {
-    const act = sc.act?.trim() || null;
-    const last = out[out.length - 1];
-    if (last && last.act === act) last.scenes.push(sc);
-    else out.push({ act, scenes: [sc] });
-  }
-  return out;
 }
 
 /** "Act 1, Scene 2" under the Act 1 heading reads as "Scene 2": the heading already said it. */
