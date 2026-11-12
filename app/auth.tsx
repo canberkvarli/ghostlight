@@ -120,7 +120,7 @@ export default function Auth() {
     setBusy(null);
     if (res.ok) { done('email'); return; }
     if (res.noAccount) {
-      setError(L('No account with that address, or the password is wrong. New here? Make one below.', 'Bu adreste hesap yok ya da şifre yanlış. Yeni misin? Aşağıdan bir tane aç.'));
+      setError(L('No account with that address, or the password is wrong. New here? Tap Create the account. Already have one? Go back to Sign in and check the password.', 'Bu adreste hesap yok ya da şifre yanlış. Yeni misin? Hesabı aç düğmesine dokun. Hesabın var mı? Giriş yap sekmesine dön ve şifreni kontrol et.'));
       setCreating(true);
       return;
     }
