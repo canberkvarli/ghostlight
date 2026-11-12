@@ -32,7 +32,7 @@ import { loadTouched, markTouched } from '../../../../src/lib/scriptTouched';
 import { FIND_FROM, REST_FOLDED, SHELF_SORTS, shelfSorts, type ShelfSort } from '../../../../src/rehearsal/shelf';
 import { ChoiceSheet } from '../../../../src/components/ConfirmSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { LatestRun, SceneSummary, ScriptSummary } from '../../../../src/api/rehearsal';
+import type { LatestRun, SceneSummary, ScriptScene, ScriptSummary } from '../../../../src/api/rehearsal';
 import { track } from '../../../../src/lib/analytics';
 import { useSession } from '../../../../src/lib/useSession';
 import { Mic } from '../../../../src/rehearsal/native/mic';
@@ -569,13 +569,21 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
       </Pressable>
       {open && detail.data ? (
         <Animated.View entering={FadeIn.duration(220)} style={{ paddingLeft: 68, paddingBottom: 12, gap: 2 }}>
-          {detail.data.scenes.map(sc => {
+          {groupByAct(detail.data.scenes).map((g, gi) => (
+          <View key={`${g.act ?? ''}-${gi}`}>
+          {g.act ? (
+            <View style={{ marginTop: gi === 0 ? 4 : 14, marginBottom: 2, flexDirection: 'row', alignItems: 'baseline', gap: 8 }} accessibilityRole="header">
+              <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: CAP, fontSize: 10.5, letterSpacing: 1.4, color: c.accentText }}>{g.act.toUpperCase()}</Text>
+              <Text style={{ fontFamily: MONO, fontSize: 11, color: c.mutedForeground }}>{g.scenes.length}</Text>
+            </View>
+          ) : null}
+          {g.scenes.map(sc => {
             const here = left && left.scene_id === sc.id ? left : null;
             const progress = here && here.line_count > 0 ? Math.min(1, (here.line_index + 1) / here.line_count) : 0;
             return (
               <Pressable key={sc.id} onPress={() => go(sc.id)} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', paddingRight: 6, opacity: pressed ? 0.7 : 1 })}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <Text style={{ flex: 1, fontFamily: SANS, fontSize: 15, lineHeight: 21, color: c.foreground }}>{sc.title}</Text>
+                  <Text style={{ flex: 1, fontFamily: SANS, fontSize: 15, lineHeight: 21, color: c.foreground }}>{g.act ? underAct(sc.title, g.act) : sc.title}</Text>
                   <Text style={{ fontFamily: MONO, fontSize: 12, color: c.mutedForeground }}>{here ? L(`line ${here.line_index + 1} of ${here.line_count}`, `${here.line_count} replikten ${here.line_index + 1}`) : L(`${Math.max(1, Math.round(sc.estimated_duration_seconds / 60))} min`, `${Math.max(1, Math.round(sc.estimated_duration_seconds / 60))} dk`)}</Text>
                 </View>
                 {here ? (
@@ -586,6 +594,8 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
               </Pressable>
             );
           })}
+          </View>
+          ))}
           {/* The Book's lists hold sides too: two contrasting, this term's class, the callback. */}
           <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setKeeping(true); }} accessibilityRole="button"
             accessibilityLabel={L(`Keep ${script.title} in a list`, `Listeye ekle: ${script.title}`)} style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
@@ -603,6 +613,30 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
       <KeepSheet open={keeping} what={{ user_script_id: script.id }} name={script.title} onClose={() => setKeeping(false)} />
     </View>
   );
+}
+
+/**
+ * A script's scenes as its own map: each run of scenes under the act or
+ * episode the server read for it, in the order of the pages. A script with
+ * no acts at all is one group with no heading, the flat list it always was.
+ */
+function groupByAct(scenes: ScriptScene[]): { act: string | null; scenes: ScriptScene[] }[] {
+  const out: { act: string | null; scenes: ScriptScene[] }[] = [];
+  for (const sc of scenes) {
+    const act = sc.act?.trim() || null;
+    const last = out[out.length - 1];
+    if (last && last.act === act) last.scenes.push(sc);
+    else out.push({ act, scenes: [sc] });
+  }
+  return out;
+}
+
+/** "Act 1, Scene 2" under the Act 1 heading reads as "Scene 2": the heading already said it. */
+function underAct(title: string, act: string): string {
+  const head = act.split(': ')[0].trim();
+  if (!head || !title.toLowerCase().startsWith(head.toLowerCase()) || /[\p{L}\p{N}]/u.test(title.charAt(head.length))) return title;
+  const rest = title.slice(head.length).replace(/^[\s,.:;·-]+/, '');
+  return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : title;
 }
 
 function SceneRow({ scene, locked }: { scene: SceneSummary; locked: boolean }) {
