@@ -10,7 +10,8 @@ import { StageBackdrop } from '../src/components/StageBackdrop';
 import { GhostLight } from '../src/components/GhostLight';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { markDemoSeen, markWelcomed } from '../src/lib/demo';
+import { isNewAccount, markDemoSeen, markWelcomed } from '../src/lib/demo';
+import { useSession } from '../src/lib/useSession';
 import { roomFor } from './first-night';
 import { track } from '../src/lib/analytics';
 import { PLAYS_KEY, type Plays } from '../src/lib/plays';
@@ -79,7 +80,17 @@ export default function Welcome() {
   // scene partner is home there, as before.
   const [workingOn, setWorkingOn] = useState<string | null>(null);
   const locale = useLocale();
-  useEffect(() => { void markWelcomed(); }, []);
+  // Every way here goes through this gate: an account that already existed
+  // (signed in from the demo's curtain, say) never sees the questions. It goes
+  // home, and the screen stays dark until that is decided, so nothing flashes.
+  const { session, loading } = useSession();
+  const [gate, setGate] = useState<'wait' | 'ask'>('wait');
+  useEffect(() => {
+    if (gate !== 'wait' || loading || !session) return;
+    if (isNewAccount(session.user)) { setGate('ask'); void markWelcomed(session.user.id); return; }
+    void markDemoSeen();
+    router.replace(monologueRoomsShown(locale) ? '/search' : '/rehearse');
+  }, [gate, loading, session, locale, router]);
   const finish = () => {
     void markDemoSeen();
     void supabase.auth.updateUser({ data: { welcomed: '1' } }).catch(() => {});
@@ -137,6 +148,8 @@ export default function Welcome() {
   const label = (text: string) => (
     <Text style={{ marginTop: 22, marginBottom: 10, fontFamily: 'CourierPrime_700Bold', fontSize: 11, letterSpacing: 2.2, textTransform: 'uppercase', color: c.mutedForeground }}>{text}</Text>
   );
+
+  if (gate === 'wait') return <View style={{ flex: 1, backgroundColor: c.background }} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>

@@ -26,6 +26,22 @@ export async function markHadAccount(): Promise<void> {
   try { await AsyncStorage.setItem(HAD_ACCOUNT, '1'); } catch { /* the front door again, at worst */ }
 }
 
+/** An account counts as new for this long after it was made. Long enough to finish signing up, no longer. */
+const NEW_FOR_MS = 60 * 60 * 1000;
+
+/**
+ * Whether this account should be asked the welcome's questions: made in the
+ * last hour, and never answered on any device. Someone signing in to an
+ * account they already had is not a first-timer, wherever they signed in.
+ */
+export function isNewAccount(user: { created_at?: string; user_metadata?: Record<string, unknown> } | null | undefined, now = Date.now()): boolean {
+  if (!user) return false;
+  const meta = user.user_metadata ?? {};
+  if (meta.welcomed === '1' || meta.working_on) return false;
+  const made = Date.parse(user.created_at ?? '');
+  return Number.isFinite(made) && now - made <= NEW_FOR_MS;
+}
+
 /** This phone has put the welcome to the account signed in now. Keyed by account. */
 const WELCOMED = 'ghostlight:welcomed.v1:';
 export async function welcomedHere(userId: string): Promise<boolean> {
