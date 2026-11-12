@@ -227,10 +227,10 @@ export default function AddSides() {
     sendFile({ uri: a.uri, name: named(a.name, a.mimeType), mimeType: a.mimeType ?? undefined }, 'files');
   };
 
-  const picked = useRef(false);
+  const opened = useRef(false);
   useEffect(() => {
-    if (door !== 'files' || uri || picked.current) return;
-    picked.current = true;
+    if (door !== 'files' || uri || opened.current) return;
+    opened.current = true;
     const t = setTimeout(() => { void pick(); }, 450);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
