@@ -83,7 +83,8 @@ export default function Paywall() {
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
           {/* The room the lamp stands in. */}
-          <View style={{ height: hero }} />
+          {/* Plus a gap: the lamp's foot stands at the floor line and the title touched it. */}
+          <View style={{ height: hero + 22 }} />
 
           <View style={{ paddingHorizontal: 24 }}>
             {/* 42/46: Instrument Serif wants about 1.1x its size or the descender of "g" is clipped. */}
@@ -185,8 +186,9 @@ function Perk({ text }: { text: string }) {
   const { colors: c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.accentText, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="checkmark" size={14} color={c.ink} />
+      {/* On paper a filled orange disc with a black tick read heavy: there it is a ring with an orange tick. */}
+      <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', ...(c.isLight ? { borderWidth: 1.5, borderColor: c.accentText } : { backgroundColor: c.accentText }) }}>
+        <Ionicons name="checkmark" size={14} color={c.isLight ? c.accentText : c.ink} />
       </View>
       <Text style={{ fontFamily: SANS_B, fontSize: 15.5, lineHeight: 20, color: c.foreground }}>{text}</Text>
     </View>

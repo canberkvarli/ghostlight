@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -141,7 +141,7 @@ function SignedIn({ session }: { session: Session }) {
             </Animated.Text>
             <Ionicons name="pencil" size={15} color={c.mutedForeground} />
           </Pressable>
-          <Text numberOfLines={1} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 13, letterSpacing: 0.4, color: c.mutedForeground }}>
+          <Text numberOfLines={2} style={{ marginTop: 6, fontFamily: MONO_I, fontSize: 13, lineHeight: 18, letterSpacing: 0.4, color: c.mutedForeground }}>
             {isPaid ? L('(the whole stage.)', '(sahnenin tamamı.)') : since ? L(`(with ghost light since ${since}.)`, `(${since} ayından beri ghost light'ta.)`) : L('(with ghost light.)', "(ghost light'ta.)")}
           </Text>
         </View>
@@ -247,30 +247,55 @@ function Count({ n, label, onPress }: { n: number; label: string; onPress?: () =
 }
 
 /**
- * The free plan: the gel block behind a dark card, the reads left as a big
- * number with a segment per read, the partner's month under it, and the way
- * to the paywall. Reads come back at midnight and the scene runs on the first
- * of the month, and each meter says when.
+ * The free plan, kept quiet: the eyebrow, one line, and the way to the
+ * paywall. What is left of each allowance opens in a sheet on a tap, so the
+ * profile is not a page of meters.
  */
 function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | undefined; failed: boolean; onRetry: () => void; onPaywall: () => void }) {
   const { colors: c } = useTheme();
   const loaded = wall !== undefined;
   const L = useL();
-  const locale = useLocale();
+  const [open, setOpen] = useState(false);
   return (
     <View>
       <View pointerEvents="none" style={{ position: 'absolute', left: 6, top: 6, right: -6, bottom: -6, borderRadius: 18, backgroundColor: c.yellow }} />
       <View style={{ borderRadius: 18, borderWidth: 1.5, borderColor: c.cardBorder, backgroundColor: c.card, padding: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Eyebrow lit>{L('FREE PLAN', 'ÜCRETSİZ PLAN')}</Eyebrow>
-          <Text style={{ fontFamily: MONO_I, fontSize: 12, letterSpacing: 0.3, color: c.mutedForeground }}>{L('(what is left.)', '(kalanlar.)')}</Text>
+          {!loaded && failed ? (
+            <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel={L('Check your plan again', 'Planına tekrar bak')} hitSlop={10}>
+              <StageDirection link>{L('(tap to ask again.)', '(tekrar sormak için dokun.)')}</StageDirection>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setOpen(true); }} disabled={!loaded} accessibilityRole="button" accessibilityLabel={L('See what is left', 'Kalanları gör')} hitSlop={10}>
+              <StageDirection link>{L("(see what's left.)", '(kalanları gör.)')}</StageDirection>
+            </Pressable>
+          )}
         </View>
-        {!loaded && failed ? (
-          <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel={L('Check your plan again', 'Planına tekrar bak')} hitSlop={8} style={{ marginTop: 14 }}>
-            <StageDirection link>{L("(couldn't reach the house. tap to ask again.)", '(salona ulaşılamadı. tekrar sormak için dokun.)')}</StageDirection>
-          </Pressable>
-        ) : (
-          <View style={{ marginTop: 14, gap: 14 }}>
+        <ArrowRow label={L('Read without limits', 'Sınırsız çalış')} onPress={onPaywall} />
+      </View>
+      <AllowanceSheet open={open} wall={wall} onClose={() => setOpen(false)} onPaywall={() => { setOpen(false); setTimeout(onPaywall, 260); }} />
+    </View>
+  );
+}
+
+/** What is left on the free plan: the meters, each saying when it comes back. */
+function AllowanceSheet({ open, wall, onClose, onPaywall }: { open: boolean; wall: ReadState | undefined; onClose: () => void; onPaywall: () => void }) {
+  const { colors: c } = useTheme();
+  const insets = useSafeAreaInsets();
+  const L = useL();
+  const locale = useLocale();
+  const loaded = wall !== undefined;
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,7,4,0.66)' }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel={L('Close', 'Kapat')} />
+        <View style={{ backgroundColor: c.panel, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: c.border, paddingHorizontal: 24, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16) + 6 }}>
+          <View style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: c.divider, marginBottom: 14 }} />
+          <Text style={{ fontFamily: SERIF, fontSize: 34, lineHeight: 38, letterSpacing: -0.4, color: c.foreground }}>
+            {L('What is ', 'Kalan')}<Text style={{ fontFamily: SERIF_I, color: c.accentText }}>{L('left.', 'lar.')}</Text>
+          </Text>
+          <View style={{ marginTop: 18, gap: 16 }}>
             {/* Speeches are the monologue rooms' allowance, not in the Turkish app. */}
             {monologueRoomsShown(locale) ? (
               <Meter label="Speeches to read" used={wall?.reads_used ?? 0} limit={wall?.reads_limit ?? 0} loaded={loaded} note="today, back at midnight" />
@@ -279,10 +304,10 @@ function FreeCard({ wall, failed, onRetry, onPaywall }: { wall: ReadState | unde
             <Meter label={L('Your own sides', 'Kendi metinlerin')} used={wall?.scripts_used ?? 0} limit={wall?.scripts_limit ?? 0} loaded={loaded} note={L('scripts on the account', 'hesaptaki metinler')} />
             <StageDirection>{L('(the first scenes never count.)', '(ilk sahneler hiç sayılmaz.)')}</StageDirection>
           </View>
-        )}
-        <ArrowRow label={L('Read without limits', 'Sınırsız çalış')} onPress={onPaywall} />
+          <ArrowRow label={L('Read without limits', 'Sınırsız çalış')} onPress={onPaywall} />
+        </View>
       </View>
-    </View>
+    </Modal>
   );
 }
 
