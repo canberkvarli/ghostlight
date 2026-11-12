@@ -33,7 +33,7 @@ export default function TapeCheck() {
   const cam = useRef<CameraView>(null);
   const ear = useRef<TapeEar | null>(null);
   const t0 = useRef(Date.now());
-  const say = (s: string) => setLog((l) => [`${((Date.now() - t0.current) / 1000).toFixed(1)}s ${s}`, ...l].slice(0, 12));
+  const say = (s: string) => setLog((l) => [`${((Date.now() - t0.current) / 1000).toFixed(1)}s ${s}`, ...l].slice(0, 24));
 
   useEffect(() => {
     if (camPerm && !camPerm.granted) void askCam();
@@ -93,6 +93,17 @@ export default function TapeCheck() {
     track('app_tape_check', { setup: setup.key, record: `photo ${got}`.slice(0, 60) });
   };
 
+  // Build 61 on: the camera's own account of itself (the patched expo-camera).
+  const diagnose = async () => {
+    try {
+      const native = (cam.current as unknown as { _cameraRef?: { current?: { diagnose?: () => Promise<string> } } })?._cameraRef?.current;
+      if (!native?.diagnose) { say('diagnose: not in this build'); return; }
+      const d = await native.diagnose();
+      for (const part of d.split(' | ').reverse()) say(part);
+      track('app_tape_check', { setup: setup.key, record: d.slice(0, 60) });
+    } catch (e) { say(`diagnose error: ${e instanceof Error ? e.message : String(e)}`); }
+  };
+
   const allowed = Boolean(camPerm?.granted && micPerm?.granted);
   return (
     <View style={{ flex: 1, backgroundColor: '#130b08', paddingTop: insets.top }}>
@@ -118,6 +129,9 @@ export default function TapeCheck() {
               <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>{s.key}</Text>
             </Pressable>
           ))}
+          <Pressable onPress={diagnose} style={{ paddingHorizontal: 14, height: 40, borderRadius: 20, justifyContent: 'center', backgroundColor: '#c24e10' }}>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Diagnose</Text>
+          </Pressable>
           <Pressable onPress={photo} style={{ paddingHorizontal: 14, height: 40, borderRadius: 20, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.25)' }}>
             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Photo test</Text>
           </Pressable>

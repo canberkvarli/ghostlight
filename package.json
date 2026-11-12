@@ -85,5 +85,13 @@
     "patch-package": "^8.0.1",
     "typescript": "~6.0.3",
     "vitest": "^3.2.7"
+  },
+  "expo": {
+    "autolinking": {
+      "buildFromSource": [
+        "expo-camera",
+        "ExpoCamera"
+      ]
+    }
   }
 }
