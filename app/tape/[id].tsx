@@ -56,6 +56,8 @@ import { EMPTY_READ, lineWords, liveRead, type LiveRead } from '../../src/rehear
 import { displayRuns } from '../../src/rehearsal/display-words';
 import { hearCue, lineAt, takeEnd, type CueHit, type Heard, type ReadMark, type TapePhase } from '../../src/rehearsal/tape-cues';
 import { TapeEar } from '../../src/rehearsal/native/tape-ear';
+import { cameraTrouble } from '../../src/rehearsal/camera-trouble';
+import { useIsFounder } from '../../src/lib/founder';
 import {
   addTake,
   allTakes,
@@ -794,17 +796,17 @@ export default function TapeRoom() {
           onMountError={(e) => {
             const msg = (e as { message?: string; nativeEvent?: { message?: string } }).message ?? (e as { nativeEvent?: { message?: string } }).nativeEvent?.message ?? 'unknown';
             track('app_tape_record_failed', { reason: 'not_ready', detail: `mount: ${msg}`.slice(0, 120), tones: settingsRef.current.tones, facing: settingsRef.current.facing });
-            setCamError(msg);
-            // Said even when the camera claims to be ready: that is the case being chased (2026-11-12).
-            setNotice(`(camera: ${msg})`);
+            // Said even when the camera claims to be ready: iOS can refuse it after "ready" (reason 4, 2026-11-12).
+            const words = cameraTrouble(msg);
+            if (words) setCamError(words);
           }}
         />
       ) : null}
 
-      {camError && !cameraReady ? (
+      {camError ? (
         <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
           <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: WHITE, textAlign: 'center' }}>(the camera didn’t come up.)</Text>
-          <Text style={{ marginTop: 8, fontFamily: SANS_M, fontSize: 12, color: DIM, textAlign: 'center' }}>{camError}</Text>
+          <Text style={{ marginTop: 10, fontFamily: SANS_M, fontSize: 14, lineHeight: 20, color: WHITE, opacity: 0.85, textAlign: 'center' }}>{camError}</Text>
           <Pressable onPress={() => { setCamError(null); restarted.current = false; setCamKey((k) => k + 1); }} hitSlop={10} accessibilityRole="button" style={{ marginTop: 18 }}>
             <Text style={{ fontFamily: TYPE_I, fontSize: 15, color: GLOW }}>(try again.)</Text>
           </Pressable>
@@ -1689,6 +1691,7 @@ function TapeCell({ take, size, on, onPress }: { take: Take; size: number; on: b
  */
 function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: TapeSettings; onChange: (s: TapeSettings) => void; onClose: () => void; onSlate: () => void }) {
   const checkRouter = useRouter();
+  const founder = useIsFounder();
   const [slate, setSlate] = useState(settings.slate);
   const keep = (next: typeof slate) => { setSlate(next); onChange({ ...settings, slate: next }); };
   const field = (key: keyof typeof slate, label: string, placeholder: string) => (
@@ -1708,10 +1711,10 @@ function SettingsSheet({ settings, onChange, onClose, onSlate }: { settings: Tap
     <Sheet title="Tape settings" onClose={onClose}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 18 }}>
         {/* Temporary: the black-picture test bench. The room closes first so two cameras never run at once. */}
-        <Pressable onPress={() => { onClose(); checkRouter.back(); setTimeout(() => checkRouter.push('/tape-check' as Href), 500); }} accessibilityRole="button"
+        {founder ? <Pressable onPress={() => { onClose(); checkRouter.back(); setTimeout(() => checkRouter.push('/tape-check' as Href), 500); }} accessibilityRole="button"
           style={{ marginHorizontal: 22, marginTop: 4, marginBottom: 6, height: 46, borderRadius: 23, backgroundColor: 'rgba(194,78,16,0.9)', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: SANS_M, fontSize: 15, color: WHITE }}>Camera check (black picture)</Text>
-        </Pressable>
+          <Text style={{ fontFamily: SANS_M, fontSize: 15, color: WHITE }}>Camera check</Text>
+        </Pressable> : null}
         <SheetLabel>Sound</SheetLabel>
         <Row label="A flash when it rolls and cuts" sub="The torch on the back camera, the screen on the front. You see it heard you from across the room.">
           <Toggle on={settings.tones} onPress={() => onChange({ ...settings, tones: !settings.tones })} />
