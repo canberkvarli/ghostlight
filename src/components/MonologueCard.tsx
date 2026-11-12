@@ -204,7 +204,10 @@ function MonologueCardImpl({
 
       {/* `space-between` is what absorbs the slack when the marks take one row
           instead of two — see the note on CARD_HEIGHT in theme/layout.ts. */}
-      <View style={{ flex: 1, justifyContent: 'space-between' }}>
+      {/* A card with no marks has nothing at the foot to hold the slack, and
+          `space-between` then drops the excerpt to the bottom edge, a hole
+          under the title. Those cards read from the top, the air below. */}
+      <View style={{ flex: 1, justifyContent: marks.length ? 'space-between' : 'flex-start', gap: marks.length ? 0 : 12 }}>
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Text
