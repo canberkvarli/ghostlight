@@ -213,6 +213,9 @@ export function getShelf(
 /** The actor's own map of a script: every scene in order, each under its act or episode. */
 export const setScriptLayout = (id: number, scenes: { id: number; act: string | null }[]) =>
   call<ScriptDetail>(`/api/scripts/${id}/layout`, { method: 'PUT', body: JSON.stringify({ scenes }) });
+/** The map as the script was read: names, headings and order put back. Lines and runs stay; a deleted scene stays deleted. */
+export const resetScriptLayout = (id: number) =>
+  call<ScriptDetail>(`/api/scripts/${id}/layout/reset`, { method: 'POST' });
 /** A scene's name, put right. */
 export const renameScriptScene = (scriptId: number, sceneId: number, title: string) =>
   call<{ message: string }>(`/api/scripts/${scriptId}/scenes/${sceneId}`, { method: 'PATCH', body: JSON.stringify({ title }) });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -11,7 +11,10 @@ import { BackHeader } from '../src/components/BackHeader';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { SortableList } from '../src/components/SortableList';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useSaveScriptMap, useScript } from '../src/hooks/useScenePartner';
+import { useResetScriptMap, useSaveScriptMap, useScript } from '../src/hooks/useScenePartner';
+import { ChoiceSheet, type Choice } from '../src/components/ChoiceSheet';
+import { ConfirmSheet } from '../src/components/ConfirmSheet';
+import { NameSheet } from '../src/components/BookSections';
 import { RehearsalApiError } from '../src/api/rehearsal';
 import {
   actsIn, addAct, changes, moveTo, removeScene, renameAct, renameScene, settle, tidy, toRows,
@@ -52,36 +55,42 @@ export default function EditMap() {
   const diff = rows ? changes(before, tidy(rows)) : null;
   const dirty = !!diff && (diff.deleted.length > 0 || diff.renamed.length > 0 || diff.layout !== null);
 
-  const ask = (title: string, value: string, done: (v: string) => void) =>
-    Alert.prompt(title, undefined, [
-      { text: L('Cancel', 'Vazgeç'), style: 'cancel' },
-      { text: L('Done', 'Tamam'), onPress: (v?: string) => { if (v != null) done(v); } },
-    ], 'plain-text', value);
+  // One of our own sheets at a time, never the phone's. Going from one to the
+  // next waits for the first to leave: iOS will not show a modal over one
+  // that is still going away.
+  type Sheet =
+    | { k: 'scene'; sc: LayoutScene }
+    | { k: 'move'; sc: LayoutScene }
+    | { k: 'delete'; sc: LayoutScene }
+    | { k: 'name'; title: string; accent: string; initial: string; placeholder: string; done: (v: string) => void }
+    | { k: 'leave' }
+    | { k: 'reset' };
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const next = (s: Sheet) => { setSheet(null); setTimeout(() => setSheet(s), 280); };
+  const close = () => setSheet(null);
+  const reset = useResetScriptMap();
 
-  const moveSheet = (sc: LayoutScene) => {
-    if (!rows) return;
-    const acts = actsIn(rows).filter(a => a !== sc.act);
-    const options = [...acts, L('No heading', 'Başlıksız'), L('A new act or episode', 'Yeni bir perde ya da bölüm'), L('Cancel', 'Vazgeç')];
-    ActionSheetIOS.showActionSheetWithOptions({ title: L(`Move ${sc.title} to`, `${sc.title} nereye`), options, cancelButtonIndex: options.length - 1 }, (i) => {
-      if (i < acts.length) setRows(r => r && moveTo(r, sc.id, acts[i]));
-      else if (i === acts.length) setRows(r => r && moveTo(r, sc.id, null));
-      else if (i === acts.length + 1) ask(L('The new heading', 'Yeni başlık'), '', v => setRows(r => r && moveTo(r, sc.id, v)));
-    });
-  };
+  const ask = (title: string, accent: string, initial: string, placeholder: string, done: (v: string) => void) =>
+    setSheet({ k: 'name', title, accent, initial, placeholder, done });
 
   const sceneSheet = (sc: LayoutScene) => {
     Haptics.selectionAsync().catch(() => {});
-    const options = [L('Rename', 'Yeniden adlandır'), L('Move to another act', 'Başka bir perdeye taşı'), L('Delete this scene', 'Bu sahneyi sil'), L('Cancel', 'Vazgeç')];
-    ActionSheetIOS.showActionSheetWithOptions({ title: sc.title, options, destructiveButtonIndex: 2, cancelButtonIndex: 3 }, (i) => {
-      if (i === 0) ask(L('The scene', 'Sahne'), sc.title, v => setRows(r => r && renameScene(r, sc.id, v)));
-      else if (i === 1) moveSheet(sc);
-      else if (i === 2) {
-        Alert.alert(L(`Delete ${sc.title}?`, `${sc.title} silinsin mi?`), L('Its lines and your runs of it go too, when you save.', 'Kaydedince replikleri ve provaların da gider.'), [
-          { text: L('Cancel', 'Vazgeç'), style: 'cancel' },
-          { text: L('Delete', 'Sil'), style: 'destructive', onPress: () => setRows(r => r && removeScene(r, sc.id)) },
-        ]);
-      }
-    });
+    setSheet({ k: 'scene', sc });
+  };
+
+  const sceneChoices = (sc: LayoutScene): Choice[] => [
+    { label: L('Rename', 'Yeniden adlandır'), icon: 'pencil', onPress: () => next({ k: 'name', title: L('The', 'Sahnenin'), accent: L('scene.', 'adı.'), initial: sc.title, placeholder: L('What you call it', 'Ona ne diyorsun'), done: v => setRows(r => r && renameScene(r, sc.id, v)) }) },
+    { label: L('Move to another act', 'Başka bir perdeye taşı'), icon: 'swap-vertical', onPress: () => next({ k: 'move', sc }) },
+    { label: L('Delete this scene', 'Bu sahneyi sil'), icon: 'trash-outline', danger: true, onPress: () => next({ k: 'delete', sc }) },
+  ];
+
+  const moveChoices = (sc: LayoutScene): Choice[] => {
+    const acts = rows ? actsIn(rows) : [];
+    return [
+      ...acts.map(a => ({ label: a, icon: 'albums-outline' as const, current: a === sc.act, onPress: () => { close(); if (a !== sc.act) setRows(r => r && moveTo(r, sc.id, a)); } })),
+      { label: L('No heading', 'Başlıksız'), icon: 'remove-outline', current: !sc.act, onPress: () => { close(); if (sc.act) setRows(r => r && moveTo(r, sc.id, null)); } },
+      { label: L('A new act or episode', 'Yeni bir perde ya da bölüm'), icon: 'add', onPress: () => next({ k: 'name', title: L('A new', 'Yeni bir'), accent: L('heading.', 'başlık.'), initial: '', placeholder: L('Act 2, Episode 3, Prologue', 'Perde 2, Bölüm 3, Önsöz'), done: v => setRows(r => r && moveTo(r, sc.id, v)) }) },
+    ];
   };
 
   // Held on the Scene tab: that scene's choices come straight up.
@@ -104,10 +113,18 @@ export default function EditMap() {
   };
   const leave = () => {
     if (!dirty) { goBack(); return; }
-    Alert.alert(L('Leave without saving?', 'Kaydetmeden çıkılsın mı?'), undefined, [
-      { text: L('Keep editing', 'Düzenlemeye devam'), style: 'cancel' },
-      { text: L('Leave', 'Çık'), style: 'destructive', onPress: goBack },
-    ]);
+    setSheet({ k: 'leave' });
+  };
+  const onReset = () => {
+    if (id === null) return;
+    reset.mutate(id, {
+      onSuccess: (d) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        track('app_script_map_reset', {});
+        setRows(toRows(d.scenes.map(x => ({ id: x.id, title: x.title, act: x.act }))));
+        close();
+      },
+    });
   };
 
   const failed = save.error instanceof RehearsalApiError ? lower(save.error.message) : save.error ? L('it did not save. try again.', 'kaydedilmedi. yeniden dene.') : null;
@@ -136,7 +153,7 @@ export default function EditMap() {
             )
           ) : (
             <>
-              <StageDirection numberOfLines={3} style={{ marginTop: 18 }}>{L('(hold a scene to drag it, under any heading. tap it to rename, move or delete it. tap a heading to rename it.)', '(sürüklemek için bir sahneye basılı tut. yeniden adlandırmak, taşımak ya da silmek için dokun. başlığı değiştirmek için başlığa dokun.)')}</StageDirection>
+              <StageDirection numberOfLines={3} style={{ marginTop: 18 }}>{L('(hold a scene to drag it under any heading. the pencil renames, moves or deletes it. tap a heading to rename it.)', '(bir sahneyi başka bir başlığa sürüklemek için basılı tut. kalem onu yeniden adlandırır, taşır ya da siler. başlığı değiştirmek için ona dokun.)')}</StageDirection>
               <View style={{ marginTop: 14 }}>
                 <SortableList
                   items={rows}
@@ -145,7 +162,7 @@ export default function EditMap() {
                   onHolding={setHolding}
                   onReorder={next => setRows(settle(next))}
                   renderItem={(r, grip) => r.kind === 'head' ? (
-                    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); ask(L('The heading', 'Başlık'), r.act, v => setRows(x => x && renameAct(x, r.key, v))); }}
+                    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); ask(L('The', 'Başlığın'), L('heading.', 'adı.'), r.act, L('Act 1, Episode 2', 'Perde 1, Bölüm 2'), v => setRows(x => x && renameAct(x, r.key, v))); }}
                       accessibilityRole="button" accessibilityLabel={L(`Rename ${r.act}`, `Yeniden adlandır: ${r.act}`)}
                       style={({ pressed }) => ({ paddingTop: 18, paddingBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1, backgroundColor: c.background })}>
                       <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: CAP, fontSize: 10.5, letterSpacing: 1.4, color: c.accentText }}>{r.act.toUpperCase()}</Text>
@@ -155,21 +172,52 @@ export default function EditMap() {
                     <Pressable onPress={() => sceneSheet(r.scene)} accessibilityRole="button" accessibilityHint={L('Hold to drag it', 'Sürüklemek için basılı tut')}
                       style={({ pressed }) => ({ minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: c.divider, backgroundColor: c.background, opacity: pressed ? 0.7 : 1 })}>
                       <Text numberOfLines={2} style={{ flex: 1, fontFamily: SANS, fontSize: 15, lineHeight: 21, color: c.foreground }}>{r.scene.title}</Text>
+                      <Pressable onPress={() => sceneSheet(r.scene)} hitSlop={10} accessibilityRole="button" accessibilityLabel={L(`Edit ${r.scene.title}`, `Düzenle: ${r.scene.title}`)}
+                        style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? c.divider : 'transparent' })}>
+                        <Ionicons name="pencil" size={15} color={c.accentText} />
+                      </Pressable>
                       <Ionicons name="reorder-three" size={20} color={c.mutedForeground} />
                     </Pressable>,
                   )}
                 />
               </View>
-              <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); ask(L('A new act or episode', 'Yeni bir perde ya da bölüm'), '', v => setRows(r => r && addAct(r, v))); }}
+              <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); ask(L('A new', 'Yeni bir'), L('heading.', 'başlık.'), '', L('Act 2, Episode 3, Prologue', 'Perde 2, Bölüm 3, Önsöz'), v => setRows(r => r && addAct(r, v))); }}
                 accessibilityRole="button" style={{ marginTop: 16, alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' }}>
                 <StageDirection link>{L('(add an act or episode.)', '(perde ya da bölüm ekle.)')}</StageDirection>
               </Pressable>
               <PrimaryPill label={save.isPending ? L('Saving', 'Kaydediliyor') : L('Save', 'Kaydet')} onPress={onSave} disabled={!dirty || save.isPending} style={{ marginTop: 14, alignSelf: 'flex-start' }} />
               {failed ? <StageDirection numberOfLines={3} style={{ marginTop: 12, color: c.accentText }}>({failed})</StageDirection> : null}
+              <View style={{ marginTop: 34, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.divider }}>
+                <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setSheet({ k: 'reset' }); }} accessibilityRole="button" accessibilityLabel={L('Reset the map', 'Haritayı sıfırla')}
+                  style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1 })}>
+                  <Ionicons name="refresh" size={15} color={c.mutedForeground} />
+                  <StageDirection link>{L('(reset the map to how it was read.)', '(haritayı okunduğu hâline döndür.)')}</StageDirection>
+                </Pressable>
+                {reset.isError ? <StageDirection numberOfLines={2} style={{ marginTop: 6, color: c.accentText }}>{L('(it did not reset. try again.)', '(sıfırlanmadı. yeniden dene.)')}</StageDirection> : null}
+              </View>
             </>
           )}
         </ScrollView>
       </SafeAreaView>
+
+      <ChoiceSheet open={sheet?.k === 'scene'} title={sheet?.k === 'scene' ? sheet.sc.title : ''} line={sheet?.k === 'scene' && sheet.sc.act ? `(${sheet.sc.act.toLowerCase()}.)` : undefined}
+        choices={sheet?.k === 'scene' ? sceneChoices(sheet.sc) : []} onClose={close} />
+      <ChoiceSheet open={sheet?.k === 'move'} title={L('Move it', 'Taşı,')} accent={L('under.', 'nereye.')} line={sheet?.k === 'move' ? `(${sheet.sc.title.toLowerCase()}.)` : undefined}
+        choices={sheet?.k === 'move' ? moveChoices(sheet.sc) : []} onClose={close} />
+      <NameSheet open={sheet?.k === 'name'} title={sheet?.k === 'name' ? sheet.title : ''} accent={sheet?.k === 'name' ? sheet.accent : ''}
+        initial={sheet?.k === 'name' ? sheet.initial : ''} placeholder={sheet?.k === 'name' ? sheet.placeholder : ''} fieldLabel={L('The name', 'Ad')} confirm={L('Done', 'Tamam')}
+        onSave={(v) => { if (sheet?.k === 'name') sheet.done(v); close(); }} onClose={close} />
+      <ConfirmSheet open={sheet?.k === 'delete'} danger title={L('Delete this', 'Bu sahne')} accent={L('scene?', 'silinsin mi?')}
+        body={sheet?.k === 'delete' ? L(`${sheet.sc.title} comes off the map when you save, with its lines and your runs of it. Choose more scenes can build it again.`, `${sheet.sc.title} kaydedince haritadan çıkar, replikleri ve provalarıyla. "Daha fazla sahne seç" onu yeniden kurabilir.`) : ''}
+        confirm={L('Delete', 'Sil')} cancel={L('Keep it', 'Kalsın')}
+        onConfirm={() => { if (sheet?.k === 'delete') { const sid = sheet.sc.id; setRows(r => r && removeScene(r, sid)); } close(); }} onCancel={close} />
+      <ConfirmSheet open={sheet?.k === 'leave'} title={L('Leave without', 'Kaydetmeden')} accent={L('saving?', 'çıkılsın mı?')}
+        body={L('What you moved, renamed or deleted here is not on the shelf yet. Leave and it is gone.', 'Burada taşıdığın, adını değiştirdiğin ya da sildiğin şeyler henüz rafta değil. Çıkarsan gider.')}
+        confirm={L('Keep editing', 'Düzenlemeye devam')} cancel={L('Leave', 'Çık')} onConfirm={close} onCancel={() => { close(); setTimeout(goBack, 200); }} />
+      <ConfirmSheet open={sheet?.k === 'reset'} title={L('Back to how it was', 'Okunduğu')} accent={L('read?', 'hâline mi?')}
+        body={L('This puts the map back the way it was the moment the script was read: every scene under the heading it was read under, with the name it was read with, in the order it was built. What you changed here goes, saved or not. Your lines, your edits to them and your runs stay. A scene you deleted does not come back this way; choose more scenes builds it again.', 'Bu, haritayı metnin okunduğu ana döndürür: her sahne okunduğu başlığın altında, okunduğu adla, kurulduğu sırada. Burada değiştirdiklerin, kaydedilmiş olsun olmasın, gider. Repliklerin, onlara yaptığın düzeltmeler ve provaların kalır. Sildiğin bir sahne bu yolla geri gelmez; "daha fazla sahne seç" onu yeniden kurar.')}
+        confirm={reset.isPending ? L('Resetting', 'Sıfırlanıyor') : L('Reset the map', 'Haritayı sıfırla')} busy={reset.isPending} cancel={L('Keep my map', 'Haritam kalsın')}
+        onConfirm={onReset} onCancel={close} />
     </View>
   );
 }

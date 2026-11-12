@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -62,18 +62,22 @@ export default function Paywall() {
   const both = offer.hasAnnual && offer.hasMonthly;
   const yearly = plan === 'annual';
   const hero = Math.min(240, Math.max(170, height * 0.25));
+  // Where the header really sits. In a sheet (and most of all a sheet over the
+  // profile's sheet) the safe area under it is not the phone's top inset, so
+  // the lamp drawn from insets.top stood on the title. Measured, it cannot.
+  const [top, setTop] = useState(insets.top);
 
   return (
     <View style={{ flex: 1 }}>
       <StageBackdrop tiltX={tiltX} tiltY={tiltY} />
       {/* The light stands behind everything, so no edge of the scroll can cut it. */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }} pointerEvents="none">
-        <SpotlightHero height={insets.top + 44 + hero} />
+        <SpotlightHero height={top + 44 + hero} />
       </View>
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Restore on the left, because Apple asks for it and it is not the point; the way out on the right. */}
-        <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, zIndex: 2 }}>
+        <View onLayout={(e) => { const y = Math.round(e.nativeEvent.layout.y); if (y !== top) setTop(y); }} style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, zIndex: 2 }}>
           <Pressable onPress={onRestore} hitSlop={12} accessibilityRole="button" accessibilityLabel={L('Restore purchases', 'Satın alımları geri yükle')} style={{ paddingVertical: 6 }}>
             {restoring ? (
               <ActivityIndicator color={c.mutedForeground} />

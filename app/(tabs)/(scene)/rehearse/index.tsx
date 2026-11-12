@@ -566,7 +566,18 @@ function ScriptRow({ script, startOpen, left, why, onTouch, onOpen }: { script: 
             </View>
           ) : null}
         </View>
-        {ready ? <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} />
+        {ready ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {/* Opened: the pencil is the way into the map, next to the chevron. */}
+            {open && !script.is_sample ? (
+              <Pressable onPress={() => editMap()} hitSlop={8} accessibilityRole="button" accessibilityLabel={L(`Edit the map of ${script.title}`, `Haritayı düzenle: ${script.title}`)}
+                style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+                <Ionicons name="pencil" size={14} color={c.accentText} />
+              </Pressable>
+            ) : null}
+            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.mutedForeground} />
+          </View>
+        )
           : !broke ? (
             <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); stop.mutate(script.id); }} disabled={stop.isPending}
               hitSlop={10} accessibilityRole="button" accessibilityLabel={L(`Stop reading ${script.title}`, `Okumayı durdur: ${script.title}`)}>

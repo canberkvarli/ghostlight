@@ -8,7 +8,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 
 import {
   cancelExtraction, deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, getScriptProgress, listScenes, listScripts,
-  uploadScriptBackground, getSceneMap, addScenes, setScriptLayout, renameScriptScene, deleteScriptScene, listDeletedScripts, restoreScript, getShelf,
+  uploadScriptBackground, getSceneMap, addScenes, setScriptLayout, renameScriptScene, resetScriptLayout, deleteScriptScene, listDeletedScripts, restoreScript, getShelf,
   type ShelfSortKey,
   type Sendable,
   type SidesSource,
@@ -140,6 +140,20 @@ export function useSaveScriptMap() {
       void qc.invalidateQueries({ queryKey: ['script', v.id] });
       void qc.invalidateQueries({ queryKey: ['scene-map', v.id] });
       void qc.invalidateQueries({ queryKey: ['latest-run'] });
+    },
+  });
+}
+
+/** Put a script's map back the way it was read. */
+export function useResetScriptMap() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => resetScriptLayout(id),
+    onSuccess: (detail, id) => { qc.setQueryData(['script', id], detail); },
+    onSettled: (_d, _e, id) => {
+      void qc.invalidateQueries({ queryKey: SCRIPTS_KEY });
+      void qc.invalidateQueries({ queryKey: ['script', id] });
+      void qc.invalidateQueries({ queryKey: ['scene-map', id] });
     },
   });
 }
