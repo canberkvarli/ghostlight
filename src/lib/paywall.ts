@@ -16,6 +16,7 @@ export type PaywallTrigger =
   | 'read_limit'
   | 'run_limit'
   | 'script_limit'
+  | 'scene_limit'
   | 'run_it'
   | 'curtain'
   | 'account'
@@ -36,6 +37,7 @@ export const WHY_LINE: Partial<Record<PaywallTrigger, string>> = {
   get read_limit() { return pick('(three tonight. three more tomorrow.)', '(bu gece üç. yarın üç daha.)'); },
   get run_limit() { return pick('(one partner run a month is free.)', '(ayda bir partner provası ücretsiz.)'); },
   get script_limit() { return pick('(one script of your own is free.)', '(kendi metinlerinden biri ücretsiz.)'); },
+  get scene_limit() { return pick('(one scene of each script is free. the rest come with the whole stage.)', '(her metinden bir sahne ücretsiz. gerisi sahnenin tamamıyla gelir.)'); },
   get run_it() { return pick('(the whole speech, run with you.)', '(monoloğun tamamı, seninle.)'); },
   get copy() { return pick('(copying comes with the whole stage.)', '(kopyalama, sahnenin tamamıyla gelir.)'); },
   get tape_mark() { return pick('(your tapes, saved clean.)', '(kayıtların, filigransız.)'); },
@@ -43,7 +45,7 @@ export const WHY_LINE: Partial<Record<PaywallTrigger, string>> = {
 
 export function asTrigger(value: unknown): PaywallTrigger | null {
   const v = typeof value === 'string' ? value : null;
-  return v && ['read_limit', 'run_limit', 'script_limit', 'run_it', 'curtain', 'account', 'copy', 'filter', 'tape_mark'].includes(v)
+  return v && ['read_limit', 'run_limit', 'script_limit', 'scene_limit', 'run_it', 'curtain', 'account', 'copy', 'filter', 'tape_mark'].includes(v)
     ? (v as PaywallTrigger)
     : null;
 }

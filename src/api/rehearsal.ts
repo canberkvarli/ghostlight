@@ -10,6 +10,7 @@ import { fetch as streamFetch } from 'expo/fetch';
 
 import { API_URL, ApiError, authHeaders } from './client';
 import type { GuidedRun, JournalEvent, RehearsalLine, ResumedRun, ScenePayload } from '../rehearsal/contract';
+import type { ScannedScene, ScriptScan } from '../rehearsal/scene-map';
 
 async function call<T>(path: string, init: RequestInit = {}, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -335,49 +336,88 @@ export async function uploadScriptStream(
   return result;
 }
 
-/**
- * Sides in, read after: the server keeps the file, hands back a row that is
- * still being read, and finishes on its own time, so the actor can close the
- * sheet, or the app, and come back to it. The website's door. Pasted text is
- * written to a file first and goes the same way. Sent by the file system's
- * uploader, which takes the file as a path and always has.
- */
-export async function uploadScriptBackground(
-  source: { uri: string; name: string; mimeType?: string } | { text: string; name: string },
-  title?: string,
-): Promise<ScriptDetail> {
-  let uri: string;
-  let mimeType: string;
+/** A file as the uploader takes it: a path on the phone and its type. */
+export interface Sendable { uri: string; name: string; mimeType: string }
+export type SidesSource = { uri: string; name: string; mimeType?: string } | { text: string; name: string };
+
+/** Pasted text is written to a file first, so every door sends a file. */
+export function sendable(source: SidesSource): Sendable {
   if ('text' in source) {
     const f = new File(Paths.cache, `paste-${Date.now()}-${source.name}`);
     f.write(source.text);
-    uri = f.uri;
-    mimeType = 'text/plain';
-  } else {
-    uri = source.uri;
-    mimeType = source.mimeType ?? 'application/octet-stream';
+    return { uri: f.uri, name: source.name, mimeType: 'text/plain' };
   }
-  const res = await FileSystem.uploadAsync(`${API_URL}/api/scripts/upload-background`, uri, {
+  return { uri: source.uri, name: source.name, mimeType: source.mimeType ?? 'application/octet-stream' };
+}
+
+/** The server's refusal, read off an uploader answer. */
+function refusal(status: number, body: string): RehearsalApiError {
+  let detail = `upload failed (${status})`;
+  let upgrade: string | null = null;
+  try {
+    const j = JSON.parse(body) as { detail?: string | { message?: string; upgrade_url?: string; error?: string } };
+    if (typeof j.detail === 'string') detail = j.detail;
+    else if (j.detail?.message) { detail = j.detail.message; upgrade = j.detail.upgrade_url ?? null; }
+    else if (j.detail?.error === 'feature_not_available') detail = 'Your plan has its scripts. The next one needs the whole stage.';
+    else if (j.detail?.error === 'needs_file') detail = 'needs_file';
+  } catch { /* no body */ }
+  return new RehearsalApiError(status, detail, upgrade);
+}
+
+/**
+ * One multipart POST through the file system's uploader, which takes the file
+ * as a path and streams it. React Native's fetch refuses a file part.
+ */
+async function sendFile<T>(path: string, file: Sendable, parameters: Record<string, string> = {}): Promise<T> {
+  const res = await FileSystem.uploadAsync(`${API_URL}${path}`, file.uri, {
     httpMethod: 'POST',
     uploadType: FileSystem.FileSystemUploadType.MULTIPART,
     fieldName: 'file',
-    mimeType,
-    parameters: title ? { title } : {},
+    mimeType: file.mimeType,
+    parameters,
     headers: await authHeaders(),
   });
-  if (res.status < 200 || res.status >= 300) {
-    let detail = `upload failed (${res.status})`;
-    let upgrade: string | null = null;
-    try {
-      const j = JSON.parse(res.body) as { detail?: string | { message?: string; upgrade_url?: string; error?: string } };
-      if (typeof j.detail === 'string') detail = j.detail;
-      else if (j.detail?.message) { detail = j.detail.message; upgrade = j.detail.upgrade_url ?? null; }
-      else if (j.detail?.error === 'feature_not_available') detail = 'Your plan has its scripts. The next one needs the whole stage.';
-    } catch { /* no body */ }
-    throw new RehearsalApiError(res.status, detail, upgrade);
-  }
-  return JSON.parse(res.body) as ScriptDetail;
+  if (res.status < 200 || res.status >= 300) throw refusal(res.status, res.body);
+  return JSON.parse(res.body) as T;
 }
+
+/**
+ * The quick read: headings and who speaks in each scene, by pattern only.
+ * No model, nothing kept, nothing counted. What the map is drawn from.
+ */
+export const scanScript = (file: Sendable) => sendFile<ScriptScan>('/api/scripts/scan', file);
+
+/**
+ * Sides in, read after: the server keeps the file, hands back a row that is
+ * still being read, and finishes on its own time, so the actor can close the
+ * sheet, or the app, and come back to it. The website's door. With `picks`,
+ * only those scenes of the map are built; without, the whole file.
+ */
+export async function uploadScriptBackground(source: SidesSource, title?: string, picks?: ScannedScene[]): Promise<ScriptDetail> {
+  const file = sendable(source);
+  const parameters: Record<string, string> = {};
+  if (title) parameters.title = title;
+  if (picks?.length) parameters.scenes = JSON.stringify(picks);
+  return sendFile<ScriptDetail>('/api/scripts/upload-background', file, parameters);
+}
+
+/** An opened script's whole map, the built rows marked. `needs_file` when the server kept no text of it. */
+export type SceneMapAnswer =
+  | { needs_file: true }
+  | { needs_file: false; scan: ScriptScan; built: number[]; built_count: number; limit: number | null };
+
+export const getSceneMap = (id: number, file?: Sendable) =>
+  file ? sendFile<SceneMapAnswer>(`/api/scripts/${id}/scene-map`, file)
+    : call<SceneMapAnswer>(`/api/scripts/${id}/scene-map`, { method: 'POST', body: new FormData() });
+
+/** Build more scenes into a script; what is built stays. The script reads again in the background. */
+export const addScenes = (id: number, picks: ScannedScene[], file?: Sendable) => {
+  const scenes = JSON.stringify(picks);
+  if (file) return sendFile<ScriptSummary>(`/api/scripts/${id}/add-scenes`, file, { scenes });
+  const form = new FormData();
+  form.append('scenes', scenes);
+  return call<ScriptSummary>(`/api/scripts/${id}/add-scenes`, { method: 'POST', body: form });
+};
 
 /** Where a background read has got to: the parser's last line, and about how long it takes. */
 export interface ScriptProgress {

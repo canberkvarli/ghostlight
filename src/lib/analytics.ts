@@ -237,6 +237,7 @@ export type Event =
   | { name: 'app_rehearse_gated'; props: { source: 'library' | 'script'; to_paywall: boolean } }
   /** Sides came in. `how` is the door; `ok` whether the cast was found. */
   | { name: 'app_sides_added'; props: { how: 'files' | 'share' | 'paste'; ok: boolean; characters: number } }
+  | { name: 'app_sides_mapped'; props: { scenes: number; picked: number; paid: boolean; more: boolean } }
   // The language picked in Settings: the phone's, or one held (src/i18n).
   | { name: 'app_language_set'; props: { to: 'phone' | 'en' | 'tr' } };
 

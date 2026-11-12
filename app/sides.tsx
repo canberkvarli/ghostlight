@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,9 +14,12 @@ import { BackHeader } from '../src/components/BackHeader';
 import { PrimaryPill } from '../src/components/PrimaryPill';
 import { PaperCard } from '../src/components/PaperCard';
 import { useStageMotion } from '../src/hooks/useStageMotion';
-import { useCancelExtraction, useScriptFromText, useScriptProgress, useUploadScript } from '../src/hooks/useScenePartner';
-import type { ScriptDetail } from '../src/api/rehearsal';
-import { RehearsalApiError, getScript } from '../src/api/rehearsal';
+import { useCancelExtraction, useScriptProgress, useUploadScript } from '../src/hooks/useScenePartner';
+import { useEntitlement } from '../src/hooks/useEntitlement';
+import type { ScriptDetail, Sendable, SidesSource } from '../src/api/rehearsal';
+import { RehearsalApiError, getScript, scanScript, sendable } from '../src/api/rehearsal';
+import { SceneMap } from '../src/components/SceneMap';
+import { firstPicks, groupScan, picksOf, sceneAllowance, tickRoom, toggleTick, worthAsking, type ScriptScan } from '../src/rehearsal/scene-map';
 import { track } from '../src/lib/analytics';
 import { paywallHref } from '../src/lib/paywall';
 import { useGoBack } from '../src/lib/nav';
@@ -76,7 +79,7 @@ export default function AddSides() {
   const { tiltX, tiltY } = useStageMotion();
   const { uri, name, door } = useLocalSearchParams<{ uri?: string; name?: string; door?: string }>();
   const upload = useUploadScript();
-  const paste = useScriptFromText();
+  const { isPaid } = useEntitlement();
   // The first night says which door was chosen: paste opens on the box, files on the picker.
   const [mode, setMode] = useState<'doors' | 'paste'>(door === 'paste' ? 'paste' : 'doors');
   const [text, setText] = useState('');
@@ -87,8 +90,14 @@ export default function AddSides() {
   const [readFailure, setReadFailure] = useState<string | null>(null);
   const reading = useScriptProgress(readingId, 1500);
   const stop = useCancelExtraction();
-  const pending = upload.isPending || paste.isPending || readingId !== null;
-  const error = upload.error ?? paste.error;
+  // The map: the quick read of the file, and the scenes ticked on it.
+  const [scanning, setScanning] = useState(false);
+  const [map, setMap] = useState<{ file: Sendable; door: 'files' | 'share' | 'paste'; scan: ScriptScan } | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const room = tickRoom(sceneAllowance(isPaid), 0);
+  const groups = useMemo(() => (map ? groupScan(map.scan.scenes) : []), [map]);
+  const pending = upload.isPending || readingId !== null || scanning;
+  const error = upload.error;
   const started = useRef(false);
 
   const arrived = (script: ScriptDetail, door: 'files' | 'share' | 'paste') => {
@@ -140,12 +149,46 @@ export default function AddSides() {
     if (reading.error instanceof RehearsalApiError && reading.error.status === 404) { setReadingId(null); setStep(0); }
   }, [reading.error]);
 
-  const sendFile = (file: { uri: string; name: string; mimeType?: string }, door: 'files' | 'share') => {
+  // Built: the whole file, or only the picks off the map.
+  const build = (source: SidesSource, door: 'files' | 'share' | 'paste', picks?: ScriptScan['scenes']) => {
+    upload.mutate({ source, title: title.trim() || undefined, picks }, { onSuccess: s => { setMap(null); taken(s, door); }, onError: () => failed(door) });
+  };
+
+  // Every door reads the file quickly first and shows its scenes. A read that
+  // fails, or finds nothing to choose between, goes straight to the build, as
+  // it always did, so nobody is held at the door.
+  const begin = (source: SidesSource, door: 'files' | 'share' | 'paste') => {
     setHow(door);
     setStep(0);
     setReadFailure(null);
-    upload.mutate({ ...file, title: title.trim() || undefined }, { onSuccess: s => taken(s, door), onError: () => failed(door) });
+    setMap(null);
+    upload.reset();
+    let file: Sendable;
+    try { file = sendable(source); } catch { build(source, door); return; }
+    setScanning(true);
+    scanScript(file)
+      .then((scan) => {
+        setScanning(false);
+        if (!worthAsking(scan)) { build(file, door); return; }
+        setPicked(firstPicks(groupScan(scan.scenes), room));
+        setMap({ file, door, scan });
+      })
+      .catch(() => { setScanning(false); build(file, door); });
   };
+
+  const toggle = (index: number) => {
+    const out = toggleTick(picked, index, room);
+    setPicked(out.picked);
+    if (out.overLimit) router.push(paywallHref('scene_limit'));
+  };
+  const buildPicks = () => {
+    if (!map || picked.size === 0) return;
+    Haptics.selectionAsync().catch(() => {});
+    track('app_sides_mapped', { scenes: map.scan.scenes.length, picked: picked.size, paid: isPaid, more: false });
+    build(map.file, map.door, picksOf(map.scan.scenes, picked));
+  };
+
+  const sendFile = (file: { uri: string; name: string; mimeType?: string }, door: 'files' | 'share') => begin(file, door);
 
   // Leave it reading: the row on the shelf says how it is going.
   const leave = () => { Haptics.selectionAsync().catch(() => {}); goBack(); };
@@ -158,7 +201,8 @@ export default function AddSides() {
     setReadingId(null);
     setStep(0);
     stop.mutate(id);
-    upload.reset(); paste.reset();
+    upload.reset();
+    setMap(null);
   };
 
   // From the share sheet or "Open in": the file is already chosen.
@@ -196,10 +240,8 @@ export default function AddSides() {
     const body = text.trim();
     if (body.length < 40) return;
     Haptics.selectionAsync().catch(() => {});
-    setHow('paste');
-    setStep(0);
-    setReadFailure(null);
-    paste.mutate({ text: body, title: title.trim() || undefined }, { onSuccess: s => taken(s, 'paste'), onError: () => failed('paste') });
+    const t = title.trim();
+    begin({ text: body, name: `${(t || 'sides').replace(/[^\w-]+/g, '-').slice(0, 40) || 'sides'}.txt` }, 'paste');
   };
 
   return (
@@ -230,9 +272,23 @@ export default function AddSides() {
                 {!readFailure && error instanceof RehearsalApiError && error.gated ? (
                   <PrimaryPill label={L('See Premium', "Premium'a bak")} onPress={() => router.push(paywallHref('script_limit'))} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 ) : (
-                  <PrimaryPill label={L('Try again', 'Yeniden dene')} variant="outline" onPress={() => { upload.reset(); paste.reset(); setReadFailure(null); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+                  <PrimaryPill label={L('Try again', 'Yeniden dene')} variant="outline" onPress={() => { upload.reset(); setReadFailure(null); }} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
                 )}
               </Animated.View>
+            ) : map ? (
+              <View>
+                <SceneMap
+                  groups={groups}
+                  picked={picked}
+                  onToggle={toggle}
+                  building={upload.isPending}
+                  onBuild={buildPicks}
+                  note={room != null ? L('(one scene of each script is free. the rest come with the whole stage.)', '(her metinden bir sahne ücretsiz. gerisi sahnenin tamamıyla gelir.)') : null}
+                />
+                <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setMap(null); }} hitSlop={10} accessibilityRole="button" style={{ marginTop: 18, alignSelf: 'flex-start' }}>
+                  <StageDirection link>{L('(a different file.)', '(başka bir dosya.)')}</StageDirection>
+                </Pressable>
+              </View>
             ) : mode === 'doors' ? (
               <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)} style={{ marginTop: 30, gap: 14 }}>
                 <Door cap={L('FROM FILES', 'DOSYALARDAN')} title={L('A file on this phone.', 'Bu telefondaki bir dosya.')} line={L('(pdf, word, text, whatever you were sent. or share it to Ghost Light from Mail.)', "(pdf, word, metin, sana ne geldiyse. ya da Mail'den Ghost Light'a paylaş.)")} onPress={pick} tilt={-0.4} />

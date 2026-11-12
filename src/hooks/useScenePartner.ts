@@ -8,11 +8,14 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 
 import {
   cancelExtraction, deleteScript, getGuided, getLatestRun, getRehearsalScene, getRunStats, getScript, getScriptProgress, listScenes, listScripts,
-  uploadScriptBackground, listDeletedScripts, restoreScript, getShelf,
+  uploadScriptBackground, getSceneMap, addScenes, listDeletedScripts, restoreScript, getShelf,
   type ShelfSortKey,
+  type Sendable,
+  type SidesSource,
   editSceneLines,
   type EditedLine,
 } from '../api/rehearsal';
+import type { ScannedScene } from '../rehearsal/scene-map';
 
 export const SCENES_KEY = ['scenes'] as const;
 export const SCRIPTS_KEY = ['scripts'] as const;
@@ -91,19 +94,32 @@ export function useRunStats(enabled: boolean) {
 export function useUploadScript() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { uri: string; name: string; mimeType?: string; title?: string }) =>
-      uploadScriptBackground({ uri: v.uri, name: v.name, mimeType: v.mimeType }, v.title),
+    mutationFn: (v: { source: SidesSource; title?: string; picks?: ScannedScene[] }) => uploadScriptBackground(v.source, v.title, v.picks),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
   });
 }
 
-/** Pasted text goes the same way, as a text file, and gets the same map. */
-export function useScriptFromText() {
+/** An opened script's whole map, built rows marked. Asked fresh each time the sheet opens. */
+export function useSceneMap(id: number | null, file?: Sendable | null) {
+  return useQuery({
+    queryKey: ['scene-map', id, file?.uri ?? null],
+    queryFn: () => getSceneMap(id as number, file ?? undefined),
+    enabled: id !== null,
+    staleTime: 0,
+    retry: 1,
+  });
+}
+
+/** More scenes into a script already on the shelf. The shelf follows it reading. */
+export function useAddScenes() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { text: string; title?: string }) =>
-      uploadScriptBackground({ text: v.text, name: `${(v.title ?? 'sides').replace(/[^\w-]+/g, '-').slice(0, 40) || 'sides'}.txt` }, v.title),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: SCRIPTS_KEY }); },
+    mutationFn: (v: { id: number; picks: ScannedScene[]; file?: Sendable }) => addScenes(v.id, v.picks, v.file),
+    onSuccess: (_s, v) => {
+      void qc.invalidateQueries({ queryKey: SCRIPTS_KEY });
+      void qc.invalidateQueries({ queryKey: ['script', v.id] });
+      void qc.invalidateQueries({ queryKey: ['scene-map', v.id] });
+    },
   });
 }
 

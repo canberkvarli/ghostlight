@@ -596,6 +596,13 @@ function ScriptRow({ script, startOpen, left, why, onTouch }: { script: ScriptSu
           })}
           </View>
           ))}
+          {/* The rest of the script: the map again, what is built ticked and locked. */}
+          {!script.is_sample ? (
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/more-scenes', params: { id: String(script.id), title: script.title } }); }} accessibilityRole="button"
+              accessibilityLabel={L(`Choose more scenes from ${script.title}`, `Daha çok sahne seç: ${script.title}`)} style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', marginTop: 4, opacity: pressed ? 0.7 : 1 })}>
+              <StageDirection link>{L('(choose more scenes.)', '(daha çok sahne seç.)')}</StageDirection>
+            </Pressable>
+          ) : null}
           {/* The Book's lists hold sides too: two contrasting, this term's class, the callback. */}
           <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setKeeping(true); }} accessibilityRole="button"
             accessibilityLabel={L(`Keep ${script.title} in a list`, `Listeye ekle: ${script.title}`)} style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
