@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -12,6 +12,7 @@ import { PrimaryPill } from '../src/components/PrimaryPill';
 import { useStageMotion } from '../src/hooks/useStageMotion';
 import { isNewAccount, markDemoSeen, markWelcomed } from '../src/lib/demo';
 import { useSession } from '../src/lib/useSession';
+import { useEntitlement } from '../src/hooks/useEntitlement';
 import { roomFor } from './first-night';
 import { track } from '../src/lib/analytics';
 import { PLAYS_KEY, type Plays } from '../src/lib/plays';
@@ -63,8 +64,8 @@ const SOURCES = (): { value: string; label: string }[] => [
  * Three quick questions after the account is made, one screen each, every one
  * skippable: what you are working on, what you play, how you heard of us. The
  * first two shape the app from the first night (Search opens on your house);
- * the third is ours. Nothing is sold here: the first answer opens its own room
- * (app/first-night.tsx), and the paywall waits for a moment they earn.
+ * the third is ours. Then the paywall once (trigger `welcome`; closing it is
+ * fine) and the room the first answer opens (app/first-night.tsx).
  */
 export default function Welcome() {
   const router = useRouter();
@@ -84,6 +85,7 @@ export default function Welcome() {
   // (signed in from the demo's curtain, say) never sees the questions. It goes
   // home, and the screen stays dark until that is decided, so nothing flashes.
   const { session, loading } = useSession();
+  const { isPaid } = useEntitlement();
   const [gate, setGate] = useState<'wait' | 'ask'>('wait');
   useEffect(() => {
     if (gate !== 'wait' || loading || !session) return;
@@ -94,8 +96,10 @@ export default function Welcome() {
   const finish = () => {
     void markDemoSeen();
     void supabase.auth.updateUser({ data: { welcomed: '1' } }).catch(() => {});
-    if (!monologueRoomsShown(locale)) { router.replace('/rehearse'); return; }
-    router.replace({ pathname: '/first-night', params: { room: roomFor(workingOn) } });
+    const room = monologueRoomsShown(locale) ? `/first-night?room=${roomFor(workingOn)}` : '/rehearse';
+    // The offer comes once, at the end of the questions, then the room. Anyone who already pays goes straight in.
+    if (isPaid) { router.replace(room as Href); return; }
+    router.replace({ pathname: '/paywall', params: { why: 'welcome', next: room } });
   };
   const skip = () => {
     Haptics.selectionAsync().catch(() => {});

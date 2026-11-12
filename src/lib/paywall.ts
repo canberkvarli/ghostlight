@@ -10,7 +10,8 @@ import { pick } from '../i18n/pick';
  * The earned moments: the fourth read of the day, the second run of the month,
  * the second script, the end of a Run it preview. The rest are the actor
  * asking for it (the curtain's "the week", Account, Settings) or a quiet lock
- * they tapped (copying, a filter).
+ * they tapped (copying, a filter). `welcome` is the end of the three questions,
+ * before the first night's room.
  */
 export type PaywallTrigger =
   | 'read_limit'
@@ -22,7 +23,8 @@ export type PaywallTrigger =
   | 'account'
   | 'copy'
   | 'filter'
-  | 'tape_mark';
+  | 'tape_mark'
+  | 'welcome';
 
 /** The paywall, opened for a reason. */
 export function paywallHref(trigger: PaywallTrigger): Href {
@@ -40,12 +42,13 @@ export const WHY_LINE: Partial<Record<PaywallTrigger, string>> = {
   get scene_limit() { return pick('(one scene of each script is free. the rest come with the whole stage.)', '(her metinden bir sahne ücretsiz. gerisi sahnenin tamamıyla gelir.)'); },
   get run_it() { return pick('(the whole speech, run with you.)', '(monoloğun tamamı, seninle.)'); },
   get copy() { return pick('(copying comes with the whole stage.)', '(kopyalama, sahnenin tamamıyla gelir.)'); },
+  get welcome() { return pick('(everything, from your first night.)', '(her şey, ilk geceden itibaren.)'); },
   get tape_mark() { return pick('(your tapes, saved clean.)', '(kayıtların, filigransız.)'); },
 };
 
 export function asTrigger(value: unknown): PaywallTrigger | null {
   const v = typeof value === 'string' ? value : null;
-  return v && ['read_limit', 'run_limit', 'script_limit', 'scene_limit', 'run_it', 'curtain', 'account', 'copy', 'filter', 'tape_mark'].includes(v)
+  return v && ['read_limit', 'run_limit', 'script_limit', 'scene_limit', 'run_it', 'curtain', 'account', 'copy', 'filter', 'tape_mark', 'welcome'].includes(v)
     ? (v as PaywallTrigger)
     : null;
 }

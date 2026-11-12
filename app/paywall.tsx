@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,10 +46,15 @@ export default function Paywall() {
   const L = useL();
   const locale = useLocale();
   const { label: catalogue } = useCatalogueSize();
-  const trigger = asTrigger(useLocalSearchParams<{ why?: string }>().why);
+  const { why: whyParam, next } = useLocalSearchParams<{ why?: string; next?: string }>();
+  const trigger = asTrigger(whyParam);
   const why = trigger ? WHY_LINE[trigger] : undefined;
 
-  const close = useCallback(() => (router.canGoBack() ? router.back() : router.replace('/')), [router]);
+  // `next` is where a paywall that sits in a flow (the welcome's end) carries on to, bought or closed.
+  const close = useCallback(() => {
+    if (next && next.startsWith('/')) { router.replace(next as Href); return; }
+    if (router.canGoBack()) router.back(); else router.replace('/');
+  }, [router, next]);
   const offer = useTrialOffer({ from: 'paywall', trigger, onDone: close, onSignIn: () => router.replace('/auth') });
   const { plan, setPlan, busy, restoring, note, storeDown, retry, trialLabel, trialDays, buy, onRestore } = offer;
 
