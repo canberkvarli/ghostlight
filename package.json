@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "api:types": "openapi-typescript https://api.actorrise.com/openapi.json -o src/api/schema.d.ts",
     "prebuild": "expo prebuild --clean",
-    "test": "vitest run src/rehearsal"
+    "test": "vitest run src/rehearsal",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@bacons/apple-targets": "^5.0.0",
@@ -81,6 +82,7 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "openapi-typescript": "^7.13.0",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3",
     "vitest": "^3.2.7"
   }

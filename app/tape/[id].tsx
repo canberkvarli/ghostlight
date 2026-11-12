@@ -795,6 +795,8 @@ export default function TapeRoom() {
             const msg = (e as { message?: string; nativeEvent?: { message?: string } }).message ?? (e as { nativeEvent?: { message?: string } }).nativeEvent?.message ?? 'unknown';
             track('app_tape_record_failed', { reason: 'not_ready', detail: `mount: ${msg}`.slice(0, 120), tones: settingsRef.current.tones, facing: settingsRef.current.facing });
             setCamError(msg);
+            // Said even when the camera claims to be ready: that is the case being chased (2026-11-12).
+            setNotice(`(camera: ${msg})`);
           }}
         />
       ) : null}
